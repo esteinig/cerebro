@@ -1,0 +1,15 @@
+http:
+  routers:
+    traefik:
+      rule: "Host(`traefik.{{{ traefik.localhost.domain }}}`)"
+      service: "api@internal"
+      {{#if traefik.localhost.tls }}
+      tls: { }
+      {{/if}}
+
+{{#if traefik.localhost.tls }}
+tls:
+  certificates:
+    - certFile: "/etc/traefik/certs/cerebro.cert"
+      keyFile: "/etc/traefik/certs/cerebro.key"
+{{/if}}

@@ -1,0 +1,225 @@
+version: "3.8"
+
+services:
+
+  {{#if traefik.launch }}
+  reverse-proxy:
+    image: traefik:v2.10
+    restart: unless-stopped
+    ports:
+      # To be able to listen on port 80 (http) - check firewall settings
+      - mode: host
+        published: 80
+        target: 80
+      # To be able to listen on port 443 (https) - check firewall settings
+      - mode: host
+        published: 443
+        target: 443
+    volumes:
+      # Set the container timezone by sharing the read-only localtime
+      - /etc/localtime:/etc/localtime:ro 
+      # Give access to the UNIX Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Map the static configuration into the container
+      - {{{ outdir }}}/traefik/static.yml:/etc/traefik/traefik.yml:ro
+      # Map the dynamic configuration into the container
+      - {{{ outdir }}}/traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      # Set the location where the local ACME certificate is saved
+      - {{{ outdir }}}/certs:/etc/traefik/certs                                           
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+  {{/if}}
+  
+  # Envionment variable file is copied into container from deployment configuration
+  # and not loaded as Docker environment variables
+  cerebro-app:
+    build:
+      {{#if dev }}
+      context: {{{ dev }}}
+      {{else}}
+      context: {{{ outdir }}}
+      {{/if}}
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.app
+    restart: unless-stopped
+    {{#if dev }}
+    # Development run server 
+    command: npm run dev
+    {{else}}
+    # Production run of build
+    command: node -r dotenv/config build
+    {{/if}}
+    expose:
+      - 8000
+    volumes:
+      {{#if dev }}
+      # Path mount for application in development
+      - {{{ dev }}}/app:/home/node/app
+      # {{else}}
+      # # Volume mount for application in production
+      # - cerebro_app:/home/node/app
+      {{/if}}
+      - {{{ outdir }}}/cerebro/app.env:/home/node/app/.env:ro
+    networks:
+      - cerebro
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+    depends_on:  
+      - cerebro-api
+      - cerebro-database
+      - cerebro-auth-session
+      - cerebro-auth-onetime
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      {{#if traefik.is_localhost }}
+      traefik.http.routers.cerebro-app.rule: "Host(`app.{{{ traefik.localhost.domain }}}`)"
+      traefik.http.routers.cerebro-app.tls: "{{ traefik.localhost.tls }}"
+      traefik.http.routers.cerebro-app.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      {{else}}
+      traefik.http.routers.cerebro-app.rule: "Host(`app.{{{ traefik.web.domain }}}`)"
+      traefik.http.routers.cerebro-app.entrypoints: "https"
+      traefik.http.routers.cerebro-app.middlewares: "default@file"
+      traefik.http.routers.cerebro-app.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.cerebro-app.tls.options: "modern@file"
+      traefik.http.routers.cerebro-app.tls: "true"
+      {{/if}}
+
+  # CEREBRO_CONFIG_FILE is automatically parsed from command-line
+  cerebro-api:
+    build:
+      {{#if dev }}
+      context: {{{ dev }}}
+      {{else}}
+      context: {{{ outdir }}}
+      {{/if}}
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.server
+    restart: unless-stopped
+    command: cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8
+    expose:
+      - 8080
+    volumes:
+       {{#if dev }}
+      # Path mount for application in development
+      - {{{ dev }}}:/usr/src/cerebro
+      {{else}}
+      # Volume mount for application in production
+      - cerebro_api:/data
+      {{/if}}
+      - {{{ outdir }}}/templates/email:/data/templates/email:ro
+      - {{{ outdir }}}/templates/report:/data/templates/report:ro
+    networks:
+      - cerebro
+      - proxy
+    environment:
+      CEREBRO_CONFIG_FILE: /run/secrets/cerebro_config
+    depends_on:  
+      - cerebro-database
+      - cerebro-auth-session
+      - cerebro-auth-onetime
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - cerebro_config
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      {{#if traefik.is_localhost }}
+      traefik.http.routers.cerebro-api.rule: "Host(`api.{{{ traefik.localhost.domain }}}`)"
+      traefik.http.routers.cerebro-api.tls: "{{ traefik.localhost.tls }}"
+      traefik.http.routers.cerebro-api.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      {{else}}
+      traefik.http.routers.cerebro-api.rule: "Host(`api.{{{ traefik.web.domain }}}`)"
+      traefik.http.routers.cerebro-api.entrypoints: "https"
+      traefik.http.routers.cerebro-api.middlewares: "default@file"
+      traefik.http.routers.cerebro-api.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.cerebro-api.tls.options: "modern@file"
+      traefik.http.routers.cerebro-api.tls: "true"
+      {{/if}}
+
+  # Cerebro model and user database 
+  cerebro-database:
+    image: mongo:7.0.0-rc10
+    restart: unless-stopped
+    command: mongod --auth --quiet --logpath /dev/null
+    expose:
+      - 27017
+    volumes:
+      - cerebro_database:/data/db
+      - cerebro_database_cfg:/data/configdb # will create anonymous volumes otherwise if not specified
+      - {{{ outdir }}}/mongodb/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+    networks:
+      - cerebro
+    environment:
+      MONGODB_CONFIG_FILE: /run/secrets/mongodb_config
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - mongodb_config
+
+
+  # Token database for authenticated user sessions
+  cerebro-auth-session:
+    image: redis:7.0.12-alpine
+    restart: unless-stopped
+    expose:
+      - 6379
+    volumes:
+      - cerebro_auth_session:/data
+    networks:
+      - cerebro
+    depends_on:  
+      - cerebro-database
+    security_opt:
+      - no-new-privileges:true
+
+
+  # Token database for one-time verification and password reset
+  cerebro-auth-onetime:
+    image: redis:7.0.12-alpine
+    restart: unless-stopped
+    command: --port 6380
+    expose:
+      - 6380
+    volumes:
+      - cerebro_auth_onetime:/data
+    networks:
+      - cerebro
+    depends_on:  
+      - cerebro-database
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  cerebro_app:
+    driver: local
+  cerebro_api:
+    driver: local
+  cerebro_database:
+    driver: local
+  cerebro_database_cfg:
+    driver: local
+  cerebro_auth_session:
+    driver: local
+  cerebro_auth_onetime:
+    driver: local
+
+networks:
+  cerebro:
+    external: false
+    name: {{{ name }}}_cerebro
+  proxy:
+    name: {{{ traefik.network.name }}}   
+    external: {{{ traefik.network.external }}}
+
+# Do not need to use files as secrets necessarily but allows for easier environmental variable settings
+secrets:
+  cerebro_config:
+    file: {{{ outdir }}}/cerebro/server.toml
+  mongodb_config:
+    file: {{{ outdir }}}/mongodb/database.env
+ 
+ 
+  

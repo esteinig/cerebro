@@ -1,0 +1,503 @@
+\documentclass[12pt]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%    Notes
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% This is a template based on https://github.com/amcrisan/TB-WGS-MicroReport
+% Please cite the associated publication when using this report for Cerebro
+
+\usepackage[letterpaper, margin=0.5in,headheight=77pt,top=3.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage[table]{xcolor}
+\usepackage{tabu}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{graphicx}
+\usepackage{collcell}
+\usepackage{multirow}
+\usepackage[skins]{tcolorbox}
+\usepackage{fontspec}
+\usepackage[title]{appendix}
+\usepackage{stix}
+
+\setmainfont{Lato}
+
+\hypersetup{
+  colorlinks   = true,   
+  urlcolor     = [RGB]{63,81,181},  
+  linkcolor    = [RGB]{63,81,181},  
+  citecolor    = red
+}
+
+\newcolumntype{U}{>{\collectcell\MakeUppercase}l<{\endcollectcell} }
+
+\tcbuselibrary{listings,breakable}
+
+\newtcolorbox{reportSection}[2][]{%
+  attach boxed title to top left
+  			   = {xshift=10pt, yshift=-8pt},
+  colback      = white!5!white,
+  colframe     = white!75!black,
+  fonttitle    = \bfseries,
+  colbacktitle = white,
+  title        = \textbf{\large{#2} },
+  coltitle	   = black,
+  arc = 0mm,
+  opacityframe = 0.5,
+  boxrule=1pt,
+  boxed title style={%
+    sharp corners, 
+    rounded corners=northwest, 
+    colback=white, 
+    boxrule=0pt,
+    titlerule=0mm},
+  enhanced,
+}
+
+\newcommand{\squad}{\hspace{0.5em} } 
+
+%--------------------------------------------
+% Creating Header Style
+%-------------------------------------------
+
+%\renewcommand{\headrule}{ \hbox to\headwidth{%
+%    \color{gray}\leaders\hrule height \headrulewidth\hfill} }
+
+
+%--------------------------------------------
+% HEADER
+%-------------------------------------------
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\Large{\textbf{META-GP \\ CLINICAL REPORT} } \\ %ISO15189 reporting requirements stipulate that you provide "a clear, unambiguous identification of the examination including, where appropriate, the examination procedure"
+\normalsize{NOT FOR DIAGNOSTIC USE} }
+\chead{}
+\rhead{
+    \includegraphics[scale=0.3]{ {{ template.logo_path }} }
+    % \hspace{2mm}
+    % \includegraphics[scale=0.25]{doherty.png}
+}
+\renewcommand{\headrulewidth}{0pt} % no line in header area
+
+
+
+
+%--------
+% FOOTER
+%--------
+
+\lfoot{
+  \small Page \thepage\ of \pageref*{LastPage}
+}
+
+\rfoot{\small Patient ID: {{ patient.header.patient_urn }} | Date: {{ patient.header.reporting_date }} | Location: {{ patient.header.reporting_location }} } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
+
+%---------------
+% MAIN DOCUMENT
+%---------------
+
+
+\begin{document}
+
+%------------------------------------------
+%  TABLE WITH RELEVANT PATIENT INFORMATION
+%------------------------------------------
+
+\tabulinesep=5pt
+\noindent 
+\taburulecolor{lightgray}
+\noindent \begin{tabu} to \textwidth {|XU|XU|}
+\hline
+% The table below contains the information that is required by ISO15189 reporting standards
+%-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
+Patient Name      &  {{ patient.header.patient_name }}               & Specimen ID          &  {{ patient.header.specimen_id }}           \\ \hline
+URN Number        &  {{ patient.header.patient_urn }}                & Date Collected       &  {{ patient.header.date_collected }}        \\ \hline
+Date of Birth     &  {{ patient.header.patient_dob }}                & Date Received        &  {{ patient.header.date_received }}         \\ \hline
+Requested Doctor  &  {{ patient.header.requested_doctor }}           & Specimen Type        &  {{ patient.header.specimen_type }}         \\ \hline
+Hospital Site     &  {{ patient.header.hospital_site }}              & Reporting Laboratory &  {{ patient.header.reporting_laboratory }}  \\ \hline
+Laboratory Number &  {{ patient.header.laboratory_number }}          & Reporting Date       &  {{ patient.header.reporting_date }}        \\ \hline
+%-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------
+\end{tabu}
+\vspace{5mm}
+
+%----------
+% REFERRAL
+%----------
+
+\begin{reportSection}{Referral}
+\vspace{5mm}
+
+Thank you for referring your patient\textbf{ {{patient.header.patient_name}}, DOB: {{ patient.header.patient_dob }} }to the Metagenomic next-generation sequencing for improving infectious disease diagnostics and 
+pathogen discovery clinical research project (MetaGP - HREC/74254/2021.110).
+
+\vspace{5mm}
+
+Metagenomic sequencing and analysis is complete, your patient’s case and data were 
+reviewed and discussed during a multi-disciplinary research team meeting on\textbf{ {{patient.result.review_date}}. }
+
+\vspace{5mm}
+
+Please refer to the appendices for details regarding the sequencing results.
+
+\vspace{3mm}
+\end{reportSection}
+\vspace{5mm}
+
+
+%---------
+% SUMMARY
+%---------
+
+\begin{reportSection}{Result}
+\vspace{5mm}
+
+{{#if patient.result.negative }}
+  \textbf{No pathogen detected}
+{{else}}
+  The specimen was positive for \textbf{\textit{ {{patient.result.organism}} } }
+{{/if}}
+
+\vspace{5mm}
+\textcolor{gray}{\footnotesize{\textit{
+  A pathogen is reported when a detection at species-level has been reviewed.
+} } }
+
+\vspace{1mm}
+
+\textcolor{gray}{\footnotesize{\textit{
+  \textbf{``No pathogen detected'' does not exclude the possibility of a pathogen being present.}
+} } }
+
+\vspace{3mm}
+\end{reportSection}
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
+
+%------------
+% CONFIDENCE
+%------------
+
+% \begin{reportSection}{Disclaimer}
+% \vspace{5mm}
+
+% \footnotesize{
+%   Disclaimer
+% }
+
+% \vspace{3mm}
+% \end{reportSection}
+% \vspace{5mm}
+
+%---------------
+% ACTIONS TAKEN
+%---------------
+
+\newpage
+\begin{reportSection}{Contact}
+\vspace{3mm}
+
+For any further questions regarding these results, please contact:
+
+\vspace{3mm}
+{{ patient.result.contact }}
+\vspace{1mm}
+\end{reportSection}
+\vspace{5mm}
+
+
+\begin{reportSection}{Comments}
+\vspace{3mm}
+{{ patient.result.comments }}
+\vspace{1mm}
+\end{reportSection}
+\vspace{5mm}
+
+\begin{reportSection}{Actions taken}
+\vspace{3mm}
+{{ patient.result.actions }}
+\vspace{1mm}
+\end{reportSection}
+\vspace{10mm}
+
+\begin{reportSection}{Disclosure}
+\vspace{3mm}
+\footnotesize{
+{{ template.legal.disclosure }}
+}
+\end{reportSection}
+\vspace{5mm}
+
+\begin{reportSection}{Liability}
+\vspace{3mm}
+\footnotesize{
+{{ template.legal.liability }}
+}
+\end{reportSection}
+\vspace{5mm}
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
+
+
+%-----------------------
+% CLINICAL REVIEW BOARD
+%-----------------------
+
+
+\newpage
+\begin{reportSection}{Authorisation}
+\vspace{5mm}
+
+Your patient’s case and data were reviewed and discussed at a multi-disciplinary research team meeting on \textbf{ {{ patient.result.review_date }} }. Results are based on data meeting specific reporting thresholds and clinical relevance.
+
+{{#each template.authorisation as |a| }}
+
+\vspace{20mm}
+
+\noindent
+\begin{tabular}{ @{}p{4in}p{2in}@{} }
+  \hrulefill & \hrulefill \\
+  {{ a.name }} & Date \\
+  \small {{ a.position }}   &  \tabularnewline
+  \small {{ a.institution }} 
+\end{tabular}
+
+{{/each}}
+
+\end{reportSection}
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
+
+%--------------
+%  APPENDICES
+%-------------
+
+
+\begin{appendices}
+\renewcommand\thesection{\Alph{section}.}
+
+% Each reported sample gets an appendix
+
+{{#each sample as |s| }}
+
+%--------------
+% LAB PROTOCOL
+%--------------
+
+\newpage
+
+\section{Laboratory protocol \normalsize{ ({{ s.sample_id }}) } }
+\label{sec:appendixA}
+
+
+\tabulinesep=5pt
+\noindent 
+\taburulecolor{lightgray}
+\noindent \begin{tabu} to \textwidth {|XU|XU|}
+\hline
+% The table below contains the information that is required by ISO15189 reporting standards
+%-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
+Protocol                     &  {{ s.laboratory.header.protocol }}     & Sample ID               &  {{ s.sample_id }}   \\ \hline
+Version                      &  {{ s.laboratory.header.version }}      & Run ID                  &  {{ s.run_id }}   \\ \hline
+Extraction                   &  {{ s.laboratory.header.extraction }}   & Extraction IC           &  {{ s.laboratory.header.extraction_control }}   \\ \hline
+Ribosomal depletion          &  {{ s.laboratory.header.ribosomal }}    & Library IC              &  {{ s.laboratory.header.library_control }}   \\ \hline
+Adapters/barcodes            &  {{ s.laboratory.header.adapters }}     & Sequencing IC           &  {{ s.laboratory.header.sequencing_control }}   \\ \hline   
+Library kit                  &  {{ s.laboratory.header.library }}      & Negative Control        &  {{ s.laboratory.header.negative_control }}   \\ \hline   
+Sequencer                    &  {{ s.laboratory.header.sequencer }}    & Positive Control        &  {{ s.laboratory.header.positive_control }}   \\ \hline  
+%-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------
+\end{tabu}
+\vspace{5mm}
+
+% \begin{reportSection}{Summary}
+% \vspace{3mm}
+
+% \vspace{1mm}
+% \end{reportSection}
+% \vspace{5mm}
+
+
+\begin{reportSection}{Description}
+\vspace{3mm}
+{{ s.laboratory.description }}
+\vspace{1mm}
+\end{reportSection}
+\vspace{5mm}
+
+\begin{reportSection}{Comments}
+\vspace{3mm}
+{{ s.laboratory.comments }}
+\vspace{1mm}
+\end{reportSection}
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
+
+%-------------------------
+% BIOINFORMATICS PIPELINE
+%-------------------------
+
+
+\newpage
+\section{Bioinformatics protocol \normalsize{ ({{ s.sample_id }}) } }
+\label{sec:appendixB}
+
+\tabulinesep=5pt
+\noindent 
+\taburulecolor{lightgray}
+\noindent \begin{tabu} to \textwidth {|XU|XU|}
+\hline
+% The table below contains the information that is required by ISO15189 reporting standards
+%-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
+Pipeline           & {{ s.bioinformatics.header.pipeline }}         & Sample ID             & {{ s.sample_id }}                            \\ \hline
+Version            & {{ s.bioinformatics.header.version }}          & Libraries             & {{ s.bioinformatics.header.libraries }}      \\ \hline
+Pipeline ID        & {{ s.bioinformatics.header.run_id }}           & Configuration         & {{ s.bioinformatics.header.configuration }}  \\ \hline
+Started            & {{ s.bioinformatics.header.started }}          & Databases             & {{ s.bioinformatics.header.databases }}      \\ \hline
+Completed          & {{ s.bioinformatics.header.completed }}        & Taxonomy              & {{ s.bioinformatics.header.taxonomy }}       \\ \hline             
+%-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------
+\end{tabu}
+\vspace{5mm}
+
+
+\begin{reportSection}{Description}
+\vspace{3mm}
+{{ s.bioinformatics.description }}
+\vspace{1mm}
+\end{reportSection}
+\vspace{5mm}
+
+
+\begin{reportSection}{Comments}
+\vspace{3mm}
+{{ s.bioinformatics.comments }}
+\vspace{1mm}
+\end{reportSection}
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
+
+
+%----------------------
+% QC AND EVIDENCE PAGE
+%----------------------
+
+\newpage
+
+\begin{reportSection}{Libraries}
+\vspace{3mm}
+
+{{#each s.bioinformatics.library as |lib| }}
+
+{{ lib.tag }} library was sequenced to a depth of {{ lib.reads }} reads. After quality control and host depletion
+{{ lib.reads_qc }} reads remained for taxonomic classification. 
+
+\begin{itemize}
+  \item Extraction control: {{ lib.extraction_control }}
+  \item Library control: {{ lib.library_control }}
+  \item Sequencing control: {{ lib.sequencing_control }}
+\end{itemize}
+
+\vspace{3mm}
+
+{{/each}}
+
+\vspace{1mm}
+\end{reportSection}
+
+\begin{reportSection}{Evidence}
+\vspace{3mm}
+
+{{#if s.negative}}
+
+Sample was reviewed and determined to be \textbf{negative}.
+
+{{else}}
+
+{{#each s.bioinformatics.evidence as |ev| }}
+
+\textit{ {{ ev.organism }} } (TaxID: {{ ev.taxid }}) was detected and reviewed. Evidence includes:
+
+\begin{itemize}
+  \item {{ ev.rpm }} identified reads per million (across read classifiers and databases)
+  \item {{ ev.contigs }} identified contigs (across assembly classifiers and databases)
+  {{#if ev.negative_control }}
+  \item Organism was present at significant levels in negative template controls
+  {{else}}
+  \item Organism was not present at significant levels in the negative template controls
+  {{/if}}
+\end{itemize}
+
+{{/each}}
+
+{{/if}}
+
+
+\vspace{1mm}
+\end{reportSection}
+
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
+
+%---------------------
+% OTHER EVIDENCE PAGE
+%---------------------
+
+{{#if ev.other }}
+
+\newpage
+\begin{reportSection}{Other evidence}
+\vspace{3mm}
+
+{{ ev.other }}
+
+\vspace{1mm}
+\end{reportSection}
+
+
+\mbox{}
+\vfill
+
+\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
+
+{{/if}}
+
+%-------------
+%  AUDIT PAGE
+%-------------
+
+{{#if s.audit.include }}
+  \newpage
+  \section{Audit \normalsize{ ({{ s.sample_id }}) } }
+  \label{sec:appendixC}
+
+  \mbox{}
+  \vfill
+
+  \noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
+
+{{/if}}
+
+{{/each}}
+
+\end{appendices}
+\end{document}
+
+

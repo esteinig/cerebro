@@ -1,0 +1,45 @@
+# Cerebro configuration
+
+[cerebro.components]
+email                           = false
+comments                        = true
+report_header                   = true
+annotation                      = true
+
+[cerebro.smtp]
+host                            = ''
+port                            = 0
+username                        = ''
+password                        = ''
+from                            = ''
+
+# Database configuration
+
+[mongodb]
+root_username                   = "root"
+root_password                   = "root"
+admin_username                  = "admin"
+admin_password                  = "admin"
+cerebro_admin_email             = "admin@cerebro.io"
+cerebro_admin_name              = "Admin"
+cerebro_admin_password          = "admin"
+
+# Reverse-proxy configuration
+
+[traefik]
+deploy                          = "localhost"    # localhost | web
+launch                          = true        
+
+[traefik.network]
+name                            = "proxy"
+external                        = true
+
+[traefik.localhost]
+tls                             = false
+domain                          = "cerebro.localhost"
+
+[traefik.web]
+email                           = "example@cerebro.io"
+domain                          = "example.org"
+username                        = "example"
+password                        = "example"

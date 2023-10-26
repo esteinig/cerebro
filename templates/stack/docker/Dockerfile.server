@@ -1,0 +1,45 @@
+FROM rust:1.70.0
+
+RUN groupadd -r cerebro-api && useradd -r -g cerebro-api cerebro-api
+
+# Dependencies for Tectonic LaTeX compiler library
+# TODO: add versions for all system packages
+RUN apt-get update && apt-get install -y \
+    git \
+    cmake \
+    libgraphite2-dev \
+    fonts-lato \
+    libfreetype6-dev \
+    libicu-dev \
+    libfontconfig-dev \
+    && apt-get clean all
+
+# Replace with `git clone` for the current release version and
+# enable features for Tectonic so the default version ships
+# without the Latex compiler (system-dependencies)
+
+USER cerebro-api
+WORKDIR /usr/src/cerebro
+
+
+
+{{#if dev }}
+COPY ./src src
+COPY ./templates templates
+COPY ./Cargo.toml Cargo.toml
+{{else}}
+RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
+{{/if}}
+
+
+RUN cargo build --release --features pdf
+RUN mkdir -p /opt/cerebro/bin && cp target/release/cerebro /opt/cerebro/bin
+
+ENV PATH="${PATH}:/opt/cerebro/bin"
+
+# Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
+# launching the container and using the reporting functions for the first time - otherwise
+# the first request for a report will take a long time to complete
+
+
+# RUN cerebro report --base-config templates/report/report.toml --output test.pdf --pdf && rm test.pdf

@@ -1,0 +1,56 @@
+# Database configuration file - can be injected into container as secret file containing sensitive information
+
+# MONGODB_USERNAME and MONGODB_PASSWORD are defined in the database environment variable file 
+# for the initiation script and must be inserted into the datbase URL
+
+[database.connections]
+
+mongodb_uri                     = 'mongodb://admin:admin@cerebro-database:27017/?authSource=admin'
+redis_auth_session_uri          = 'redis://cerebro-auth-session:6379'
+redis_auth_onetime_uri          = 'redis://cerebro-auth-onetime:6380'
+
+[database.names]
+
+admin_database_name               = 'cerebro'  # fixed for docker env init
+admin_database_user_collection    = 'users'    # fixed for docker env init
+admin_database_team_collection    = 'teams'
+admin_database_logs_collection    = 'logs'    
+
+team_database_logs_collection     = 'logs'
+team_database_reports_collection  = 'reports'
+
+[security.components]
+email                           = false
+comments                        = true
+report_header                   = true
+annotation                      = true
+
+[security.cors]
+app_origin_public_url           = ''
+app_origin_docker_url           = 'http://cerebro-app:8000'
+
+[security.cookies]
+domain                          = 'cerebro.localhost'
+secure                          = false
+
+[security.token.encryption]
+access_private_key              = ''
+access_public_key               = ''
+refresh_private_key             = ''
+refresh_public_key              = ''
+
+[security.token.expiration]
+access_max_age                  = 30
+refresh_max_age                 = 720
+access_max_age_bot              = 43800
+refresh_max_age_bot             = 43800
+onetime_max_age_email           = 720
+onetime_max_age_password        = 120
+onetime_max_age_reset           = 30
+
+[smtp]
+host                            = ''
+port                            = 0
+username                        = ''
+password                        = ''
+from                            = ''
