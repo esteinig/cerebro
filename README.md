@@ -40,11 +40,35 @@ Requirements for local execution:
 - `Nextflow >= v23.10.04`
 
 ```bash
-# pull from github, show pipeline help menu
-nextflow run -r latest esteinig/cerebro --help
-
-# provision with new cerebro env build 
+# pull latest from github, show help menu, use mamba local env
 nextflow run -r latest esteinig/cerebro -profile mamba --help
+
+# k-mer profiling example: run standard qc and kmer tax classifiers with mamba envs and cipher kmer db build directory using a large resource profile
+
+# provision with latest cipher kmer db build, may take some time
+nextflow run -r latest esteinig/cerebro -profile mamba \
+    --cipher_download \
+    --cipher_revision latest \
+    --cipher_modules kmer \
+    --outdir cipher_kmer_db/
+
+# kmer tax profile on input read dir (pe illumina)
+nextflow run -r latest esteinig/cerebro -profile mamba,large,kmer \
+    --db cipher_kmer_db/ \
+    --outdir kmer_test_run/ \
+    --fastq "fastq/*_{R1,R2}.fq.gz"
+
+# without kmer profile classifiers are manually enabled to demonstrate how nested params in `nextflow.config` are modified on the nextflow cli
+nextflow run -r latest esteinig/cerebro -profile mamba,large \
+    --db cipher_kmer_db/ \
+    --outdir kmer_test_run/ \
+    --fastq "fastq/*_{R1,R2}.fq.gz" \
+    --taxa.alignment.enabled false \  # disable alignment module
+    --taxa.assembly.enabled false \   # disable assembly module
+    --taxa.kmer.enabled true \
+    --taxa.kmer.kraken2uniq.enabled true \
+    --taxa.kmer.kmpc.enabled true \
+    --taxa.kmer.metabuli.enabled true 
 ```
 
 Example commands for executing the `Nextflow` pipeline and processing local output with the `cerebro` command-line interface:
@@ -56,8 +80,6 @@ Example commands for executing the `Nextflow` pipeline and processing local outp
 5. [Viral genome recovery for panviral enrichment]() from rapid antigen tests (RAT)
 6. `Cerebro` [pipeline integration testing]() with `Cipher` reference datasets and actions
 7. Testing impact of host read depletion on classification performance with `Cipher` and `Scrubby`
-
-
 
 ### `Cerebro` stack
 
@@ -109,9 +131,7 @@ pip install cerebro-utils
 
 The following sections outline how the client can be used in a manual workflow to deploy the stack, parse and process pipeline outputs, upload data via the `cerebro api` subcommand and work with the `cerebro api` and `cerebro-utils` clients to interrogate taxon profiles,
 
-
 #### Docker stack deployment
-
 
 ```bash
 # localhost http proxy stack config by user
@@ -128,9 +148,7 @@ cd stack_local && docker-compose up -d
 # go to app landing page in browser on http://app.cerebro.localhost/
 ```
 
-
 #### Pipeline processing
-
 
 ```bash
 # sample sheet for production run from fastq/
@@ -152,8 +170,6 @@ cerebro pipeline process -i $WF_OUTDIR/results -o samples/ -t $WF_OUTDIR/cipher_
 # quality control summary csv from sample models
 cerebro pipeline quality -i samples/*.json -o qc.tsv -H
 ```
-
-
 
 #### API interaction
 
@@ -214,20 +230,40 @@ cerebro-utils taxa plot-run-summary "taxa.filtered.csv" \
     --group_by "sample_group"           # sample group col from prod sample sheet for plot panels
 ```
 
-### Deployment
+### Deployment scenarios
+
+Potential ways of operating the `Cerebro` stack or pipeline on different resourced infrastructure.
 
 
 #### Local user interface
 
-`Cerebro` web-application stack deployment without sequence data processing or integration testing using `Nextflow` pipeline runs. Requires minimal resources but recommended around 32GB RAM, 8 CPU, 100GB - 1TB storage depending on scale, no GPU. Can be configured as web server (see documentation). Runs the `Docker` stack with `MongoDB` and `Redis` databases 
+`Cerebro` web-application stack deployment without sequence data processing or integration testing using `Nextflow` pipeline runs. Requires minimal resources but recommended around 32GB RAM, 8 CPU, 100GB - 1TB storage depending on scale, no GPU. Can be configured as web server (see documentation). Runs the `Docker` stack with `MongoDB` and `Redis` databases.
 
+Can run on laptops with fast local upload of disk-stored models ( `.json`) of workflow outputs for the `cerebro api upload` command-line task and the local stack database to load these models from disk on demand.
+
+```
+
+```
 
 #### Local development setup
 
 `Cerebro` frontend with test outputs from workflows for `dev` and development system can run on a normal home system (16 CPU, 64GB RAM, 1 NVIDIA GPU) and is specifically configured (database size, test datasets) to run quick integration "smoke" tests with [`cipher`] for continuous integration of quality assurance during development.
 
+```
+
+```
+
 #### Local production setup
 
-`Cerebro` core processing workflows require a Linux server as resourceful as possible. Minimum can be optimized based on reference database sizes held in RAM during classification (the largest contributing factor for taxonomic classification) and time required to complete the workflow modules. Metagenome assembly and `nncbi nt/nr` queries and with `diamond/blastn` may take some more time on smaller systems. 
+Routine automated runs of the `Cerebro` profiling workflow are provisioned ideally
+(NextSeq 2000 150 PE DNA + RNA + NTC libraries) around 256 CPU, 2 TB RAM, 25TB storage.
 
-For large routine runs of hundreds of Nextseq 2000 P2/P3 150 PE DNA + RNA + NTC libraries ideally around 256 CPU, 2 TB RAM, 25TB storage and if nanopore basecalling with `dorado` around 6 NVIDIA-A100 GPUs although one or two are sufficient provided timing is not criticial.
+```
+
+```
+
+We run nanopore basecalling via `dorado` on 6 NVIDIA-A100 GPUs.
+
+```
+
+```
