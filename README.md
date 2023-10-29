@@ -160,21 +160,23 @@ cerebro pipeline quality -i samples/*.json -o qc.tsv -H
 Global args on the `cerebro` client supercede the default environment variables `CEREBRO_API_URL` for the API base URL and `CEREBRO_API_TOKEN` for the access token we can get and set by logging in to an authenticated session. Access token expiration is set during stack deployment (default is two hours) and when deploying locall the account email and password are those set in the `cerebro stack deploy` config specification (`cerebro_admin_email` and `cerebro_admin_password`)
 
 ```bash
-# assume account with `Data` role for team creation and data upload
+# assume account with permission for data manipulation (Role::Data)
 
 export CEREBRO_API_URL="http://api.cerebro.localhost"
+
+# api ok
+cerebro api status
+
 export CEREBRO_API_TOKEN=$(cerebro api login -e $CEREBRO_ACCOUNT_EMAIL -p $CEREBRO_ACCOUNT_PASSWORD)
 
 # 2023-10-29T00:20:46Z [INFO] - Login successful. Welcome back, $USER!
 
-cerebro api status
-# ok
+# api routes ok
 cerebro api ping
-# ok
 
 # create a new team with default database
 cerebro api team create \
-    --team-name vidrl \
+    --team-name "vidrl" \
     --team-description "reference laboratory in victoria, australia"
 
 # upload results from production workflow run
@@ -188,19 +190,28 @@ cerebro api upload \
     --project-name "default" \
     --output models/
 
-# create evidence filter
+# get modified default classifier evidence filter json
+cerebro api utils taxa-filter-config \
+    --alignment_min_ref_length 10000 \
+    --kmer_min_reads 10 \
+    --assembly_min_contig_length 150 \
+    --output "test.filter.json"
 
-
-# access all taxa per library with filter
+# access all taxa per library with filter json
 cerebro api taxa 
     --team-name "vidrl" \
     --project-name "default" \
-    --output taxa.filtered.csv \
+    --output "taxa.filtered.csv" \
     --run-ids MGP-20230420 \
-    --filter-config test.filter.json
+    --filter-config "test.filter.json"
 
-# plot summary of filtered taxa called in libraries across this run
-cerebro-utils taxa set-summary taxa.filtered.csv --outdir taxa_mgp_20230420
+# plot summary of taxa called in libraries across this run
+cerebro-utils taxa plot-run-summary "taxa.filtered.csv" \
+    --outdir taxa_run_filtered/ \ 
+    --min_total_rpm 5 \                 # k-mer and alignment sum threshold
+    --min_contigs 0 \                   # no lca diamond/blastn contig allowed
+    --negative_control_tag "NTC" \      # {SAMPLE_UID}__{DNA|RNA}__{NTC|OTHER_TAG_LABEL}_{SUFFIX}
+    --group_by "sample_group"           # sample group col from prod sample sheet for plot panels
 ```
 
 ### Deployment
