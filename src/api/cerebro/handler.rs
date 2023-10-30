@@ -1,4 +1,5 @@
 use actix_web::body::MessageBody;
+use mongodb::Database;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -1340,7 +1341,7 @@ async fn status_handler(_: web::Data<AppState>, _: jwt::JwtUserMiddleware) -> Ht
 
 type MongoDatabaseName = String;
 
-fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db: &DatabaseId, project: &ProjectId, user_guard: &jwt::JwtUserMiddleware) -> Result<(MongoDatabaseName, Collection<Cerebro>), HttpResponse> {
+pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db: &DatabaseId, project: &ProjectId, user_guard: &jwt::JwtUserMiddleware) -> Result<(MongoDatabaseName, Collection<Cerebro>), HttpResponse> {
     
     let (database, project) = match &user_guard.team {
         Some(team) => {
@@ -1366,6 +1367,23 @@ fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db
 
     let mongo_db = data.db.database(&database.database);
     Ok((database.database, mongo_db.collection(&project.collection)))
+}
+
+pub fn get_authorized_database(data: &web::Data<AppState>, db: &DatabaseId, user_guard: &jwt::JwtUserMiddleware) -> Result<Database, HttpResponse> {
+    
+    let database = match &user_guard.team {
+        Some(team) => {
+            let database_matches: Vec<&TeamDatabase> = team.databases.iter().filter(|x| &x.id == db).collect();
+
+            if database_matches.len() != 1 {
+                return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested database"})))
+            }
+            database_matches[0].to_owned()
+            
+        },
+        None => return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested team"})))
+    };
+    Ok(data.db.database(&database.database))
 }
 
 
