@@ -4,6 +4,8 @@
 	import CerebroRelease from "$lib/components/dashboard/CerebroRelease.svelte";
 	import TeamActivity from "$lib/components/dashboard/TeamActivity.svelte";
     import UserProfileSummary from "$lib/components/dashboard/UserProfileSummary.svelte";
+
+    console.log($page.data.userTeams)
 </script>
 
 
