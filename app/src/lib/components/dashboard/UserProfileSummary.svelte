@@ -5,10 +5,9 @@
     import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
 	import { Accordion, AccordionItem, Avatar } from "@skeletonlabs/skeleton";
 
-    let selectedView: string;
+    let selectedTeam: string;
     let initials = getInitials($page.data.userData.name);
 
-    $: console.log(selectedView)
 
 
 </script>
@@ -91,7 +90,7 @@
                             <svelte:fragment slot="content">
                             <ListBox>
                                 {#each team.databases as db}
-                                    <ListBoxItem bind:group={selectedView} name="medium" value="{db.name}" active='variant-soft' rounded='rounded-token'>
+                                    <ListBoxItem bind:group={selectedTeam} name="selectedTeam" value="{db.id}" active='variant-soft' rounded='rounded-token'>
                                         <svelte:fragment slot="lead">
                                             <div class="w-5">
                                             <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
