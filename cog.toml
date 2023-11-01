@@ -3,11 +3,15 @@ from_latest_tag = false
 ignore_merge_commits = true
 generate_mono_repository_global_tag = true
 
+# cog bumps can only be made on main or release branches
 branch_whitelist = [
   "main",
   "release/**"
 ]
 
+# before the version is bumped
+# build the release binary on local as check
+# set the cargo project version to this release version
 pre_bump_hooks = [
     "cargo build --release",
     "echo 'bumping from {{latest}} to {{version}}'",   
