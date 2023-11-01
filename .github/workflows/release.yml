@@ -1,5 +1,5 @@
 # release ci: create cocogitto semantic version release + changelog, enforce conventional commit compliance
-# executed when a release commit is made on main which pulls in latest and tested dev
+# executed when a pr is made on main which pulls in a release branch (deriving from main and dev fetch)
 # triggers build yml when release is published, which attaches `latest` and {version} tagged release builds and sha256 checksums
 
 name: release
@@ -8,15 +8,7 @@ on:
   workflow_dispatch:
     branches: main
 
-jobs:
-  cog_check_job:
-    runs-on: ubuntu-latest
-    name: check conventional commit compliance
-    steps:
-      - uses: actions/checkout@main
-        with:
-          fetch-depth: 0
-      
+jobs:      
   release:
     name: Perform release
     runs-on: ubuntu-latest
