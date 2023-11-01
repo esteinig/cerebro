@@ -20,9 +20,9 @@ jobs:
           fetch-depth: 0
 
       - name: Conventional commits check
-          uses: oknozor/cocogitto-action@v3
-          with:
-            check-latest-tag-only: true
+        uses: oknozor/cocogitto-action@v3
+        with:
+          check-latest-tag-only: true
 
       - name: Cocogitto release
         id: release
