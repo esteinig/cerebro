@@ -8,9 +8,8 @@ Table of contents
 2. [Basic usage](#basic-usage)
 3. [Nextflow pipeline](#cerebro-pipeline)
 4. [Cerebro UI and API stack](#cerebro-stack)
-5. [Command-line interface](#cerebro-client)
-6. [Deployment scenarios](#)
-7. [Contributions]()
+5. [Command-line interface](#cerebro-command-line-client)
+6. [Dependencies]()
 
 ## Features
 
@@ -36,13 +35,13 @@ The `cerebro` command-line interface is available as cross-compiled binary relea
 
 ```bash
 # get cerebro cli binary to support cerebro workflows
-curl https://github.com/esteinig/cerebro/releases/download/latest/cerebro-latest-Linux_x86_64.tar.xz -o - | tar -xzO > cerebro
+curl https://github.com/esteinig/cerebro/releases/download/latest/cerebro-latest-linux-amd64.tar.xz -o - | tar -xzO > cerebro
 
 # assume cerebro cli on user path
 cerebro --help
 ```
 
-## `cerebro` pipeline
+## `Cerebro` pipeline
 
 Requirements for local execution: 
 
@@ -54,8 +53,7 @@ Requirements for local execution:
 nextflow run -r latest esteinig/cerebro -profile mamba --help
 
 # provision with latest cipher kmer db build, may take some time
-nextflow run -r latest esteinig/cerebro -profile mamba \
-    --cipher_download \
+nextflow run -r latest esteinig/cerebro -profile mamba -e cipher \
     --cipher_revision latest \
     --cipher_modules full \
     --outdir cipher_db/
@@ -99,100 +97,15 @@ nextflow run -r latest esteinig/cerebro -profile mamba,large \
     --db cipher_db/ \
     --outdir prod_test_run/ \
     --sample_sheet sample_sheet.csv \
-    --production true \
-    --cerebro.api.enabled true \
-    --cerebro.api.url $CEREBRO_API_URL \ 
-    --cerebro.api.token $CEREBRO_API_TOKEN \
-    --cerebro.api.upload true
-```
-
-#### Nextflow command-line configuration 
-
-```bash
-# main profiles
-nextflow run -r latest esteinig/cerebro \
-    # local conda,mamba env created for each process
-    -profile conda,mamba
-    # kmer, alignment, assembly classifier modules
-    -profile kmer,alignment,assembly
-    # process-configured resource profiles
-    -profile small,medium,large,galactic
-    # specific protocol configs
-    -profile cns_assay,panviral,aneuploidy
-    # data provisioning
-    -profile cipher_db
-    # workflow testing
-    -profile cipher_test
-    # workflow dev
-    -profile io_mode,qc_mode,dev_mode
-
-# nested module params in `nextflow.config`
-nextflow run -r latest esteinig/cerebro -profile mamba \
-    # all reference db + idx + tax
-    --db "cipher_db/" \
-    # paired read input
-    --fastq "fastq/*_{R1,R2}.fq.gz" \
-    # production input tracked files
     --production \
-    --sample_sheet "sample_sheet.csv" \
-    # output directory
-    --outdir "module_test" \
-    # qc read processing module
-    --qc.enabled \
-    --qc.deduplication.enabled \
-    --qc.deduplication.method "umi-naive" \
-    --qc.reads.fastp.enabled \
-    --qc.controls.ercc.enabled \
-    --qc.controls.phage.enabled \
-    --qc.host.depletion.enabled \
-    --qc.background.mask.enabled \
-    # taxon profiling with references and taxonomy files in --db
-    --taxa.enabled \
-    --taxa.kmer.enabled \
-    --taxa.kmer.kraken2uniq.enabled \
-    --taxa.kmer.kraken2bracken.enabled \
-    --taxa.kmer.kmpc.enabled \
-    --taxa.kmer.metabuli.enabled \
-    --taxa.kmer.postalign.enabled \               # k-mer id reads align v db genome
-    --taxa.alignment.enabled \
-    --taxa.alignment.subset.enabled \             # mash screen tax pre-subset + db re-index 
-    --taxa.alignment.minimap2.enabled true \      
-    --taxa.alignment.strobealign.enabled false \  # one of
-    --taxa.alignment.bowtie2.enabled false \      
-    --taxa.assembly.enabled \                     # metaspades + align lca - ncbi nt/nr
-    --taxa.assembly.blastn.enabled \
-    --taxa.assembly.diamond.enabled
-    # post workflow processing and api interaction
-    --cerebro.quality.enabled \                   # create run summary qc table
-    --cerebro.sample.enabled \                    # create run aggregated cerebro sample json
-    # require: --sample_sheet and --production
-    --cerebro.api.enabled true \  
+    --cerebro.api.enabled \
     --cerebro.api.url $CEREBRO_API_URL \ 
     --cerebro.api.token $CEREBRO_API_TOKEN \
-    --cerebro.api.status.enabled \                # status report logging of pipeline updates
-    --cerebro.api.status.slack.enabled \          # status report logging to configured slack channel
-    --cerebro.api.report.enabled \                # create run report (sample, qc tracking)
-    --cerebro.api.report.slack.enabled \          # post run report to configured slack channel
-    --cerebro.api.upload true \
-    --cerebro.api.upload.team "VIDRL" \
-    --cerebro.api.upload.database "PRODUCTION" \
-    --cerebro.api.upload.collection "MGP-CNS-20231012"
-
-
-# label-specific resource config with nested params
-# labels are defined in `lib/configs/resources.config` and
-# applied to process definitions in `lib/processes/*.nf`
-
-# cpus, memory, time, conda, container (docker)
-nextflow run -r latest esteinig/cerebro -profile mamba \
-    --resources.kraken2uniq.cpus 64 \
-    --resources.kraken2uniq.memory "256 GB" \
-    --resources,minimap2_align.cpus 32 \
-    --resources.minimap2_align.memory "32 GB" \
-    --resources.minimap2_align.conda "envs/minimap2.dropin.yml"
+    --cerebro.api.upload.enabled
 ```
 
-#### Example pipeline configurations
+
+### Example pipeline configurations
 
 Example commands for executing the `Nextflow` pipeline and processing local output with the `cerebro` command-line interface:
 
@@ -235,40 +148,7 @@ cd cerebro_stack_local && docker-compose up
 # go to app landing page in browser on http://app.cerebro.localhost/
 ```
 
-#### Local user interface
-
-`Cerebro` web-application stack deployment without sequence data processing or integration testing using `Nextflow` pipeline runs. Requires minimal resources but recommended around 32GB RAM, 8 CPU, 100GB - 1TB storage depending on scale, no GPU. Can be configured as web server (see documentation). Runs the `Docker` stack with `MongoDB` and `Redis` databases.
-
-Can run on laptops with fast local upload of disk-stored models ( `.json`) of workflow outputs for the `cerebro api upload` command-line task and the local stack database to load these models from disk on demand.
-
-```
-
-```
-
-#### Local development setup
-
-`Cerebro` frontend with test outputs from workflows for `dev` and development system can run on a normal home system (16 CPU, 64GB RAM, 1 NVIDIA GPU) and is specifically configured (database size, test datasets) to run quick integration "smoke" tests with [`cipher`] for continuous integration of quality assurance during development.
-
-```
-
-```
-
-#### Local production setup
-
-Routine automated runs of the `Cerebro` profiling workflow are provisioned ideally
-(NextSeq 2000 150 PE DNA + RNA + NTC libraries) around 256 CPU, 2 TB RAM, 25TB storage.
-
-```
-
-```
-
-We run nanopore basecalling via `dorado` on 6 NVIDIA-A100 GPUs.
-
-```
-
-```
-
-## `Cerebro` client
+## `Cerebro` command-line client
 
 ```bash
 # get cerebro binary for support tasks
@@ -319,13 +199,13 @@ cerebro pipeline sample-sheet
 
 # nextflow run -r latest esteinig/cerebro -profile mamba,large \
 #   --db cipher_db/ --production --sample_sheet sample_sheet.csv \
-#   --outdir $WF_OUTDIR
+#   --outdir $WF_OUTDIR ...
 
 # transform pipeline outputs to json models with pipeline taxonomy
-cerebro pipeline process -i $WF_OUTDIR/results -o samples/ -t cipher_db
+cerebro pipeline process -i $WF_OUTDIR/results/*/ -o samples/ -t cipher_db/
 
 # quality control summary csv from sample models
-cerebro pipeline quality -i samples/*.json -o qc.tsv -H
+cerebro pipeline quality -i samples/*.json -o qc.tsv --header
 ```
 
 #### API interaction
@@ -378,15 +258,26 @@ cerebro api taxa
     --output "taxa.filtered.csv" \
     --run-ids MGP-20230420 \
     --filter-config "test.filter.json"
-
-# plot summary of taxa called in libraries across this run
-cerebro-utils taxa plot-run-summary "taxa.filtered.csv" \
-    --outdir taxa_run_filtered/ \ 
-    --min_total_rpm 5 \                 # k-mer and alignment sum threshold
-    --min_contigs 0 \                   # no lca diamond/blastn contig allowed
-    --negative_control_tag "NTC" \      # {SAMPLE_UID}__{DNA|RNA}__{NTC|OTHER_TAG_LABEL}_{SUFFIX}
-    --group_by "sample_group"           # plot panels by sample group from prod sample sheet
 ```
 
 
 #### Clinical report templating
+
+When generating clinical template report files with LaTeX it is most effective to use the configuration `.toml` template in `templates/report/report.toml`. 
+
+The report configuration along with the associated logo file and the taxonomic classification evidence from a selected candidate pathogen can be completed using a request to the API (with fields on various report fields in the template to be completed) or using a locally completed `report.toml` which can be separated into different base template inputs and patient head information inputs in separate `toml` config files. An example of this can be found [in the documentation]().
+
+When a `cerebro` binary built with the `pdf` feature is used as reporting tool, the templated LaTeX output can be converted to PDF using an integrated `Tectonic` engine conversion.
+
+```
+# create the templated latex report from a report toml config
+cerebro report --config report.toml --output report.tex 
+
+# create the templated latex report from a report toml config 
+# and use tectonic engine to render as pdf
+cerebro report --config report.toml --output report.pdf --pdf
+```
+
+## Dependencies
+
+`Cerebro` is built with many ingenious software libraries and scientific engineering dependencies that can be outputted in structured `toml` and citation `bibtex` format using `cerebro cite --outdir plz_cite/`. Please make sure to cite the range of tools used in your application of `Cerebro` to scientific or other academic metagenomic publications. More on these dependencies and citation formats can be found [in the documentation]().
