@@ -56,10 +56,10 @@ git push origin feat/new_feature
 # to merge feat/new_feature into dev
 
 # squash working commits on pr into dev to
-# the primary conventional commit with issue tracked number
+# the primary conventional commit
 #
 # docs/readme branch -> dev
-# readme(docs): create dev section 
+# readme(docs): dev section draft
 #
 # dev pr squash commits are published in main release changelog
 ```
