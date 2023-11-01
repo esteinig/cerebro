@@ -47,15 +47,21 @@ docker compose down && docker container rm $(docker ps --format "{{.Names}}" | g
 # build flag triggers rebuild of changed components in the docker compose file
 docker compose up --build
 
-# checkout current feat dev branch and commit changes
+# checkout current feat branch and commit changes
 git checkout feat/new_feature
 cog commit chore "minor changes to auth api" auth
-# ...
 git push origin feat/new_feature
 
 # create new pr with conventional commit style 
 # to merge feat/new_feature into dev
 
+# squash working commits on pr into dev to
+# the primary conventional commit with issue tracked number
+#
+# docs/readme branch -> dev
+# readme(docs): create dev section 
+#
+# dev pr squash commits are published in main release changelog
 ```
 
 ## Git progression for release
@@ -83,6 +89,6 @@ git add . && cog commit chore "$RELEASE_VERSION" release
 git push origin release/$RELEASE_VERSION
 
 # create pr of `release/$RELEASE_VERSION` into 'main'
-# release with latest changelog and binaries is created
+# release with latest changelog and binaries is created on ci/cd
 
 ```
