@@ -1,4 +1,4 @@
-name: mgp-cerebro
+name: cerebro
 channels:
   - conda-forge
   - bioconda
