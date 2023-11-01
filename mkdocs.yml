@@ -10,8 +10,6 @@ repo_url: https://github.com/esteinig/cerebro
 
 theme:
   name: material
-  favicon: assets/mgp-logo-blue.png
-  logo: assets/mgp-logo-blue-white.png
   palette:
     - scheme: slate
       primary: cyan
