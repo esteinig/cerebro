@@ -1,0 +1,43 @@
+# release ci: create cocogitto semantic version release + changelog, enforce conventional commit compliance
+# executed when a pr is made on main which pulls in a release branch (deriving from main and dev fetch)
+# triggers build yml when release is published, which attaches `latest` and {version} tagged release builds and sha256 checksums
+
+name: release
+
+on:
+  workflow_dispatch:
+    branches: main
+
+jobs:      
+  release:
+    name: Perform release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Conventional commits check
+        uses: oknozor/cocogitto-action@v3
+        with:
+          check-latest-tag-only: true
+
+      - name: Cocogitto release
+        id: release
+        uses: oknozor/cocogitto-action@v3
+        with:
+          release: true
+          git-user: ${{ secrets.GIT_USER }}
+          git-user-email: ${{ secrets.GIT_EMAIL }}
+
+      - name: Generate Changelog
+        run: cog changelog --at ${{ steps.release.outputs.version }} -t full_hash > GITHUB_CHANGELOG.md
+
+      - name: Upload github release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: GITHUB_CHANGELOG.md
+          tag_name: ${{ steps.release.outputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
