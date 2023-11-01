@@ -50,66 +50,53 @@ Requirements for local execution:
 - `Nextflow >= v23.10.04`
 
 ```bash
-# pull latest from github, show help menu, use mamba local env
+# pull latest from github, show help menu, use mamba envs
 nextflow run -r latest esteinig/cerebro -profile mamba --help
 
 # provision with latest cipher kmer db build, may take some time
-nextflow run -r latest esteinig/cerebro -profile mamba \
-    --cipher_download \
-    --cipher_revision latest \
-    --cipher_modules full \
+nextflow run -r latest esteinig/cerebro -profile mamba -entry cipher \
+    --revision latest \
+    --representation full \
     --outdir cipher_db/
 
-# example 1 full classifier run: standard qc and align, assembly, kmer classifiers
-# mamba envs and cipher db build using a large resource profile
-
-# full tax profile on input read dir (pe illumina)
-nextflow run -r latest esteinig/cerebro -profile mamba,large \
-    --db cipher_db/ \
-    --outdir full_test_run/ \
-    --fastq "fastq/*_{R1,R2}.fq.gz"
-
-# example 2 k-mer profiling run: standard qc and kmer tax classifiers 
-# mamba envs and cipher kmer db build directory using a large resource profile
+# default qc and tax profile on input read dir (pe illumina)
+nextflow run esteinig/cerebro -r latest -profile mamba \
+    --fastq "fastq/*_{R1,R2}.fq.gz" \
+    --databases cipher_db/
 
 # kmer tax profile on input read dir (pe illumina)
-nextflow run -r latest esteinig/cerebro -profile mamba,large,kmer \
-    --db cipher_db/ \
-    --outdir kmer_test_run/ \
-    --fastq "fastq/*_{R1,R2}.fq.gz"
+nextflow run esteinig/cerebro -r latest -profile mamba,kmer \
+    --fastq "fastq/*_{R1,R2}.fq.gz" \   
+    --databases cipher_db/
 
-# example 3 sample sheet production: uses cerebro pipeline client to create input sample sheet
+# production: cerebro client to create input sample sheet
 cerebro pipeline sample-sheet 
     --input fastq/ \
     --output sample_sheet.csv \
-    --glob "*_{R1,R2}.fq.gz" \
-    --run-id prod-test
+    --run-id production_test \
+    --glob "*_{R1,R2}.fq.gz"
 
-# tax profile on dample sheet input (pe illumina)
-# production enables extra checks for sample and data auditing
-nextflow run -r latest esteinig/cerebro -profile mamba,large \
-    --db cipher_db/ \
-    --outdir prod_test_run/ \
-    --sample_sheet sample_sheet.csv \
-    --production true 
-
-# with api upload on successful completion 
-# see api interaction for login to get api token
-nextflow run -r latest esteinig/cerebro -profile mamba,large \
-    --db cipher_db/ \
-    --outdir prod_test_run/ \
-    --sample_sheet sample_sheet.csv \
+# production: tax profile on sample sheet input (pe illumina)
+nextflow run esteinig/cerebro -r latest -profile mamba \
     --production true \
+    --sample_sheet sample_sheet.csv \
+    --databases cipher_db/
+
+# production: db upload on successful completion 
+nextflow run esteinig/cerebro -r latest -profile mamba \
+    --production true \
+    --sample_sheet sample_sheet.csv \    
+    --databases cipher_db/ \
     --cerebro.api.enabled true \
     --cerebro.api.url $CEREBRO_API_URL \ 
     --cerebro.api.token $CEREBRO_API_TOKEN \
     --cerebro.api.upload true
 ```
 
-#### Nextflow command-line configuration 
+#### Nextflow command-line configurations 
 
 ```bash
-# main profiles
+# runtime profiles
 nextflow run -r latest esteinig/cerebro \
     # local conda,mamba env created for each process
     -profile conda,mamba
@@ -118,25 +105,30 @@ nextflow run -r latest esteinig/cerebro \
     # process-configured resource profiles
     -profile small,medium,large,galactic
     # specific protocol configs
-    -profile cns_assay,panviral,aneuploidy
-    # data provisioning
-    -profile cipher_db
-    # workflow testing
-    -profile cipher_test
+    -profile cns@v1                                # central nervous system meta-gp protocol
+    -profile panviral@v1                           # panviral enrichment protocol rat sequencing
+    -profile kraken@v1                             # kraken2 nature protocols pathogen detection 
+    -profile aneuploidy@v1                         # wgs copy number variation for consented patients
+    # taxonomy + database provisions
+    -profile cipher-db@v1
+    # workflow integration tests
+    -profile cipher-cns@v1
     # workflow dev
-    -profile io_mode,qc_mode,dev_mode
+    -profile io,dev
 
 # nested module params in `nextflow.config`
 nextflow run -r latest esteinig/cerebro -profile mamba \
-    # all reference db + idx + tax
+
+    # input/output and workflow provision
     --db "cipher_db/" \
-    # paired read input
+    # pe read input
     --fastq "fastq/*_{R1,R2}.fq.gz" \
-    # production input tracked files
+    # production input
     --production \
     --sample_sheet "sample_sheet.csv" \
     # output directory
-    --outdir "module_test" \
+    --outdir "test_run" \
+
     # qc read processing module
     --qc.enabled \
     --qc.deduplication.enabled \
@@ -146,6 +138,7 @@ nextflow run -r latest esteinig/cerebro -profile mamba \
     --qc.controls.phage.enabled \
     --qc.host.depletion.enabled \
     --qc.background.mask.enabled \
+
     # taxon profiling with references and taxonomy files in --db
     --taxa.enabled \
     --taxa.kmer.enabled \
@@ -161,35 +154,30 @@ nextflow run -r latest esteinig/cerebro -profile mamba \
     --taxa.alignment.bowtie2.enabled false \      
     --taxa.assembly.enabled \                     # metaspades + align lca - ncbi nt/nr
     --taxa.assembly.blastn.enabled \
-    --taxa.assembly.diamond.enabled
-    # post workflow processing and api interaction
-    --cerebro.quality.enabled \                   # create run summary qc table
-    --cerebro.sample.enabled \                    # create run aggregated cerebro sample json
-    # require: --sample_sheet and --production
+    --taxa.assembly.diamond.enabled \
+
+    # api: requires --sample_sheet and --production
     --cerebro.api.enabled true \  
     --cerebro.api.url $CEREBRO_API_URL \ 
     --cerebro.api.token $CEREBRO_API_TOKEN \
-    --cerebro.api.status.enabled \                # status report logging of pipeline updates
-    --cerebro.api.status.slack.enabled \          # status report logging to configured slack channel
-    --cerebro.api.report.enabled \                # create run report (sample, qc tracking)
-    --cerebro.api.report.slack.enabled \          # post run report to configured slack channel
-    --cerebro.api.upload true \
+
+    # api: live workflow status and sample tracking
+    --cerebro.api.run.status.enabled \                # status report logging of pipeline updates
+    --cerebro.api.run.status.slack.enabled \          # status report logging to slack channel
+    --cerebro.api.run.report.enabled \                # create run report for sample tracking + qc
+    --cerebro.api.run.report.slack.enabled \          # post run report to slack channel
+
+    # api: upload to team collection
+    --cerebro.api.upload.enabled \
     --cerebro.api.upload.team "VIDRL" \
     --cerebro.api.upload.database "PRODUCTION" \
     --cerebro.api.upload.collection "MGP-CNS-20231012"
 
-
-# label-specific resource config with nested params
-# labels are defined in `lib/configs/resources.config` and
-# applied to process definitions in `lib/processes/*.nf`
-
-# cpus, memory, time, conda, container (docker)
-nextflow run -r latest esteinig/cerebro -profile mamba \
-    --resources.kraken2uniq.cpus 64 \
-    --resources.kraken2uniq.memory "256 GB" \
-    --resources,minimap2_align.cpus 32 \
+    # resource labels for each process
+    --resources.minimap2_align.cpus 32 \
     --resources.minimap2_align.memory "32 GB" \
-    --resources.minimap2_align.conda "envs/minimap2.dropin.yml"
+    --resources.minimap2_align.conda "envs/minimap2.replacement.yml" \
+    --resources.minimap2_align.container "biocontainers/minimap2:latest"
 ```
 
 #### Example pipeline configurations
