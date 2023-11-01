@@ -269,7 +269,11 @@ The report configuration along with the associated logo file and the taxonomic c
 
 When a `cerebro` binary built with the `pdf` feature is used as reporting tool, the templated LaTeX output can be converted to PDF using an integrated `Tectonic` engine conversion.
 
-```
+```bash
+# requires some system dependencies
+# see `templates/stack/docker/Dockerfile.server`
+# cargo build --release --features pdf 
+
 # create the templated latex report from a report toml config
 cerebro report --config report.toml --output report.tex 
 
@@ -280,4 +284,6 @@ cerebro report --config report.toml --output report.pdf --pdf
 
 ## Dependencies
 
-`Cerebro` is built with many ingenious software libraries and scientific engineering dependencies that can be outputted in structured `toml` and citation `bibtex` format using `cerebro cite --outdir plz_cite/`. Please make sure to cite the range of tools used in your application of `Cerebro` to scientific or other academic metagenomic publications. More on these dependencies and citation formats can be found [in the documentation]().
+`Cerebro` is built with many ingenious software libraries and scientific engineering dependencies that can be outputted in structured `toml` and citation `bibtex` format using `cerebro cite --outdir cite_me_plz`. 
+
+Please make sure to cite the range of tools used in your application of `Cerebro` to scientific or other academic metagenomic publications. More on these dependencies and citation formats can be found [in the documentation]().
