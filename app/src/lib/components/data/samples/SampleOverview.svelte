@@ -271,14 +271,14 @@
 
     
 <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-16 pt-10">
-    <div class="gap-y-4 md:mt-1 col-span-1">
+    <div class="gap-y-4 md:mt-1 col-span-2">
         
         {#if loading}
             <div class="flex justify-center pt-36">
                 <ProgressRadial width="sm:w-12 md:w-24" stroke={100} meter="stroke-tertiary-500" track="stroke-tertiary-500/30" />
             </div>
         {:else}
-            <div class="flex gap-x-4">
+            <div class="flex gap-x-4 align-center items-end">
 
                 <div class="w-1/4">
                     <p class="mb-1"><span class="opacity-60">Team</span></p>
@@ -333,7 +333,7 @@
                 {/if}
             </div>
             <div class="mt-5">
-                <SampleOverviewTable sampleOverviewData={sampleOverviewData} bind:selectedSampleOverview bind:selectedSamples></SampleOverviewTable>
+                <SampleOverviewTable sampleOverviewData={sampleOverviewData} bind:selectedSampleOverview bind:selectedSamples selectedDatabase={selectedDatabase} selectedProject={selectedProject}></SampleOverviewTable>
             </div>
             <div class="flex justify-center">
                 <div class="w-1/2">
@@ -341,9 +341,6 @@
                 </div>
             </div>
         {/if}
-    </div>
-    <div class="md:mt-24 col-span-1">
-        <SampleOverviewCard selectedSampleOverview={selectedSampleOverview} selectedDatabaseId={selectedDatabaseId} selectedProjectId={selectedProjectId} selectedDatabase={selectedDatabase} selectedProject={selectedProject}></SampleOverviewCard>
     </div>
 </div>
 
