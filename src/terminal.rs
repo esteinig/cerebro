@@ -88,6 +88,21 @@ pub enum UtilCommands {
     Anonymize(UtilsAnonymizeArgs),
     /// Split a FASTA file into sequence FASTA
     Split(UtilsSplitArgs),
+    /// Send a notification to Slack channel
+    Slack(UtilsSlackArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct UtilsSlackArgs {
+    /// Slack channel name or identifier
+    #[clap(long, short = 'c')]
+    pub channel: String,
+    /// Simple text message to send
+    #[clap(long, short = 'm')]
+    pub message: String,
+    /// Slack API token
+    #[clap(long, short = 't', env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
+    pub token: String,
 }
 
 #[derive(Debug, Args)]

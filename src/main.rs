@@ -20,6 +20,7 @@ use rayon::prelude::*;
 use pipeline::sheet::SampleSheet;
 use terminal::{ReportCommands, UtilCommands};
 use tools::modules::anon::ReadAnonymizer;
+use tools::modules::slack::{SlackMessage, SlackMessenger};
 use tools::modules::split::Splitter;
 use tools::modules::subset::FastaSubset;
 use tools::modules::virus::{VirusAlignmentSummary, AnnotationOptions};
@@ -186,6 +187,12 @@ fn main() -> anyhow::Result<()> {
                             for fasta in &args.input {
                                 splitter.split(&fasta)?
                             }
+                        },
+                        UtilCommands::Slack( args ) => {
+                            let messenger = SlackMessenger::new(&args.token);
+                            messenger.send(
+                                &SlackMessage::new(&args.channel, &args.message)
+                            ).expect("Failed to send message");
                         },
                     }
                 }
