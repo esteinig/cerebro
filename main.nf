@@ -59,15 +59,6 @@ params.outdir                                        = "mgp_csf_v${workflow.mani
 params.databases                                     = 'db'
 params.taxonomy                                      = 'db/ncbi_tax'
 
-params.production                                    = false
-params.sample_sheet                                  = null
-
-params.cerebro_upload                                = false
-params.cerebro_token_env                             = "CEREBRO_API_TOKEN"
-params.cerebro_api_url                               = 'http://localhost:8080'
-params.cerebro_team_name                             = "META-GP CNS"
-params.cerebro_project_name                          = "Team Data"
-
 // File input
 
 params.fastq                                         = null
@@ -223,8 +214,8 @@ workflow {
         
         def inputs = parse_file_params()
 
-        if (params.production) {
-            if (params.cerebro_upload) {
+        if (params.production.enabled) {
+            if (params.production.api.upload.enabled) {
                 PingServer(Channel.of("PING")) | collect                            // collect to await result before proceeding
             }
             
@@ -275,7 +266,7 @@ workflow {
                 )  // uses only the pathogen analysis reads (host analysis is the same or a subset of pathogen analysis)
 
             } else {
-                reads_aneuploidy | view
+                
                 // Optional host genome analysis for segmental aneuploidy
                 if (params.host.enabled && params.host.aneuploidy.enabled) {
                     aneuploidy = aneuploidy_detection(reads_aneuploidy, inputs)
