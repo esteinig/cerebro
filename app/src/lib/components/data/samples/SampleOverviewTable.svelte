@@ -63,7 +63,7 @@
                 <th>Candidates</th>
                 <th>Completed</th>
 
-                <th>Data</th>
+                <th></th>
                 <th>
                     <div class="flex justify-end mr-2">
                         <input class="checkbox" type="checkbox" on:click={changeSelectAll}/>
