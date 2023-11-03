@@ -23,13 +23,7 @@ def plot_group_metric(
     ),
     metric: str = typer.Option(
         "rpm", help="Metric to plot"
-    ),
-    top: int = typer.Option(
-        None, help="Extract the `top` taxa by `top-metric`"
-    ),
-    top_metric: str = typer.Option(
-        None, help="Extract the top taxa by `top-metric` (total_rpm, kmer-rpm, alignment_rpm, contigs)"
-    ),
+    )
 ):
     
     """
@@ -52,25 +46,82 @@ def plot_group_metric(
     sns.despine()
     ax1.grid(False)
 
+    fig1.savefig("taxa_species_summary.png", dpi=300,  transparent=False)
+
+@app.command()
+def plot_heatmap(
+    taxa: Path = typer.Option(
+        ..., help="Taxa overview summary table"
+    ),
+    group: str = typer.Option(
+        "group", help="Grouping variable to plot by"
+    ),
+    metric: str = typer.Option(
+        "rpm", help="Metric to plot as color scale (total_rpm, kmer-rpm, alignment_rpm, contigs)"
+    ),
+    top: int = typer.Option(
+        20, help="Extract the `top` ranked taxa by `top-metric` (total_rpm, kmer-rpm, alignment_rpm, contigs)"
+    ),
+    top_metric: str = typer.Option(
+        "rpm", help="Extract the top taxa by `top-metric` (total_rpm, kmer-rpm, alignment_rpm, contigs)"
+    ),
+    subset: str = typer.Option(
+        None, help="Sample name substring to subset"
+    ),
+    controls: str = typer.Option(
+        "NTC", help="Substring in group column to differentiate negative template controls"
+    ),
+):
+    """
+    Plot taxa heatmap for a set of sample taxonomic profiles returned from cerebro API
+    """
+
+
+    df = pandas.read_csv(taxa, sep=",", header=0)
+
+    tops = []
+    for group, group_df in df.groupby("cerebro_id"):
+        sort_df = group_df.sort_values(top_metric, ascending=False)
+        top_df = sort_df[0:top]
+        tops.append(top_df)
+    
+    top_df = pandas.concat(tops).reset_index(drop=True)
+
+    
+    taxon_presence = {}
+    for name_taxid in top_df["name_taxid"].unique():
+        for sample_name in top_df["sample_name"].unique():
+            search = df[(df["name_taxid"] == name_taxid) & (df["sample_name"] == sample_name)]
+            if search.empty:
+                metric_value = 0
+            else:
+                metric_value = search[metric].values[0]
+
+            if sample_name not in taxon_presence.keys():
+                taxon_presence[sample_name] = {name_taxid: metric_value}
+            else:
+                taxon_presence[sample_name][name_taxid] = metric_value
+
+    heatmap_data = []
+    for col_name, rows in taxon_presence.items():
+        heatmap_data.append(
+            pandas.DataFrame([[k, v] for k,v in rows.items()], columns=["taxon", col_name]).set_index("taxon", drop=True)
+        )
+    
+    df = pandas.concat(heatmap_data, axis=1)
+    df = df.reindex(sorted(df.columns), axis=1)
+
+    if subset:
+        df = df.drop(columns=[c for c in df.columns if subset not in c])
+    
+    print(df)
+    
+    fig1, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(24,18))
+    p = sns.heatmap(df, ax=ax1, square=False, cmap="crest", robust=True, xticklabels=1, yticklabels=1)
+
+    fig1.savefig("taxa_heatmap.png", dpi=300,  transparent=False)
 
 
 
-    # fig1_suptitle = "Quality control"
-    # fig1.suptitle(fig1_suptitle, fontsize=16, fontweight="bold")
-    fig1.savefig("taxa_summary.png", dpi=300,  transparent=False)
-    # ax2 = axes1[1]
-    # sns.barplot(x="sample_group", y="phage_coverage_percent", hue="phage_spike", data=df, ax=ax2, palette=YESTERDAY_MEDIUM)
-    # ax2.set_title(f"\nT4 Coverage")
-    # ax2.set_xlabel("\n")
-    # ax2.set_ylabel("Coverage (%)")
-    # legend = ax2.get_legend()
-    # legend.set_title(None) 
-    # sns.despine()
-    # ax2.grid(False)
 
 
-# def get_top_taxa() -> List[pandas.DataFrame]:
-
-#     """
-#     Helper function to obtain highest ranked taxa for each sample
-#     """
