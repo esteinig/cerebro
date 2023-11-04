@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use cerebro::api::report::ClinicalReport;
+use cerebro::stack::watcher;
 use clap::Parser;
 use rayon::prelude::*;
 use pipeline::sheet::SampleSheet;
@@ -188,11 +189,23 @@ fn main() -> anyhow::Result<()> {
                                 splitter.split(&fasta)?
                             }
                         },
+                    
                         UtilCommands::Slack( args ) => {
                             let messenger = SlackMessenger::new(&args.token);
                             messenger.send(
                                 &SlackMessage::new(&args.channel, &args.message)
                             ).expect("Failed to send message");
+                        },
+                        UtilCommands::Watcher( args ) => {
+
+                            if let Err(error) = watcher::watch_production(
+                                &args.path, 
+                                std::time::Duration::from_secs(args.interval),
+                                std::time::Duration::from_secs(args.timeout),
+                                std::time::Duration::from_secs(args.timeout_interval),
+                            ) {
+                                log::error!("Error: {error:?}");
+                            }
                         },
                     }
                 }
