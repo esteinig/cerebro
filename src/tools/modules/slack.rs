@@ -23,6 +23,13 @@ impl SlackMessage {
             ]
         }
     }
+    pub fn from(channel: &str, blocks: Vec<SlackMessageSectionBlock>) -> Self {
+        Self {
+            channel: channel.to_string(),
+            icon_emoji: String::from(":satellite:"),
+            blocks
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use crate::utils::UuidUtils;
 
-use crate::tools::modules::slack::{SlackMessenger, SlackMessage};
+use crate::tools::modules::slack::{SlackMessenger, SlackMessage, SlackMessageSectionBlock, TextObject};
 
 #[derive(Error, Debug)]
 pub enum WorkflowLauncherError {
@@ -74,7 +74,7 @@ impl WorkflowLauncher {
                 log::warn!("[{run_id}] Failed to detect sample sheet: {}", sample_sheet.display());
             },
             true => {
-                log::info!("[{run_id}] Sample sheet detected ✅");
+                log::info!("[{run_id}] Sample sheet detected");
                 validation.sample_sheet_detected = true;
             }
         }
@@ -87,7 +87,7 @@ impl WorkflowLauncher {
                 log::warn!("[{run_id}] Failed to detect fastq sub-directory: {}", fastq_subdir.display());
             },
             true => {
-                log::info!("[{run_id}] Fastq sub-directory detected ✅");
+                log::info!("[{run_id}] Fastq sub-directory detected");
                 validation.fastq_subdir_detected = true;
             }
         }
@@ -118,7 +118,7 @@ impl WorkflowLauncher {
         // Create validation summary and compose slack pass/fail message
 
         self.slack.send(&self.slack_message.input_validation(
-            validation.pass(), &run_id, &self.launch_id
+            &validation, &run_id, &self.launch_id
         )).map_err(|_| WorkflowLauncherError::SlackMessageNotSent)?;
 
         if validation.pass() {
@@ -137,14 +137,22 @@ impl SlackMessageGenerator {
         Self { channel }
     }
     pub fn input_detected(&self, run_id: &str, launch_id: &uuid::Uuid) -> SlackMessage {
-        SlackMessage::new(&self.channel, &format!("New run input detected [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8)))
+        SlackMessage::new(&self.channel, &format!("New run input detected [{run_id}::{}]", launch_id.shorten(8)))
     }
-    pub fn input_validation(&self, pass: bool, run_id: &str, launch_id: &uuid::Uuid) -> SlackMessage {
-        let msg = match pass {
-            true => format!("Input validation passed [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8)),
-            false => format!("Input validation failed [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8))
-        };
-        SlackMessage::new(&self.channel, &msg)
+    pub fn input_validation(&self, validation: &InputValidation, run_id: &str, launch_id: &uuid::Uuid) -> SlackMessage {
+        match validation.pass() {
+            true => SlackMessage::new(
+                &self.channel, 
+                &format!("Input validation passed [{run_id}::{}]", launch_id.shorten(8))
+            ),
+            false => {
+                let msg = &format!("*Input validation failed* [{run_id}::{}]", launch_id.shorten(8));
+                SlackMessage::from(&self.channel, vec![
+                    vec![SlackMessageSectionBlock::new(TextObject::markdown(msg))],
+                    validation.get_message_blocks()
+                ].concat())
+            }
+        }
     }
 }
 
@@ -162,5 +170,14 @@ impl InputValidation {
     pub fn pass(&self) -> bool {
         self.sample_sheet_detected &&
         self.fastq_subdir_detected
+    }
+    pub fn get_message_blocks(&self) -> Vec<SlackMessageSectionBlock> {
+        vec![
+            self.get_block(self.sample_sheet_detected, "Sample sheet is present?"),
+            self.get_block(self.fastq_subdir_detected, "Fastq sub-directory is present?"),
+        ]
+    }
+    pub fn get_block(&self, pass: bool, msg: &str)-> SlackMessageSectionBlock {
+        SlackMessageSectionBlock::new(TextObject::markdown(&format!(">{} {msg}", match pass { true => "✅", false => "❌"})))
     }
 }
