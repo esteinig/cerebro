@@ -137,12 +137,12 @@ impl SlackMessageGenerator {
         Self { channel }
     }
     pub fn input_detected(&self, run_id: &str, launch_id: &uuid::Uuid) -> SlackMessage {
-        SlackMessage::new(&self.channel, &format!("👀 New run input detected [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8)))
+        SlackMessage::new(&self.channel, &format!("New run input detected [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8)))
     }
     pub fn input_validation(&self, pass: bool, run_id: &str, launch_id: &uuid::Uuid) -> SlackMessage {
         let msg = match pass {
-            true => format!("✅ Input validation passed [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8)),
-            false => format!("❌ Input validation failed [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8))
+            true => format!("Input validation passed [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8)),
+            false => format!("Input validation failed [run_id=*{run_id}* launch_id={}]", launch_id.shorten(8))
         };
         SlackMessage::new(&self.channel, &msg)
     }
