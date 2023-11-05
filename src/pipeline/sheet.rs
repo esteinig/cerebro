@@ -12,32 +12,33 @@ use std::{path::{Path, PathBuf}, collections::{HashMap, HashSet}};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct SampleSheetEntry{
-    pub run_date: String,
-    pub run_id: String,
     pub sample_id: String,
-    pub sample_group: String,
-    pub sample_type: String,
-    pub ercc_input: Option<f64>,
+    pub run_id: String,
+    pub run_date: String,
     pub aneuploidy: bool,
-    pub forward_path: PathBuf,
+    pub sample_group: Option<String>,
+    pub sample_type: Option<String>,
+    pub ercc_input: Option<f64>,
+    pub forward_path: Option<PathBuf>,  // option because of production sample sheet ionput
     pub reverse_path: Option<PathBuf>
 }
 impl SampleSheetEntry {
-    pub fn new(run_date: &str, run_id: &str, sample_id: &str, sample_group: &str, sample_type: &str, ercc_input: Option<f64>, aneuploidy: bool, files: &Vec<PathBuf>) -> Result<Self, WorkflowUtilityError> {
+    pub fn new(run_date: &str, run_id: &str, sample_id: &str, sample_group: Option<&str>, sample_type: Option<&str>, ercc_input: Option<f64>, aneuploidy: bool, files: &Vec<PathBuf>) -> Result<Self, WorkflowUtilityError> {
         let (forward_path, reverse_path) = match files.len() {
-            1 => (files[0].clone(), None),
-            2 => (files[0].clone(), Some(files[1].clone())),
+            1 => (Some(files[0].clone()), None),
+            2 => (Some(files[0].clone()), Some(files[1].clone())),
             _ => return Err(WorkflowUtilityError::SampleSheetEntryFiles(format!("{:?}", files)))
         };
         Ok(SampleSheetEntry { 
             run_date: run_date.into(), 
             run_id: run_id.into(), 
             sample_id: sample_id.into(), 
-            sample_group: sample_group.into(), 
-            sample_type: sample_type.into(), 
+            sample_group: sample_group.map(str::to_string), 
+            sample_type: sample_type.map(str::to_string), 
             ercc_input,
             aneuploidy,
-            forward_path, reverse_path 
+            forward_path, 
+            reverse_path 
         })
     }
 }
@@ -79,22 +80,12 @@ impl SampleSheet {
                     None => chrono::Utc::now().format("%Y-%m-%d").to_string()
                 };
     
-                let sample_group = match &sample_group {
-                    Some(group) => group.as_str(),
-                    None => ""
-                };
-
-                let sample_type = match &sample_type {
-                    Some(r#type) => r#type.as_str(),
-                    None => ""
-                };
-    
                 SampleSheetEntry::new(
                     &date, 
                     &run, 
                     sample_id, 
-                    sample_group, 
-                    sample_type,
+                    sample_group.as_deref(), 
+                    sample_type.as_deref(),
                     ercc_input,
                     false,
                     file_paths
@@ -152,7 +143,10 @@ impl SampleSheet {
         let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
         match matches.len() {
             0 => None,
-            1 => Some(matches[0].sample_group.clone()),
+            1 => match &matches[0].sample_group {
+                Some(v) => Some(v.to_owned()),
+                None => Some(String::from(""))
+            },
             _ => None // sample_id should be unique
         }
     }  
@@ -160,7 +154,10 @@ impl SampleSheet {
         let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
         match matches.len() {
             0 => None,
-            1 => Some(matches[0].sample_type.clone()),
+            1 => match &matches[0].sample_group {
+                Some(v) => Some(v.to_owned()),
+                None => Some(String::from(""))
+            },
             _ => None // sample_id should be unique
         }
     }  

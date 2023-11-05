@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use thiserror::Error;
+use crate::pipeline::sheet::SampleSheet;
 use crate::utils::UuidUtils;
 
 use crate::tools::modules::slack::{SlackMessenger, SlackMessage, SlackMessageSectionBlock, TextObject};
@@ -18,6 +19,12 @@ pub enum WorkflowLauncherError {
     /// Indicates failure to validate inputs
     #[error("failed input validation")]
     InputValidationFailed,
+    /// Indicates failure to parse sample sheet
+    #[error("failed to read sample sheet")]
+    SampleSheetNotRead,
+    /// Indicates failure to find entries in sample sheet
+    #[error("failed to detect entries in sample sheet")]
+    SampleSheetEmpty,
 }
 
 /// Input validation and workflow launcher for production
@@ -67,11 +74,11 @@ impl WorkflowLauncher {
         let mut validation = InputValidation::new();
 
         // Does the sample sheet {run_id}.csv exist?
-        let sample_sheet = self.input_path.join(self.run_id.clone()).with_extension("csv");
+        let sample_sheet_path = self.input_path.join(self.run_id.clone()).with_extension("csv");
 
-        match sample_sheet.exists() {
+        match sample_sheet_path.exists() {
             false => {
-                log::warn!("[{run_id}] Failed to detect sample sheet: {}", sample_sheet.display());
+                log::warn!("[{run_id}] Failed to detect sample sheet: {}", sample_sheet_path.display());
             },
             true => {
                 log::info!("[{run_id}] Sample sheet detected");
@@ -80,17 +87,78 @@ impl WorkflowLauncher {
         }
 
         // Does the read input folder exist?
-        let fastq_subdir = self.input_path.join("fastq");
+        let fastq_subdir_path = self.input_path.join("fastq");
 
-        match fastq_subdir.exists() {
+        match fastq_subdir_path.exists() {
             false => {
-                log::warn!("[{run_id}] Failed to detect fastq sub-directory: {}", fastq_subdir.display());
+                log::warn!("[{run_id}] Failed to detect fastq sub-directory: {}", fastq_subdir_path.display());
             },
             true => {
                 log::info!("[{run_id}] Fastq sub-directory detected");
                 validation.fastq_subdir_detected = true;
             }
         }
+
+
+        // Sample Sheet checks:
+
+        // Can the sample sheet be parsed? Includes check that sample identifiers are unique for this sample sheet.
+
+        // Failure may be due to malformatted CSV or missing required fields
+
+        let sample_sheet = match SampleSheet::from(&sample_sheet_path) {
+            Ok(sample_sheet) => {
+                log::info!("[{run_id}] Sample sheet parsed successfully");
+                validation.sample_sheet_parsed = true;
+                sample_sheet
+            },
+            Err(err) => {
+                log::warn!("[{run_id}] Failed to parse sample sheet: {}", sample_sheet_path.display());
+
+                // Send slack message and return error as downstream checks depend on sample sheet
+                self.slack.send(&self.slack_message.input_validation(
+                    &validation, &run_id, &self.launch_id,
+                )).map_err(|_| WorkflowLauncherError::SlackMessageNotSent)?;
+
+                return Err(err).map_err(|_| WorkflowLauncherError::SampleSheetNotRead)  
+            }
+        };
+
+        // Is the sample sheet empty?
+
+        if !(sample_sheet.entries.len() > 0) {
+            log::warn!("[{run_id}] Sample sheet is empty: {}", sample_sheet_path.display());
+
+            // Send slack message and return error as downstream checks depend on sample sheet
+            self.slack.send(&self.slack_message.input_validation(
+                &validation, &run_id, &self.launch_id,
+            )).map_err(|_| WorkflowLauncherError::SlackMessageNotSent)?;
+
+            return Err(WorkflowLauncherError::SampleSheetEmpty)
+        } else {
+            log::info!("[{run_id}] Sample sheet is not empty");
+            validation.sample_sheet_not_empty = true;
+        }
+
+        // // Are there missing required values for samples? 
+
+        // sample_sheet.validate_required_fields();
+
+        // // Are there non-allowed characters in the fields?
+
+        // sample_sheet.validate_field_characters();
+
+        // // Is the project name provided? [if not provided in launcher configuration]
+
+        // sample_sheet.validate_project_name();
+
+        // // Do the sample identifiers correspond to tagged format? [strict]
+
+        // sample_sheet.validate_sample_name_tags();
+
+        // // Is the run date format correct? [strict]
+
+        // sample_sheet.validate_date_format();
 
         // Fastq checks:
 
@@ -100,19 +168,6 @@ impl WorkflowLauncher {
 
 
         
-        // Sample Sheet checks:
-
-        // Can the sample sheet be parsed?
-
-        // Are there missing required values for samples?
-
-        // Are there non-allowed characters in the fields?
-
-        // Is the project name provided? [if not provided in launcher configuration]
-
-        // Do the sample identifiers correspond to tagged format? [strict]
-
-        // Is the run date format correct? [strict]
 
 
         // Create validation summary and compose slack pass/fail message
@@ -149,7 +204,7 @@ impl SlackMessageGenerator {
                 let msg = &format!("*Input validation failed* [{run_id}::{}]", launch_id.shorten(8));
                 SlackMessage::from(&self.channel, vec![
                     vec![SlackMessageSectionBlock::new(TextObject::markdown(msg))],
-                    validation.get_message_blocks()
+                    validation.get_message_blocks(&run_id)
                 ].concat())
             }
         }
@@ -159,25 +214,33 @@ impl SlackMessageGenerator {
 pub struct InputValidation {
     pub sample_sheet_detected: bool,
     pub fastq_subdir_detected: bool,
+    pub sample_sheet_parsed: bool,
+    pub sample_sheet_not_empty: bool
 }
 impl InputValidation {
     pub fn new() -> Self {
         Self { 
             sample_sheet_detected: false, 
-            fastq_subdir_detected: false 
+            fastq_subdir_detected: false,
+            sample_sheet_parsed: false,
+            sample_sheet_not_empty: false
         }
     }
     pub fn pass(&self) -> bool {
         self.sample_sheet_detected &&
-        self.fastq_subdir_detected
+        self.fastq_subdir_detected &&
+        self.sample_sheet_parsed && 
+        self.sample_sheet_not_empty
     }
-    pub fn get_message_blocks(&self) -> Vec<SlackMessageSectionBlock> {
+    pub fn get_message_blocks(&self, run_id: &str) -> Vec<SlackMessageSectionBlock> {
         vec![
-            self.get_block(self.sample_sheet_detected, "Sample sheet is present?"),
-            self.get_block(self.fastq_subdir_detected, "Fastq sub-directory is present?"),
+            self.get_block(self.sample_sheet_detected, &format!("Is the sample sheet `{run_id}.csv` present?")),
+            self.get_block(self.fastq_subdir_detected, "Is the sub-directory `fastq` present?"),
+            self.get_block(self.sample_sheet_parsed, "Is the sample sheet formatted correctly?"),
+            self.get_block(self.sample_sheet_not_empty, "Is the sample sheet not empty?")
         ]
     }
     pub fn get_block(&self, pass: bool, msg: &str)-> SlackMessageSectionBlock {
-        SlackMessageSectionBlock::new(TextObject::markdown(&format!(">{} {msg}", match pass { true => "✅", false => "❌"})))
+        SlackMessageSectionBlock::new(TextObject::markdown(&format!(">{msg} {}", match pass { true => "✅", false => "❌"})))
     }
 }
