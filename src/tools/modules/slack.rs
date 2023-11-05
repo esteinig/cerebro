@@ -1,18 +1,16 @@
 use std::process;
-
 use crate::tools::error::ToolError;
-
-
 use actix_web_httpauth::headers::authorization::Bearer;
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, Deserialize};
+
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlackMessage {
     pub channel: String,
     pub icon_emoji: String,
-    pub blocks: Vec<SlackMessageBlock>
+    pub blocks: Vec<SlackMessageSectionBlock>
 }
 
 impl SlackMessage {
@@ -21,51 +19,36 @@ impl SlackMessage {
             channel: channel.to_string(),
             icon_emoji: String::from(":satellite:"),
             blocks: vec![
-            SlackMessageBlock::rich_text_block(
-                vec![RichTextElement::from(
-                    vec![RichTextObject::from(message)]
-                )]
-            )]
+                SlackMessageSectionBlock::new(TextObject::markdown(message))
+            ]
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SlackMessageBlock {
-    pub r#type: String,
-    pub elements: Vec<RichTextElement>,
-    pub block_id: String,
-}
-impl SlackMessageBlock {
-    pub fn rich_text_block(elements: Vec<RichTextElement>) -> Self {
-        Self {
-            r#type: String::from("rich_text"), elements, block_id: uuid::Uuid::new_v4().to_string()
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RichTextElement {
-    pub r#type: String,
-    pub elements: Vec<RichTextObject>,
-}
-impl RichTextElement {
-    pub fn from(elements: Vec<RichTextObject>) -> Self {
-        Self {
-            r#type: String::from("rich_text_section"), elements
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RichTextObject {
+pub struct TextObject {
     pub r#type: String,
     pub text: String
 }
-impl RichTextObject {
-    pub fn from(text: &str) -> Self {
+impl TextObject {
+    pub fn markdown(text: &str) -> Self {
         Self {
-            r#type: String::from("text"), text: text.to_string()
+            r#type: String::from("mrkdwn"), text: text.to_string()
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackMessageSectionBlock {
+    pub r#type: String,
+    pub text: TextObject,
+    pub block_id: String,
+}
+impl SlackMessageSectionBlock {
+    pub fn new(text: TextObject) -> Self {
+        Self {
+            r#type: String::from("section"), text, block_id: uuid::Uuid::new_v4().to_string()
         }
     }
 }
@@ -98,8 +81,6 @@ impl SlackMessenger {
         if !response_data.ok {
             log::error!("Failed to send notification to channel: {}", message.channel);
             process::exit(1)
-        } else {
-            log::info!("Successfully sent notification to channel: {}", message.channel);
         }
 
         Ok(())

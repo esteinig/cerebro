@@ -107,6 +107,12 @@ pub struct UtilsWatcherArgs {
     /// Timeout interval for polling input folder recursively in seconds
     #[clap(long, short = 'm', default_value="1")]
     pub timeout_interval: u64,
+    /// Slack API token
+    #[clap(long, short = 't', env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
+    pub slack_token: String,
+    /// Slack channel
+    #[clap(long, short = 'c', env = "CEREBRO_SLACK_CHANNEL", hide_env_values = true)]
+    pub slack_channel: String,
 }
 
 #[derive(Debug, Args)]

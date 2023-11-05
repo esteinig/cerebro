@@ -14,11 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use cerebro::api::report::ClinicalReport;
-use cerebro::stack::watcher;
+use crate::api::report::ClinicalReport;
+use crate::stack::watcher;
 use clap::Parser;
 use rayon::prelude::*;
 use pipeline::sheet::SampleSheet;
+use stack::watcher::SlackConfig;
 use terminal::{ReportCommands, UtilCommands};
 use tools::modules::anon::ReadAnonymizer;
 use tools::modules::slack::{SlackMessage, SlackMessenger};
@@ -203,6 +204,7 @@ fn main() -> anyhow::Result<()> {
                                 std::time::Duration::from_secs(args.interval),
                                 std::time::Duration::from_secs(args.timeout),
                                 std::time::Duration::from_secs(args.timeout_interval),
+                                SlackConfig { channel: args.slack_channel.clone(), token: args.slack_token.clone() }
                             ) {
                                 log::error!("Error: {error:?}");
                             }
