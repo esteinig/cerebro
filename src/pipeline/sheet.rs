@@ -16,6 +16,7 @@ pub struct SampleSheetEntry{
     pub run_id: String,
     pub run_date: String,
     pub aneuploidy: bool,
+    pub comment: Option<String>,
     pub sample_group: Option<String>,
     pub sample_type: Option<String>,
     pub ercc_input: Option<f64>,
@@ -30,13 +31,14 @@ impl SampleSheetEntry {
             _ => return Err(WorkflowUtilityError::SampleSheetEntryFiles(format!("{:?}", files)))
         };
         Ok(SampleSheetEntry { 
+            sample_id: sample_id.into(), 
             run_date: run_date.into(), 
             run_id: run_id.into(), 
-            sample_id: sample_id.into(), 
+            aneuploidy,
+            comment: None,
             sample_group: sample_group.map(str::to_string), 
             sample_type: sample_type.map(str::to_string), 
             ercc_input,
-            aneuploidy,
             forward_path, 
             reverse_path 
         })
@@ -106,7 +108,7 @@ impl SampleSheet {
         Ok(Self { entries })
     }
     pub fn from(input: &PathBuf) -> Result<Self, WorkflowUtilityError> {
-        let mut reader = csv::Reader::from_path(input).map_err(|_| WorkflowUtilityError::SampleSheetCsvReader(format!("{:?}", input)))?;
+        let mut reader = csv::ReaderBuilder::new().from_path(input).map_err(|_| WorkflowUtilityError::SampleSheetCsvReader(format!("{:?}", input)))?;
         let mut entries = Vec::new();
         for record in reader.deserialize() {
             entries.push(record?)
