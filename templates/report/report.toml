@@ -4,7 +4,7 @@
 
 [template]
 file                        = "report.hbs"                       # if path does not start with '/' it is relative to this file 
-logo                        = "logo.png"                         # if path does not start with '/' it is relative to this file
+logo                        = "vidrl.png"                         # if path does not start with '/' it is relative to this file
 name                        = "mgp-cerebro-report-v1.0"
 version                     = "v1.0"
 description                 = "LaTeX template for Cerebro Report"
@@ -24,10 +24,12 @@ activities or services provided by VIDRL under this agreement (including the tim
 """
 disclaimer                  = """
 This metagenomics assay is a research-only assay, under ongoing development, and 
-should only be used in addition to usual diagnostic testing algorithms. Results are not 
-sufficient to rule in or out causative pathogens, and should not be used as the basis 
-for clinical management decisions. Methods used for this analysis have not yet been validated 
-according to the current NPAAC standards and results should be interpreted accordingly.
+should only be used in addition to usual diagnostic testing algorithms. The test has been performed using an
+unapproved IVD medical device that has not been evaluated for quality, safety or performance by the
+Therapeutic Goods Administration. Results are not sufficient to rule in or out causative pathogens, and should 
+not be used as the basis for clinical management decisions. Methods used for this analysis have not yet been 
+validated according to the current NPAAC standards and results should be interpreted accordingly.
+NATA/RCPA accreditation does not cover the performance of this service.
 """
 
 # Authorisation section
