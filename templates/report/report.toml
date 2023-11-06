@@ -3,7 +3,7 @@
 # NO UNDERSCORES OR BACKWARD SLASHES ALLOWED IN VALUES - CHARACTER SANITATION NOT IMPLEMENTED YET
 
 [template]
-file                        = "report.hbs"                       # if path does not start with '/' it is relative to this file 
+file                        = "report.hbs"                        # if path does not start with '/' it is relative to this file 
 logo                        = "vidrl.png"                         # if path does not start with '/' it is relative to this file
 name                        = "mgp-cerebro-report-v1.0"
 version                     = "v1.0"
@@ -34,22 +34,28 @@ NATA/RCPA accreditation does not cover the performance of this service.
 
 # Authorisation section
 
-[[template.authorisation]]
-name                        = "Dr. Chuan Lim"
-position                    = "Acting Director"
-institution                 = "VIDRL"
+[template.authorisation]
 
-# [[template.authorisation]]
+issuing_laboratory_text     = "Issued by the Victorian Infectious Diseases Reference Laboratory (VIDRL), 792 Elizabeth St, Melbourne VIC 3004." 
+report_identifier_text      = "Report identification with MetaGP: XXXX-XXXX-XXXX-XXXX"
+
+
+[[template.authorisation.signature]]
+name                          = "Dr. Chuan Lim"
+position                      = "Acting Director"
+institution                   = "VIDRL"
+
+# [[template.authorisation.signature]]
 # name                        = "Dr. Prashanth Ramachandran"
 # position                    = "Neurologist"
 # institution                 = "Williamson Research Group"
 
-# [[template.authorisation]]
+# [[template.authorisation.signature]]
 # name                        = "Dr. Eike Steinig "
 # position                    = "Bioinformatician"
 # institution                 = "Williamson Research Group"
 
-# [[template.authorisation]]
+# [[template.authorisation.signature]]
 # name                        = "Ms. Marcelina Krysiak"
 # position                    = "Research Assistant"
 # institution                 = "Williamson Research Group"
@@ -62,17 +68,17 @@ toml                        = ""                # optional path to config file, 
 [patient.header]
 toml                        = ""
 
-patient_name                = "Apollo Mojave"
-patient_urn                 = "123456789"
-patient_dob                 = "2023-01-01"
+patient_name                = ""
+patient_urn                 = ""
+patient_dob                 = ""
 requested_doctor            = "Dr. Mycroft Canner"
 hospital_site               = "Royal Melbourne"
 laboratory_number           = "123456789"
 specimen_id                 = "UUID-123456"
-date_collected              = "2023-01-01"
+date_collected              = ""
 date_received               = "2023-01-01"
 specimen_type               = "CSF"
-reporting_laboratory        = "VIDRL"
+reporting_laboratory        = ""
 reporting_date              = "2023-01-01"
 reporting_location          = "Melbourne"
 

@@ -59,6 +59,28 @@
 
 \newcommand{\squad}{\hspace{0.5em} } 
 
+\newcommand{\InlineFillableField}[3]{ 
+  \begin{Form}
+  \raisebox{-.27\baselineskip}{
+    \TextField[name=#1,width=#2,borderstyle=U,bordercolor={white},backgroundcolor={white},charsize=#3]{}
+  }
+  \end{Form}
+}
+
+\newcommand{\FooterFillableField}[3]{ 
+  \begin{Form}
+  \raisebox{-.17\baselineskip}{
+    \TextField[name=#1,width=#2,borderstyle=U,bordercolor={white},backgroundcolor={white},charsize=#3]{}
+  }
+  \end{Form}
+}
+
+\newcommand{\TableFillableField}[1]{ 
+    \raisebox{-.14\baselineskip}{
+      \TextField[name=#1,width=\linewidth,bordercolor={white},backgroundcolor={white}]{}
+    }
+}
+
 %--------------------------------------------
 % Creating Header Style
 %-------------------------------------------
@@ -102,7 +124,8 @@
   \justifying\noindent{\small{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
 }
 
-\rfoot{\scriptsize Patient ID: {{ patient.header.patient_urn }} | Collection Date: {{ patient.header.date_collected }} | Reporting Date: {{ patient.header.reporting_date }} | Location: {{ patient.header.reporting_location }} } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
+\rfoot{
+  \scriptsize Patient ID: {{#if patient.header.patient_urn }} {{ patient.header.patient_urn }} {{else}} \FooterFillableField{footer_patient_urn}{2cm}{9pt} {{/if}} | Collection Date: {{#if patient.header.date_collected}} {{ patient.header.date_collected }} {{else}} \FooterFillableField{footer_date_collected}{2cm}{9pt}  {{/if}}  | Reporting Date: {{ patient.header.reporting_date }} | Location: {{ patient.header.reporting_location }} } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
 
 %---------------
 % MAIN DOCUMENT
@@ -115,22 +138,24 @@
 %  TABLE WITH RELEVANT PATIENT INFORMATION
 %------------------------------------------
 
+% Has to be XX format otherwise fillable fields do not work!
+
 \tabulinesep=5pt
 \noindent 
 \taburulecolor{lightgray}
-\noindent \begin{tabu} to \textwidth {|XU|XU|}
+\noindent \begin{tabu} to \textwidth {|XX|XX|}  
 \hline
-% The table below contains the information that is required by ISO15189 reporting standards
 %-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
-Patient Name      &  {{ patient.header.patient_name }}               & Specimen ID          &  {{ patient.header.specimen_id }}           \\ \hline
-URN Number        &  {{ patient.header.patient_urn }}                & Date Collected       &  {{ patient.header.date_collected }}        \\ \hline
-Date of Birth     &  {{ patient.header.patient_dob }}                & Date Received        &  {{ patient.header.date_received }}         \\ \hline
-Requested Doctor  &  {{ patient.header.requested_doctor }}           & Specimen Type        &  {{ patient.header.specimen_type }}         \\ \hline
-Hospital Site     &  {{ patient.header.hospital_site }}              & Reporting Laboratory &  {{ patient.header.reporting_laboratory }}  \\ \hline
-Laboratory Number &  {{ patient.header.laboratory_number }}          & Reporting Date       &  {{ patient.header.reporting_date }}        \\ \hline
-%-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------
+Patient Name      & {{#if patient.header.patient_name}} {{ patient.header.patient_name }} {{else}} \TableFillableField{header_patient_name} {{/if}}                   & Specimen ID          &  {{#if patient.header.specimen_id}} {{ patient.header.specimen_id }} {{else}} \TableFillableField{header_specimen_id} {{/if}}                                \\ \hline
+URN Number        & {{#if patient.header.patient_urn }} {{ patient.header.patient_urn }} {{else}} \TableFillableField{header_patient_urn} {{/if}}                     & Date Collected       &  {{#if patient.header.date_collected}} {{ patient.header.date_collected }} {{else}} \TableFillableField{header_date_collected} {{/if}}                       \\ \hline
+Date of Birth     & {{#if patient.header.patient_dob }} {{ patient.header.patient_dob }} {{else}} \TableFillableField{header_patient_dob} {{/if}}                     & Date Received        &  {{#if patient.header.date_received}} {{ patient.header.date_received }} {{else}} \TableFillableField{header_date_received} {{/if}}                          \\ \hline
+Requested Doctor  & {{#if patient.header.requested_doctor }} {{ patient.header.requested_doctor }} {{else}} \TableFillableField{header_patient_urn}{{/if}}            & Specimen Type        &  {{#if patient.header.specimen_type}} {{ patient.header.specimen_type }} {{else}} \TableFillableField{header_specimen_type} {{/if}}                         \\ \hline
+Hospital Site     & {{#if patient.header.hospital_site }} {{ patient.header.hospital_site }} {{else}} \TableFillableField{header_hospital_site}{{/if}}                & Reporting Laboratory &  {{#if patient.header.reporting_laboratory}} {{ patient.header.reporting_laboratory }} {{else}} \TableFillableField{header_reporting_laboratory} {{/if}}     \\ \hline
+Laboratory Number & {{#if patient.header.laboratory_number }} {{ patient.header.laboratory_number }} {{else}} \TableFillableField{header_laboratory_number}{{/if}}    & Reporting Date       &  {{#if patient.header.reporting_date}} {{ patient.header.reporting_date }} {{else}} \TableFillableField{header_reporting_date} {{/if}}                       \\ \hline
+
 \end{tabu}
 \vspace{5mm}
+
 
 %----------
 % REFERRAL
@@ -138,8 +163,7 @@ Laboratory Number &  {{ patient.header.laboratory_number }}          & Reporting
 
 \begin{reportSection}{Referral}
 \vspace{5mm}
-
-Thank you for referring your patient \textbf{ {{patient.header.patient_name}}, DOB: {{ patient.header.patient_dob }} } to the Metagenomic next-generation sequencing for improving infectious disease diagnostics and 
+Thank you for referring your patient {{#if patient.header.patient_name}} \textbf{ {{ patient.header.patient_name }} } {{else}} \InlineFillableField{patient_text_name}{6cm}{12pt} {{/if}} {{#if patient.header.patient_dob}} \textbf{DOB:} {{ patient.header.patient_dob }} {{else}} \textbf{DOB:} \InlineFillableField{patient_text_dob}{3cm}{12pt} {{/if}} to the Metagenomic next-generation sequencing for improving infectious disease diagnostics and 
 pathogen discovery clinical research project (MetaGP - HREC/74254/2021.110).
 
 \vspace{5mm}
@@ -244,7 +268,7 @@ For any further questions regarding these results, please contact:
 
 Your patient’s case and data were reviewed and discussed at a multi-disciplinary research team meeting on \textbf{ {{ patient.result.review_date }} }. Results are based on data meeting specific reporting thresholds and clinical relevance.
 
-{{#each template.authorisation as |a| }}
+{{#each template.authorisation.signature as |a| }}
 
 \vspace{20mm}
 
@@ -264,11 +288,11 @@ Your patient’s case and data were reviewed and discussed at a multi-disciplina
 
 \begin{reportSection}{Issuing Laboratory}
 \vspace{3mm}
-\footnotesize{Issued by the Victorian Infectious Diseases Reference Laboratory (VIDRL), 792 Elizabeth St, Melbourne VIC 3004.}
+\footnotesize{ {{ template.authorisation.issuing_laboratory_text }} }
 
 \vspace{3mm}
 
-\footnotesize{Report identification number with MetaGP: XXXX-XXXX-XXXX-XXXX}
+\footnotesize{ {{ template.authorisation.report_identifier_text }} }
 
 \end{reportSection}
 \vspace{5mm}
@@ -305,9 +329,9 @@ Your patient’s case and data were reviewed and discussed at a multi-disciplina
 %-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
 Protocol                     &  {{ s.laboratory.header.protocol }}     & Sample ID               &  {{ s.sample_id }}   \\ \hline
 Version                      &  {{ s.laboratory.header.version }}      & Run ID                  &  {{ s.run_id }}   \\ \hline
-Extraction                   &  {{ s.laboratory.header.extraction }}   & Extraction IC           &  {{ s.laboratory.header.extraction_control }}   \\ \hline
-Ribosomal depletion          &  {{ s.laboratory.header.ribosomal }}    & Library IC              &  {{ s.laboratory.header.library_control }}   \\ \hline
-Adapters/barcodes            &  {{ s.laboratory.header.adapters }}     & Sequencing IC           &  {{ s.laboratory.header.sequencing_control }}   \\ \hline   
+Extraction                   &  {{ s.laboratory.header.extraction }}   & Extraction Control      &  {{ s.laboratory.header.extraction_control }}   \\ \hline
+Ribosomal depletion          &  {{ s.laboratory.header.ribosomal }}    & Library Control         &  {{ s.laboratory.header.library_control }}   \\ \hline
+Adapters/barcodes            &  {{ s.laboratory.header.adapters }}     & Sequencing Control      &  {{ s.laboratory.header.sequencing_control }}   \\ \hline   
 Library kit                  &  {{ s.laboratory.header.library }}      & Negative Control        &  {{ s.laboratory.header.negative_control }}   \\ \hline   
 Sequencer                    &  {{ s.laboratory.header.sequencer }}    & Positive Control        &  {{ s.laboratory.header.positive_control }}   \\ \hline  
 %-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------

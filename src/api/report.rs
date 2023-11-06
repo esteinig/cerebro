@@ -108,7 +108,7 @@ pub struct TemplateConfig {
     pub version: String,
     pub description: String,
     pub legal: TemplateLegal,
-    pub authorisation: Vec<TemplateAuthorisation>,
+    pub authorisation: TemplateAuthorisation,
 
     #[serde(skip_deserializing)]
     pub file_path: PathBuf,
@@ -123,8 +123,16 @@ pub struct TemplateLegal {
     pub disclaimer: String
 }
 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateAuthorisation {
+    pub issuing_laboratory_text: String,
+    pub report_identifier_text: String,
+    pub signature: Vec<AuhtorisationSignature>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuhtorisationSignature {
     pub name: String,
     pub position: String,
     pub institution: String
