@@ -4,7 +4,7 @@
 
 [template]
 file                        = "report.hbs"                        # if path does not start with '/' it is relative to this file 
-logo                        = "vidrl.png"                         # if path does not start with '/' it is relative to this file
+logo                        = "logo.png"                         # if path does not start with '/' it is relative to this file
 name                        = "mgp-cerebro-report-v1.0"
 version                     = "v1.0"
 description                 = "LaTeX template for Cerebro Report"
@@ -37,8 +37,9 @@ NATA/RCPA accreditation does not cover the performance of this service.
 [template.authorisation]
 
 issuing_laboratory_text     = "Issued by the Victorian Infectious Diseases Reference Laboratory (VIDRL), 792 Elizabeth St, Melbourne VIC 3004." 
-report_identifier_text      = "Report identification with MetaGP: XXXX-XXXX-XXXX-XXXX"
+report_identifier_text      = "Report identifier for the MetaGP project: "
 
+# report_identifier         = ""
 
 [[template.authorisation.signature]]
 name                          = "Dr. Chuan Lim"

@@ -128,6 +128,7 @@ pub struct TemplateLegal {
 pub struct TemplateAuthorisation {
     pub issuing_laboratory_text: String,
     pub report_identifier_text: String,
+    pub report_identifier: Option<String>,
     pub signature: Vec<AuhtorisationSignature>
 }
 
@@ -164,6 +165,7 @@ impl ReportSample {
         schema: &ReportSchema,
         template: &TemplateConfig, 
         assay_template: &AssayTemplate, 
+        bioinformatics_template: &BioinformaticsTemplate,
         quality_summaries: &Vec<QualityControlSummary>
     ) -> Self {
         
@@ -187,7 +189,7 @@ impl ReportSample {
                 toml: String::new(),
                 toml_path: None,
 
-                description: schema.workflow.id.clone(), 
+                description: bioinformatics_template.description.clone(), 
                 comments: schema.bioinformatics_comments.clone(), 
                 header: BioinformaticsHeader { 
                     pipeline: schema.workflow.pipeline.clone(), 
@@ -198,8 +200,8 @@ impl ReportSample {
                     libraries: quality_summaries.iter().map(
                         |summary| match &summary.library_tag { Some(tag) => tag.to_string(), None => String::from("ERROR") }
                     ).collect::<Vec<String>>().join(", "), 
-                    configuration: String::from("NATA"), 
-                    databases: String::from("CIPHER 1.0.0"), 
+                    configuration: String::from("CNS-ASSAY"), 
+                    databases: String::from("CIPHER 0.7.0"), 
                     taxonomy: String::from("NCBI")
                 }, 
                 library: quality_summaries.iter().map(
@@ -222,6 +224,11 @@ impl ReportSample {
 pub struct AssayTemplate {
     pub description: String,
     pub header: LaboratoryHeader
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BioinformaticsTemplate {
+    pub description: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -293,9 +300,9 @@ impl BioinformaticsLibrary {
             tag: match &qc_summary.library_tag { Some(tag) => tag.to_string(), None => "ERROR".to_string() },
             reads: qc_summary.total_reads.to_string(),
             reads_qc: qc_summary.output_reads.to_string(),
-            extraction_control: match &qc_summary.extraction_control_status { Some(status) => status.to_string(), None => String::from("N/D") },
-            sequencing_control: match &qc_summary.sequencing_control_status { Some(status) => status.to_string(), None => String::from("N/D") },
-            library_control: match &qc_summary.library_control_status { Some(status) => status.to_string(), None => String::from("N/D") }
+            extraction_control: match &qc_summary.extraction_control_status { Some(status) => status.to_string(), None => String::from("PASS") },
+            sequencing_control: match &qc_summary.sequencing_control_status { Some(status) => status.to_string(), None => String::from("N/A") },
+            library_control: match &qc_summary.library_control_status { Some(status) => status.to_string(), None => String::from("PASS") }
         }
     }
 }
@@ -317,7 +324,7 @@ impl BioinformaticsEvidence {
                 vec![Self {
                     organism: priority_taxon.taxon_overview.name.clone(),
                     taxid: priority_taxon.taxon_overview.taxid.clone(),
-                    rpm: priority_taxon.taxon_overview.rpm.to_string(),
+                    rpm: format!("{}:.1", priority_taxon.taxon_overview.rpm),
                     contigs: priority_taxon.taxon_overview.contigs.to_string(),
                     negative_control: match schema.priority_taxon_negative_control { Some(v) => v, None => false },
                     other: schema.priority_taxon_other_evidence.clone()
@@ -347,7 +354,8 @@ pub struct ReportConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClinicalReport {
-    config: ReportConfig
+    pub id: uuid::Uuid,
+    pub config: ReportConfig
 }
 impl ClinicalReport {
     pub fn from_toml(base_config: &PathBuf, patient_config: Option<PathBuf>, patient_header_config: Option<PathBuf>, patient_result_config: Option<PathBuf>, sample_configs: Option<Vec<PathBuf>>) -> Result<Self, ReportError>  {
@@ -355,7 +363,8 @@ impl ClinicalReport {
         let toml_str = std::fs::read_to_string(base_config).map_err(|err| ReportError::TomlConfigFile(err))?;
         let config: ReportConfig = toml::from_str(&toml_str).map_err(|err| ReportError::TomlConfigParse(err))?;
 
-        let mut report_config = Self { config };
+        let report_id = uuid::Uuid::new_v4();
+        let mut report_config = Self { id: report_id, config };
 
         // Adjusts relative paths from input configuration
         report_config.config.template.file_path = get_adjusted_path(&report_config.config.template.file, base_config);
@@ -523,18 +532,31 @@ impl ClinicalReport {
 
         report_config.config.sample = samples;
 
+        // Set the ClinicalReport UUID as the templated report identifier if the option is not present in the parsed template
+        if let None = report_config.config.template.authorisation.report_identifier {
+            report_config.config.template.authorisation.report_identifier = Some(report_id.to_string());
+        }
+        
+
 
         Ok(report_config)
     }
     // Configures the clinical report in API
     pub fn from_api(
         schema: &ReportSchema, 
-        template: &TemplateConfig, 
+        template: &mut TemplateConfig, 
         assay_template: &AssayTemplate, 
+        bioinformatics_template: &BioinformaticsTemplate, 
         quality_summaries: &Vec<QualityControlSummary> 
     ) -> Self {
+        
+
+        // Always set the ClinicalReport UUID as the report identifier via API
+        let report_id = uuid::Uuid::new_v4();
+        template.authorisation.report_identifier = Some(report_id.to_string());
 
         Self {
+            id: report_id,
             config: ReportConfig { 
                 template: template.clone(),
                 patient: ReportPatient { 
@@ -544,7 +566,7 @@ impl ClinicalReport {
                     toml_path: None
                 },
                 sample: vec![
-                    ReportSample::from_api(schema, template, assay_template, quality_summaries)
+                    ReportSample::from_api(schema, template, assay_template, bioinformatics_template, quality_summaries)
                 ]
             }
         }

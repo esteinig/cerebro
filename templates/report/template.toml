@@ -31,8 +31,9 @@ NATA/RCPA accreditation does not cover the performance of this service.
 
 [authorisation]
 issuing_laboratory_text     = "Issued by the Victorian Infectious Diseases Reference Laboratory (VIDRL), 792 Elizabeth St, Melbourne VIC 3004." 
-report_identifier_text      = "Report identification with MetaGP: XXXX-XXXX-XXXX-XXXX"
+report_identifier_text      = "Report identifier for the MetaGP project: "
 
+# report_identifier           = ""
 
 [[authorisation.signature]]
 name                        = "Dr. Chuan Lim"

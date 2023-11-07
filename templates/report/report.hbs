@@ -125,7 +125,7 @@
 }
 
 \rfoot{
-  \scriptsize Patient ID: {{#if patient.header.patient_urn }} {{ patient.header.patient_urn }} {{else}} \FooterFillableField{footer_patient_urn}{2cm}{9pt} {{/if}} | Collection Date: {{#if patient.header.date_collected}} {{ patient.header.date_collected }} {{else}} \FooterFillableField{footer_date_collected}{2cm}{9pt}  {{/if}}  | Reporting Date: {{ patient.header.reporting_date }} | Location: {{ patient.header.reporting_location }} } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
+  \scriptsize Patient ID: {{#if patient.header.patient_urn }} {{ patient.header.patient_urn }} {{else}} \FooterFillableField{footer_patient_urn}{2cm}{8pt} {{/if}} | Collection Date: {{#if patient.header.date_collected}} {{ patient.header.date_collected }} {{else}} \FooterFillableField{footer_date_collected}{2cm}{8pt}  {{/if}}  | Reporting Date: {{#if patient.header.reporting_date}} {{ patient.header.reporting_date }} {{else}} \FooterFillableField{footer_patient_reporting_date}{2cm}{8pt} {{/if}}   | Location: {{#if patient.header.reporting_location}} {{ patient.header.reporting_location }} {{else}} \FooterFillableField{footer_patient_reporting_location}{2cm}{8pt} {{/if}}  } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
 
 %---------------
 % MAIN DOCUMENT
@@ -169,7 +169,7 @@ pathogen discovery clinical research project (MetaGP - HREC/74254/2021.110).
 \vspace{5mm}
 
 Metagenomic sequencing and analysis is complete, your patient’s case and data were 
-reviewed and discussed during a multi-disciplinary research team meeting on\textbf{ {{patient.result.review_date}}. }
+reviewed and discussed during a multi-disciplinary research team meeting on {{#if patient.result.review_date}} \textbf{ {{ patient.result.review_date }} } {{else}} \InlineFillableField{patient_result_review_date}{4cm}{12pt} {{/if}}
 
 \vspace{5mm}
 
@@ -219,7 +219,8 @@ Please refer to the appendices for details regarding the sequencing results.
 For any further questions regarding these results, please contact:
 
 \vspace{3mm}
-{{ patient.result.contact }}
+{{#if patient.result.contact}} \textbf{ {{ patient.result.contact }} } {{else}} \InlineFillableField{patient_result_contaxt}{10cm}{12pt} {{/if}}
+
 \vspace{1mm}
 \end{reportSection}
 \vspace{5mm}
@@ -266,7 +267,7 @@ For any further questions regarding these results, please contact:
 \begin{reportSection}{Authorisation}
 \vspace{5mm}
 
-Your patient’s case and data were reviewed and discussed at a multi-disciplinary research team meeting on \textbf{ {{ patient.result.review_date }} }. Results are based on data meeting specific reporting thresholds and clinical relevance.
+Your patient’s case and data were reviewed and discussed at a multi-disciplinary research team meeting on {{#if patient.result.review_date}} \textbf{ {{ patient.result.review_date }} } {{else}} \InlineFillableField{patient_result_review_date}{4cm}{12pt} {{/if}}. Results are based on data meeting specific reporting thresholds and clinical relevance.
 
 {{#each template.authorisation.signature as |a| }}
 
@@ -292,7 +293,7 @@ Your patient’s case and data were reviewed and discussed at a multi-disciplina
 
 \vspace{3mm}
 
-\footnotesize{ {{ template.authorisation.report_identifier_text }} }
+\footnotesize{ {{ template.authorisation.report_identifier_text }} {{ template.authorisation.report_identifier }} }
 
 \end{reportSection}
 \vspace{5mm}

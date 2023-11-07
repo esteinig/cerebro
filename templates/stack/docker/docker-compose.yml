@@ -101,15 +101,17 @@ services:
     expose:
       - 8080
     volumes:
-       {{#if dev }}
+      {{#if dev }}
       # Path mount for application in development
       - {{{ dev }}}:/usr/src/cerebro
+      - {{{ dev }}}/templates/email:/data/templates/email:ro
+      - {{{ dev }}}/templates/report:/data/templates/report:ro
       {{else}}
-      # Volume mount for application in production
+      # Volume mount for application in production deployment
       - cerebro_api:/data
-      {{/if}}
       - {{{ outdir }}}/templates/email:/data/templates/email:ro
       - {{{ outdir }}}/templates/report:/data/templates/report:ro
+      {{/if}}
     networks:
       - cerebro
       - proxy

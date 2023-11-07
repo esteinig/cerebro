@@ -9,7 +9,7 @@ use base64::{engine::general_purpose, Engine as _};
 
 use crate::api::auth::jwt;
 use crate::api::config::Config;
-use crate::api::report::{TemplateConfig, AssayTemplate};
+use crate::api::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
 use crate::api::users::model::Role;
 use crate::api::utils::{as_csv_string, get_teams_db_collection};
 use crate::pipeline::filters::*;
@@ -290,7 +290,7 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report.id, report_text, is_pdf, &access_details).await
 }
 
 
@@ -335,7 +335,7 @@ async fn create_tex_report_handler(request: HttpRequest, data: web::Data<AppStat
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report.id, report_text, is_pdf, &access_details).await
 }
 
 
@@ -1454,8 +1454,8 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
     template_config.file_path = PathBuf::from("/data/templates/report/report.hbs");
     template_config.logo_path = PathBuf::from("/data/templates/report/logo.png");
 
-     // Read the requested template from file
-     let assay_str = match std::fs::read_to_string("/data/templates/report/assay.toml") {
+    // Read the requested template from file
+    let assay_str = match std::fs::read_to_string("/data/templates/report/assay.toml") {
         Ok(assay_str) => assay_str,
         Err(_) => return Err(HttpResponse::InternalServerError().json(
             serde_json::json!({"status": "fail", "message": "Failed to read the assay template configuration file" })
@@ -1470,9 +1470,25 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
         ))
     }; 
 
+     // Read the requested template from file
+     let bioinfo_str = match std::fs::read_to_string("/data/templates/report/bioinformatics.toml") {
+        Ok(bioinfo_str) => bioinfo_str,
+        Err(_) => return Err(HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "fail", "message": "Failed to read the bioinformatics template configuration file" })
+        ))
+    };
+
+    // Read the requested assay template from file
+    let bioinfo_config: BioinformaticsTemplate = match toml::from_str(&bioinfo_str) {
+        Ok(config) => config,
+        Err(_) => return Err(HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "fail", "message": "Failed to read the bioinformatics template configuration TOML" })
+        ))
+    }; 
+
     // Create the report from schema and templates
     Ok(
-        ClinicalReport::from_api(&report_schema, &template_config, &assay_config, &quality_summaries)
+        ClinicalReport::from_api(&report_schema, &mut template_config, &assay_config, &bioinfo_config, &quality_summaries)
     )
     
 
@@ -1483,6 +1499,7 @@ async fn store_and_log_report(
     project_collection: &Collection<Cerebro>,  
     report_schema: &web::Json<ReportSchema>,
     mongo_db_name: &String,
+    report_id: uuid::Uuid,
     report_text: String,
     is_pdf: bool,
     access_details: &AccessDetails
@@ -1490,7 +1507,7 @@ async fn store_and_log_report(
 
     // Create a report entry for team database storage that includes the compiled report
     let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, "reports");
-    let mut report_entry = ReportEntry::from_schema(&report_schema, Some(report_text.clone()), Some(is_pdf));
+    let mut report_entry = ReportEntry::from_schema(report_id.to_string(), &report_schema, Some(report_text.clone()), Some(is_pdf));
 
     match reports_collection.insert_one(
         &report_entry, None
