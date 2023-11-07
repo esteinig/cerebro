@@ -161,9 +161,9 @@ pub struct ReportEntry {
     pub report_pdf: Option<bool>
 }
 impl ReportEntry {
-    pub fn from_schema(schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
+    pub fn from_schema(id: String, schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
         Self {
-            id: uuid::Uuid::new_v4().to_string(),
+            id,
             date: Utc::now().to_string(),
             user_id: schema.user_id.clone(),
             user_name: schema.user_name.clone(),

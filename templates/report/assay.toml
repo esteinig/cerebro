@@ -6,8 +6,8 @@ respectively. Libraries were size selected and quantified using the Agilent Tape
 """
 
 [header]
-protocol                    = "DW-SOP028"
-version                     = "1.0"
+protocol                    = "DW-SOP-028"
+version                     = "0.7.0-dev.1"
 extraction                  = "QIAGEN EZ1"
 ribosomal                   = "QIAGEN FastSelect"
 adapters                    = "NEBNext Dual Index"
@@ -15,6 +15,6 @@ library                     = "NEBNext Ultra II"
 sequencer                   = "ILLUMINA NextSeq"
 extraction_control          = "MONASH T4"
 library_control             = "INVITROGEN ERCC"
-sequencing_control          = "NextSeq PhiX"
-negative_control            = ""                # multi-sample string
-positive_control            = ""                # multi-sample string
+sequencing_control          = "N/A"
+negative_control            = "TRUE"               # multi-sample string
+positive_control            = "FALSE"              # multi-sample string

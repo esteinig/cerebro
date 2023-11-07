@@ -2,7 +2,7 @@
 
     import { page } from "$app/stores";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
-	import { getDateTimeString } from "$lib/utils/helpers";
+	import { baseTags, getDateTimeString } from "$lib/utils/helpers";
     import type { Cerebro, PatientHeaderSchema, PatientResultSchema, PriorityTaxon, ReportSchema, WorkflowConfig } from "$lib/utils/types";
 	import { getToastStore, RadioGroup, RadioItem, SlideToggle, type ToastSettings } from "@skeletonlabs/skeleton";
     
@@ -21,6 +21,9 @@
 
     let secureDataSubmission: boolean = true;
     let noPermissionMessage: string = "Not permitted";
+
+    let sampleIsNegative: boolean = false;
+    let taxonNegativeControl: boolean = false;
 
     // Report parameters
 
@@ -44,21 +47,21 @@
             date_received: "",
             specimen_type: "",
             reporting_laboratory: "",
-            reporting_date: new Date().toLocaleString(),
+            reporting_date: "",
             reporting_location: "",
         } satisfies PatientHeaderSchema,
         patient_result: {
             review_date: "",
-            negative: true,
+            negative: sampleIsNegative,
             organism: "",
             contact: "",
-            comments: "",
-            actions: "",
+            comments: "No further comments.",
+            actions: "No further actions taken.",
         } satisfies PatientResultSchema,
-        laboratory_comments: "",
-        bioinformatics_comments: "",
+        laboratory_comments: "No further comments.",
+        bioinformatics_comments: "No further comments.",
         priority_taxon: selectedPriorityTaxon,
-        priority_taxon_negative_control: false,
+        priority_taxon_negative_control: taxonNegativeControl,
         priority_taxon_other_evidence: ""
     }
 
@@ -67,12 +70,14 @@
     $: {
         reportSchema.patient_result.negative = selectedPriorityTaxon === null ? true : false;
         reportSchema.patient_result.organism = selectedPriorityTaxon === null ? "NEGATIVE" : selectedPriorityTaxon.taxon_overview.name;
+        reportSchema.patient_result.negative = selectedPriorityTaxon === null ? sampleIsNegative = true : sampleIsNegative = false;
         reportSchema.priority_taxon = selectedPriorityTaxon;
     }
+    
 
     $: {
         reportSchema.ids = selectedIdentifiers;
-        reportSchema.run_id = selectedModels.map(cerebro => cerebro.run.id).join(", ");
+        reportSchema.run_id = selectedModels.map(cerebro => cerebro.run.id).filter((value, index, self) => self.findIndex(v => v === value) === index).join(", ");
     }
 
 
@@ -89,7 +94,7 @@
         // values in the field displays
         reportSchemaDefault = structuredClone(reportSchema);
 
-        // Sanitize report schema inputs for Latex compiler (escape underscores)
+        // Sanitize report schema inputs for Latex compiler (escape underscores and forward slashes)
         reportSchema.sample_id = sanitizeLatexString(reportSchema.sample_id)
         reportSchema.run_id = sanitizeLatexString(reportSchema.run_id)
         reportSchema.patient_result.comments = sanitizeLatexString(reportSchema.patient_result.comments)
@@ -175,7 +180,7 @@
                 </label>
                 <label class="label">
                     <span class="text-sm opacity-60">Reporting date</span>
-                    <input type="text" class="input text-sm"  bind:value={reportSchema.patient_header.reporting_date} disabled required/>
+                    <input type="text" class="input text-sm"  bind:value={reportSchema.patient_header.reporting_date} required={requireFields} />
                 </label>
                 <label class="label">
                     <span class="text-sm opacity-60">Reporting location</span>
@@ -204,7 +209,7 @@
                 </label>
                 <label class="label">
                     <span class="text-sm opacity-60">Libraries</span>
-                    <input type="text" class="input text-sm" value="{selectedModels.map(cerebro => cerebro.sample.tags.join("-")).join(", ")}" disabled/>
+                    <input type="text" class="input text-sm" value="{baseTags(selectedModels.map(cerebro => cerebro.sample.tags), true).join(", ")}" disabled/>
                 </label>
             </div>
         </div>
@@ -214,7 +219,7 @@
             Diagnostic result to be reported. Organism must be recorded as candidate first. Multiple organism must be reported separately.
         </p>
         <div class="p-4">
-            <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-12 w-full pb-10">
+            <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-12 w-full pb-10 align-center items-center">
                 <label class="label">
                     <span class="text-sm opacity-60">Organism</span>
                     <input type="text" class="input text-sm {reportSchema.patient_result.organism === "NEGATIVE" ? "" : "italic"}" bind:value="{reportSchema.patient_result.organism}" disabled />
@@ -222,6 +227,12 @@
                 <label class="label">
                     <span class="text-sm opacity-60">Results reviewed on</span>
                     <input type="text" class="input text-sm" bind:value={reportSchema.patient_result.review_date}  placeholder="DD/MM/YYYY" required={requireFields}  />
+                </label>
+                <label class="label flex align-center items-center">
+                    <div>
+                        <input class="checkbox" type="checkbox" checked={sampleIsNegative} />
+                    </div>
+                    <div class="opacity-60 text-sm ml-3 w-1/2">Sample is negative</div>
                 </label>
             </div>
 
@@ -233,11 +244,11 @@
 
                 <label class="label">
                     <span class="text-sm opacity-60">General comments</span>
-                    <textarea class="textarea text-sm" value="" placeholder="Additional comments on results" required={requireFields} />
+                    <textarea class="textarea text-sm" bind:value={reportSchema.patient_result.comments} placeholder="Additional comments on results" required={requireFields} />
                 </label>
                 <label class="label">
                     <span class="text-sm opacity-60">Actions taken</span>
-                    <textarea class="textarea text-sm" value="" placeholder="Actions taken based on results" required={requireFields} />
+                    <textarea class="textarea text-sm" bind:value={reportSchema.patient_result.actions} placeholder="Actions taken based on results" required={requireFields} />
                 </label>
             </div>
         </div>
@@ -330,7 +341,7 @@
                     </label>
                     <label class="label flex align-center items-center">
                         <div>
-                            <input class="checkbox" type="checkbox" checked={false} />
+                            <input class="checkbox" type="checkbox" checked={taxonNegativeControl} />
                         </div>
                         <div class="opacity-60 text-sm ml-3 w-1/2">Organism occurs at significant levels in negative controls</div>
                     </label>
