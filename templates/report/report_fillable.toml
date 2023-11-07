@@ -1,0 +1,190 @@
+# Report configuration 
+
+# NO UNDERSCORES OR BACKWARD SLASHES ALLOWED IN VALUES - CHARACTER SANITATION NOT IMPLEMENTED YET
+
+[template]
+file                        = "report.hbs"                        # if path does not start with '/' it is relative to this file 
+logo                        = "vidrl.png"                         # if path does not start with '/' it is relative to this file
+name                        = "mgp-cerebro-report-v1.0"
+version                     = "v1.0"
+description                 = "LaTeX template for Cerebro Report"
+
+# Legal section of template
+
+[template.legal]
+disclosure                  = """
+This report overrides all previous reports. The results relate solely to the sample/s as received and are limited to the specific tests undertaken as listed on the report. The results of this report are confidential
+and are not to be used or disclosed to any other person or used for any other purpose, whether directly or indirectly, unless that use is disclosed or the purpose is expressly authorised in writing by
+the Victorian Infectious Diseases Reference Laboratory (VIDRL) and the named recipient on this report. 
+"""
+liability                   = """
+To the fullest extent permitted by law, VIDRL will not be liable for any loss or claim (including legal costs calculated on an indemnity
+basis) which arise because of (a) problems related to the merchantability, fitness or quality of the sample/s, or (b) any negligent or unlawful act or omissions by VIDRL that is connected with any
+activities or services provided by VIDRL under this agreement (including the timing and/or method under which the sample/s were taken, stored or transported)
+"""
+disclaimer                  = """
+This metagenomics assay is a research-only assay, under ongoing development, and 
+should only be used in addition to usual diagnostic testing algorithms. The test has been performed using an
+unapproved IVD medical device that has not been evaluated for quality, safety or performance by the
+Therapeutic Goods Administration. Results are not sufficient to rule in or out causative pathogens, and should 
+not be used as the basis for clinical management decisions. Methods used for this analysis have not yet been 
+validated according to the current NPAAC standards and results should be interpreted accordingly.
+NATA/RCPA accreditation does not cover the performance of this service.
+"""
+
+# Authorisation section
+
+[template.authorisation]
+
+issuing_laboratory_text     = "Issued by the Victorian Infectious Diseases Reference Laboratory (VIDRL), 792 Elizabeth St, Melbourne VIC 3004." 
+report_identifier_text      = "Report identification with MetaGP: XXXX-XXXX-XXXX-XXXX"
+
+
+[[template.authorisation.signature]]
+name                          = "Dr. Chuan Lim"
+position                      = "Acting Director"
+institution                   = "VIDRL"
+
+# [[template.authorisation.signature]]
+# name                        = "Dr. Prashanth Ramachandran"
+# position                    = "Neurologist"
+# institution                 = "Williamson Research Group"
+
+# [[template.authorisation.signature]]
+# name                        = "Dr. Eike Steinig "
+# position                    = "Bioinformatician"
+# institution                 = "Williamson Research Group"
+
+# [[template.authorisation.signature]]
+# name                        = "Ms. Marcelina Krysiak"
+# position                    = "Research Assistant"
+# institution                 = "Williamson Research Group"
+
+# Patient and results
+
+[patient]
+toml                        = ""                # optional path to config file, path string interpreted same as [template.path]
+
+[patient.header]
+toml                        = ""
+
+patient_name                = ""
+patient_urn                 = ""
+patient_dob                 = ""
+requested_doctor            = ""
+hospital_site               = ""
+laboratory_number           = ""
+specimen_id                 = ""
+date_collected              = ""
+date_received               = ""
+specimen_type               = ""
+reporting_laboratory        = ""
+reporting_date              = "2023-01-01"
+reporting_location          = "Melbourne"
+
+[patient.result]
+toml                        = ""
+
+review_date                 = "Friday, 4th of August 2023"    
+negative                    = false            
+organism                    = "Cryptococcus gattii"
+contact                     = "Dr. Mycroft Canner, VIDRL"
+comments                    = "No further comments."
+actions                     = "No actions were taken."
+
+
+# ====================
+# SAMPLE #1 Appendices
+# ====================
+
+# Appendix A: Laboratory Protocol
+
+[[sample]]
+toml                       = ""
+
+sample_id                  = "DW-63-41"
+run_id                     = "MGP-230728005"
+negative                   = false
+
+[sample.laboratory]
+toml                        = ""                # optional path to config file, path string interpreted same as [template.path]
+description                 = """
+CSF was extracted using the QIAGEN EZ1 platform and EZ1 kits. Total nucleic acid was split, with half treated with DNase for RNA library preparation. 
+A positive and negative template control were run alongside clinical samples. DNA and RNA libraries were prepared using the NEB NEBNext Ultra II FS DNA and
+NEBNext Ultra II RNA library preparation kit, with the use of NEBNext Dual Index Barcodes. EDCC and ERCC internal controls were spiked into DNA and RNA libraries 
+respectively. Libraries were size selected and quantified using the Agilent TapeStation and the Invitrogen Qubit 4 Fluorometer. 
+"""
+comments                    = "No further comments."
+
+[sample.laboratory.header]
+protocol                    = "DW-SOP028"
+version                     = "1.0"
+extraction                  = "QIAGEN EZ1"
+ribosomal                   = "QIAGEN FastSelect"
+adapters                    = "NEBNext Dual Index"
+library                     = "NEBNext Ultra II"
+sequencer                   = "ILLUMINA NextSeq"
+extraction_control          = "Monash T4 + MS2"
+library_control             = "INVITROGEN ERCC"
+sequencing_control          = "NextSeq PhiX"
+negative_control            = ""                # multi-sample string
+positive_control            = ""                # multi-sample string
+
+# Appendix B: Bioinformatics Pipeline
+
+[sample.bioinformatics]
+toml                        = ""                # optional path to config file, path string interpreted same as [template.path]
+description                 = """
+DNA, RNA and control libraries were processed through read quality filters and host sequence depletion. Taxonomic classifications 
+were conducted on reads and assembled contigs using multiple approaches (k-mer, alignment, assembly) against multiple reference databases, 
+including all sequence data available at the National Center for Biotechnology Information (NCBI, 2023-08-01). Classifications were aggregated 
+and standardised against the reference taxonomy at species-level. Quality control and species classifications were evaluated by the core research 
+team. Candidate taxa and clinical relevance were reviewed at a multi-disciplinary research team meeting.
+"""
+comments                    = "No further comments."
+
+[sample.bioinformatics.header]
+pipeline                    = "mgp-cerebro"
+version                     = "0.5.0"
+run_id                      = "0a2e903"
+started                     = "2023-03-25, 15:36"
+completed                   = "2023-03-25, 16:36"
+libraries                   = "DNA, RNA, NTC"
+configuration               = "SOP028-CNS 1.0"
+databases                   = "CIPHER-CNS 1.0"
+taxonomy                    = "NCBI"
+
+[[sample.bioinformatics.library]]
+tag                        = "RNA"
+reads                      = "200000"
+reads_qc                   = "23"
+extraction_control         = "OK"
+library_control            = "OK"
+sequencing_control         = "OK"
+
+[[sample.bioinformatics.library]]
+tag                        = "DNA"
+reads                      = "200000"
+reads_qc                   = "23"
+extraction_control         = "OK"
+library_control            = "OK"
+sequencing_control         = "OK"
+
+[[sample.bioinformatics.evidence]]
+organism                   = "Cryptococcus gattii"
+taxid                      = "11576"
+rpm                        = "20.7"
+contigs                    = "22"
+negative_control           = false
+
+# Appendix C: Audit
+
+[sample.audit]
+include                     = false
+decisions                   = []
+models                      = []
+
+
+# Appendix D: Tools
+
+
