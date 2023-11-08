@@ -324,7 +324,7 @@ impl BioinformaticsEvidence {
                 vec![Self {
                     organism: priority_taxon.taxon_overview.name.clone(),
                     taxid: priority_taxon.taxon_overview.taxid.clone(),
-                    rpm: format!("{}:.1", priority_taxon.taxon_overview.rpm),
+                    rpm: format!("{:.1}", priority_taxon.taxon_overview.rpm),
                     contigs: priority_taxon.taxon_overview.contigs.to_string(),
                     negative_control: match schema.priority_taxon_negative_control { Some(v) => v, None => false },
                     other: schema.priority_taxon_other_evidence.clone()
