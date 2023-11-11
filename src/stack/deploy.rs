@@ -338,6 +338,8 @@ impl<'de> Deserialize<'de> for TraefikDeployment {
 pub struct TraefikConfig {
     pub deploy: TraefikDeployment,
     pub launch: bool,
+    pub api_subdomain: String,
+    pub app_subdomain: String,
     pub network: TraefikNetwork,   
     pub localhost: TraefikLocalhostConfig,
     pub web: TraefikWebConfig,
@@ -620,20 +622,20 @@ impl Stack {
         // Configure server and application
         if self.traefik.is_localhost {
            // Localhost specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("{}://app.{}", self.traefik.localhost.entrypoint, self.traefik.localhost.domain);
+            server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint,  self.traefik.app_subdomain, self.traefik.localhost.domain);
             server_config.security.cookies.domain = self.traefik.localhost.domain.clone();
             if self.traefik.localhost.tls {
                 server_config.security.cookies.secure = true;
             } else {
                 server_config.security.cookies.secure = false;
             }
-            self.cerebro.app.public_cerebro_api_url =  format!("{}://api.{}", self.traefik.localhost.entrypoint, self.traefik.localhost.domain);
+            self.cerebro.app.public_cerebro_api_url =  format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.api_subdomain, self.traefik.localhost.domain);
         } else {
             // Web specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("https://app.{}", self.traefik.web.domain);
+            server_config.security.cors.app_origin_public_url = format!("https://{}.{}", self.traefik.app_subdomain, self.traefik.web.domain);
             server_config.security.cookies.domain = self.traefik.web.domain.clone();
             server_config.security.cookies.secure = true;
-            self.cerebro.app.public_cerebro_api_url =  format!("https://api.{}", self.traefik.web.domain);
+            self.cerebro.app.public_cerebro_api_url =  format!("https://{}.{}", self.traefik.api_subdomain, self.traefik.web.domain);
         }
         
         // Cookie settings for refresh access token issued by application server hook

@@ -21,9 +21,8 @@ RUN apt-get update && apt-get install -y \
 USER cerebro-api
 WORKDIR /usr/src/cerebro
 
-
-
 {{#if dev }}
+# Docker build context is in linked repository
 COPY ./src src
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
@@ -31,13 +30,15 @@ COPY ./Cargo.toml Cargo.toml
 RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
 {{/if}}
 
+# Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
+# launching the container and using the reporting functions for the first time - otherwise
+# the first request for a report will take a long time to complete
 
 ENV PATH="${PATH}:/opt/cerebro/bin"
-RUN cargo build --release --features pdf
-RUN cp target/release/cerebro /opt/cerebro/bin
+RUN cargo build --release --features pdf && \
+    mkdir -p /opt/cerebro/bin && \
+    cp target/release/cerebro /opt/cerebro/bin
+
 WORKDIR /opt/cerebro
 
 RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/report.toml --output test.pdf --pdf && rm test.pdf
-
-
-# USER IS CURRENTLY ROOT BECAUSE OF TECTONIC DEPENDENCIES - CHANGE THIS

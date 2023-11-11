@@ -7,10 +7,10 @@ ENV NODE_ENV=production
 FROM node:18-bookworm AS builder
 
 {{#if dev }}
+# In development mode we mount the application path into the container
 WORKDIR /app
 COPY ./app/package*.json ./
 RUN npm install
-# In development mode we mount the application path into the container
 {{else}}
 WORKDIR /src
 # In production mode we download the application directory and build from revision branch
