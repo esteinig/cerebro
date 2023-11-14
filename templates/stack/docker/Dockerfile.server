@@ -18,7 +18,6 @@ RUN apt-get update && apt-get install -y \
 # enable features for Tectonic so the default version ships
 # without the Latex compiler (system-dependencies)
 
-USER cerebro-api
 WORKDIR /usr/src/cerebro
 
 {{#if dev }}
@@ -27,7 +26,10 @@ COPY ./src src
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 {{else}}
-RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
+COPY ./cerebro/src src
+COPY ./cerebro/templates templates
+COPY ./cerebro/Cargo.toml Cargo.toml
+# RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
 {{/if}}
 
 # Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
@@ -41,4 +43,6 @@ RUN cargo build --release --features pdf && \
 
 WORKDIR /opt/cerebro
 
-RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/report.toml --output test.pdf --pdf && rm test.pdf
+RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
+
+# USER cerebro-api - currently might not be able to compile

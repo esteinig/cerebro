@@ -44,7 +44,7 @@ services:
       dockerfile: {{{ outdir }}}/docker/Dockerfile.app
     restart: unless-stopped
     {{#if dev }}
-    # Development run server 
+    # Development run server - DO NOT RUN IN PRODUCTION
     command: npm run dev
     {{else}}
     # Production run of build
@@ -57,7 +57,7 @@ services:
       # Path mount for linked repository in development deployment (local dev)
       - {{{ dev }}}/app:/home/node/app
       {{/if}}
-      - {{{ outdir }}}/cerebro/app.env:/home/node/app/.env:ro
+      - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
     networks:
       - cerebro
       - proxy
@@ -98,14 +98,14 @@ services:
     expose:
       - 8080
     volumes:
-       {{#if dev }}
+      {{#if dev }}
       # Path mount of linked repository in development deployment
       - {{{ dev }}}:/usr/src/cerebro
       - {{{ dev }}}/templates:/data/templates:ro
       {{else}}
       # Volume mount for application in production deployment
       - cerebro_api:/data
-      - {{{ outdir }}}/templates:/data/templates:ro
+      - {{{ outdir }}}/cerebro/templates:/data/templates:ro
       {{/if}}
     networks:
       - cerebro
@@ -206,7 +206,7 @@ volumes:
 networks:
   cerebro:
     external: false
-    name: {{{ name }}}_cerebro
+    name: {{{ name }}}
   proxy:
     name: {{{ traefik.network.name }}}   
     external: {{{ traefik.network.external }}}
@@ -214,9 +214,7 @@ networks:
 # Do not need to use files as secrets necessarily but allows for easier environmental variable settings
 secrets:
   cerebro_config:
-    file: {{{ outdir }}}/cerebro/server.toml
+    file: {{{ outdir }}}/cerebro_api/server.toml
   mongodb_config:
     file: {{{ outdir }}}/mongodb/database.env
- 
- 
   

@@ -1,9 +1,3 @@
-{{#if dev }}
-ENV NODE_ENV=development
-{{else}}
-ENV NODE_ENV=production
-{{/if}}
-
 FROM node:18-bookworm AS builder
 
 {{#if dev }}
@@ -12,16 +6,21 @@ WORKDIR /app
 COPY ./app/package*.json ./
 RUN npm install
 {{else}}
-WORKDIR /src
 # In production mode we download the application directory and build from revision branch
-RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && mv cerebro/app /app
+# RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && mv cerebro/app /app
 WORKDIR /app
+COPY ./cerebro/app ./
 RUN npm install
 RUN npm run build
 {{/if}}
 
-
 FROM node:18-bookworm
+
+{{#if dev }}
+ENV NODE_ENV=development
+{{else}}
+ENV NODE_ENV=production
+{{/if}}
 
 WORKDIR /home/node/app
 COPY --from=builder /app/package.json .

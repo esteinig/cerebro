@@ -243,7 +243,7 @@ impl ReportFiles {
         Ok(Self {
             tex: match ReportTemplates::get("report/report.hbs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/report.hbs"))) },
             logo: match ReportTemplates::get("report/logo.png") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/logo.png"))) },
-            config: match ReportTemplates::get("report/report.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/report.toml"))) },
+            config: match ReportTemplates::get("report/test.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/test.toml"))) },
             assay: match ReportTemplates::get("report/assay.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/assay.toml"))) },
             template: match ReportTemplates::get("report/template.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/template.toml"))) },
       
@@ -406,7 +406,7 @@ pub struct StackConfigTree {
     certs: PathBuf,
     docker: PathBuf,
     traefik: PathBuf,
-    cerebro: PathBuf,
+    cerebro_api: PathBuf,
     mongodb: PathBuf,
     assets: PathBuf,
     report: PathBuf,
@@ -420,7 +420,7 @@ impl StackConfigTree {
             certs: outdir.join("certs"),
             docker: outdir.join("docker"),
             traefik: outdir.join("traefik"),
-            cerebro: outdir.join("cerebro"),
+            cerebro_api: outdir.join("cerebro_api"),
             mongodb: outdir.join("mongodb"),
             report: outdir.join("templates").join("report"),
             email: outdir.join("templates").join("email"),
@@ -435,7 +435,7 @@ impl StackConfigTree {
             self.certs.clone(), 
             self.docker.clone(), 
             self.traefik.clone(), 
-            self.cerebro.clone(), 
+            self.cerebro_api.clone(), 
             self.mongodb.clone(), 
             self.assets.clone(),
             self.email.clone(),
@@ -579,7 +579,7 @@ impl Stack {
         write_embedded_file(&stack_assets.report.logo, &dir_tree.report.join("logo.png"))?;
         write_embedded_file(&stack_assets.report.assay, &dir_tree.report.join("assay.toml"))?;
         write_embedded_file(&stack_assets.report.template, &dir_tree.report.join("template.toml"))?;
-        write_embedded_file(&stack_assets.report.config, &dir_tree.report.join("report.toml"))?;
+        write_embedded_file(&stack_assets.report.config, &dir_tree.report.join("test.toml"))?;
 
         Ok(())
     }
@@ -655,7 +655,7 @@ impl Stack {
         );
 
         // Write the modified server config
-        server_config.to_toml(&dir_tree.cerebro.join("server.toml")).map_err(|_: ConfigError| StackConfigError::ConfigFileOutputInvalid)?;
+        server_config.to_toml(&dir_tree.cerebro_api.join("server.toml")).map_err(|_: ConfigError| StackConfigError::ConfigFileOutputInvalid)?;
 
         // Write the template directories for email and report
         self.write_templates(&stack_assets, &dir_tree)?;
@@ -708,7 +708,7 @@ impl Stack {
 
         handlebars.register_template_file(&stack_assets.templates.names.cerebro_app, &stack_assets.templates.paths.cerebro_app).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
         let render = handlebars.render(&stack_assets.templates.names.cerebro_app, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
-        write_rendered_template(render.as_bytes(), &dir_tree.cerebro.join("app.env"))?;
+        write_rendered_template(render.as_bytes(), &dir_tree.cerebro_api.join("app.env"))?;
         
         Ok(())
 
