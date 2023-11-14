@@ -239,7 +239,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-12 w-full pb-12">
                 <label class="label">
                     <span class="text-sm opacity-60">Contact details</span>
-                    <textarea class="textarea text-sm" value="" placeholder="Contact details for results" required={requireFields} />
+                    <textarea class="textarea text-sm" bind:value={reportSchema.patient_result.contact}  placeholder="Contact details for results" required={requireFields} />
                 </label>
 
                 <label class="label">
