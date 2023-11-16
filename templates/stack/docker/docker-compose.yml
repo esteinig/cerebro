@@ -88,7 +88,7 @@ services:
       dockerfile: {{{ outdir }}}/docker/Dockerfile.server
     restart: unless-stopped
     {{#if dev}}
-    command: cargo watch -w /usr/src/cerebro/.trigger -x "run stack run-server --host 0.0.0.0 --port 8080 --threads 8"
+    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run stack run-server --host 0.0.0.0 --port 8080 --threads 8"'
     {{else}}
     command: cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8
     {{/if}}

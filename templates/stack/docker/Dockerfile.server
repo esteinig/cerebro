@@ -22,15 +22,11 @@ WORKDIR /usr/src/cerebro
 
 {{#if dev }}
 RUN cargo install cargo-watch 
-COPY ./src src
-COPY ./templates templates
-COPY ./Cargo.toml Cargo.toml
-{{else}}
-COPY ./src src
-COPY ./templates templates
-COPY ./Cargo.toml Cargo.toml
-# RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
 {{/if}}
+
+COPY ./src src
+COPY ./templates templates
+COPY ./Cargo.toml Cargo.toml
 
 # Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
 # launching the container and using the reporting functions for the first time - otherwise
@@ -45,9 +41,4 @@ WORKDIR /opt/cerebro
 
 RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
 
-{{#if dev}}
-WORKDIR /usr/src/cerebro
-# Use a trigger file to trigger rebuilds (otherwise ~ 30 seconds compile time)
-RUN touch /usr/src/cerebro/.trigger
-{{/if}}
 # USER cerebro-api - currently might not be able to compile
