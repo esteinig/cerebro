@@ -20,9 +20,6 @@ Deploy a development version locally with hot-reloading of application with `npm
 
     Deployment of the stack via `docker compose up` should be monitored in development mode as informative messages from compiler and components will be logged via `docker compose`. 
 
-    Stack deployments should *always* be downed from the deployment repository, this can be done after upping the stack in the foreground (to monitor logs) by running `docker compose down` in the deployment directory after terminating the running stack. 
-    Some arcane reverse proxy errors may occurr otherwise, usually noticeable by a `Bad Gateway` message when navigating to the application domain - in these cases, the containers and network used in the deployment should be removed manually.
-
 Once the stack is deployed, hot-reloads of the server backend via `cargo watch` can be triggered manually by any change to a `<deployment>/cerebro/.trigger` file in the deployment repository, which can be made easily through
 your developer environment or for example `echo "trigger me build" >> <deployment>/cerebro/.trigger`. This is to avoid somewhat long compilation times (~ 30 seconds) for the full `cerebro` binary in debug mode (and longer in release mode). 
 Note that performance during development in compiled binaries for debugging is usually inferior to release binaries.
@@ -44,6 +41,12 @@ but requires container re-builds for updates.
 ## Advanced Deployment
 
 Multiple deployments with unique output directory names can be run simultaneously and require only slight adjustments to the deployment domains.
+
+
+## Known issues
+
+1. Stack deployments should *always* be downed from the deployment repository, this can be done after upping the stack in the foreground (to monitor logs) by running `docker compose down` in the deployment directory after terminating the running stack. Some arcane reverse proxy errors may occurr otherwise, usually noticeable by a `Bad Gateway` message when navigating to the application domain - in these cases, the containers and network used in the deployment should be removed manually.
+2. Occasionally the server may not be able to connect to the databases in development mode for some reason - you should see a checkmark and a `Connected to {MongoDB, Redis session, Redis one-time} database` message when starting the server in the compose file on container with tag: `<depoyment>_cerebro-api-1`
 
 
 ## Styleguide
