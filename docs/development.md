@@ -6,13 +6,25 @@
 
 We have tried to make development as easy as possible using a local hot-reload development configuration of the stack. Minimal configuration is required to get started and nearly all stack components (see exceptions) link directly into a repository clone with the ability to quickly change between branches, re-deploy changes and minimize container re-builds. Please see the style guide to observe conventional commits, issue tracking and semantic versioning of pull requests. 
 
+
+## Styleguide
+
+All commits are made with `cocogitto` in the usual pattern `cog commit {task} "{msg}" {scope}` e.g. `cog commit chore "fix spelling mistake" docs`. Note that apull requests implemented commits that should not appear in the CHANGELOG should be tasked as `chore` as these are excluded from CHANGELOG. Ideally, development commits should always implement `chore` and then squashed into a single commit on merge into `dev` with a meaningful message. Breaking changes indicated as such with `cog` will  will trigger changes to major version, conventional commits tagged as `fix` or `feat` to minor version and any other changes to patch version.
+
+1. Development occurs on the `dev` branch - all pull requests are merged into `dev` before release on `main`
+2. Open an issue for your development branch using the templates in the repository and create a new branch linked to the issue. Branch syntax follows conventional commit styles with `{task}/{branch-name}`, e.g. `chore/docs-spelling-11`.
+3. When completed, open a pull request of your branch into `dev` and request review
+4. Commits from your branch should be squashed and merged as a single conventional commit style message e.g. `chore(docs): fixed to documentation`. This ensures that only the pull request commit merged into `dev` appears in the changelog for new releases. In exceptional cases development commits may be included without squashing but development commits must adhere to conventional commit styles
+
+Release commits on `main` by the repository owners pull changes from `dev` via a `release/{version}` branch. Release actions trigger `cog bump --auto` changelog and version bumps, including compilation of Linux binaris of `cerebro` attached to the release. 
+
 ## Requirements
 
 * `Docker` and `docker compose`
 * `Rust >= v1.72`, `rust-analyzer` with IDE
 * `git` and `cocogitto >= v1.2.1` 
 
-## Basic Deployment
+## Basic deployment
 
 Deploy a development version locally with hot-reloading of application with `npm run dev` and `cargo watch` for the server backend (`cerebro stack run-server`). 
 
@@ -36,33 +48,18 @@ but requires container re-builds for updates.
 
 !!! warning
 
-    Modification to files in `templates/stack` requires re-deployment of the stack.
+    Changes to `templates/stack` files and to the `src/stack` core functions that alter deployment configuration are currently not considered for hot-reload in a development stack. Modifications must be tested manually and the stack must be re-deployed from scratch.
 
-## Advanced Deployment
+## Advanced deployment
 
 Multiple deployments with unique output directory names can be run simultaneously and require only slight adjustments to the deployment domains.
-
 
 ## Known issues
 
 1. Stack deployments should *always* be downed from the deployment repository, this can be done after upping the stack in the foreground (to monitor logs) by running `docker compose down` in the deployment directory after terminating the running stack. Some arcane reverse proxy errors may occurr otherwise, usually noticeable by a `Bad Gateway` message when navigating to the application domain - in these cases, the containers and network used in the deployment should be removed manually.
 2. Occasionally the server may not be able to connect to the databases in development mode for some reason - you should see a checkmark and a `Connected to {MongoDB, Redis session, Redis one-time} database` message when starting the server in the compose file on container with tag: `<depoyment>_cerebro-api-1`
 
-
-## Styleguide
-
-All commits are made with `cocogitto` in the usual pattern `cog commit {task} "{msg}" {scope}` e.g. `cog commit chore "fix spelling mistake" docs`. Note that apull requests implemented commits that should not appear in the CHANGELOG should be tasked as `chore` as these are excluded from CHANGELOG. Ideally, development commits should always implement `chore` and then squashed into a single commit on merge into `dev` with a meaningful message. Breaking changes indicated as such with `cog` will  will trigger changes to major version, conventional commits tagged as `fix` or `feat` to minor version and any other changes to patch version.
-
-1. Development occurs on the `dev` branch - all pull requests are merged into `dev` before release on `main`
-2. Open an issue for your development branch using the templates in the repository and create a new branch linked to the issue. Branch syntax follows conventional commit styles with `{task}/{branch-name}`, e.g. `chore/docs-spelling-11`.
-3. When completed, open a pull request of your branch into `dev` and request review
-4. Commits from your branch should be squashed and merged as a single conventional commit style message e.g. `chore(docs): fixed to documentation`. This ensures that only the pull request commit merged into `dev` appears in the changelog for new releases. In exceptional cases development commits may be included without squashing but development commits must adhere to conventional commit styles
-
-Release commits on `main` by the repository owners pull changes from `dev` via a `release/{version}` branch. Release actions trigger `cog bump --auto` changelog and version bumps, including compilation of Linux binaris of `cerebro` attached to the release. 
-
-
-
-## Example 
+## Examples
 
 In the following example we deploy an existing development branch from an example issue gixing some documentation (`docs/dev-branch-test`). 
 
