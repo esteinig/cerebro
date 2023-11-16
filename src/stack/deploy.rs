@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize, Deserializer};
 use base64::{engine::general_purpose, Engine as _};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey};
 use crate::{tools::modules::password::hash_password, api::{self, config::{SmtpConfig, TokenEncryptionConfig, ConfigError}}};
-use crate::stack::assets::{MongoInitTemplates, DockerTemplates, TraefikTemplates, CerebroTemplates, ReportTemplates, EmailTemplates};
+use crate::stack::assets::{MongoInitTemplates, DockerTemplates, TraefikTemplates, CerebroTemplates};
 
 #[derive(Error, Debug)]
 pub enum StackConfigError {
@@ -71,8 +71,6 @@ pub enum StackConfigError {
     #[error("failed to checkout repository")]
     RemoteRepositoryNotCheckedOut(#[source] git2::Error)
 }
-
-
 
 fn write_embedded_file(embedded_file: &EmbeddedFile, outfile: &PathBuf) -> Result<(), StackConfigError> {
     let mut file = std::fs::File::create(outfile).map_err(|err| StackConfigError::EmbeddedFileOutputPathInvalid(err) )?;
@@ -154,8 +152,6 @@ pub struct StackAssets {
     docker: DockerFiles,
     traefik: TraefikFiles,
     cerebro: CerebroFiles,
-    report: ReportFiles,
-    email: EmailFiles,
     templates: TemplateFiles,
     templates_outdir: PathBuf
 }
@@ -167,8 +163,6 @@ impl StackAssets {
             docker: DockerFiles::new()?,
             traefik: TraefikFiles::new()?,
             cerebro: CerebroFiles::new()?,
-            report: ReportFiles::new()?,
-            email: EmailFiles::new()?,
             templates: TemplateFiles::new(&templates_outdir),
             templates_outdir: templates_outdir.clone()
         })
@@ -236,45 +230,6 @@ impl TraefikFiles {
         })
     }
 }
-
-pub struct ReportFiles {
-    tex: EmbeddedFile,
-    logo: EmbeddedFile,
-    config: EmbeddedFile,
-    assay: EmbeddedFile,
-    template: EmbeddedFile,
-}
-impl ReportFiles {
-    pub fn new() -> Result<Self, StackConfigError> {
-        Ok(Self {
-            tex: match ReportTemplates::get("report/report.hbs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/report.hbs"))) },
-            logo: match ReportTemplates::get("report/logo.png") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/logo.png"))) },
-            config: match ReportTemplates::get("report/test.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/test.toml"))) },
-            assay: match ReportTemplates::get("report/assay.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/assay.toml"))) },
-            template: match ReportTemplates::get("report/template.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("report/template.toml"))) },
-      
-        })
-    }
-}
-
-
-pub struct EmailFiles {
-    base: EmbeddedFile,
-    styles: EmbeddedFile,
-    verification: EmbeddedFile,
-    password: EmbeddedFile,
-}
-impl EmailFiles {
-    pub fn new() -> Result<Self, StackConfigError> {
-        Ok(Self {
-            base: match EmailTemplates::get("email/base.hbs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("email/base.hbs"))) },
-            styles: match EmailTemplates::get("email/styles.hbs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("email/styles.hbs"))) },
-            verification: match EmailTemplates::get("email/verification.hbs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("email/verification.hbs"))) },
-            password: match EmailTemplates::get("email/password.hbs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("email/password.hbs"))) },
-        })
-    }
-}
-
 
 pub struct DockerFiles {
     server: EmbeddedFile,
@@ -415,8 +370,6 @@ pub struct StackConfigTree {
     cerebro_api: PathBuf,
     mongodb: PathBuf,
     assets: PathBuf,
-    report: PathBuf,
-    email: PathBuf,
     keys: PathBuf
 }
 impl StackConfigTree {
@@ -428,8 +381,6 @@ impl StackConfigTree {
             traefik: outdir.join("traefik"),
             cerebro_api: outdir.join("cerebro_api"),
             mongodb: outdir.join("mongodb"),
-            report: outdir.join("templates").join("report"),
-            email: outdir.join("templates").join("email"),
             assets: outdir.join("assets"),
             keys: outdir.join("keys"),
         }
@@ -444,8 +395,6 @@ impl StackConfigTree {
             self.cerebro_api.clone(), 
             self.mongodb.clone(), 
             self.assets.clone(),
-            self.email.clone(),
-            self.report.clone(),
             self.keys.clone()
         ] { 
             std::fs::create_dir_all(dir).map_err(|err| StackConfigError::StackTreeDirectoryNotCreated(err) )? 
@@ -514,7 +463,7 @@ impl Stack {
 
         config.revision = CRATE_VERSION.to_string();
 
-        log::info!("Cerebro deployment from binary revision {}", config.revision);
+        log::info!("Cerebro deployment from version: {}", config.revision);
 
         Ok(config)
 
@@ -584,24 +533,6 @@ impl Stack {
             refresh_public_key: general_purpose::STANDARD.encode(refresh_public_key_pem)
         })
 
-    }
-    // Write the email and report templates folders
-    #[deprecated(since = "0.7.0", note = "deployed templates folder is replaced with the git repository templates folder; will be removed after testing")]
-    pub fn write_templates(&self, stack_assets: &StackAssets, dir_tree: &StackConfigTree) -> Result<(), StackConfigError> {
-
-        log::info!("Write template files to deployment directory");
-
-        write_embedded_file(&stack_assets.email.base, &dir_tree.email.join("base.hbs"))?;
-        write_embedded_file(&stack_assets.email.styles, &dir_tree.email.join("styles.hbs"))?;
-        write_embedded_file(&stack_assets.email.password, &dir_tree.email.join("password.hbs"))?;
-        write_embedded_file(&stack_assets.email.verification, &dir_tree.email.join("verification.hbs"))?;
-        write_embedded_file(&stack_assets.report.tex, &dir_tree.report.join("report.hbs"))?;
-        write_embedded_file(&stack_assets.report.logo, &dir_tree.report.join("logo.png"))?;
-        write_embedded_file(&stack_assets.report.assay, &dir_tree.report.join("assay.toml"))?;
-        write_embedded_file(&stack_assets.report.template, &dir_tree.report.join("template.toml"))?;
-        write_embedded_file(&stack_assets.report.config, &dir_tree.report.join("test.toml"))?;
-
-        Ok(())
     }
     pub fn configure(&mut self, outdir: &PathBuf, dev: bool) -> Result<(), StackConfigError> {
 
@@ -774,8 +705,6 @@ impl Stack {
             log::warn!("Repository will be deleted and replaced with fresh clone");
             std::fs::remove_dir_all(&repo_dir).expect("Failed to remove existing deployment repository");
         }
-
-
 
         let git_command = "git";
         let outdir_str = self.outdir.display().to_string();

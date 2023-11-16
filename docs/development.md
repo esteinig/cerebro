@@ -48,43 +48,48 @@ but requires container re-builds for updates.
 
 !!! warning
 
-    Changes to `templates/stack` files and to the `src/stack` core functions that alter deployment configuration are currently not considered for hot-reload in a development stack. Modifications must be tested manually and the stack must be re-deployed from scratch.
+    Changes to `templates/stack` files and to `src/stack` core deployment functions that alter deployment configuration are currently not considered for hot-reload in a development stack. Modifications must be tested manually and the stack must be re-deployed from scratch.
 
 ## Advanced deployment
 
-Multiple deployments with unique output directory names can be run simultaneously and require only slight adjustments to the deployment domains.
+Multiple stack deployments with unique output directory names can be run simultaneously and require only slight adjustments to the deployment subdomains:
+
+
 
 ## Known issues
 
-1. Stack deployments should *always* be downed from the deployment repository, this can be done after upping the stack in the foreground (to monitor logs) by running `docker compose down` in the deployment directory after terminating the running stack. Some arcane reverse proxy errors may occurr otherwise, usually noticeable by a `Bad Gateway` message when navigating to the application domain - in these cases, the containers and network used in the deployment should be removed manually.
-2. Occasionally the server may not be able to connect to the databases in development mode for some reason - you should see a checkmark and a `Connected to {MongoDB, Redis session, Redis one-time} database` message when starting the server in the compose file on container with tag: `<depoyment>_cerebro-api-1`
+1. Stack deployments should *always* be downed from the deployment repository, this can be done - after upping the stack in the foreground to monitor logs - by running `docker compose down` in the deployment directory after terminating the running stack. Some arcane reverse proxy errors may occurr with `Traefik` otherwise, usually noticeable by a `Bad Gateway` message when navigating to the application domain - in these cases, the stack should be downed or containers and network removed manually (prefix is the `<deployment>` directory basename).
+2. Occasionally the server may not be able to connect to the databases in development mode for some reason - you should see a checkmark and a `Connected to {MongoDB, Redis session, Redis one-time} database` message when starting the server in the compose file on container with tag: `<depoyment>_cerebro-api-1`. Down the stack and up it again, usually this mitigates any issues with internal networking.
 
-## Examples
+## Deployment example
 
-In the following example we deploy an existing development branch from an example issue gixing some documentation (`docs/dev-branch-test`). 
+In the following example we deploy an existing development branch from a fictional example issue that fixes some documentation (with an imaginary issue opened on branch `docs/dev-branch-test`):
 
 ```bash
 # get latest cerebro binary to initiate the deployment
 curl https://github.com/esteinig/cerebro/releases/download/latest/cerebro-latest-Linux_x86_64.tar.xz -o - | tar -xzO > cerebro
 
-
 # deploy a local dev configuration 
-cerebro stack deploy --outdir cerebro_dev --config dev-local --branch docs/dev-branch-test --dev
+cerebro stack deploy --outdir cerebro_dev --config http-local --branch docs/dev-branch-test --dev
 
-# or manually: cerebro stack deploy --outdir cerebro_dev --config dev-local --dev && cd cerebro_dev/cerebro && git checkout docs/dev-branch-test
+# or manually checkout the desired branch:
+# cerebro stack deploy --outdir cerebro_dev --config http-local --dev && \
+#   cd cerebro_dev/cerebro && git checkout docs/dev-branch-test
 
-# enter deployment and up the stack for monitoring rustc compilation
+# up the stack for monitoring compiler and stack operations
 # cerebro is re-compiled in debug mode on first deployment
 cd cerebro_dev && docker compose up
 
-# open cerebro_dev/cerebro in your ide and make changes to app or rust crate
+# open `cerebro_dev/cerebro` subdirectory in your ide and
+# make changes to the app or rust code ...
+# changes to the app are reflected immediately in the web interface
+# changes to the server are triggered on changes to `cerebro_dev/cerebro/.trigger`
 
-# changes to the app are reflected immediately due to node dev server 
-# changes to the rust api server are triggered on changes to cerebro_dev/cerebro/.trigger
-
-# ctrl + c to exit the forground compose stack
+# `ctrl + c` to exit the forground compose stack
 # `docker compose down` to down the compose stack
 ```
+
+### Commit example
 
 You can commit changes to the branch in another terminal during development:
 
@@ -92,9 +97,12 @@ You can commit changes to the branch in another terminal during development:
 # commit some changes to the documentation 
 cd cerebro_dev/cerebro
 git add docs/development.md
+# use conventional commits with cocogitto
 cog commit chore "add deployment section" docs
 git push origin docs/dev-branch-test
 
 # open pr for this branch and review 
-# squash merge changes with conentional commit style pr
+# squash merge changes with conventional commit style title and pr link
+# for example:
+# docs(stack): add development documentation section (#10)
 ```
