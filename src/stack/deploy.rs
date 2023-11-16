@@ -1,3 +1,4 @@
+use colored::Colorize;
 use thiserror::Error;
 use rust_embed::EmbeddedFile;
 use crate::{utils::CRATE_VERSION, api::config::SecurityComponentsConfig};
@@ -167,7 +168,7 @@ impl StackAssets {
             templates_outdir: templates_outdir.clone()
         })
     }
-    // Creates the templating directory for the template engine during deployment
+    // Writes the deployment assets for templating to the output directory
     pub fn write_asset_files(&self, traefik_deployment: TraefikDeployment) -> Result<(), StackConfigError> {
 
         std::fs::create_dir_all(self.templates_outdir.clone()).map_err(|err| StackConfigError::TemplateDirectoryNotCreated(err) )?;
@@ -299,13 +300,18 @@ impl<'de> Deserialize<'de> for TraefikDeployment {
 pub struct TraefikConfig {
     pub deploy: TraefikDeployment,
     pub launch: bool,
-    pub api_subdomain: String,
-    pub app_subdomain: String,
+    pub subdomain: TraefikSubdomain,
     pub network: TraefikNetwork,   
     pub localhost: TraefikLocalhostConfig,
     pub web: TraefikWebConfig,
     #[serde(skip_deserializing)]
     pub is_localhost: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraefikSubdomain {
+    pub app: String,
+    pub api: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -534,7 +540,7 @@ impl Stack {
         })
 
     }
-    pub fn configure(&mut self, outdir: &PathBuf, dev: bool) -> Result<(), StackConfigError> {
+    pub fn configure(&mut self, outdir: &PathBuf, dev: bool, subdomain_prefix: Option<String>) -> Result<(), StackConfigError> {
 
         self.name = match outdir.file_name() {
             Some(os_str) => match os_str.to_str() {
@@ -555,21 +561,18 @@ impl Stack {
         self.outdir = std::fs::canonicalize(outdir).map_err(|_| StackConfigError::OutdirAbsolutePathInvalid(outdir.display().to_string()))?;
         log::info!("Create deployment directory tree in: {}", outdir.display());
 
+        
         log::info!("Write stack asset files to deployment directory");
         let stack_assets = StackAssets::new(&dir_tree.assets)?;
         stack_assets.write_asset_files(self.traefik.deploy.clone())?;
 
-        log::info!("Hashing Cerebro admin password using salted Argon2");
-        // Hash the required passwords - Argon2 for Cerebro user database
-        self.mongodb.cerebro_admin_password_hashed = hash_password(&self.mongodb.cerebro_admin_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
+        if let Some(prefix) = subdomain_prefix {
+            self.traefik.subdomain.api = format!("{prefix}-api");
+            self.traefik.subdomain.app = format!("{prefix}-app");
+            log::info!("Subdomain prefix specified, configured subdomains to `{}` and `{}`",  self.traefik.subdomain.api.blue(), self.traefik.subdomain.app.blue());
+        }
 
-        log::info!("Hashing Traefik dashboard password using Bcrypt");
-        if !self.traefik.is_localhost {
-            // Hash the required passwords - Bcrypt for Traefik dashboard 
-            self.traefik.web.password_hashed = hash(&self.traefik.web.password, DEFAULT_COST).map_err(|err| StackConfigError::TraefikDashboardPasswordNotHashed(err))?;
-        };
-
-        log::info!("Read defaulty server configuration and apply modifications");
+        log::info!("Read default server configuration");
         // Read the default server template configuration
         let mut server_config = api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
             .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;
@@ -577,28 +580,28 @@ impl Stack {
         // Configure server and application
         if self.traefik.is_localhost {
 
-            log::info!("Configure deployment to localhost");
+            log::info!("Configure server and application deployment to localhost");
            // Localhost specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint,  self.traefik.app_subdomain, self.traefik.localhost.domain);
+            server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint,  self.traefik.subdomain.app, self.traefik.localhost.domain);
             server_config.security.cookies.domain = self.traefik.localhost.domain.clone();
             if self.traefik.localhost.tls {
                 server_config.security.cookies.secure = true;
             } else {
                 server_config.security.cookies.secure = false;
             }
-            self.cerebro.app.public_cerebro_api_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.api_subdomain, self.traefik.localhost.domain);
+            self.cerebro.app.public_cerebro_api_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.subdomain.api, self.traefik.localhost.domain);
 
         } else {
-            log::info!("Configure deployment to web");
+            log::info!("Configure server and application deployment to web");
             // Web specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("https://{}.{}", self.traefik.app_subdomain, self.traefik.web.domain);
+            server_config.security.cors.app_origin_public_url = format!("https://{}.{}", self.traefik.subdomain.app, self.traefik.web.domain);
             server_config.security.cookies.domain = self.traefik.web.domain.clone();
             server_config.security.cookies.secure = true;
-            self.cerebro.app.public_cerebro_api_url =  format!("https://{}.{}", self.traefik.api_subdomain, self.traefik.web.domain);
+            self.cerebro.app.public_cerebro_api_url =  format!("https://{}.{}", self.traefik.subdomain.api, self.traefik.web.domain);
         }
 
-        log::info!("APP deployment to: {}", server_config.security.cors.app_origin_public_url);
-        log::info!("API deployment to: {}", self.cerebro.app.public_cerebro_api_url);
+        log::info!("APP deployment configured to: {}", server_config.security.cors.app_origin_public_url.blue());
+        log::info!("API deployment configured to: {}", self.cerebro.app.public_cerebro_api_url.blue());
         
         // Cookie settings for refresh access token issued by application server hook
         self.cerebro.app.private_cerebro_api_access_cookie_domain = server_config.security.cookies.domain.clone();
@@ -610,6 +613,17 @@ impl Stack {
         server_config.security.token.encryption = self.create_certs_and_keys(&dir_tree)?;
         server_config.security.components = self.cerebro.components.clone();  
         
+
+        log::info!("Hash Cerebro admin password using salted Argon2");
+        // Hash the required passwords - Argon2 for Cerebro user database
+        self.mongodb.cerebro_admin_password_hashed = hash_password(&self.mongodb.cerebro_admin_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
+
+        log::info!("Hash Traefik dashboard password using Bcrypt2");
+        if !self.traefik.is_localhost {
+            // Hash the required passwords - Bcrypt for Traefik dashboard 
+            self.traefik.web.password_hashed = hash(&self.traefik.web.password, DEFAULT_COST).map_err(|err| StackConfigError::TraefikDashboardPasswordNotHashed(err))?;
+        };
+
         log::info!("Use provided SMTP email configuration");      
         server_config.smtp = self.cerebro.smtp.clone();
  
@@ -627,7 +641,7 @@ impl Stack {
         // // Write the template directories for email and report
         // self.write_templates(&stack_assets, &dir_tree)?;
         
-        log::info!("Rendering asset templates with deployment configurations"); 
+        log::info!("Render asset templates with deployment configurations"); 
         // Render and write the asset templates
         self.render_templates(&stack_assets, &dir_tree)?;
 

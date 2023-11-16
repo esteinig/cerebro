@@ -28,9 +28,11 @@ cerebro_admin_password          = "admin"
 
 [traefik]
 deploy                          = "localhost"    # localhost | web
-launch                          = true        
-api_subdomain                   = "api"          # api.cerebro.localhost or api.example.org or dev.api.example.org ...
-app_subdomain                   = "app"          # app.cerebro.localhost or app.example.org ...
+launch                          = true      
+
+[traefik.subdomain]
+api                             = "api"          # api.cerebro.localhost or api.example.org or dev.api.example.org ...
+app                             = "app"          # app.cerebro.localhost or app.example.org ...
 
 [traefik.network]
 name                            = "proxy"

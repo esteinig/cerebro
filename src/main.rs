@@ -224,7 +224,7 @@ fn main() -> anyhow::Result<()> {
                 // output directory with templated assets
                 StackCommands::Deploy( args ) => {
                     let mut stack = stack::deploy::Stack::from_toml(&args.config)?;
-                    stack.configure( &args.outdir, args.dev )?;
+                    stack.configure( &args.outdir, args.dev, args.subdomain_prefix.clone() )?;
 
                     #[cfg(feature = "libgit")]
                     {
@@ -236,7 +236,7 @@ fn main() -> anyhow::Result<()> {
                             args.git_ssh_key.clone(), 
                             args.git_ssh_pwd.clone()
                         )?;
-                        std::process::exit(0)  // premature exit
+                        std::process::exit(0)  // premature exit ok
 
                     }
                     stack.clone_and_checkout_repository_process(

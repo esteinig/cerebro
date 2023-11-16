@@ -383,6 +383,19 @@ pub struct StackDeployArgs {
     /// Checkout repository at the commit or tag provided, overwrites branch if provided
     #[clap(long, short = 'r')]
     pub revision: Option<String>,
+
+    /// Change the subdomain prefix for multiple concurrent stack deployments 
+    /// 
+    /// This will configure Traefik to deploy to <prefix>-{app,api}.{domain}
+    /// so that multiple prefixes can be configured on the fly during deployment
+    /// for example to `dev-app.cerebro.localhost` or `demo-app.cerebro.localhost`
+    #[clap(long, short = 's')]
+    pub subdomain_prefix: Option<String>,
+    
+    /// Public or SSH-like repository URL for cloning into deployment
+    #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
+    pub git_url: String,
+
     /// Use libgit2 bindings instead of system call (feature not stable)
     #[cfg(feature = "libgit")]
     #[clap(long, short = 'l')]
@@ -395,9 +408,6 @@ pub struct StackDeployArgs {
     #[cfg(feature = "libgit")]
     #[clap(long, short = 'p', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY_PWD")]
     pub git_ssh_pwd: Option<String>,
-    /// Public or SSH-like repository URL for cloning into dep[loyment
-    #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
-    pub git_url: String,
 }
 
 
