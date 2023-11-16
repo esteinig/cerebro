@@ -16,8 +16,8 @@ pub enum StackConfigError {
     ProjectNameInvalid,
     #[error("failed to find embedded asset file: {0}")]
     EmbeddedFileNotFound(String),
-    #[error("failed to get absolute path for output directory")]
-    OutdirAbsolutePathInvalid,
+    #[error("failed to get absolute path for output directory: {0}")]
+    OutdirAbsolutePathInvalid(String),
     #[error("failed to open config file")]
     ConfigFileInputInvalid,
     #[error("failed to create config file")]
@@ -63,7 +63,13 @@ pub enum StackConfigError {
     #[error("failed to create pem format for public rsa key")]
     RsaPublicKeyPemNotGenerated(#[from] rsa::pkcs8::spki::Error),
     #[error("failed to parse template server configuration file")]
-    CerebroServerConfigNotParsed(#[from] api::config::ConfigError)
+    CerebroServerConfigNotParsed(#[from] api::config::ConfigError),
+    #[cfg(feature = "libgit")]
+    #[error("failed to clone remote git repository")]
+    RemoteRepositoryNotCloned(#[source] git2::Error),
+    #[cfg(feature = "libgit")]
+    #[error("failed to checkout repository")]
+    RemoteRepositoryNotCheckedOut(#[source] git2::Error)
 }
 
 
@@ -480,7 +486,7 @@ pub struct Stack {
     #[serde(skip_deserializing)]
     revision: String,
     #[serde(skip_deserializing)]
-    dev: Option<PathBuf>,
+    dev: bool,
 
     cerebro: CerebroConfig,
     mongodb: MongoDbConfig,
@@ -490,14 +496,17 @@ pub struct Stack {
 impl Stack {
     pub fn from_toml(path: &PathBuf) -> Result<Self, StackConfigError> {
 
+        log::info!("Read stack config from file: {}", path.display());
+
         let mut config: Self = toml::from_str(
             &std::fs::read_to_string(path).map_err(|_| StackConfigError::ConfigFileInputInvalid)?
         ).map_err(|err| StackConfigError::ConfigFileNotDeserialized(err))?;
-
+        
         config.traefik.is_localhost = match config.traefik.deploy {
             TraefikDeployment::Web => false,
             TraefikDeployment::Localhost => true 
         };
+
         config.traefik.localhost.entrypoint = match config.traefik.localhost.tls {
             true => String::from("https"),
             false => String::from("http")
@@ -505,7 +514,10 @@ impl Stack {
 
         config.revision = CRATE_VERSION.to_string();
 
+        log::info!("Cerebro deployment from binary revision {}", config.revision);
+
         Ok(config)
+
     }
     pub fn to_toml(&self, path: &PathBuf) -> Result<(), StackConfigError> {
         let config = toml::to_string_pretty(&self).map_err(|err| StackConfigError::ConfigFileNotSerialized(err))?;
@@ -514,6 +526,9 @@ impl Stack {
     pub fn create_certs_and_keys(&self, dir_tree: &StackConfigTree) -> Result<TokenEncryptionConfig, StackConfigError> {
 
         if self.traefik.is_localhost && self.traefik.localhost.tls {
+
+            log::info!("Local HTTPS deployment configured, create certificates");
+
             // Create a local certificate for the domain - rcgen for localhost domain
             let subject_alt_names = vec![self.traefik.localhost.domain.to_string(), "localhost".to_string()];
             let cert = generate_simple_self_signed(subject_alt_names).unwrap();
@@ -527,6 +542,8 @@ impl Stack {
                 &dir_tree.certs.join("cerebro.key")
             )?;
         };
+
+        log::info!("Create access and refresh token keys for user authentication");
 
         // Create access and refresh token keys and encode to base64
         let mut rng = rand::thread_rng();
@@ -569,7 +586,10 @@ impl Stack {
 
     }
     // Write the email and report templates folders
+    #[deprecated(since = "0.7.0", note = "deployed templates folder is replaced with the git repository templates folder; will be removed after testing")]
     pub fn write_templates(&self, stack_assets: &StackAssets, dir_tree: &StackConfigTree) -> Result<(), StackConfigError> {
+
+        log::info!("Write template files to deployment directory");
 
         write_embedded_file(&stack_assets.email.base, &dir_tree.email.join("base.hbs"))?;
         write_embedded_file(&stack_assets.email.styles, &dir_tree.email.join("styles.hbs"))?;
@@ -583,8 +603,7 @@ impl Stack {
 
         Ok(())
     }
-    pub fn configure(&mut self, outdir: &PathBuf, dev: Option<PathBuf>) -> Result<(), StackConfigError> {
-
+    pub fn configure(&mut self, outdir: &PathBuf, dev: bool) -> Result<(), StackConfigError> {
 
         self.name = match outdir.file_name() {
             Some(os_str) => match os_str.to_str() {
@@ -593,34 +612,41 @@ impl Stack {
             },
             None => return Err(StackConfigError::ProjectNameInvalid)
         };
+        log::info!("Initiate server configuration: {}", self.name);
+
+        self.dev = dev;
+        log::info!("Development deployment active: {}", dev);
+
 
         let dir_tree = StackConfigTree::new(outdir);
         dir_tree.create_dir_all()?;
 
-        self.outdir = std::fs::canonicalize(outdir.clone()).map_err(|_| StackConfigError::OutdirAbsolutePathInvalid)?;
+        self.outdir = std::fs::canonicalize(outdir).map_err(|_| StackConfigError::OutdirAbsolutePathInvalid(outdir.display().to_string()))?;
+        log::info!("Create deployment directory tree in: {}", outdir.display());
 
-        self.dev = match dev {
-            Some(path) => Some(std::fs::canonicalize(path).map_err(|_| StackConfigError::OutdirAbsolutePathInvalid)?),
-            None => None
-        };
-
+        log::info!("Write stack asset files to deployment directory");
         let stack_assets = StackAssets::new(&dir_tree.assets)?;
         stack_assets.write_asset_files(self.traefik.deploy.clone())?;
 
+        log::info!("Hashing Cerebro admin password using salted Argon2");
         // Hash the required passwords - Argon2 for Cerebro user database
         self.mongodb.cerebro_admin_password_hashed = hash_password(&self.mongodb.cerebro_admin_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
+        log::info!("Hashing Traefik dashboard password using Bcrypt");
         if !self.traefik.is_localhost {
             // Hash the required passwords - Bcrypt for Traefik dashboard 
             self.traefik.web.password_hashed = hash(&self.traefik.web.password, DEFAULT_COST).map_err(|err| StackConfigError::TraefikDashboardPasswordNotHashed(err))?;
         };
 
+        log::info!("Read defaulty server configuration and apply modifications");
         // Read the default server template configuration
         let mut server_config = api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
             .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;
 
         // Configure server and application
         if self.traefik.is_localhost {
+
+            log::info!("Configure deployment to localhost");
            // Localhost specific deployment configurations of Cerebro application and server
             server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint,  self.traefik.app_subdomain, self.traefik.localhost.domain);
             server_config.security.cookies.domain = self.traefik.localhost.domain.clone();
@@ -629,43 +655,179 @@ impl Stack {
             } else {
                 server_config.security.cookies.secure = false;
             }
-            self.cerebro.app.public_cerebro_api_url =  format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.api_subdomain, self.traefik.localhost.domain);
+            self.cerebro.app.public_cerebro_api_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.api_subdomain, self.traefik.localhost.domain);
+
         } else {
+            log::info!("Configure deployment to web");
             // Web specific deployment configurations of Cerebro application and server
             server_config.security.cors.app_origin_public_url = format!("https://{}.{}", self.traefik.app_subdomain, self.traefik.web.domain);
             server_config.security.cookies.domain = self.traefik.web.domain.clone();
             server_config.security.cookies.secure = true;
             self.cerebro.app.public_cerebro_api_url =  format!("https://{}.{}", self.traefik.api_subdomain, self.traefik.web.domain);
         }
+
+        log::info!("APP deployment to: {}", server_config.security.cors.app_origin_public_url);
+        log::info!("API deployment to: {}", self.cerebro.app.public_cerebro_api_url);
         
         // Cookie settings for refresh access token issued by application server hook
         self.cerebro.app.private_cerebro_api_access_cookie_domain = server_config.security.cookies.domain.clone();
         self.cerebro.app.private_cerebro_api_access_max_age = server_config.security.token.expiration.access_max_age;
         self.cerebro.app.private_cerebro_api_access_cookie_secure = server_config.security.cookies.secure;
         
-
+        
+        log::info!("Configure encryption keys and certificates");
         server_config.security.token.encryption = self.create_certs_and_keys(&dir_tree)?;
-        server_config.security.components = self.cerebro.components.clone();        
+        server_config.security.components = self.cerebro.components.clone();  
+        
+        log::info!("Use provided SMTP email configuration");      
         server_config.smtp = self.cerebro.smtp.clone();
-
+ 
+        log::info!("Configure internal Docker network MongoDB URI"); 
         server_config.database.connections.mongodb_uri = format!(
             "mongodb://{}:{}@cerebro-database:27017/?authSource=admin", 
             self.mongodb.admin_username, 
             self.mongodb.admin_password
         );
 
+        log::info!("Write modified server config to: {}", &dir_tree.cerebro_api.join("server.toml").display()); 
         // Write the modified server config
         server_config.to_toml(&dir_tree.cerebro_api.join("server.toml")).map_err(|_: ConfigError| StackConfigError::ConfigFileOutputInvalid)?;
 
-        // Write the template directories for email and report
-        self.write_templates(&stack_assets, &dir_tree)?;
+        // // Write the template directories for email and report
+        // self.write_templates(&stack_assets, &dir_tree)?;
         
+        log::info!("Rendering asset templates with deployment configurations"); 
         // Render and write the asset templates
         self.render_templates(&stack_assets, &dir_tree)?;
 
+        log::info!("Write modified stack configuration to: {}", &dir_tree.base.join("stack.toml").display()); 
         // Write the final stack configuration
         self.to_toml(&dir_tree.base.join("stack.toml"))
 
+    }
+    #[cfg(feature = "libgit")]
+    pub fn clone_and_checkout_repository_libgit(&self, url: &str, branch: Option<String>, revision: Option<String>, ssh_private_key: Option<PathBuf>, passphrase: Option<String>) -> Result<(), StackConfigError> {
+
+        let repo_subdir = self.outdir.join("cerebro");
+        std::fs::create_dir_all(&repo_subdir).map_err(|err| StackConfigError::StackTreeDirectoryNotCreated(err) )?;
+        log::info!("Cloning repository into deployment subdirectory: {}", &repo_subdir.display());
+
+        // Prepare builder.
+        let mut builder = git2::build::RepoBuilder::new();
+        if let Some(br) = branch { log::info!("Cloning repository at branch: {}", &br); builder.branch(&br); }
+
+        if let Some(key) = &ssh_private_key {
+            // Prepare callbacks.
+            let mut callbacks = RemoteCallbacks::new();
+            callbacks.credentials(|_url, username_from_url, _allowed_types| {
+                Cred::ssh_key(
+                    username_from_url.unwrap(),
+                    None,
+                    key,
+                    passphrase.as_deref(),
+                )
+            });
+
+            // Prepare fetch options.
+            let mut fo = git2::FetchOptions::new();
+            fo.remote_callbacks(callbacks);
+            
+            builder.fetch_options(fo);
+
+        };
+
+        // Clone the project.
+        let repo = match builder.clone(
+            &url,
+            &repo_subdir,
+        ) {
+            Ok(repo) => repo,
+            Err(e) => return Err(StackConfigError::RemoteRepositoryNotCloned(e))
+        };
+
+        if let Some(rev) = revision {
+            
+            log::info!("Checking out revision for deployment: {}", &rev);
+
+            // Git2 > 0.13.18 - checkout a tag (0.1.1) or a commit (8e8128)
+            let (object, reference) = repo.revparse_ext(&rev).map_err(|e| StackConfigError::RemoteRepositoryNotCheckedOut(e))?;
+            
+            repo.checkout_tree(&object, None).map_err(|e| StackConfigError::RemoteRepositoryNotCheckedOut(e))?;
+
+            match reference {
+                // gref is an actual reference like branches or tags
+                Some(gref) => repo.set_head(gref.name().unwrap()),  // TODO: unwrap call will fail on non-UTF8
+                // this is a commit, not a reference
+                None => repo.set_head_detached(object.id()),
+            }.map_err(|e| StackConfigError::RemoteRepositoryNotCheckedOut(e))?
+        }
+
+    }
+    /// Clone the repository into the deployment folder and checkout the requested revision (can be done manually after deployment)
+    pub fn clone_and_checkout_repository_process(&self, url: &str, branch: Option<String>, revision: Option<String>) -> Result<(), StackConfigError> {
+
+        let repo_dir = self.outdir.join("cerebro");
+        let repo_dir_str = self.outdir.join("cerebro").display().to_string();;
+        
+        if repo_dir.exists() {
+            log::warn!("Repository exists at: {}", repo_dir.display());
+            log::warn!("Repository will be deleted and replaced with fresh clone");
+            std::fs::remove_dir_all(&repo_dir).expect("Failed to remove existing deployment repository");
+        }
+
+
+
+        let git_command = "git";
+        let outdir_str = self.outdir.display().to_string();
+
+        let git_arguments = vec!["-C", &outdir_str, "clone", &url];
+
+        log::info!("Clone repository using git system call:");
+        log::info!("git {}", git_arguments.join(" "));
+
+        let mut cmd = std::process::Command::new(git_command);
+
+        cmd.args(&git_arguments);
+
+        let output = cmd.output().expect("Failed to execute command");
+
+        if output.status.success() {
+            let _ = String::from_utf8_lossy(&output.stdout);
+            log::info!("Cloned repository for deployment")
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            log::error!("Failed to clone repository for deployment: {}", stderr);
+        }
+
+        let checkout = match (branch, revision) {
+            (Some(b), None) => Some(b),
+            (None, Some(r)) => Some(r),
+            (Some(b), Some(r)) => Some(r),  // prefer revision over branch if both supplied
+            (None, None) => None
+        };
+
+        if let Some(p) = &checkout {
+            let checkout_args = vec!["-C", &repo_dir_str, "checkout", p];
+
+            log::info!("Checkout repository using git system call:");
+            log::info!("git {}", checkout_args.join(" "));
+
+            let mut cmd = std::process::Command::new(git_command);
+
+            cmd.args(&checkout_args);
+
+            let output = cmd.output().expect("Failed to execute command");
+
+            if output.status.success() {
+                let _ = String::from_utf8_lossy(&output.stdout);
+                log::info!("Checked out repository for deployment")
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                log::error!("Failed to checkout repository for deployment: {}", stderr);
+            }
+        }
+            
+        Ok(())
     }
     pub fn render_templates(&self, stack_assets: &StackAssets, dir_tree: &StackConfigTree) -> Result<(), StackConfigError> {
 

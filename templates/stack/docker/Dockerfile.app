@@ -9,7 +9,7 @@ RUN npm install
 # In production mode we download the application directory and build from revision branch
 # RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && mv cerebro/app /app
 WORKDIR /app
-COPY ./cerebro/app ./
+COPY ./app ./
 RUN npm install
 RUN npm run build
 {{/if}}
@@ -25,9 +25,14 @@ ENV NODE_ENV=production
 WORKDIR /home/node/app
 COPY --from=builder /app/package.json .
 COPY --from=builder /app/node_modules ./node_modules
-{{#unless dev }}
+
+{{#if dev}}
+COPY --from=builder /app/node_modules /app/node_modules
+{{else}}
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
-{{/unless}}
+{{/if}}
+
 
 ENV PORT=8000
 ENV PROTOCOL_HEADER=x-forwarded-proto

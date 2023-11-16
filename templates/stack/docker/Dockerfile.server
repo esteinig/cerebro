@@ -21,14 +21,14 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/cerebro
 
 {{#if dev }}
-# Docker build context is in linked repository
+RUN cargo install cargo-watch 
 COPY ./src src
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 {{else}}
-COPY ./cerebro/src src
-COPY ./cerebro/templates templates
-COPY ./cerebro/Cargo.toml Cargo.toml
+COPY ./src src
+COPY ./templates templates
+COPY ./Cargo.toml Cargo.toml
 # RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
 {{/if}}
 
@@ -45,4 +45,9 @@ WORKDIR /opt/cerebro
 
 RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
 
+{{#if dev}}
+WORKDIR /usr/src/cerebro
+# Use a trigger file to trigger rebuilds (otherwise ~ 30 seconds compile time)
+RUN touch /usr/src/cerebro/.trigger
+{{/if}}
 # USER cerebro-api - currently might not be able to compile

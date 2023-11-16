@@ -36,16 +36,12 @@ services:
   # and not loaded as Docker environment variables
   cerebro-app:
     build:
-      {{#if dev }}
-      context: {{{ dev }}}
-      {{else}}
-      context: {{{ outdir }}}
-      {{/if}}
+      context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.app
     restart: unless-stopped
     {{#if dev }}
     # Development run server - DO NOT RUN IN PRODUCTION
-    command: npm run dev
+    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && cp -r /app/node_modules . && npm run dev'
     {{else}}
     # Production run of build - show latest tag, branch, commit of deployed repository
     command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && node -r dotenv/config build'
@@ -55,10 +51,10 @@ services:
     volumes:
       {{#if dev }}
       # Path mount for linked repository in development deployment (local dev)
-      - {{{ dev }}}/app:/home/node/app
+      - {{{ outdir }}}/cerebro/app/:/home/node/app
       {{/if}}
       - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
-      - {{{ outdir }}}/cerebro:/home/node/cerebro:ro  # host the repository for updates to app env tracking dev branch
+      - {{{ outdir }}}/cerebro:/home/node/cerebro:ro  # host the repository for runtime git version parsing (see above commands)
     networks:
       - cerebro
       - proxy
@@ -88,30 +84,25 @@ services:
   # CEREBRO_CONFIG_FILE is automatically parsed from command-line
   cerebro-api:
     build:
-      {{#if dev }}
-      context: {{{ dev }}}
-      {{else}}
-      context: {{{ outdir }}}
-      {{/if}}
+      context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.server
     restart: unless-stopped
     {{#if dev}}
-    command: cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8
+    command: cargo watch -w /usr/src/cerebro/.trigger -x "run stack run-server --host 0.0.0.0 --port 8080 --threads 8"
     {{else}}
-    command: cargo watch -w .trigger -x "build && target/debug/cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8"
+    command: cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8
     {{/if}}
     expose:
       - 8080
     volumes:
       {{#if dev }}
       # Path mount of linked repository in development deployment
-      - {{{ dev }}}:/usr/src/cerebro
-      - {{{ dev }}}/templates:/data/templates:ro
+      - {{{ outdir }}}/cerebro:/usr/src/cerebro
       {{else}}
       # Volume mount for application in production deployment
       - cerebro_api:/data
-      - {{{ outdir }}}/cerebro/templates:/data/templates:ro
       {{/if}}
+      - {{{ outdir }}}/cerebro/templates:/data/templates:ro
     networks:
       - cerebro
       - proxy

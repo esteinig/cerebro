@@ -369,14 +369,35 @@ pub enum StackCommands {
 #[derive(Debug, Args)]
 pub struct StackDeployArgs {
     /// Stack configuration file (.toml)
-    #[clap(long, short = 'c', env = "STACK_CONFIG_FILE")]
+    #[clap(long, short = 'c', env = "CEREBRO_STACK_CONFIG_FILE")]
     pub config: PathBuf,
-    /// Cerebro repository directory for development stack 
+    /// Deploy for local development with hot-reloads (unsafe in production)
     #[clap(long, short = 'd')]
-    pub dev: Option<PathBuf>,
+    pub dev: bool,
     /// Configured stack output directory
-    #[clap(long, short = 'o', env = "STACK_CONFIG_DIR")]
+    #[clap(long, short = 'o', env = "CEREBRO_STACK_CONFIG_DIR")]
     pub outdir: PathBuf,
+    /// Clone the specific branch for this repository
+    #[clap(long, short = 'b')]
+    pub branch: Option<String>,
+    /// Checkout repository at the commit or tag provided, overwrites branch if provided
+    #[clap(long, short = 'r')]
+    pub revision: Option<String>,
+    /// Use libgit2 bindings instead of system call (feature not stable)
+    #[cfg(feature = "libgit")]
+    #[clap(long, short = 'l')]
+    pub libgit: bool,
+    /// SSH private key for repository clone via SSH
+    #[cfg(feature = "libgit")]
+    #[clap(long, short = 'k', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY")]
+    pub git_ssh_key: Option<PathBuf>,
+    /// SSH private key passphrase 
+    #[cfg(feature = "libgit")]
+    #[clap(long, short = 'p', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY_PWD")]
+    pub git_ssh_pwd: Option<String>,
+    /// Public or SSH-like repository URL for cloning into dep[loyment
+    #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
+    pub git_url: String,
 }
 
 
