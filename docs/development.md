@@ -6,17 +6,6 @@
 
 We have tried to make development as easy as possible using a local hot-reload development configuration of the stack. Minimal configuration is required to get started and nearly all stack components (see exceptions) link directly into a repository clone with the ability to quickly change between branches, re-deploy changes and minimize container re-builds. Please see the style guide to observe conventional commits, issue tracking and semantic versioning of pull requests. 
 
-## Styleguide
-
-All commits are made with `cocogitto` in the usual pattern `cog commit {task} "{msg}" {scope}` e.g. `cog commit chore "fix spelling mistake" docs`. Note that apull requests implemented commits that should not appear in the CHANGELOG should be tasked as `chore` as these are excluded from CHANGELOG. Ideally, development commits should always implement `chore` and then squashed into a single commit on merge into `dev` with a meaningful message. Breaking changes indicated as such with `cog` will  will trigger changes to major version, conventional commits tagged as `fix` or `feat` to minor version and any other changes to patch version.
-
-1. Development occurs on the `dev` branch - all pull requests are merged into `dev` before release on `main`
-2. Open an issue for your development branch using the templates in the repository and create a new branch linked to the issue. Branch syntax follows conventional commit styles with `{task}/{branch-name}`, e.g. `chore/docs-spelling-11`.
-3. When completed, open a pull request of your branch into `dev` and request review
-4. Commits from your branch should be squashed and merged as a single conventional commit style message e.g. `chore(docs): fixed to documentation`. This ensures that only the pull request commit merged into `dev` appears in the changelog for new releases. In exceptional cases development commits may be included without squashing but development commits must adhere to conventional commit styles
-
-Release commits on `main` by the repository owners pull changes from `dev` via a `release/{version}` branch. Release actions trigger `cog bump --auto` changelog and version bumps, including compilation of Linux binaris of `cerebro` attached to the release. 
-
 ## Requirements
 
 * `Docker` and `docker compose`
@@ -54,7 +43,19 @@ but requires container re-builds for updates.
 
 ## Advanced Deployment
 
-Multiple deployments with unique output directory names can be run simulataneously and require only slight adjustments to the deployment domains.
+Multiple deployments with unique output directory names can be run simultaneously and require only slight adjustments to the deployment domains.
+
+
+## Styleguide
+
+All commits are made with `cocogitto` in the usual pattern `cog commit {task} "{msg}" {scope}` e.g. `cog commit chore "fix spelling mistake" docs`. Note that apull requests implemented commits that should not appear in the CHANGELOG should be tasked as `chore` as these are excluded from CHANGELOG. Ideally, development commits should always implement `chore` and then squashed into a single commit on merge into `dev` with a meaningful message. Breaking changes indicated as such with `cog` will  will trigger changes to major version, conventional commits tagged as `fix` or `feat` to minor version and any other changes to patch version.
+
+1. Development occurs on the `dev` branch - all pull requests are merged into `dev` before release on `main`
+2. Open an issue for your development branch using the templates in the repository and create a new branch linked to the issue. Branch syntax follows conventional commit styles with `{task}/{branch-name}`, e.g. `chore/docs-spelling-11`.
+3. When completed, open a pull request of your branch into `dev` and request review
+4. Commits from your branch should be squashed and merged as a single conventional commit style message e.g. `chore(docs): fixed to documentation`. This ensures that only the pull request commit merged into `dev` appears in the changelog for new releases. In exceptional cases development commits may be included without squashing but development commits must adhere to conventional commit styles
+
+Release commits on `main` by the repository owners pull changes from `dev` via a `release/{version}` branch. Release actions trigger `cog bump --auto` changelog and version bumps, including compilation of Linux binaris of `cerebro` attached to the release. 
 
 
 
@@ -68,68 +69,32 @@ curl https://github.com/esteinig/cerebro/releases/download/latest/cerebro-latest
 
 
 # deploy a local dev configuration 
-cerebro stack deploy --outdir cerebro_dev --config dev-local --dev --branch docs/dev-branch-test
+cerebro stack deploy --outdir cerebro_dev --config dev-local --branch docs/dev-branch-test --dev
 
 # or manually: cerebro stack deploy --outdir cerebro_dev --config dev-local --dev && cd cerebro_dev/cerebro && git checkout docs/dev-branch-test
 
 # enter deployment and up the stack for monitoring rustc compilation
 # cerebro is re-compiled in debug mode on first deployment
-cd dev_local/ && docker compose up
+cd cerebro_dev && docker compose up
 
-# changes to the app ui are reflected immediately due to node dev server 
-# changes to the rust codebase require rebuild of the app e.g. when changing api code
+# open cerebro_dev/cerebro in your ide and make changes to app or rust crate
 
-# [TBD] fmt and clippy hooks are executed for rust changes 
+# changes to the app are reflected immediately due to node dev server 
+# changes to the rust api server are triggered on changes to cerebro_dev/cerebro/.trigger
 
-# down the containter stack and remove the stopped containers - this is recommended 
-# as a local reverse proxy can return docker network errors and db connections can fail
-docker compose down && docker container rm $(docker ps --format "{{.Names}}" | grep "$CEREBRO_PREFIX"-)
-
-# build flag triggers rebuild of changed components in the docker compose file
-docker compose up --build
-
-# checkout current feat branch and commit changes
-git checkout feat/new_feature
-cog commit chore "minor changes to auth api" auth
-git push origin feat/new_feature
-
-# create new pr with conventional commit style 
-# to merge feat/new_feature into dev
-
-# squash working commits on pr into dev to
-# the primary conventional commit
-#
-# docs/readme branch -> dev
-# readme(docs): dev section draft
-#
-# dev pr squash commits are published in main release changelog
+# ctrl + c to exit the forground compose stack
+# `docker compose down` to down the compose stack
 ```
 
-## Git progression for release
+You can commit changes to the branch in another terminal during development:
 
 ```bash
-# checkout latest main
-git checkout main 
+# commit some changes to the documentation 
+cd cerebro_dev/cerebro
+git add docs/development.md
+cog commit chore "add deployment section" docs
+git push origin docs/dev-branch-test
 
-# pull latest dev into main and run auto changelog
-git fetch dev 
-
-# checkout auto changelog for version release
-cog changelog --auto
-
-# get update version 
-$RELEASE_VERSION=$(cog bump --dry-run --auto) 
-
-# checkout version release branch
-git checkout -b release/$RELEASE_VERSION
-
-# cog commit release chore to version
-git add . && cog commit chore "$RELEASE_VERSION" release
-
-# push to remote to trigger release and build actions
-git push origin release/$RELEASE_VERSION
-
-# create pr of `release/$RELEASE_VERSION` into 'main'
-# release with latest changelog and binaries is created on ci/cd
-
+# open pr for this branch and review 
+# squash merge changes with conentional commit style pr
 ```
