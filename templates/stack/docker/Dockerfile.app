@@ -24,7 +24,6 @@ ENV NODE_ENV=production
 
 WORKDIR /home/node/app
 COPY --from=builder /app/package.json .
-COPY --from=builder /app/node_modules ./node_modules
 
 {{#if dev}}
 COPY --from=builder /app/node_modules /app/node_modules

@@ -32,13 +32,13 @@ COPY ./Cargo.toml Cargo.toml
 # launching the container and using the reporting functions for the first time - otherwise
 # the first request for a report will take a long time to complete
 
+{{#unless dev}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
 RUN cargo build --release --features pdf && \
     mkdir -p /opt/cerebro/bin && \
     cp target/release/cerebro /opt/cerebro/bin
-
-WORKDIR /opt/cerebro
-
 RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
+WORKDIR /opt/cerebro
+{{/unless}}
 
-# USER cerebro-api - currently might not be able to compile
+# USER cerebro-api
