@@ -58,8 +58,10 @@ Multiple stack deployments with unique output directory names can be run simulta
 
 ## Known issues
 
-1. Stack deployments should *always* be downed from the deployment repository, this can be done - after upping the stack in the foreground to monitor logs - by running `docker compose down` in the deployment directory after terminating the running stack. Some arcane reverse proxy errors may occurr with `Traefik` otherwise, usually noticeable by a `Bad Gateway` message when navigating to the application domain - in these cases, the stack should be downed or containers and network removed manually (prefix is the `<deployment>` directory basename).
+1. Stack deployments should *always* be downed from the deployment repository, this can be done - after upping the stack in the foreground to monitor logs - by running `docker compose down` in the deployment directory after terminating the running stack. Some arcane reverse proxy errors may occurr with `Traefik` otherwise, usually noticeable by a `Bad Gateway` or `404` message when navigating to the application domain - in these cases, the stack should be downed or containers and network removed manually (prefix is the `<deployment>` directory basename).
 2. Occasionally the server may not be able to connect to the databases in development mode for some reason - you should see a checkmark and a `Connected to {MongoDB, Redis session, Redis one-time} database` message when starting the server in the compose file on container with tag: `<depoyment>_cerebro-api-1`. Down the stack and up it again, usually this mitigates any issues with internal networking.
+
+Overall it is usually recommended to down the stack so that network configurations are properly removed and do not interfere with subsequent stack ups.
 
 ## Deployment example
 

@@ -69,16 +69,16 @@ services:
       traefik.enable: "true"
       traefik.docker.network: "proxy"
       {{#if traefik.is_localhost }}
-      traefik.http.routers.cerebro-app.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.localhost.domain }}}`)"
-      traefik.http.routers.cerebro-app.tls: "{{ traefik.localhost.tls }}"
-      traefik.http.routers.cerebro-app.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.localhost.domain }}}`)"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls: "{{ traefik.localhost.tls }}"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
       {{else}}
-      traefik.http.routers.cerebro-app.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.web.domain }}}`)"
-      traefik.http.routers.cerebro-app.entrypoints: "https"
-      traefik.http.routers.cerebro-app.middlewares: "default@file"
-      traefik.http.routers.cerebro-app.tls.certresolver: "letsEncrypt"
-      traefik.http.routers.cerebro-app.tls.options: "modern@file"
-      traefik.http.routers.cerebro-app.tls: "true"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.web.domain }}}`)"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "https"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.middlewares: "default@file"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls.options: "modern@file"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls: "true"
       {{/if}}
 
   # CEREBRO_CONFIG_FILE is automatically parsed from command-line
@@ -124,16 +124,16 @@ services:
       traefik.enable: "true"
       traefik.docker.network: "proxy"
       {{#if traefik.is_localhost }}
-      traefik.http.routers.cerebro-api.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.localhost.domain }}}`)"
-      traefik.http.routers.cerebro-api.tls: "{{ traefik.localhost.tls }}"
-      traefik.http.routers.cerebro-api.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.localhost.domain }}}`)"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls: "{{ traefik.localhost.tls }}"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
       {{else}}
-      traefik.http.routers.cerebro-api.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.web.domain }}}`)"
-      traefik.http.routers.cerebro-api.entrypoints: "https"
-      traefik.http.routers.cerebro-api.middlewares: "default@file"
-      traefik.http.routers.cerebro-api.tls.certresolver: "letsEncrypt"
-      traefik.http.routers.cerebro-api.tls.options: "modern@file"
-      traefik.http.routers.cerebro-api.tls: "true"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.web.domain }}}`)"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "https"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.middlewares: "default@file"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls.options: "modern@file"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls: "true"
       {{/if}}
 
   # Cerebro model and user database 

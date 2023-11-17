@@ -312,8 +312,15 @@ pub struct TraefikConfig {
 pub struct TraefikSubdomain {
     pub app: String,
     pub api: String,
+    #[serde(skip_deserializing)]
+    pub router: TraefikSubdomainRouter
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TraefikSubdomainRouter {
+    pub app: String,
+    pub api: String,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraefikNetwork {
     pub name: String,
@@ -542,7 +549,7 @@ impl Stack {
         })
 
     }
-    pub fn configure(&mut self, outdir: &PathBuf, dev: bool, subdomain_prefix: Option<String>, trigger: bool) -> Result<(), StackConfigError> {
+    pub fn configure(&mut self, outdir: &PathBuf, dev: bool, subdomain: Option<String>, trigger: bool) -> Result<(), StackConfigError> {
 
         self.name = match outdir.file_name() {
             Some(os_str) => match os_str.to_str() {
@@ -570,24 +577,29 @@ impl Stack {
         let stack_assets = StackAssets::new(&dir_tree.assets)?;
         stack_assets.write_asset_files(self.traefik.deploy.clone())?;
 
-        if let Some(prefix) = subdomain_prefix {
-            self.traefik.subdomain.api = format!("{prefix}-api");
-            self.traefik.subdomain.app = format!("{prefix}-app");
-            log::info!("Subdomain prefix specified, configured subdomains to `{}` and `{}`",  self.traefik.subdomain.api.blue(), self.traefik.subdomain.app.blue());
+        if let Some(subd) = &subdomain {
+            self.traefik.subdomain.api = format!("api.{subd}");
+            self.traefik.subdomain.app = format!("app.{subd}");
+            log::info!("Subdomain specified, configured subdomains to `{}` and `{}`", self.traefik.subdomain.api.blue(), self.traefik.subdomain.app.blue());
         }
+
+        // Unique router names for subdomains
+        self.traefik.subdomain.router.api = uuid::Uuid::new_v4().to_string();
+        self.traefik.subdomain.router.app = uuid::Uuid::new_v4().to_string();
 
         log::info!("Read default server configuration");
         // Read the default server template configuration
         let mut server_config = api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
             .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;
 
+    
         // Configure server and application
         if self.traefik.is_localhost {
 
             log::info!("Configure server and application deployment to localhost");
            // Localhost specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint,  self.traefik.subdomain.app, self.traefik.localhost.domain);
-            server_config.security.cookies.domain = self.traefik.localhost.domain.clone();
+            server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.subdomain.app, self.traefik.localhost.domain);
+            server_config.security.cookies.domain = match &subdomain { Some(subd) => format!("{subd}.{}", self.traefik.localhost.domain.clone()), None => self.traefik.localhost.domain.clone()};
             if self.traefik.localhost.tls {
                 server_config.security.cookies.secure = true;
             } else {
@@ -599,7 +611,7 @@ impl Stack {
             log::info!("Configure server and application deployment to web");
             // Web specific deployment configurations of Cerebro application and server
             server_config.security.cors.app_origin_public_url = format!("https://{}.{}", self.traefik.subdomain.app, self.traefik.web.domain);
-            server_config.security.cookies.domain = self.traefik.web.domain.clone();
+            server_config.security.cookies.domain = match &subdomain { Some(subd) => format!("{subd}.{}", self.traefik.web.domain.clone()), None => self.traefik.web.domain.clone()};
             server_config.security.cookies.secure = true;
             self.cerebro.app.public_cerebro_api_url =  format!("https://{}.{}", self.traefik.subdomain.api, self.traefik.web.domain);
         }

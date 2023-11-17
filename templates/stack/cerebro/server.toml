@@ -30,7 +30,7 @@ app_origin_public_url           = ''
 app_origin_docker_url           = 'http://cerebro-app:8000'
 
 [security.cookies]
-domain                          = 'cerebro.localhost'
+domain                          = '.cerebro.localhost'
 secure                          = false
 
 [security.token.encryption]

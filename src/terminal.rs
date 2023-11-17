@@ -391,13 +391,13 @@ pub struct StackDeployArgs {
     #[clap(long, short = 'r')]
     pub revision: Option<String>,
 
-    /// Change the subdomain prefix for multiple concurrent stack deployments 
+    /// Change the subdomain for multiple concurrent stack deployments 
     /// 
-    /// This will configure Traefik to deploy to <prefix>-{app,api}.{domain}
-    /// so that multiple prefixes can be configured on the fly during deployment
-    /// for example to `dev-app.cerebro.localhost` or `demo-app.cerebro.localhost`
+    /// This will configure Traefik to deploy to {app,api}.{subdomain}.{domain}
+    /// so that multiple subdomains can be configured on the fly during deployment
+    /// for example to `app.dev.cerebro.localhost` or `app.demo.cerebro.localhost`
     #[clap(long, short = 's')]
-    pub subdomain_prefix: Option<String>,
+    pub subdomain: Option<String>,
 
     /// Public or SSH-like repository URL for cloning into deployment
     #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
