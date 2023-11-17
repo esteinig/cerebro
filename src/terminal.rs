@@ -374,6 +374,13 @@ pub struct StackDeployArgs {
     /// Deploy for local development with hot-reloads (unsafe in production)
     #[clap(long, short = 'd')]
     pub dev: bool,
+    /// Create a `.trigger` file in the deployed repository for manual rebuilds during local development
+    /// 
+    /// Can be used to modify the trigger file (in the base repository) to manually
+    /// launch crate compilation rather than watching for any change in `src` or 
+    /// `Cargo.toml` for hot-rebuilds during development
+    #[clap(long, short = 't')]
+    pub trigger: bool,
     /// Configured stack output directory
     #[clap(long, short = 'o', env = "CEREBRO_STACK_CONFIG_DIR")]
     pub outdir: PathBuf,
@@ -391,7 +398,7 @@ pub struct StackDeployArgs {
     /// for example to `dev-app.cerebro.localhost` or `demo-app.cerebro.localhost`
     #[clap(long, short = 's')]
     pub subdomain_prefix: Option<String>,
-    
+
     /// Public or SSH-like repository URL for cloning into deployment
     #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
     pub git_url: String,

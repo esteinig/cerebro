@@ -224,7 +224,7 @@ fn main() -> anyhow::Result<()> {
                 // output directory with templated assets
                 StackCommands::Deploy( args ) => {
                     let mut stack = stack::deploy::Stack::from_toml(&args.config)?;
-                    stack.configure( &args.outdir, args.dev, args.subdomain_prefix.clone() )?;
+                    stack.configure( &args.outdir, args.dev, args.subdomain_prefix.clone(), args.trigger )?;
 
                     #[cfg(feature = "libgit")]
                     {

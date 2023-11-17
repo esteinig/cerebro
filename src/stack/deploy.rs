@@ -442,6 +442,8 @@ pub struct Stack {
     revision: String,
     #[serde(skip_deserializing)]
     dev: bool,
+    #[serde(skip_deserializing)]
+    trigger: bool,
 
     cerebro: CerebroConfig,
     mongodb: MongoDbConfig,
@@ -540,7 +542,7 @@ impl Stack {
         })
 
     }
-    pub fn configure(&mut self, outdir: &PathBuf, dev: bool, subdomain_prefix: Option<String>) -> Result<(), StackConfigError> {
+    pub fn configure(&mut self, outdir: &PathBuf, dev: bool, subdomain_prefix: Option<String>, trigger: bool) -> Result<(), StackConfigError> {
 
         self.name = match outdir.file_name() {
             Some(os_str) => match os_str.to_str() {
@@ -552,7 +554,9 @@ impl Stack {
         log::info!("Initiate server configuration: {}", self.name);
 
         self.dev = dev;
-        log::info!("Development deployment active: {}", dev);
+        log::info!("Development deployment: {}", self.dev);
+        self.trigger = trigger;
+        log::info!("Trigger file for development deployment active: {}", self.trigger);
 
 
         let dir_tree = StackConfigTree::new(outdir);
