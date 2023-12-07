@@ -36,31 +36,25 @@ services:
   # and not loaded as Docker environment variables
   cerebro-app:
     build:
-      {{#if dev }}
-      context: {{{ dev }}}
-      {{else}}
-      context: {{{ outdir }}}
-      {{/if}}
+      context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.app
     restart: unless-stopped
     {{#if dev }}
-    # Development run server 
-    command: npm run dev
+    # Development run server - DO NOT RUN IN PRODUCTION
+    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && cp -r /app/node_modules . && npm run dev'
     {{else}}
-    # Production run of build
-    command: node -r dotenv/config build
+    # Production run of build - show latest tag, branch, commit of deployed repository
+    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && node -r dotenv/config build'
     {{/if}}
     expose:
       - 8000
     volumes:
       {{#if dev }}
-      # Path mount for application in development
-      - {{{ dev }}}/app:/home/node/app
-      # {{else}}
-      # # Volume mount for application in production
-      # - cerebro_app:/home/node/app
+      # Path mount for linked repository in development deployment (local dev)
+      - {{{ outdir }}}/cerebro/app/:/home/node/app
       {{/if}}
-      - {{{ outdir }}}/cerebro/app.env:/home/node/app/.env:ro
+      - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
+      - {{{ outdir }}}/cerebro:/home/node/cerebro:ro  # host the repository for runtime git version parsing (see above commands)
     networks:
       - cerebro
       - proxy
@@ -75,43 +69,44 @@ services:
       traefik.enable: "true"
       traefik.docker.network: "proxy"
       {{#if traefik.is_localhost }}
-      traefik.http.routers.cerebro-app.rule: "Host(`app.{{{ traefik.localhost.domain }}}`)"
-      traefik.http.routers.cerebro-app.tls: "{{ traefik.localhost.tls }}"
-      traefik.http.routers.cerebro-app.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.localhost.domain }}}`)"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls: "{{ traefik.localhost.tls }}"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
       {{else}}
-      traefik.http.routers.cerebro-app.rule: "Host(`app.{{{ traefik.web.domain }}}`)"
-      traefik.http.routers.cerebro-app.entrypoints: "https"
-      traefik.http.routers.cerebro-app.middlewares: "default@file"
-      traefik.http.routers.cerebro-app.tls.certresolver: "letsEncrypt"
-      traefik.http.routers.cerebro-app.tls.options: "modern@file"
-      traefik.http.routers.cerebro-app.tls: "true"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.web.domain }}}`)"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "https"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.middlewares: "default@file"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls.options: "modern@file"
+      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls: "true"
       {{/if}}
 
   # CEREBRO_CONFIG_FILE is automatically parsed from command-line
   cerebro-api:
     build:
-      {{#if dev }}
-      context: {{{ dev }}}
-      {{else}}
-      context: {{{ outdir }}}
-      {{/if}}
+      context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.server
     restart: unless-stopped
+    {{#if dev}}
+    {{#if trigger}}
+    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run --features pdf stack run-server --host 0.0.0.0 --port 8080 --threads 8"'
+    {{else}}
+    command: cargo watch -w /usr/src/cerebro/src -w /usr/src/cerebro/Cargo.toml -x "run --features pdf stack run-server --host 0.0.0.0 --port 8080 --threads 8"
+    {{/if}}
+    {{else}}
     command: cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8
+    {{/if}}
     expose:
       - 8080
     volumes:
       {{#if dev }}
-      # Path mount for application in development
-      - {{{ dev }}}:/usr/src/cerebro
-      - {{{ dev }}}/templates/email:/data/templates/email:ro
-      - {{{ dev }}}/templates/report:/data/templates/report:ro
+      # Path mount of linked repository in development deployment
+      - {{{ outdir }}}/cerebro:/usr/src/cerebro
       {{else}}
       # Volume mount for application in production deployment
       - cerebro_api:/data
-      - {{{ outdir }}}/templates/email:/data/templates/email:ro
-      - {{{ outdir }}}/templates/report:/data/templates/report:ro
       {{/if}}
+      - {{{ outdir }}}/cerebro/templates:/data/templates:ro
     networks:
       - cerebro
       - proxy
@@ -129,16 +124,16 @@ services:
       traefik.enable: "true"
       traefik.docker.network: "proxy"
       {{#if traefik.is_localhost }}
-      traefik.http.routers.cerebro-api.rule: "Host(`api.{{{ traefik.localhost.domain }}}`)"
-      traefik.http.routers.cerebro-api.tls: "{{ traefik.localhost.tls }}"
-      traefik.http.routers.cerebro-api.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.localhost.domain }}}`)"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls: "{{ traefik.localhost.tls }}"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
       {{else}}
-      traefik.http.routers.cerebro-api.rule: "Host(`api.{{{ traefik.web.domain }}}`)"
-      traefik.http.routers.cerebro-api.entrypoints: "https"
-      traefik.http.routers.cerebro-api.middlewares: "default@file"
-      traefik.http.routers.cerebro-api.tls.certresolver: "letsEncrypt"
-      traefik.http.routers.cerebro-api.tls.options: "modern@file"
-      traefik.http.routers.cerebro-api.tls: "true"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.web.domain }}}`)"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "https"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.middlewares: "default@file"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls.certresolver: "letsEncrypt"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls.options: "modern@file"
+      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls: "true"
       {{/if}}
 
   # Cerebro model and user database 
@@ -211,7 +206,7 @@ volumes:
 networks:
   cerebro:
     external: false
-    name: {{{ name }}}_cerebro
+    name: {{{ name }}}
   proxy:
     name: {{{ traefik.network.name }}}   
     external: {{{ traefik.network.external }}}
@@ -219,9 +214,7 @@ networks:
 # Do not need to use files as secrets necessarily but allows for easier environmental variable settings
 secrets:
   cerebro_config:
-    file: {{{ outdir }}}/cerebro/server.toml
+    file: {{{ outdir }}}/cerebro_api/server.toml
   mongodb_config:
     file: {{{ outdir }}}/mongodb/database.env
- 
- 
   

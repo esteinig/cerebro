@@ -18,26 +18,27 @@ RUN apt-get update && apt-get install -y \
 # enable features for Tectonic so the default version ships
 # without the Latex compiler (system-dependencies)
 
-USER cerebro-api
 WORKDIR /usr/src/cerebro
 
-
-
 {{#if dev }}
+RUN cargo install cargo-watch 
+{{/if}}
+
 COPY ./src src
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
-{{else}}
-RUN git clone --depth=1 -b {{{ revision }}} https://github.com/esteinig/cerebro && cd cerebro
-{{/if}}
 
+# Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
+# launching the container and using the reporting functions for the first time - otherwise
+# the first request for a report will take a long time to complete
 
+{{#unless dev}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
-RUN cargo build --release --features pdf
-RUN cp target/release/cerebro /opt/cerebro/bin
+RUN cargo build --release --features pdf && \
+    mkdir -p /opt/cerebro/bin && \
+    cp target/release/cerebro /opt/cerebro/bin
+RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
 WORKDIR /opt/cerebro
+{{/unless}}
 
-RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/report.toml --output test.pdf --pdf && rm test.pdf
-
-
-# USER IS CURRENTLY ROOT BECAUSE OF TECTONIC DEPENDENCIES - CHANGE THIS
+# USER cerebro-api

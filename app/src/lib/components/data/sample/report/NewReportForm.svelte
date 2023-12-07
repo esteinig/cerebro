@@ -216,7 +216,7 @@
 
         <p class="pb-3">Results</p>
         <p class="text-xs opacity-60 w-3/4 pb-5">
-            Diagnostic result to be reported. Organism must be recorded as candidate first. Multiple organism must be reported separately.
+            Diagnostic result to be reported. Pathogens must be selected and recorded as candidate taxa in the pathogen category before they can be reported using this form. Multiple detected pathogens must be reported separately.
         </p>
         <div class="p-4">
             <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-12 w-full pb-10 align-center items-center">
@@ -239,7 +239,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-12 w-full pb-12">
                 <label class="label">
                     <span class="text-sm opacity-60">Contact details</span>
-                    <textarea class="textarea text-sm" value="" placeholder="Contact details for results" required={requireFields} />
+                    <textarea class="textarea text-sm" bind:value={reportSchema.patient_result.contact}  placeholder="Contact details for results" required={requireFields} />
                 </label>
 
                 <label class="label">
