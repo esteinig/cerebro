@@ -6,7 +6,7 @@ export const getDateTime = (isoString: string): [string, string] => {
 }
 
 export const getDateTimeString = (isoString: string, time: boolean = true, sep: string = " "): string => {
-    // No sub-seconds included
+    // No sub-seconds 
     let data = isoString.split("T");
     if (time) {
         return [data[0], data[1].split("Z")[0].substring(0,8)].join(sep)

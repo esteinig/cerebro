@@ -300,9 +300,9 @@ impl BioinformaticsLibrary {
             tag: match &qc_summary.library_tag { Some(tag) => tag.to_string(), None => "ERROR".to_string() },
             reads: qc_summary.total_reads.to_string(),
             reads_qc: qc_summary.output_reads.to_string(),
-            extraction_control: match &qc_summary.extraction_control_status { Some(status) => status.to_string(), None => String::from("PASS") },
-            sequencing_control: match &qc_summary.sequencing_control_status { Some(status) => status.to_string(), None => String::from("N/A") },
-            library_control: match &qc_summary.library_control_status { Some(status) => status.to_string(), None => String::from("PASS") }
+            extraction_control: match &qc_summary.control_status_dna_extraction { Some(status) => status.to_string(), None => String::from("PASS") },
+            sequencing_control: match &qc_summary.control_status_sequencing { Some(status) => status.to_string(), None => String::from("N/A") },
+            library_control: match &qc_summary.control_status_library { Some(status) => status.to_string(), None => String::from("PASS") }
         }
     }
 }

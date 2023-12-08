@@ -247,7 +247,7 @@ async fn get_report_from_storage_handler(request: HttpRequest, data: web::Data<A
 
 }
 
-#[cfg(feature = "pdf")]
+#[cfg(feature = "pdf")] 
 #[derive(Deserialize)]
 struct CerebroAddReportPdfQuery {
     // Required for access authorization in user guard middleware
@@ -255,9 +255,11 @@ struct CerebroAddReportPdfQuery {
     project: ProjectId
 }
 
-#[cfg(feature = "pdf")]
+#[cfg(feature = "pdf")] 
+// If PDF feature is not supported the endpoint is still reavhable but will always return server error
 #[post("/cerebro/reports/pdf")]
 async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportPdfQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+
 
     if !auth_guard.user.roles.contains(&Role::Report) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -275,13 +277,30 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Err(err_response) => return err_response
     };
 
-    let (report_text, is_pdf) = match report.render_pdf(None, None) {
-        Ok(pdf_bytes) => (general_purpose::STANDARD.encode(pdf_bytes), true),
+    log::info!("Report created");
+
+    let report_id = report.id.clone();
+
+    let rendered = tokio::task::spawn_blocking(move || {
+        report.render_pdf(None, None)
+    });
+
+    let (report_text, is_pdf) = match rendered.await {
+        Ok(result) => {
+            match result {
+                Ok(pdf_bytes) => (general_purpose::STANDARD.encode(pdf_bytes), true),
+                Err(err) => return HttpResponse::InternalServerError().json(
+                    serde_json::json!({"status": "fail", "message": format!("Failed to render LaTeX to PDF: {}", err.to_string()), "data": serde_json::json!({}) })
+                )
+            }
+        },
         Err(err) => return HttpResponse::InternalServerError().json(
             serde_json::json!({"status": "fail", "message": format!("Failed to render LaTeX to PDF: {}", err.to_string()), "data": serde_json::json!({}) })
         )
     };
 
+    log::info!("PDF created");
+    
     let access_details = AccessDetails::new( 
         &request, 
         Some(&auth_guard.user.id),
@@ -290,7 +309,9 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report.id, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_id, report_text, is_pdf, &access_details).await
+
+    
 }
 
 
@@ -1547,7 +1568,7 @@ async fn store_and_log_report(
                 Ok(_) => {
                     HttpResponse::Ok().json(
                         serde_json::json!({
-                            "status": "fail", 
+                            "status": "success", 
                             "message": "Generated report (PDF)", 
                             "data": serde_json::json!({"report": report_text, "pdf": is_pdf}) 
                         })
