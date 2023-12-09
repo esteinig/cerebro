@@ -353,11 +353,13 @@ pub struct WorkflowParamsQcPhage {
     pub identifiers: WorkflowParamsQcPhageIdentifiers,
 }
 
+
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcPhageIdentifiers {
     pub dna_extraction: String,
     pub rna_extraction: String,
-    pub sequencing: String
+    pub sequencing: String,
 }
 
 

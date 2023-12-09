@@ -247,7 +247,6 @@ async fn get_report_from_storage_handler(data: web::Data<AppState>, id: web::Pat
 
 }
 
-
 #[derive(Deserialize)]
 struct CerebroDeleteStoredReportQuery {
     // Required for access authorization in user guard middleware
