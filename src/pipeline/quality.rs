@@ -532,7 +532,7 @@ impl QualityControlSummary {
             host_biomass,
             other_reads,
             other_percent,
-            other_biomass
+            other_biomass,
             dna_phage_id: Some(dna_phage_id.into()),
             dna_phage_reads,
             dna_phage_percent,
