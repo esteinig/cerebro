@@ -178,6 +178,7 @@
                 link.click();
                 document.body.removeChild(link);
             }
+        }
         
         invalidate("sample:data");
 
