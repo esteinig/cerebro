@@ -276,6 +276,7 @@ pub struct QualityControlSummary {
     #[serde(serialize_with = "round_two")]
     pub other_biomass: Option<f64>,
     // DNA phage control
+    pub dna_phage_id: Option<String>,
     pub dna_phage_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub dna_phage_percent: Option<f64>,
@@ -283,7 +284,8 @@ pub struct QualityControlSummary {
     pub dna_phage_coverage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
     pub dna_phage_biomass: Option<f64>,
-    // RNA phage control
+    // RNA phage 
+    pub rna_phage_id: Option<String>,
     pub rna_phage_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub rna_phage_percent: Option<f64>,
@@ -292,6 +294,7 @@ pub struct QualityControlSummary {
     #[serde(serialize_with = "round_two")]
     pub rna_phage_biomass: Option<f64>,
     // Sequencing phage control
+    pub seq_phage_id: Option<String>,
     pub seq_phage_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub seq_phage_percent: Option<f64>,
@@ -531,14 +534,17 @@ impl QualityControlSummary {
             other_reads,
             other_percent,
             other_biomass,
+            dna_phage_id: Some(dna_phage_id.into()),
             dna_phage_reads,
             dna_phage_percent,
             dna_phage_coverage_percent,
             dna_phage_biomass,
+            rna_phage_id: Some(rna_phage_id.into()),
             rna_phage_reads,
             rna_phage_percent,
             rna_phage_coverage_percent,
             rna_phage_biomass,
+            seq_phage_id: Some(seq_phage_id.into()),
             seq_phage_reads,
             seq_phage_percent,
             seq_phage_coverage_percent,
