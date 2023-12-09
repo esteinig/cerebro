@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { invalidate } from "$app/navigation";
+
 
     import { page } from "$app/stores";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
@@ -177,6 +179,7 @@
                 document.body.removeChild(link);
             }
         }
+        invalidate("sample:data");
         
     }
 

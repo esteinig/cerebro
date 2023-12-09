@@ -246,7 +246,7 @@
                             <span class="text-warning-500 opacity-60 text-xs ml-5">
                                 Client-side table filters are active
                             </span>
-                         {/if}
+                        {/if}
                         {#if serverFiltersActive}
                             <span class="text-warning-500 opacity-60 text-xs ml-5">
                                 Server-side evidence filters are active
