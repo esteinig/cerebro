@@ -40,7 +40,6 @@
     let schemaPatientHeaderSpecimenType: string = "";
     let schemaPatientHeaderDateCollected: string = "";
     let schemaPatientHeaderDateReceived: string = "";
-
     let schemaPatientHeaderRequestedDoctor: string = "";
     let schemaPatientHeaderHospitalSite: string = "";
     let schemaPatientHeaderLaboratoryNumber: string = "";
@@ -127,6 +126,7 @@
         reportSchema.workflow.id = reportSchema.workflow.id.substring(0, 8)
         reportSchema.workflow.started = getDateTimeString(reportSchema.workflow.started, true)
         reportSchema.workflow.completed = getDateTimeString(reportSchema.workflow.completed, true)
+
         
         let response: ApiResponse = await publicApi.fetchWithRefresh(
             `${publicApi.routes.cerebro.createReport}/${pdf === 0 ? "pdf" : "tex"}?db=${$page.params.db}&project=${$page.params.project}`,
@@ -178,9 +178,9 @@
                 link.click();
                 document.body.removeChild(link);
             }
-        }
-        invalidate("sample:data");
         
+        invalidate("sample:data");
+
     }
 
 </script>

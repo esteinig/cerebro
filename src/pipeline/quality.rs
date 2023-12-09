@@ -284,7 +284,6 @@ pub struct QualityControlSummary {
     pub dna_phage_coverage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
     pub dna_phage_biomass: Option<f64>,
-    // RNA phage 
     pub rna_phage_id: Option<String>,
     pub rna_phage_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
@@ -533,7 +532,7 @@ impl QualityControlSummary {
             host_biomass,
             other_reads,
             other_percent,
-            other_biomass,
+            other_biomass
             dna_phage_id: Some(dna_phage_id.into()),
             dna_phage_reads,
             dna_phage_percent,
