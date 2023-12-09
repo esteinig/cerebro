@@ -4,7 +4,7 @@
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { baseTags, getDateTimeString } from "$lib/utils/helpers";
     import type { Cerebro, PatientHeaderSchema, PatientResultSchema, PriorityTaxon, ReportSchema, WorkflowConfig } from "$lib/utils/types";
-	import { getToastStore, RadioGroup, RadioItem, SlideToggle, type ToastSettings } from "@skeletonlabs/skeleton";
+	import { getToastStore, ProgressBar, RadioGroup, RadioItem, SlideToggle, type ToastSettings } from "@skeletonlabs/skeleton";
     
     export let selectedModels: Cerebro[];
     export let selectedIdentifiers: string[];
@@ -125,8 +125,6 @@
         reportSchema.workflow.id = reportSchema.workflow.id.substring(0, 8)
         reportSchema.workflow.started = getDateTimeString(reportSchema.workflow.started, true)
         reportSchema.workflow.completed = getDateTimeString(reportSchema.workflow.completed, true)
-
-        console.log(reportSchema);
         
         let response: ApiResponse = await publicApi.fetchWithRefresh(
             `${publicApi.routes.cerebro.createReport}/${pdf === 0 ? "pdf" : "tex"}?db=${$page.params.db}&project=${$page.params.project}`,
@@ -381,15 +379,24 @@
             </div>
         </div>
 
-        <div class="flex items-center justify-center">
-            <button class="btn variant-outline-primary text-lg p-4" type="submit" on:click={createReport}>
-                <div class="h-7 w-7 mr-2">
-                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </div>
-                Generate Report
-            </button>
+        {#if loading}
+        <div>
+            <label class="label">
+                <span class="mb-1">Requesting report ...</span><span class="ml-2 text-xs opacity-60">this may take a few seconds ...</span>
+                <div><ProgressBar /></div>
+            </label>
         </div>
+        {:else}
+            <div class="flex items-center justify-center">
+                <button class="btn variant-outline-primary text-lg p-4" type="submit" on:click={createReport}>
+                    <div class="h-7 w-7 mr-2">
+                        <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </div>
+                        Generate Report
+                </button>
+            </div>
+        {/if}
     </form>
 </div>
