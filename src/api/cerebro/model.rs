@@ -180,6 +180,12 @@ impl ReportEntry {
             self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
         )
     }
+    pub fn log_deletion(&self) -> String {
+        format!(
+            "Report entry deleted: report_id={} report_date={} user_id={} user_name='{}' organism='{}' review_date='{}' negative={}", 
+            self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
+        )
+    }
 }
 
 // A struct representing a biological sample data configuration
@@ -346,6 +352,17 @@ pub struct WorkflowParamsQcPhage {
     pub fasta: Option<PathBuf>,
     pub identifiers: WorkflowParamsQcPhageIdentifiers,
 }
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowParamsQcPhageIdentifiers {
+    pub dna_extraction: String,
+    pub rna_extraction: String,
+    pub sequencing: String,
+}
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcPhageIdentifiers {

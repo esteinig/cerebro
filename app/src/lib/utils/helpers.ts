@@ -49,9 +49,12 @@ export const sanitizeMongoDatabaseName = (name: string) => {
     )
 }
 
-export const formatAsPercentage = (num: number | null): string => {
+export const formatAsPercentage = (num: number | string | null): string => {
     if (num === null) {
         return "-"
+    }
+    if (typeof num == "string") {
+        num = +num
     }
     return new Intl.NumberFormat('default', {
         style: 'percent',
