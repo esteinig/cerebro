@@ -326,7 +326,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
     {   
         Ok(deleted) => {
             match deleted {
-                Some(_) => {
+                Some(_) | None => {
                     // Log the action in admin and team databases
                     match log_database_change(
                         &data, 
@@ -362,14 +362,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
                         )
                     }
                     
-                },
-                None => HttpResponse::InternalServerError().json(
-                    serde_json::json!({
-                        "status": "fail", 
-                        "message": "Failed to find stored report",
-                        "data": serde_json::json!({}) 
-                    })
-                ),
+                }
             }
             
         },
@@ -414,8 +407,6 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Err(err_response) => return err_response
     };
 
-    log::info!("Report created");
-
     let report_id = report.id.clone();
 
     let rendered = tokio::task::spawn_blocking(move || {
@@ -435,8 +426,6 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
             serde_json::json!({"status": "fail", "message": format!("Failed to render LaTeX to PDF: {}", err.to_string()), "data": serde_json::json!({}) })
         )
     };
-
-    log::info!("PDF created");
     
     let access_details = AccessDetails::new( 
         &request, 
