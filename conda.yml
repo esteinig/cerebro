@@ -20,3 +20,4 @@ dependencies:
   - calib=0.3.4
   - rasusa=0.7.1
   - cnvkit=0.9.10
+  - nanoq=0.10.0

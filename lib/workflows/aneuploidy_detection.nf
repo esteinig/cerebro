@@ -5,16 +5,17 @@ include { CnvKitAneuploidy } from '../processes/cnvkit' addParams(
     subdir: 'host/aneuploidy/copy_number_variation'
 )
 
-include { quality_control } from './subworkflows/quality_control';
+include { quality_control_illumina } from './subworkflows/quality_control';
 
 // Aneuploidy detection through whole genome copy number variation
-workflow aneuploidy_detection {
+workflow aneuploidy_detection_illumina {
     take:
         reads
         inputs
     main:
+    
         // Quality control of libraries without host removal
-        quality_control(
+        quality_control_illumina(
             reads, 
             inputs.adapter_fasta, 
             inputs.ercc_fasta, 
@@ -23,7 +24,6 @@ workflow aneuploidy_detection {
             inputs.host_depletion_references, 
             inputs.host_ercc_index, 
             false,                                      // primary deduplication disabled, uses host alignment deduplication instead
-            null,
             false,                                      // host removal disabled 
             params.qc.controls.phage.enabled
         )
