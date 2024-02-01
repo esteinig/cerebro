@@ -148,7 +148,7 @@ params.bacteria_min_regions                         = 0
 params.bacteria_min_reads                           = 0         
 
 params.eukaryots_min_cov                            = 0
-params.eukaryots_min_len                            = 50
+params.eukaryots_min_len                            = 50c
 params.eukaryots_min_mapq                           = 60        
 params.eukaryots_min_regions                        = 0           
 params.eukaryots_min_reads                          = 0       
@@ -288,7 +288,6 @@ workflow {
                         started
                     )
                 }
-                
                 
                 // ===========================================
                 // Cultured isolate identification subworkflow

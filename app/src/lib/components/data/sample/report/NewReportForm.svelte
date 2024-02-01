@@ -385,10 +385,10 @@
 
         {#if loading}
         <div>
-            <label class="label">
+            <div class="label">
                 <span class="mb-1">Requesting report ...</span><span class="ml-2 text-xs opacity-60">this may take a few seconds ...</span>
                 <div><ProgressBar /></div>
-            </label>
+            </div>
         </div>
         {:else}
             <div class="flex items-center justify-center">

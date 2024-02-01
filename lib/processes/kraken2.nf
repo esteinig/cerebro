@@ -50,7 +50,6 @@ process Kraken2Bracken {
     """
     kraken2 --db $kraken2_db --confidence $params.kraken2_confidence --threads $task.cpus --output ${id}_${idx_name}.kraken2 --report ${id}_${idx_name}.kraken2.report --paired $forward $reverse
     bracken -d $kraken2_db -i ${id}_${idx_name}.kraken2.report -r $params.bracken_read_length -l $params.bracken_taxonomic_level -t $params.bracken_read_threshold -o {id}_${idx_name}.kraken2bracken.report -w sample.breport
-    
     cp ${id}_${idx_name}.kraken2bracken.report kmer__kraken2bracken__${idx_name}
     """
 
@@ -108,7 +107,6 @@ process Kraken2BrackenOnt {
     """
     kraken2 --db $kraken2_db --confidence $params.kraken2_confidence --threads $task.cpus --output ${id}_${idx_name}.kraken2 --report ${id}_${idx_name}.kraken2.report $reads
     bracken -d $kraken2_db -i ${id}_${idx_name}.kraken2.report -r $params.bracken_read_length -l $params.bracken_taxonomic_level -t $params.bracken_read_threshold -o {id}_${idx_name}.kraken2bracken.report -w sample.breport
-    
     cp ${id}_${idx_name}.kraken2bracken.report kmer__kraken2bracken__${idx_name}
     """
 

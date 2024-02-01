@@ -38,8 +38,11 @@ pub enum HttpClientError {
     #[error("team does not have any databases configured, please contact sysadmin")]
     TeamDatabasesNotFound,
     /// Represents failure to provide a parameter for the insert model function
-    #[error("one of `project_id` or `project_name` is required")]
-    InsertModelProjectParameter,
+    #[error("one of `project_id` or `project_name` is required and must be a valid project in the team database ({0})")]
+    InsertModelProjectParameter(String),
+    /// Represents failure to provide a parameter for the insert model function
+    #[error("one of `database_id` or `database_name` is required and must be a valid database for the team ({0})")]
+    InsertModelDatabaseParameter(String),
     /// Represents failure to ping server status route
     #[error("failed input/output")]
     IOFailure(#[source] std::io::Error),
@@ -521,7 +524,12 @@ fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) ->
     if matches.len() > 0 {
         Ok(matches[0].to_owned())
     } else {
-        Err(HttpClientError::InsertModelProjectParameter)
+        let valid_project_name_string = projects.iter()
+            .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
+            .collect::<Vec<String>>()
+            .join(", ");
+    
+        Err(HttpClientError::InsertModelProjectParameter(valid_project_name_string))
     }
 }
 
@@ -532,6 +540,10 @@ fn get_database_by_name(databases: &Vec<TeamDatabase>, db_name: &str) -> Result<
     if matches.len() > 0 {
         Ok(matches[0].to_owned())
     } else {
-        Err(HttpClientError::InsertModelProjectParameter)
+        let valid_database_name_string = databases.iter()
+            .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
+            .collect::<Vec<String>>()
+            .join(", ");
+        Err(HttpClientError::InsertModelDatabaseParameter(valid_database_name_string))
     }
 }

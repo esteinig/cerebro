@@ -628,10 +628,32 @@ impl Cerebro {
         write!(file, "{}", json_string)?;
         Ok(())
     }
-    // pub fn read_json(file: &PathBuf) -> Result<Self, ModelError> {
-    //     let reader: Box<dyn BufRead> = Box::new(BufReader::new(File::open(file)?));
-    //     serde_json::from_reader(reader).map_err(ModelError::JsonSerialization)
-    // }
+
+    pub fn update_sample_id(&self, sample_id: &str, sample_tags: Option<Vec<String>>) -> Self {
+       
+       // TODO: Updates sample identifier throughout model
+        
+        log::warn!("Updating sample identifier for model: {} ({})", self.name, self.id);
+
+        let mut cc = self.clone();
+
+        cc.name = sample_id.to_string();
+        cc.sample.id = sample_id.to_string();
+
+        if let Some(tags) = sample_tags {
+            cc.sample.tags = tags;
+        }
+        
+        cc.quality.id = sample_id.to_string();
+
+        cc.taxa = self.taxa.iter().map(|(taxid, taxon)| {
+            let taxon = taxon.update_evidence_sample_id(sample_id);
+            (taxid.to_owned(), taxon)
+        }).collect::<HashMap<String, Taxon>>();
+
+        cc
+    }
+
 }
 
 
