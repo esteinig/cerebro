@@ -13,7 +13,7 @@ where:
 
 * `{SAMPLE_ID}` is the anonymised META-GP sample identifier, usually in the format: `DW-63-XXX` such as `DW-63-103` - this is the identifier of a single biological sample from a patient (or a single control like an environmental swab or sterile water control). If the same patient has a second biological sample taken - from the same site or a different site - this identifier should change. If a fresh water control is prepared this identifier should change. Do not use single underscores in this identifier, any components of the identifier should be separated by dashes (`-`), this component is **required**
 * `{NUCLEIC_ACID}` is the library preparation nucleic acid and must be one of `DNA` or `RNA`, this component is **required**
-* `{SAMPLE_CATEGORY}` must be one of the following categories`, this component is **required***:
+* `{SAMPLE_CATEGORY}` must be one of the following categories, this component is **required***:
   * `S` for a patient sample with unknown pathogen
   * `N` for a patient sample where we know they are negative for pathogens (for example we know they have cancer or autoimmune diagnosis)
   * `PS` for a patient sample with a known pathogen from orthogonal testing
@@ -21,7 +21,7 @@ where:
   * `NTC` for negative template controls
   * `POS` for postitive control samples
 * `{REPEAT}` should be `RPT1`, `RPT2`, ... where the number indicates the sequential repeat of a library constructed from the same biological sample (`SAMPLE_ID`), this component is **optional**.
-* `{ANYTHING_ELSE}` is any other useful identifier text that may need to be doine
+* `{ANYTHING_ELSE}` is any other useful identifier text that may need to be included
 
 
 Important:
