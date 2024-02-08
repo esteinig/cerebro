@@ -180,12 +180,6 @@ impl ReportEntry {
             self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
         )
     }
-    pub fn log_deletion(&self) -> String {
-        format!(
-            "Report entry deleted: report_id={} report_date={} user_id={} user_name='{}' organism='{}' review_date='{}' negative={}", 
-            self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
-        )
-    }
 }
 
 // A struct representing a biological sample data configuration
@@ -534,6 +528,7 @@ pub struct CerebroFilterConfig {
     pub domains: Vec<String>,
     pub tags: Vec<String>,
     pub kmer_min_reads: u64,
+    pub kmer_databases: Vec<String>,
     pub alignment_min_reads: u64,
     pub alignment_min_bases: u64,
     pub alignment_min_regions: u64,
@@ -549,6 +544,7 @@ impl Default for CerebroFilterConfig {
             domains: Vec::new(),
             tags: Vec::new(),
             kmer_min_reads: 0,
+            kmer_databases: Vec::new(),
             alignment_min_reads: 0, 
             alignment_min_bases: 0,
             alignment_min_regions: 0,

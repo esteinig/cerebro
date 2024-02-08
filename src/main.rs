@@ -297,7 +297,7 @@ fn main() -> anyhow::Result<()> {
                         None => cerebro
                     };
 
-                    client.upload_model(&cerebro, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+                    client.upload_model(&cerebro, &args.team_name, &args.project_name, args.db_name.as_ref(), &args.input)?;
 
                     if let Some(output_file) = &args.output {
                         cerebro.write_json(output_file)?;

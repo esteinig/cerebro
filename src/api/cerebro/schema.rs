@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{api::{users::model::UserId, report::{PatientHeader, PatientResult}}, pipeline::quality::QualityControlSummary};
 
-use super::model::{PriorityTaxonId, PriorityTaxon, DecisionType, TaxonType, PriorityTaxonDecisionId, CerebroFilterConfig, CerebroId, TaxonOverview, PriorityTaxonDecision, ReportId, WorkflowConfig};
+use super::model::{PriorityTaxonId, PriorityTaxon, DecisionType, TaxonType, PriorityTaxonDecisionId, CerebroFilterConfig, CerebroId, TaxonOverview, PriorityTaxonDecision, WorkflowConfig};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

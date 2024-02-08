@@ -1291,6 +1291,7 @@ export type CerebroFilterConfig = {  // ADD WORKFLOW ID
     domains: Array<string>,
     tags: Array<string>,
     kmer_min_reads: number,
+    kmer_databases: Array<string>,
     alignment_min_reads: number,
     alignment_min_bases: number,
     alignment_min_regions: number,

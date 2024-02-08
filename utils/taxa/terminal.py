@@ -6,7 +6,7 @@ import seaborn as sns
 from pathlib import Path
 from dataclasses import dataclass
 from matplotlib import pyplot as plt
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Union, Dict
 from ..utils import read_qc_table, YESTERDAY_MEDIUM
 
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
@@ -150,7 +150,7 @@ def plot_taxon(
     fig1.savefig("taxon_summary.png", dpi=300,  transparent=False)    
 
 @app.command()
-def plot_heatmap_top(
+def plot_heatmap_toptax(
     taxa: Path = typer.Option(
         ..., help="Taxa overview summary table"
     ),
@@ -225,19 +225,41 @@ def plot_heatmap_top(
 
 
 @app.command()
-def plot_heatmap_target(
+def plot_heatmap_targets(
     taxa: Path = typer.Option(
         ..., help="Taxa overview summary table"
     ),
     targets: str = typer.Option(
          "me_control_1.txt,me_control_2.txt", help="Target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) "
     ),
-    offtargets: str = typer.Option(
-         "me_control_misc.txt", help="Off target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) - checked for presence in samples"
-    ),
     target_labels: Optional[str] = typer.Option(
         None, help="Off target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) - checked for presence in samples"
     ),
+    vmax_rpm: Optional[int] = typer.Option(
+        None, help="RPM for color scale limit - any value above will be at the highest end of the color scale"
+    ),
+    vmax_bp: Optional[int] = typer.Option(
+        None, help="BP for color scale limit - any value above will be at the highest end of the color scale"
+    ),
+    prefix: str = typer.Option(
+        "", help="Prefix for plots and data table output files"
+    ),
+    transpose: bool = typer.Option(
+        False, help="Transpose the heatmap to sample columns"
+    ),
+    substrings: bool = typer.Option(
+        False, help="Target file specifies substrings in organism name to extract instead of taxonomic identifiers"
+    ),
+    plot_size: str = typer.Option(
+        "36,30", help="Plot size as comma-delimited string e.g. 36,30"
+    ),
+    title: str = typer.Option(
+        "Target Detection", help="Plot title"
+    ),
+    exclude_tag_substring: str = typer.Option(
+        "", help="Exclude these samples where substring is in the (joined) sample tag (comma-delimited list as string)"
+    ),
+
 ):
     """
     Plot target and offtarget taxa heatmap for a set of sample taxonomic profiles returned from Cerebro API
@@ -258,30 +280,51 @@ def plot_heatmap_target(
     # Read the taxon profiles
     df = pandas.read_csv(taxa, sep=",", header=0)
 
+    # Filter if requested
+    if exclude_tag_substring:
+        for substring in exclude_tag_substring.split(','):
+            df = df[~df['sample_tag'].str.contains(substring.strip())]
+
+
     # Check and get target/offtarget list file paths
-    target_paths, offtarget_paths = get_file_paths(targets=targets, offtargets=offtargets)
+    target_paths = get_file_paths(targets=targets)
     
     # Read the files into dictionaries
-    target_taxids = get_taxa_to_include(files=target_paths)
-    offtarget_taxids = get_taxa_to_include(files=offtarget_paths)
+    label_targets = get_taxa_to_include(files=target_paths, substrings=substrings, df=df)
 
     # Create the data for targets
     target_classifications = extract_classifications(
         df=df, 
         group=group, 
-        label_taxids=target_taxids, 
+        label_targets=label_targets 
     )
 
-    # Create the data for offtargets
-    offtarget_classifications = extract_classifications(
-        df=df, 
-        group=group, 
-        label_taxids=offtarget_taxids, 
+    # Shape the target data into the final 
+    # heatmap format and plot (quantitative)
+    create_heatmap(
+        library_results=target_classifications,
+        qualitative=False, 
+        label_map=label_map, 
+        vmax_rpm=vmax_rpm, 
+        vmax_bp=vmax_bp, 
+        prefix=prefix,
+        transpose=transpose,
+        plot_size=plot_size
     )
 
-    # Shape the target data into the final heatmap format
-    create_heatmap(library_results=target_classifications, qualitative=False, label_map=label_map)
-    create_heatmap(library_results=target_classifications, qualitative=True, label_map=label_map)
+    # Shape the target data into the final 
+    # heatmap format and plot (qualitative)
+    create_heatmap(
+        library_results=target_classifications,
+        qualitative=True, 
+        label_map=label_map, 
+        vmax_rpm=vmax_rpm, 
+        vmax_bp=vmax_bp, 
+        prefix=prefix,
+        transpose=transpose,
+        plot_size=plot_size,
+        title=title
+    )
 
 @dataclass
 class QualitativeResult:
@@ -334,18 +377,19 @@ class LibraryResult:
 def extract_classifications(
     df: pandas.DataFrame, 
     group: str,
-    label_taxids: Dict[str, List[int]], 
+    label_targets: Dict[str, List[int]], 
 ) -> List[LibraryResult]:
     
     classifications = []
     for grp, library in df.groupby(group):
-        for label, taxids in label_taxids.items():
+        for label, taxa in label_targets.items():
 
             # Is this target in the library profile?
-            target_profile = library.loc[library['taxid'].isin(taxids), :]
+            
+            target_profile = library.loc[library['taxid'].isin(taxa), :]
             
 
-            # Libraries only ever have a unqiue sample identifier
+            # Libraries only ever have a unique sample identifier
             # but for now we want to group by model and extract it
             # may change on testing
             sample_id = library.sample_id.unique()[0]
@@ -385,7 +429,7 @@ def extract_classifications(
 
     return classifications
 
-def get_file_paths(targets: str, offtargets: str) -> Tuple[List[Path], List[Path]]:
+def get_file_paths(targets: str) -> List[Path]:
 
     target_paths = []
     for target_file in targets.strip().split(","):
@@ -394,19 +438,12 @@ def get_file_paths(targets: str, offtargets: str) -> Tuple[List[Path], List[Path
         else:
             print(f"Target file {target_file} could not be found")
 
-    offtarget_paths = []
-    for offtarget_file in offtargets.strip().split(","):
-        if Path(offtarget_file).exists():
-            offtarget_paths.append(Path(offtarget_file))
-        else:
-            print(f"Offtarget file {offtarget_file} could not be found")
-
-    return target_paths, offtarget_paths
+    return target_paths
 
 
-def get_taxa_to_include(files: List[Path]) -> Dict[str, List[int]]:
+def get_taxa_to_include(files: List[Path], substrings: bool = False, df: Optional[pandas.DataFrame] = None) -> Dict[str, List[int]]:
 
-    taxids = dict()
+    taxa = dict()
     for file in files:
         with file.open() as f:
             for line in f:
@@ -419,19 +456,46 @@ def get_taxa_to_include(files: List[Path]) -> Dict[str, List[int]]:
                     if not c:
                         continue
                 
-                tids = [int(tid.strip()) for tid in content[0].strip().split(",")]
-                
-                label = content[1].strip()
+                identifiers = content[0].strip()
 
-                taxids[label] = tids
+                if substrings:
+                    if df is None:
+                        raise ValueError("You need to supply the taxonomic profile dataframe for substring extractions")
+                    
+                    # We get the taxids of all possible substring organism matches in the database
+                    # and assign the name as label
+                    organism_substrings = [name.strip() for name in identifiers.split(",")] # substring organism names
+                    regex_pattern = '|'.join(organism_substrings)
+                    matches = df.loc[df['name'].str.contains(regex_pattern, na=False), :]
+                    for i, row in matches.iterrows():
+                        label = row['name']
+                        taxid = row['taxid']
 
-    return taxids
+                        # Matches may have multiple taxonomic identifiers since organism names are not ensured to be unique
+                        if label in taxa.keys():
+                            # Only unique taxonomic identifiers since there are almost certainly duplicates across many samples
+                            if taxid not in taxa[label]:
+                                taxa[label] += [taxid]
+                        else:
+                            taxa[label] = [taxid]
+                else:
+                    tax = [int(tid.strip()) for tid in identifiers.split(",")]  # taxids
+                    label = content[1].strip()
+                    taxa[label] = tax
+
+    return taxa
                 
 
 def create_heatmap(
     library_results: List[LibraryResult], 
     qualitative: bool = False, 
-    label_map: Optional[Dict[str, str]] = None
+    label_map: Optional[Dict[str, str]] = None,
+    vmax_rpm: Optional[int] = None,
+    vmax_bp: Optional[int] = None,
+    prefix: str = "",
+    transpose: bool = False,
+    title: str = "Target Detection",
+    plot_size: str = "36,30"
 ):
 
     data: Dict[str, List[QuantitativeResult]] = dict()
@@ -455,9 +519,9 @@ def create_heatmap(
             data[sample_name] = [result.qualitative if qualitative else result.quantitative]
     
     if qualitative:
-        plot_qualitative_heatmap(data=data)
+        plot_qualitative_heatmap(data=data, prefix=prefix, transpose=transpose, plot_size=plot_size, title=title)
     else:
-        plot_quantitative_heatmap(data=data)
+        plot_quantitative_heatmap(data=data, vmax_rpm=vmax_rpm, vmax_bp=vmax_bp, prefix=prefix, transpose=transpose, plot_size=plot_size, title=title)
 
 def create_qualitative_dataframe(
     data: Dict[str, List[QualitativeResult]],
@@ -501,7 +565,14 @@ def create_quantitative_dataframe(
     return df
 
 
-def plot_qualitative_heatmap(data: Dict[str, List[QualitativeResult]], outfile: Path = Path("qualitative.png")):
+def plot_qualitative_heatmap(
+    data: Dict[str, List[QualitativeResult]], 
+    prefix: str = "", 
+    outdir: Path = Path.cwd(), 
+    transpose: bool = False,
+    title: str = "Target Detection (Qualitative)",
+    plot_size: str = "36,30"
+):
 
 
     dfs = [
@@ -511,12 +582,12 @@ def plot_qualitative_heatmap(data: Dict[str, List[QualitativeResult]], outfile: 
         create_qualitative_dataframe(data=data, field="assembly")
     ]
 
-    fig1, axes = plt.subplots(nrows=2, ncols=2, figsize=(36,30))
+    fig1, axes = plt.subplots(nrows=2, ncols=2, figsize=[int(s.strip()) for s in plot_size.split(",")])
     
     axes = axes.flat
 
     colors = [
-        ["#9DA7BF", "#97AD3D"], ["#9DA7BF", "#55CFD8"], ["#9DA7BF", "#B46DB3"], ["#9DA7BF", "#F9B40E"]
+        ["#f9f9f9", "#58a787"], ["#f9f9f9", "#4c849a"], ["#f9f9f9", "#c1bd38"], ["#f9f9f9", "#5d5686"]
     ]
 
     classifications = [
@@ -524,28 +595,41 @@ def plot_qualitative_heatmap(data: Dict[str, List[QualitativeResult]], outfile: 
     ]
 
     for i, df in enumerate(dfs):
-        dataframe = df.transpose()
-        print(dataframe)
+        if transpose:
+            dataframe = df.transpose()
+        else:
+            dataframe = df.copy()
+
         x_labels = dataframe.columns.tolist()
         ax = axes[i]
-
+        
         p = sns.heatmap(dataframe, ax=ax, square=False, cmap=colors[i], linewidths=2, robust=True, xticklabels=1, yticklabels=1, cbar=False)
         
         ax.xaxis.tick_top()
-        ax.set_xticklabels(x_labels, rotation=45, ha="center")
+        ax.set_xticklabels(x_labels, rotation=90, ha="center")
         ax.set_xlabel(f"{classifications[i]}", fontsize=24)
         ax.tick_params(axis='x', labelsize="large")  
         ax.tick_params(axis='y', labelsize="large") 
 
-    fig1.suptitle('ZeptoMetrix Target Detection (Qualitative)', fontsize=36)
+    fig1.suptitle(title, fontsize=36)
 
-    fig1.savefig(outfile, dpi=300,  transparent=False)
+    fig1.savefig(outdir / f"{prefix}qualitative.pdf", dpi=300,  transparent=False)
 
+    for i, df in enumerate(dfs):
+        df["Metric"] = [classifications[i] for _ in df.iterrows()]
+    
+    pandas.concat(dfs).to_csv(outdir / f"{prefix}qualitative.tsv", sep="\t")
 
-def plot_quantitative_heatmap(data: Dict[str, List[QuantitativeResult]], outfile: Path = Path("quantitative.png")):
-
-    vmax = 1
-    vmax_bp = 1000
+def plot_quantitative_heatmap(
+    data: Dict[str, List[QuantitativeResult]],  
+    vmax_rpm: Optional[int] = None,
+    vmax_bp: Optional[int] = None,
+    outdir: Path = Path.cwd(),
+    prefix: str = "",
+    transpose: bool = False,
+    title: str = "Target Detection (Quantitative)",
+    plot_size: str = "36,30"
+):
 
     dfs = [
         create_quantitative_dataframe(data=data, field="total_rpm"),
@@ -554,7 +638,7 @@ def plot_quantitative_heatmap(data: Dict[str, List[QuantitativeResult]], outfile
         create_quantitative_dataframe(data=data, field="assembly_contigs_bases")
     ]
 
-    fig1, axes = plt.subplots(nrows=2, ncols=2, figsize=(36,30))
+    fig1, axes = plt.subplots(nrows=2, ncols=2, figsize=[int(s.strip()) for s in plot_size.split(",")])
     
     axes = axes.flat
 
@@ -567,10 +651,15 @@ def plot_quantitative_heatmap(data: Dict[str, List[QuantitativeResult]], outfile
     ]
 
     for i, df in enumerate(dfs):
-        dataframe = df.transpose()
-        dataframe.replace(0, np.nan, inplace=True)
+        
+        if transpose:
+            dataframe = df.transpose()
+        else:
+            dataframe = df.copy()
 
-        print(dataframe)
+        dataframe.replace(to_replace=0, value=np.nan, inplace=True)
+
+
         x_labels = dataframe.columns.tolist()
         ax = axes[i]
 
@@ -579,7 +668,20 @@ def plot_quantitative_heatmap(data: Dict[str, List[QuantitativeResult]], outfile
         # Create a custom colormap
         custom_cmap = LinearSegmentedColormap.from_list("custom_cmap", rgb_colors)
 
-        p = sns.heatmap(dataframe, ax=ax, square=False, cmap=custom_cmap, linewidths=2, robust=True, xticklabels=1, yticklabels=1, cbar=True, vmax=vmax if i < 3 else vmax_bp)
+        dataframe = dataframe.sort_index()
+
+        p = sns.heatmap(
+            dataframe, 
+            ax=ax, 
+            square=False, 
+            cmap=custom_cmap, 
+            linewidths=2, 
+            robust=True, 
+            xticklabels=1, 
+            yticklabels=1, 
+            cbar=True, 
+            vmax=vmax_rpm if i < 3 else vmax_bp
+        )
         
         ax.xaxis.tick_top()
         ax.set_xticklabels(x_labels, rotation=90, ha="center")
@@ -592,9 +694,9 @@ def plot_quantitative_heatmap(data: Dict[str, List[QuantitativeResult]], outfile
         # Get the current tick labels
         labels = [item.get_text() for item in cbar.ax.get_yticklabels()]
 
-        # Modify the label of the top value
+        # Modify the color scale labels
         if labels:
-            labels[-1] = f'{vmax}+ rpm' if i < 3 else f'{vmax_bp}+ bp'
+            labels[-1] = f'{vmax_rpm}+ rpm' if i < 3 else f'{vmax_bp}+ bp'
             labels[0] = f'0 rpm' if i < 3 else f'0 bp'
 
             cbar.set_ticks(cbar.get_ticks())
@@ -602,12 +704,12 @@ def plot_quantitative_heatmap(data: Dict[str, List[QuantitativeResult]], outfile
 
     plt.subplots_adjust(hspace=0.4)
 
-    fig1.suptitle('ZeptoMetrix Target Detection (Quantitative)', fontsize=36)
+    fig1.suptitle(title, fontsize=36)
 
-    fig1.savefig(outfile, dpi=300,  transparent=False)
+    fig1.savefig(outdir / f"{prefix}quantitative.pdf", dpi=300,  transparent=False)
 
     for i, df in enumerate(dfs):
-        df.replace(0, np.nan, inplace=True)
+        df.replace(to_replace=0, value=np.nan, inplace=True)
         df["Metric"] = [classifications[i] for _ in df.iterrows()]
     
-    pandas.concat(dfs).to_csv("quantitative.tsv", sep="\t")
+    pandas.concat(dfs).to_csv(outdir / f"{prefix}quantitative.tsv", sep="\t")

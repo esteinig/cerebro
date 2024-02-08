@@ -69,7 +69,10 @@ pub enum HttpClientError {
     SerdeFailure(#[from] serde_json::Error),
     /// Represents failure to deserialize a model from file
     #[error("failed to read data model from file")]
-    ModelError(#[from] ModelError)
+    ModelError(#[from] ModelError),
+    /// Represents failure to use a valid sample identifier
+    #[error("sample identifier is an empty string")]
+    ModelSampleIdentifierEmpty
 }
 
 #[derive(Debug, Clone)]
@@ -303,7 +306,7 @@ impl CerebroClient {
         };
         Ok(())
     }
-    pub fn upload_model(&self, model: &Cerebro, team_name: &str, project_name: &str, db_name: Option<&String>) -> Result<(), HttpClientError> {
+    pub fn upload_model(&self, model: &Cerebro, team_name: &str, project_name: &str, db_name: Option<&String>, sample_file: &PathBuf) -> Result<(), HttpClientError> {
 
         let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_insert_model, team_name, project_name, db_name)?;
 
@@ -313,6 +316,13 @@ impl CerebroClient {
         }
 
         for url in urls {
+
+            if model.sample.id.is_empty() {
+                log::error!("Model sample identifier is an empty string - this is not allowed (input: {})", sample_file.display());
+                return Err(HttpClientError::ModelSampleIdentifierEmpty)
+            }
+
+            log::info!("Requesting upload of sample {} (tags: {}, workflow: {})", model.sample.id, model.sample.tags.join(" "), model.workflow.id);
 
             let response = self.client.post(url)
                 .header(AUTHORIZATION, self.get_token_bearer(None))

@@ -5,7 +5,7 @@
 	import { storeSettings } from "$lib/stores/stores";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { getDateTimeStringUtc } from "$lib/utils/helpers";
-    import { DecisionType, type PriorityTaxon, type PriorityTaxonDecision, type PriorityTaxonDecisionCommentSchema, type PriorityTaxonDecisionSchema } from "$lib/utils/types";
+    import { DecisionType, type PriorityTaxon, type PriorityTaxonDecision, type PriorityTaxonDecisionSchema } from "$lib/utils/types";
 	import { ProgressRadial, getToastStore } from "@skeletonlabs/skeleton";
 
     export let priorityTaxon: PriorityTaxon;

@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use futures::stream::TryStreamExt;
 use mongodb::{bson::doc, Collection};
-use base64::{engine::general_purpose, Engine as _};
 
 use crate::api::auth::jwt;
 use crate::api::config::Config;
@@ -695,6 +694,7 @@ fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &CerebroFilterConfig) -> V
         taxa = filter_by_parent(taxa, "domain", Some(domain.to_string()), None)
     }
     
+    
     // Evidence tag filter - tags passed via the filter configuration 
     // are the Cerebro IDs (name of the sample in workflow) rather than
     // the actual tags, because the evidence records contai nreferences
@@ -704,8 +704,10 @@ fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &CerebroFilterConfig) -> V
      // Filter by evidence 
     taxa = filter_by_kraken2uniq(
         taxa, 
-        filter_config.kmer_min_reads
+        filter_config.kmer_min_reads,
+        filter_config.kmer_databases.to_owned(),
     );
+    
     taxa = filter_by_vircov_scan(
         taxa, 
         filter_config.alignment_min_reads, 
