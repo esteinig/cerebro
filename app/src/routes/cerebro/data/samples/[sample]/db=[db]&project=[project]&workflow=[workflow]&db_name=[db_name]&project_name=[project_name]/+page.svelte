@@ -128,6 +128,7 @@
    $: serverFiltersActive = serverFilterConfig.domains.length > 0 ||
         serverFilterConfig.tags.length > 0 ||
         serverFilterConfig.kmer_min_reads > 0 ||
+        serverFilterConfig.kmer_databases.length > 0 ||
         serverFilterConfig.alignment_min_reads > 0 ||
         serverFilterConfig.alignment_min_bases > 0 ||
         serverFilterConfig.alignment_min_regions > 0 ||
