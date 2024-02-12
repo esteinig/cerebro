@@ -9,7 +9,7 @@ include { DiamondNR } from '../../processes/diamond' addParams(
     subdir: "assembly/spades_meta/diamond"
 )
 
-workflow meta_assembly {
+workflow metagenome_assembly {
     take:
         reads                                                                                     
         blast_db

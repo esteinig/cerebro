@@ -290,7 +290,14 @@ fn main() -> anyhow::Result<()> {
                         &args.pipeline_config
                     )?;
 
-                    client.upload_model(&cerebro, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+                    let cerebro = match &args.replace_sample_id {
+                        Some(new_sample_id) => cerebro.update_sample_id(
+                            &new_sample_id, args.replace_sample_tags.clone()
+                        ),
+                        None => cerebro
+                    };
+
+                    client.upload_model(&cerebro, &args.team_name, &args.project_name, args.db_name.as_ref(), &args.input)?;
 
                     if let Some(output_file) = &args.output {
                         cerebro.write_json(output_file)?;

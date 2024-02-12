@@ -180,12 +180,6 @@ impl ReportEntry {
             self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
         )
     }
-    pub fn log_deletion(&self) -> String {
-        format!(
-            "Report entry deleted: report_id={} report_date={} user_id={} user_name='{}' organism='{}' review_date='{}' negative={}", 
-            self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
-        )
-    }
 }
 
 // A struct representing a biological sample data configuration
@@ -534,6 +528,7 @@ pub struct CerebroFilterConfig {
     pub domains: Vec<String>,
     pub tags: Vec<String>,
     pub kmer_min_reads: u64,
+    pub kmer_databases: Vec<String>,
     pub alignment_min_reads: u64,
     pub alignment_min_bases: u64,
     pub alignment_min_regions: u64,
@@ -549,6 +544,7 @@ impl Default for CerebroFilterConfig {
             domains: Vec::new(),
             tags: Vec::new(),
             kmer_min_reads: 0,
+            kmer_databases: Vec::new(),
             alignment_min_reads: 0, 
             alignment_min_bases: 0,
             alignment_min_regions: 0,
@@ -628,10 +624,32 @@ impl Cerebro {
         write!(file, "{}", json_string)?;
         Ok(())
     }
-    // pub fn read_json(file: &PathBuf) -> Result<Self, ModelError> {
-    //     let reader: Box<dyn BufRead> = Box::new(BufReader::new(File::open(file)?));
-    //     serde_json::from_reader(reader).map_err(ModelError::JsonSerialization)
-    // }
+
+    pub fn update_sample_id(&self, sample_id: &str, sample_tags: Option<Vec<String>>) -> Self {
+       
+       // TODO: Updates sample identifier throughout model
+        
+        log::warn!("Updating sample identifier for model: {} ({})", self.name, self.id);
+
+        let mut cc = self.clone();
+
+        cc.name = sample_id.to_string();
+        cc.sample.id = sample_id.to_string();
+
+        if let Some(tags) = sample_tags {
+            cc.sample.tags = tags;
+        }
+        
+        cc.quality.id = sample_id.to_string();
+
+        cc.taxa = self.taxa.iter().map(|(taxid, taxon)| {
+            let taxon = taxon.update_evidence_sample_id(sample_id);
+            (taxid.to_owned(), taxon)
+        }).collect::<HashMap<String, Taxon>>();
+
+        cc
+    }
+
 }
 
 

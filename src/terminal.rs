@@ -639,6 +639,14 @@ pub struct ApiUploadArgs {
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
 
+    /// Replace sample identifier before upload
+    #[clap(long)]
+    pub replace_sample_id: Option<String>,
+
+    /// Replace sample tags before upload
+    #[clap(long, num_args(0..))]
+    pub replace_sample_tags: Option<Vec<String>>,
+
     /// Output model as file (.json)
     #[clap(long, short = 'o')]
     pub output: Option<PathBuf>,

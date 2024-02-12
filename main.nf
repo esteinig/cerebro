@@ -63,6 +63,9 @@ params.taxonomy                                      = 'db/ncbi_tax'
 
 params.fastq                                         = null
 
+params.fastq_illumina                                = null
+params.fastq_ont                                     = null
+
 // ===================================
 // Viral detection and assembly module
 // ===================================
@@ -145,7 +148,7 @@ params.bacteria_min_regions                         = 0
 params.bacteria_min_reads                           = 0         
 
 params.eukaryots_min_cov                            = 0
-params.eukaryots_min_len                            = 50
+params.eukaryots_min_len                            = 50c
 params.eukaryots_min_mapq                           = 60        
 params.eukaryots_min_regions                        = 0           
 params.eukaryots_min_reads                          = 0       
@@ -180,18 +183,15 @@ params.covtobed_max_cov                             = 1000000    // Viral remapp
 // Workflow imports
 
 include { cerebro_production }         from './lib/workflows/subworkflows/production'
-include { quality_control }            from './lib/workflows/subworkflows/quality_control'
+include { quality_control_illumina }   from './lib/workflows/subworkflows/quality_control'
 include { pathogen_detection }         from './lib/workflows/pathogen_detection'
 include { aneuploidy_detection }       from './lib/workflows/aneuploidy_detection'
+include { culture_identification }     from './lib/workflows/culture_identification'
 
 // Utility imports
-
-include { c; parse_file_params; init_msg; complete_msg; help_msg; get_paired_reads; WriteConfig } from './lib/utils'
 include { PingServer} from './lib/processes/cerebro'
-
-include { RasusaReadsMultiple } from './lib/processes/rasusa' addParams(
-    subdir: "subsample"
-)
+include { RasusaReadsMultiple } from './lib/processes/rasusa' addParams(subdir: "subsample")
+include { c; parse_file_params; init_msg; complete_msg; help_msg; get_paired_reads; get_single_reads; WriteConfig } from './lib/utils'
 
 workflow {
 
@@ -216,16 +216,14 @@ workflow {
 
         if (params.production.enabled) {
             if (params.production.api.upload.enabled) {
-                PingServer(Channel.of("PING")) | collect                            // collect to await result before proceeding
+                PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
             }
-            
-            data = get_paired_reads(null, inputs.sample_sheet, true)                // production requires sample sheet
-
-            reads = data.pathogen                                                   // pathogen analysis uses all input reads
-            reads_aneuploidy = data.aneuploidy                                      // host genome analysis if enabled uses subset of activated input reads
+            data = get_paired_reads(inputs.sample_sheet, true)                       // production requires sample sheet
+            reads = data.pathogen                                                    // pathogen analysis uses all input reads
+            reads_aneuploidy = data.aneuploidy                                       // host genome analysis if enabled uses subset of activated input reads
         } else {
-            reads = get_paired_reads(params.fastq, inputs.sample_sheet, false)      // pathogen analysis 
-            reads_aneuploidy = reads                                                // all input read files are also used for host genome analysis if enabled
+            reads = get_paired_reads(inputs.sample_sheet, false)                     // pathogen analysis 
+            reads_aneuploidy = reads                                                 // all input read files are also used for host genome analysis if enabled
         }   
 
         if (params.mode.io.enabled){
@@ -245,13 +243,13 @@ workflow {
             started = java.time.LocalDateTime.now()
 
             if (params.mode.qc.enabled) {
-                println "\n${c('red')}Quality control mode is active, classification modules deactivated.${c('reset')}\n"
+                println "\n${c('red')}Quality control mode is active, other modules deactivated.${c('reset')}\n"
 
                 // ===========================
                 // Quality control subworkflow
                 // ===========================
 
-                quality_control(
+                quality_control_illumina(
                     reads, 
                     inputs.adapter_fasta, 
                     inputs.ercc_fasta, 
@@ -267,31 +265,45 @@ workflow {
 
             } else {
                 
-                // Optional host genome analysis for segmental aneuploidy
+
+                // =====================================
+                // Host aneuploidy detection subworkflow
+                // =====================================
+                
                 if (params.host.enabled && params.host.aneuploidy.enabled) {
                     aneuploidy = aneuploidy_detection(reads_aneuploidy, inputs)
                 } else {
                     aneuploidy = Channel.empty()
                 }
 
+                // ==============================
+                // Pathogen detection subworkflow
+                // ==============================
+
                 if (params.taxa.enabled) {
-                    pathogen_detection(reads, inputs)
-                    results = pathogen_detection.out.results 
-                    WriteConfig(inputs.sample_sheet, results | collect, started)
+                    pathogen_detection(reads, inputs, false)
+                    WriteConfig(
+                        inputs.sample_sheet, 
+                        pathogen_detection.out.results | collect, 
+                        started
+                    )
+                }
                 
-                    // Awaiting the results is necessary for post-processing of a completed run
-                    // with Cerebro as part of the production pipeline
-                    // if (params.production){
-                    //     cerebro_production(
-                    //         inputs.taxonomy_directory, 
-                    //         results, 
-                    //         WriteConfig.out.sample_sheet,
-                    //         WriteConfig.out.config
-                    //     )
-                    // }
+                // ===========================================
+                // Cultured isolate identification subworkflow
+                // ===========================================
+
+                if (params.culture.enabled) {
+                    ont_reads = get_single_reads(inputs.sample_sheet, false);
+                    pe_reads = get_paired_reads(inputs.sample_sheet, false);
+
+                    culture_identification(ont_reads, pe_reads, inputs);
+                    
                 }
 
-                
+
+
+
             }
         }   
     }

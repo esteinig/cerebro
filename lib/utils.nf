@@ -491,14 +491,28 @@ FILE INPUTS
 ===========
 */
 
-def get_paired_reads(fastq, sample_sheet, production) {
+def get_paired_reads(sample_sheet, production) {
 
     if (params.sample_sheet){
         reads = from_sample_sheet(sample_sheet, production)
-    } else if (params.fastq) {
-        reads = channel.fromFilePairs(params.fastq, flat: true, checkIfExists: true)
+    } else if (params.fastq_pe) {
+        reads = channel.fromFilePairs(params.fastq_pe, flat: true, checkIfExists: true)
     } else {
-        println "\n${c('red')}Either `--fastq` or `--sample_sheet` have to be specified for paired read files input${c('reset')}\n"
+        println "\n${c('red')}Either `--fastq_pe` or `--sample_sheet` have to be specified for paired read input${c('reset')}\n"
+        Thread.sleep(2000); 
+        System.exit(1)
+    }
+    return reads
+}
+
+def get_single_reads(sample_sheet, production) {
+
+    if (params.sample_sheet){
+        reads = from_sample_sheet(sample_sheet, production)
+    } else if (params.fastq_ont) {
+        reads = channel.fromPath(params.fastq_ont, checkIfExists: true)
+    } else {
+        println "\n${c('red')}Either `--fastq_ont` or `--sample_sheet` have to be specified for nanopore read input${c('reset')}\n"
         Thread.sleep(2000); 
         System.exit(1)
     }

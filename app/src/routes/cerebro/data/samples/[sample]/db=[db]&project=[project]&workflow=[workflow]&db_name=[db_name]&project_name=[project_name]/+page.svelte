@@ -13,7 +13,6 @@
     import ClientFilterConfiguration from "$lib/components/data/sample/taxa/filters/ClientFilterConfiguration.svelte";
 	import Candidates from "$lib/components/data/sample/Candidates.svelte";
 	import Reports from "$lib/components/data/sample/Reports.svelte";
-	import type CerebroApi from "$lib/utils/api";
 
     let toastStore = getToastStore();
 
@@ -112,6 +111,7 @@
         tags: [],
         // K-mer data
         kmer_min_reads: 3,
+        kmer_databases: [],
         // Scanning part of alignment pipelines
         alignment_min_reads: 3,
         alignment_min_bases: 0,
@@ -128,6 +128,7 @@
    $: serverFiltersActive = serverFilterConfig.domains.length > 0 ||
         serverFilterConfig.tags.length > 0 ||
         serverFilterConfig.kmer_min_reads > 0 ||
+        serverFilterConfig.kmer_databases.length > 0 ||
         serverFilterConfig.alignment_min_reads > 0 ||
         serverFilterConfig.alignment_min_bases > 0 ||
         serverFilterConfig.alignment_min_regions > 0 ||

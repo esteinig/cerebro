@@ -63,7 +63,7 @@ How to setup, execute and interpret outputs from taxonomic profiling
 Viral detection and consensus genome recovery from panviral enrichment assays
 
 * [Data interpretation and reporting for diagnostics](dependencies.md)  
-How to interpret the data outputs and generate reports in the user interface
+How to interpret data outputs and generate reports in the user interface
 
 * [Local production deployment as diagnostic service](dependencies.md)  
 Deploy one or multiple stacks in a production environment
@@ -94,7 +94,7 @@ Metagenomic sequencing inevitably captures host nucleic acid. We have concerns a
 * Enable quality assurance and routine operation as clinical or public health service
 * Provide all tools necessary for accreditation and validation forproduction environments
 
-Our priority was developing pipelines and reporting tools that allow users to retain complete control over source code, deployment and operation on their own infrastructure. We hope that this conceptualisation is useful for clinical metagenomic services where there may be concerns about how sequence data is handled and evaluated by third parties.
+Our priority us developing pipelines and reporting tools that allow users to retain complete control over source code, deployment and operation on their own infrastructure. We hope that this conceptualisation is useful for clinical metagenomic services where there may be concerns about how sequence data is handled and evaluated by third parties.
 
 
 ### Data security
@@ -144,18 +144,18 @@ Microbiology department at the [Royal Melbourne Hospital]():
 
 Viral detection and genome recovery from rapid antigen devices using `Cerebro`:
 
-> Moso, Taiaroa, Steinig et al. (2023) - Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: A laboratory evaluation study - The Lancet Microbe
+> Michael A Moso*, George Taiaroa*, Eike Steinig*, Madiyar Zhanduisenov, Grace Butel-Simoes, Ivana Savic, Mona L Taouk, Socheata Chea, Jean Moselen, Jacinta O’Keefe, Jacqueline Prestedge, Georgina L Pollock, Mohammad Khan, Katherine Soloczynskyj, Janath Fernando, Genevieve E Martin, Leon Caly, Ian G Barr, Thomas Tran, Julian Druce, Chuan K Lim, Deborah A Williamson - **Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: a laboratory evaluation study** - Lancet Microbe (2024) -[10.1016/S2666-5247(23)00375-0](https://doi.org/10.1016/S2666-5247(23)00375-0)
+
 
 ### Citation
 
 If you use `Cerebro` for your research, please cite:
 
-> Steinig et al. (2024) - Clinical metagenomic diagnostics and reporting in production environments
-
+> Steinig (2024) - Clinical metagenomic diagnostics and reporting in production environments - https://github.com/esteinig/cerebro
 
 If you use the panviral enrichment configuration, please also cite:
 
-> Moso, Taiaroa, Steinig et al. (2023) - Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: A laboratory evaluation study - The Lancet Microbe
+> Moso, Taiaroa, Steinig et al. (2024) - Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: a laboratory evaluation study - Lancet Microbe 
 
 ### Contact
 
