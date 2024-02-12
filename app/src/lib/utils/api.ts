@@ -4,11 +4,11 @@ import { goto } from "$app/navigation";
 import type {  ToastSettings } from "@skeletonlabs/skeleton";
 
 export class ApiResponse {
-    ok: boolean;
-    status: number;
-    statusText: string;
-    json: any; 
-    response: Response
+    ok: boolean | undefined;
+    status: number | undefined;
+    statusText: string | undefined;
+    json: any | null; 
+    response: Response | null
 
     // If a response had the body already awaited
     // we need to return it separately - we mirror
@@ -17,10 +17,11 @@ export class ApiResponse {
     // and subsequent success/failure handling. We
     // also return the whole response in case it
     // is needed.
-    constructor(response: Response, json: any | null) {
-        this.ok = response.ok;
-        this.status = response.status;
-        this.statusText = response.statusText;
+    constructor(response: Response | null, json: any | null, ok: boolean | null = null) {
+        
+        this.ok = ok === null ? response?.ok : ok;
+        this.status = response?.status;
+        this.statusText = response?.statusText;
         this.json = json;
         this.response = response;
     }
@@ -56,101 +57,117 @@ export class CerebroApi {
 
     async fetchWithRefresh(url: string, init: RequestInit, refreshToken: string, toastStore: any | null = null, successMessage: string | null = "Success", timeout: number = 2000): Promise<ApiResponse> {
         
-        let response: Response = await fetch(url, init);
 
-        if (response.ok) { 
-            let responseData: any = await response.json();
+        try {
+            let response: Response = await fetch(url, init);
 
-            if (toastStore !== null && successMessage !== null) {
-                toastStore.trigger({
-                    message: successMessage,
-                    timeout: timeout,
-                    background: "variant-filled-primary",
-                } satisfies ToastSettings)
-            };
-
-            return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, responseData)) })
-        } else {
-
-            // On error the response may contain a field 'refresh' which is returned by the
-            // authentication middleware if the token could not be verified (due to expiration)
-            let errorResponseData: ErrorResponseData;
-
-            try {
-                errorResponseData = await response.json();
-            } catch {
-                // Response may not have a body (Bad Request, Network Error)
-                if (toastStore !== null) {
+            if (response.ok) { 
+                let responseData: any = await response.json();
+    
+                if (toastStore !== null && successMessage !== null) {
                     toastStore.trigger({
-                        message: `${response.status}: ${response.statusText}`,
+                        message: successMessage,
                         timeout: timeout,
-                        background: "variant-filled-tertiary",
-                    } satisfies ToastSettings);
+                        background: "variant-filled-primary",
+                    } satisfies ToastSettings)
                 };
-                
-                return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, {
-                    status: `${response.status}`,
-                    message: response.statusText
-                } as ErrorResponseData)) })
-            }
-
-            
-            if (errorResponseData.refresh){
-
-                // In this case the access token cookie is expired in browser and not sent 
-                // with the request (but the refresh token is, if still valid)
-
-                // We set the refresh cookie directly - for some reason it is not sent
-                // with this request
-                let refreshResponse: Response = await fetch(this.routes.auth.refresh, {
-                    method: 'GET',
-                    mode: 'cors',
-                    credentials: 'include'
-                } as RequestInit);
-
-                // Use the refreshed token directory
-
-                if (refreshResponse.ok){
-
-                    // If the refresh is successful, rerun the original request and return response
-                    let repeatResponse = await fetch(url, init);
-                    let repeatResponseData: any = await repeatResponse.json();
-
-                    if (toastStore !== null && successMessage !== null) {
-                        toastStore.trigger({
-                            message: successMessage,
-                            timeout: timeout,
-                            background: "variant-filled-primary",
-                        } satisfies ToastSettings);
-                    }
-
-                    return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(repeatResponse, repeatResponseData)) })
-                } else {
-                    // If the refresh is not successful, user must complete login again
+    
+                return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, responseData)) })
+            } else {
+    
+                // On error the response may contain a field 'refresh' which is returned by the
+                // authentication middleware if the token could not be verified (due to expiration)
+                let errorResponseData: ErrorResponseData;
+    
+                try {
+                    errorResponseData = await response.json();
+                } catch {
+                    // Response may not have a body (Bad Request, Network Error)
                     if (toastStore !== null) {
                         toastStore.trigger({
-                            message: "Your session has expired. Please login again.",
+                            message: `${response.status}: ${response.statusText}`,
+                            timeout: timeout,
                             background: "variant-filled-tertiary",
-                            timeout: 3000
+                        } satisfies ToastSettings);
+                    };
+                    
+                    return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, {
+                        status: `${response.status}`,
+                        message: response.statusText
+                    } as ErrorResponseData)) })
+                }
+    
+                
+                if (errorResponseData.refresh){
+    
+                    // In this case the access token cookie is expired in browser and not sent 
+                    // with the request (but the refresh token is, if still valid)
+    
+                    // We set the refresh cookie directly - for some reason it is not sent
+                    // with this request
+                    let refreshResponse: Response = await fetch(this.routes.auth.refresh, {
+                        method: 'GET',
+                        mode: 'cors',
+                        credentials: 'include'
+                    } as RequestInit);
+    
+                    // Use the refreshed token directory
+    
+                    if (refreshResponse.ok){
+    
+                        // If the refresh is successful, rerun the original request and return response
+                        let repeatResponse = await fetch(url, init);
+                        let repeatResponseData: any = await repeatResponse.json();
+    
+                        if (toastStore !== null && successMessage !== null) {
+                            toastStore.trigger({
+                                message: successMessage,
+                                timeout: timeout,
+                                background: "variant-filled-primary",
+                            } satisfies ToastSettings);
+                        }
+    
+                        return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(repeatResponse, repeatResponseData)) })
+                    } else {
+                        // If the refresh is not successful, user must complete login again
+                        if (toastStore !== null) {
+                            toastStore.trigger({
+                                message: "Your session has expired. Please login again.",
+                                background: "variant-filled-tertiary",
+                                timeout: 3000
+                            } satisfies ToastSettings);
+                        }
+                        setTimeout(() => goto("/login"), 3000);
+                        return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, errorResponseData)) })
+                    }                
+                } else {
+                    // If a refresh indicator was not in the initial response,
+                    // return the failed response
+                    if (toastStore !== null) {
+                        toastStore.trigger({
+                            message: errorResponseData.message,
+                            background: "variant-filled-tertiary",
+                            timeout: timeout,
                         } satisfies ToastSettings);
                     }
-                    setTimeout(() => goto("/login"), 3000);
+    
                     return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, errorResponseData)) })
-                }                
-            } else {
-                // If a refresh indicator was not in the initial response,
-                // return the failed response
-                if (toastStore !== null) {
-                    toastStore.trigger({
-                        message: errorResponseData.message,
-                        background: "variant-filled-tertiary",
-                        timeout: timeout,
-                    } satisfies ToastSettings);
                 }
-
-                return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(response, errorResponseData)) })
             }
-        }
+        } catch {
+            // Response may not have a body (Bad Request, Network Error)
+            if (toastStore !== null) {
+                toastStore.trigger({
+                    message: `Failed to submit request`,
+                    timeout: timeout,
+                    background: "variant-filled-tertiary",
+                } satisfies ToastSettings);
+            };
+            return new Promise<ApiResponse>((resolve) => { resolve(new ApiResponse(null, {
+                status: '500',
+                message: 'Critical failure to make a request'
+            } as ErrorResponseData, false)) })
+        }        
     }
 }
 
@@ -190,6 +207,7 @@ interface CerebroRoutes {
     taxa: string,
     createReport: string,
     getReport: string,
+    deleteReport: string,
     taxaEvidence: string,
     updateSampleDescription: string,
     deleteSamples: string,
@@ -267,6 +285,7 @@ export class Routes {
             taxa: `${cerebroRoute}/taxa`,
             createReport: `${cerebroRoute}/reports`,
             getReport: `${cerebroRoute}/reports`,
+            deleteReport: `${cerebroRoute}/reports`,
             taxaEvidence: `${cerebroRoute}/taxa`,
             deleteSamples: `${cerebroRoute}/samples`,
             updateSampleDescription: `${cerebroRoute}/samples/description`,

@@ -2,27 +2,28 @@
 include { eukaryots_subset_alignment } from './pathogen/subset_alignment'
 include { bacteria_subset_alignment }  from './pathogen/subset_alignment'
 include { virus_detection }            from './pathogen/virus_detection'
-include { kmer_profiling }             from './pathogen/kmer_profiling'
+include { kmer_pathogen_detection }    from './pathogen/kmer_profiling'
+include { kmer_pathogen_profiling }    from './pathogen/kmer_profiling'
 include { meta_assembly }              from './pathogen/meta_assembly'
-include { quality_control }            from './subworkflows/quality_control'
+include { quality_control_illumina }   from './subworkflows/quality_control'
 
 workflow pathogen_detection {
     take:
         reads
         inputs
+        ont
     main:
         // ===========================
         // Quality control subworkflow
         // ===========================
 
-        quality_control(
+        quality_control_illumina(
             reads, 
             inputs.adapter_fasta, 
             inputs.ercc_fasta, 
             inputs.phage_fasta, 
             inputs.host_depletion_dbs, 
             inputs.host_depletion_references, 
-            inputs.host_ercc_index, 
             params.qc.deduplication.enabled,
             params.qc.deduplication.method,
             params.qc.host.depletion.enabled,
@@ -81,12 +82,22 @@ workflow pathogen_detection {
         // K-mer modules
         // =============
 
-        if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled){
-            kmer_profiling(
+        if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled && !params.taxa.kmer.bracken.enabled){
+            // Pathogen detection as per Nature Protocols (Kraken2Uniq)
+            kmer_pathogen_detection(
                 quality_control.out.reads, 
-                inputs.kraken2_dbs
+                inputs.kraken2_dbs,
+                ont
             )
-            kmer_results = kmer_profiling.out.results
+            kmer_results = kmer_pathogen_detection.out.results
+        } else if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled && params.taxa.kmer.bracken.enabled) {
+            // Pathogen profiling with Kraken2 + Bracken
+            kmer_pathogen_profiling(
+                quality_control.out.reads, 
+                inputs.kraken2_dbs,
+                ont
+            )
+            kmer_results = kmer_pathogen_profiling.out.results
         } else {
             kmer_results = Channel.empty()
         }
@@ -118,4 +129,3 @@ workflow pathogen_detection {
     emit:
         results = result_files
 }
-           

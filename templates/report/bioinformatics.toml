@@ -1,0 +1,7 @@
+description                 = """
+DNA, RNA and control libraries were processed using unique molecular identifier deduplication, read quality filters, host sequence depletion and internal control evaluations.
+Taxonomic profiling (classification) was conducted on reads and assembled contigs using multiple approaches (k-mer, alignment, assembly) against multiple reference databases, 
+including all sequence data available at the National Center for Biotechnology Information (NCBI, 2023-08-01). Classifications were aggregated and standardised against the
+reference taxonomy at species-level. Quality control and species classifications were evaluated by the core research team. Candidate taxa and clinical relevance were reviewed 
+at a multi-disciplinary research team meeting.
+"""

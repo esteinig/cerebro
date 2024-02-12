@@ -10,7 +10,7 @@
 
     export let selectedWorkflowConfiguration: WorkflowConfig;
     export let selectedModels: Cerebro[] = [];
-    export let selectedQualityControlSummaries: QualityControlSummary [] = [];
+    export let selectedQualityControlSummaries: QualityControlSummary[] = [];
     
     let selectedStages: string[] = [];
 
@@ -21,6 +21,24 @@
 
     $: {
         selectedStages = selectedModels.map(_ => "Input");
+    }
+
+    const getTotalPhageReads = (selectedQualityControlSummaries: QualityControlSummary[], i: number): number => {
+        
+        let dnaReads: number = selectedQualityControlSummaries[i].dna_phage_reads || 0;
+        let rnaReads: number = selectedQualityControlSummaries[i].rna_phage_reads || 0;
+        let seqReads: number = selectedQualityControlSummaries[i].seq_phage_reads || 0;
+
+        return dnaReads+rnaReads+seqReads
+    }
+    const getTotalPhagePercent = (selectedQualityControlSummaries: QualityControlSummary[], i: number): number  => {
+        let qc = selectedQualityControlSummaries[i];
+
+        let dnaPercent: number = qc.dna_phage_percent ? +qc.dna_phage_percent : 0.;
+        let rnaPercent: number = qc.rna_phage_percent ? +qc.rna_phage_percent : 0.;
+        let seqPercent: number = qc.seq_phage_percent ? +qc.seq_phage_percent : 0.;
+
+        return  dnaPercent+rnaPercent+seqPercent
     }
 
 </script>
@@ -75,12 +93,16 @@
                                 <th class="text-center">Stage</th>
                                 <th class="text-end">Reads</th>
                                 <th class="text-end">Percent</th>
+                                <th class="text-end">QC Pass</th>
                         </thead>
                         <tbody> 
                                 <tr class="opacity-60 hover:cursor-pointer"  on:click={() => changeStage("Input", i)}>
                                     <td class="text-center"><span class="ml-1">Input</span></td>
                                     <td class="text-end"><span class="ml-1">{formatAsThousands(selectedQualityControlSummaries[i].total_reads)}</span></td>
                                     <td class="flex justify-end">{formatAsPercentage(100)}</td>
+                                    <td class="text-end"><span class="ml-1">
+
+                                    </span></td>
                                 </tr>
                                 <tr class="hover:cursor-pointer" on:click={() => changeStage("Deduplication", i)}>
                                     <td class="text-center"><span class="ml-1">Deduplication</span></td>
@@ -95,7 +117,7 @@
                                 <tr class="hover:cursor-pointer" on:click={() => changeStage("Read Quality", i)}>
                                     <td class="text-center"><span class="ml-1">Read Quality</span></td>
                                     <td class="text-end"><span class="ml-1">{formatAsThousands(
-                                       calculateTotalQuality(
+                                        calculateTotalQuality(
                                             selectedQualityControlSummaries[i].low_complexity_reads, 
                                             selectedQualityControlSummaries[i].qc_reads
                                         )
@@ -113,22 +135,14 @@
                                     <td class="flex justify-end">{formatAsPercentage(selectedQualityControlSummaries[i].host_percent)}</td>
                                 </tr>
                                 <tr class="hover:cursor-pointer" on:click={() => changeStage("Phage Control", i)}>
-                                    <td class="text-center"><span class="ml-1">Phage Controls</span></td>
-                                    <td class="text-end"><span class="ml-1">{formatAsThousands(selectedQualityControlSummaries[i].phage_reads)}</span></td>
-                                    <td class="flex justify-end">{formatAsPercentage(selectedQualityControlSummaries[i].phage_percent)}</td>
+                                    <td class="text-center"><span class="ml-1">Phage Control</span></td>
+                                    <td class="text-end"><span class="ml-1">{formatAsThousands(getTotalPhageReads(selectedQualityControlSummaries, i))}</span></td>
+                                    <td class="flex justify-end">{formatAsPercentage(getTotalPhagePercent(selectedQualityControlSummaries, i))}</td>
                                 </tr>
                                 <tr class="opacity-60 hover:cursor-pointer" on:click={() => changeStage("Output", i)}>
                                     <td class="text-center"> <span class="ml-1">Output</span></td>
-                                    <td class="text-end"><span class="ml-1">{formatAsThousands(calculateOutput(
-                                        selectedQualityControlSummaries[i].other_reads, 
-                                        selectedQualityControlSummaries[i].phage_reads, 
-                                        selectedQualityControlSummaries[i].qc_reads
-                                    ))}</span></td>
-                                    <td class="text-end">{formatAsPercentage(calculateOutput(
-                                        selectedQualityControlSummaries[i].other_percent, 
-                                        selectedQualityControlSummaries[i].phage_percent, 
-                                        selectedQualityControlSummaries[i].qc_percent
-                                    ))}</td>
+                                    <td class="text-end"><span class="ml-1">{formatAsThousands(selectedQualityControlSummaries[i].output_reads)}</span></td>
+                                    <td class="text-end">{formatAsPercentage(selectedQualityControlSummaries[i].output_percent)}</td>
                                 </tr>
                         </tbody>
                     </table>

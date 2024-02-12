@@ -3,7 +3,7 @@ use memchr::memmem;
 use rayon::prelude::*;
 use std::{path::PathBuf, collections::{HashSet, HashMap}, str::from_utf8};
 use needletail::{parse_fastx_file, parser::write_fastq};
-use crate::{tools::{error::ToolError, utils::{get_compression_writer, get_seq_record_identifier, get_seq_record_identifier_description}}, pipeline::utils::get_file_stem};
+use crate::{tools::{error::ToolError, utils::{get_compression_writer, get_seq_record_identifier}}, pipeline::utils::get_file_stem};
 
 /// Implements a processing pipeline with initial sequence read processing and collapsing of 
 /// unique molecular identifier (UMI) sequences from the NEB UNIQUE DUAL INDEX protocol, which

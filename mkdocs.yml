@@ -10,6 +10,8 @@ repo_url: https://github.com/esteinig/cerebro
 
 theme:
   name: material
+  favicon: assets/mgp-logo-blue.png
+  # logo: assets/mgp-logo-blue-white.png
   palette:
     - scheme: slate
       primary: cyan
@@ -53,11 +55,10 @@ nav:
   - 'Introduction': 'index.md'
   - 'Setup': 'setup.md'
   - 'Pipeline': 'pipeline.md'
-  - 'Server': 'server.md'
+  - 'Deployment': 'deployment.md'
   - 'Interface': 'interface.md'
   - 'Reports': 'reports.md'
   - 'Security': 'security.md'
-  - 'Deployment': 'deployment.md'
-  - 'Dependencies': 'dependencies.md'
-  - 'Publications': 'publications.md'
+  - 'Tutorials': 'security.md'
+  - 'Schematics': 'security.md'
   - 'Changelog': 'changelog.md'

@@ -68,6 +68,7 @@ pub enum Action {
     PriorityTaxonRemoved,
     PriorityTaxonModified,
     ReportEntryAdded,
+    ReportEntryRemoved,
     // Interface decisions
     PriorityTaxonAccepted,
     PriorityTaxonRejected,

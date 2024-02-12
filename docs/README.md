@@ -49,53 +49,35 @@ Requirements for local execution:
 - `Nextflow >= v23.10.04`
 
 ```bash
-# pull latest from github, show help menu, use mamba local env
+# pull latest from github, show help menu, use mamba envs
 nextflow run -r latest esteinig/cerebro -profile mamba --help
 
 # provision with latest cipher kmer db build, may take some time
-nextflow run -r latest esteinig/cerebro -profile mamba -e cipher \
-    --cipher_revision latest \
-    --cipher_modules full \
+nextflow run -r latest esteinig/cerebro -profile mamba -entry cipher \
+    --revision latest \
+    --representation full \
     --outdir cipher_db/
 
-# example 1 full classifier run: standard qc and align, assembly, kmer classifiers
-# mamba envs and cipher db build using a large resource profile
-
-# full tax profile on input read dir (pe illumina)
-nextflow run -r latest esteinig/cerebro -profile mamba,large \
-    --db cipher_db/ \
-    --outdir full_test_run/ \
-    --fastq "fastq/*_{R1,R2}.fq.gz"
-
-# example 2 k-mer profiling run: standard qc and kmer tax classifiers 
-# mamba envs and cipher kmer db build directory using a large resource profile
+# default qc and tax profile on input read dir (pe illumina)
+nextflow run esteinig/cerebro -r latest -profile mamba \
+    --fastq "fastq/*_{R1,R2}.fq.gz" \
+    --databases cipher_db/
 
 # kmer tax profile on input read dir (pe illumina)
-nextflow run -r latest esteinig/cerebro -profile mamba,large,kmer \
-    --db cipher_db/ \
-    --outdir kmer_test_run/ \
-    --fastq "fastq/*_{R1,R2}.fq.gz"
+nextflow run esteinig/cerebro -r latest -profile mamba,kmer \
+    --fastq "fastq/*_{R1,R2}.fq.gz" \   
+    --databases cipher_db/
 
-# example 3 sample sheet production: uses cerebro pipeline client to create input sample sheet
+# production: cerebro client to create input sample sheet
 cerebro pipeline sample-sheet 
     --input fastq/ \
     --output sample_sheet.csv \
-    --glob "*_{R1,R2}.fq.gz" \
-    --run-id prod-test
+    --run-id production_test \
+    --glob "*_{R1,R2}.fq.gz"
 
-# tax profile on dample sheet input (pe illumina)
-# production enables extra checks for sample and data auditing
-nextflow run -r latest esteinig/cerebro -profile mamba,large \
-    --db cipher_db/ \
-    --outdir prod_test_run/ \
-    --sample_sheet sample_sheet.csv \
-    --production true 
-
-# with api upload on successful completion 
-# see api interaction for login to get api token
-nextflow run -r latest esteinig/cerebro -profile mamba,large \
-    --db cipher_db/ \
-    --outdir prod_test_run/ \
+# production: tax profile on sample sheet input (pe illumina)
+nextflow run esteinig/cerebro -r latest -profile mamba \
+    --production true \
     --sample_sheet sample_sheet.csv \
     --production \
     --cerebro.api.enabled \
@@ -152,7 +134,7 @@ cd cerebro_stack_local && docker-compose up
 
 ```bash
 # get cerebro binary for support tasks
-curl https://github.com/esteinig/cerebro/releases/download/latest/cerebro-latest-x86_64-unknown-linux-musl.tar.gz -o - | tar xf && mv cerebro-latest-x86_64-unknown-linux-musl cerebro
+curl https://github.com/esteinig/cerebro/releases/download/latest/cerebro-latest-linux-amd64.tar.xz -o - | tar -xzO > cerebro
 
 # assume `cerebro` on $PATH 
 cerebro --help

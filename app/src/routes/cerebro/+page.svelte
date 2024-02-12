@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { page } from "$app/stores";
 	import Announcements from "$lib/components/dashboard/Announcements.svelte";
 	import CerebroRelease from "$lib/components/dashboard/CerebroRelease.svelte";
 	import TeamActivity from "$lib/components/dashboard/TeamActivity.svelte";

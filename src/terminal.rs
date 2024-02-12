@@ -88,6 +88,44 @@ pub enum UtilCommands {
     Anonymize(UtilsAnonymizeArgs),
     /// Split a FASTA file into sequence FASTA
     Split(UtilsSplitArgs),
+    /// Send a notification to Slack channel
+    Slack(UtilsSlackArgs),
+    /// File polling watcher for scan and event notification
+    Watcher(UtilsWatcherArgs),
+}
+#[derive(Debug, Args)]
+pub struct UtilsWatcherArgs {
+    /// File path to watch recursively for input folders
+    #[clap(long, short = 'p', default_value=".")]
+    pub path: PathBuf,
+    /// Interval for polling file path recursively in seconds
+    #[clap(long, short = 'i', default_value="3")]
+    pub interval: u64,
+    /// Timeout in seconds to proceed after no further events on input folder
+    #[clap(long, short = 't', default_value="10")]
+    pub timeout: u64,
+    /// Timeout interval for polling input folder recursively in seconds
+    #[clap(long, short = 'm', default_value="1")]
+    pub timeout_interval: u64,
+    /// Slack API token
+    #[clap(long, short = 't', env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
+    pub slack_token: String,
+    /// Slack channel
+    #[clap(long, short = 'c', env = "CEREBRO_SLACK_CHANNEL", hide_env_values = true)]
+    pub slack_channel: String,
+}
+
+#[derive(Debug, Args)]
+pub struct UtilsSlackArgs {
+    /// Slack channel name or identifier
+    #[clap(long, short = 'c')]
+    pub channel: String,
+    /// Simple text message to send
+    #[clap(long, short = 'm')]
+    pub message: String,
+    /// Slack API token
+    #[clap(long, short = 't', env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
+    pub token: String,
 }
 
 #[derive(Debug, Args)]
@@ -331,14 +369,52 @@ pub enum StackCommands {
 #[derive(Debug, Args)]
 pub struct StackDeployArgs {
     /// Stack configuration file (.toml)
-    #[clap(long, short = 'c', env = "STACK_CONFIG_FILE")]
+    #[clap(long, short = 'c', env = "CEREBRO_STACK_CONFIG_FILE")]
     pub config: PathBuf,
-    /// Cerebro repository directory for development stack 
+    /// Deploy for local development with hot-reloads (unsafe in production)
     #[clap(long, short = 'd')]
-    pub dev: Option<PathBuf>,
+    pub dev: bool,
+    /// Create a `.trigger` file in the deployed repository for manual rebuilds during local development
+    /// 
+    /// Can be used to modify the trigger file (in the base repository) to manually
+    /// launch crate compilation rather than watching for any change in `src` or 
+    /// `Cargo.toml` for hot-rebuilds during development
+    #[clap(long, short = 't')]
+    pub trigger: bool,
     /// Configured stack output directory
-    #[clap(long, short = 'o', env = "STACK_CONFIG_DIR")]
+    #[clap(long, short = 'o', env = "CEREBRO_STACK_CONFIG_DIR")]
     pub outdir: PathBuf,
+    /// Clone the specific branch for this repository
+    #[clap(long, short = 'b')]
+    pub branch: Option<String>,
+    /// Checkout repository at the commit or tag provided, overwrites branch if provided
+    #[clap(long, short = 'r')]
+    pub revision: Option<String>,
+
+    /// Change the subdomain for multiple concurrent stack deployments 
+    /// 
+    /// This will configure Traefik to deploy to {app,api}.{subdomain}.{domain}
+    /// so that multiple subdomains can be configured on the fly during deployment
+    /// for example to `app.dev.cerebro.localhost` or `app.demo.cerebro.localhost`
+    #[clap(long, short = 's')]
+    pub subdomain: Option<String>,
+
+    /// Public or SSH-like repository URL for cloning into deployment
+    #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
+    pub git_url: String,
+
+    /// Use libgit2 bindings instead of system call (feature not stable)
+    #[cfg(feature = "libgit")]
+    #[clap(long, short = 'l')]
+    pub libgit: bool,
+    /// SSH private key for repository clone via SSH
+    #[cfg(feature = "libgit")]
+    #[clap(long, short = 'k', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY")]
+    pub git_ssh_key: Option<PathBuf>,
+    /// SSH private key passphrase 
+    #[cfg(feature = "libgit")]
+    #[clap(long, short = 'p', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY_PWD")]
+    pub git_ssh_pwd: Option<String>,
 }
 
 
@@ -562,6 +638,14 @@ pub struct ApiUploadArgs {
     /// Database name for model upload
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
+
+    /// Replace sample identifier before upload
+    #[clap(long)]
+    pub replace_sample_id: Option<String>,
+
+    /// Replace sample tags before upload
+    #[clap(long, num_args(0..))]
+    pub replace_sample_tags: Option<Vec<String>>,
 
     /// Output model as file (.json)
     #[clap(long, short = 'o')]
