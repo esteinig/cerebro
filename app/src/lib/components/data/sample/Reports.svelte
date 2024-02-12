@@ -20,6 +20,8 @@
         )
     }
 
+    $: selectedModels = selectedModels;
+
 
     let selectedCandidate: PriorityTaxon | null = null;
 
@@ -39,9 +41,7 @@
         {#if priorityTaxa}
             <CandidateTaxaTable priorityTaxa={priorityTaxa} bind:selectedCandidate={selectedCandidate}></CandidateTaxaTable>
         {:else}
-
-             <p class="flex justify-center text-sm pb-8">No candidate taxa selected for this sample</p>
-            
+            <p class="flex justify-center text-sm pb-8">No candidate taxa selected for this sample</p>
         {/if}
 
         {#if $page.data.userData.roles.includes(Role.Report)}

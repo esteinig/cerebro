@@ -2,6 +2,12 @@
 testing/
 .nextflow/
 
+# Triggered dev builds
+.trigger
+
+# Excel spreadsheet locks
+.*xlsx
+
 # Environment variable configs
 .env*
 

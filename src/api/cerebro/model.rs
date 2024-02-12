@@ -161,9 +161,9 @@ pub struct ReportEntry {
     pub report_pdf: Option<bool>
 }
 impl ReportEntry {
-    pub fn from_schema(schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
+    pub fn from_schema(id: String, schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
         Self {
-            id: uuid::Uuid::new_v4().to_string(),
+            id,
             date: Utc::now().to_string(),
             user_id: schema.user_id.clone(),
             user_name: schema.user_name.clone(),
@@ -343,8 +343,20 @@ pub struct WorkflowParamsQcErcc {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcPhage {
     pub enabled: bool,
-    pub fasta: Option<PathBuf>
+    pub fasta: Option<PathBuf>,
+    pub identifiers: WorkflowParamsQcPhageIdentifiers,
 }
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowParamsQcPhageIdentifiers {
+    pub dna_extraction: String,
+    pub rna_extraction: String,
+    pub sequencing: String,
+}
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcHost {
@@ -516,6 +528,7 @@ pub struct CerebroFilterConfig {
     pub domains: Vec<String>,
     pub tags: Vec<String>,
     pub kmer_min_reads: u64,
+    pub kmer_databases: Vec<String>,
     pub alignment_min_reads: u64,
     pub alignment_min_bases: u64,
     pub alignment_min_regions: u64,
@@ -531,6 +544,7 @@ impl Default for CerebroFilterConfig {
             domains: Vec::new(),
             tags: Vec::new(),
             kmer_min_reads: 0,
+            kmer_databases: Vec::new(),
             alignment_min_reads: 0, 
             alignment_min_bases: 0,
             alignment_min_regions: 0,
@@ -610,10 +624,32 @@ impl Cerebro {
         write!(file, "{}", json_string)?;
         Ok(())
     }
-    // pub fn read_json(file: &PathBuf) -> Result<Self, ModelError> {
-    //     let reader: Box<dyn BufRead> = Box::new(BufReader::new(File::open(file)?));
-    //     serde_json::from_reader(reader).map_err(ModelError::JsonSerialization)
-    // }
+
+    pub fn update_sample_id(&self, sample_id: &str, sample_tags: Option<Vec<String>>) -> Self {
+       
+       // TODO: Updates sample identifier throughout model
+        
+        log::warn!("Updating sample identifier for model: {} ({})", self.name, self.id);
+
+        let mut cc = self.clone();
+
+        cc.name = sample_id.to_string();
+        cc.sample.id = sample_id.to_string();
+
+        if let Some(tags) = sample_tags {
+            cc.sample.tags = tags;
+        }
+        
+        cc.quality.id = sample_id.to_string();
+
+        cc.taxa = self.taxa.iter().map(|(taxid, taxon)| {
+            let taxon = taxon.update_evidence_sample_id(sample_id);
+            (taxid.to_owned(), taxon)
+        }).collect::<HashMap<String, Taxon>>();
+
+        cc
+    }
+
 }
 
 

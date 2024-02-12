@@ -1,6 +1,6 @@
 use actix_web::{web::Data, HttpResponse};
 use mongodb::Collection;
-use serde::{Deserialize};
+use serde::Deserialize;
 use crate::api::server::AppState;
 use serde::ser::Serialize;
 

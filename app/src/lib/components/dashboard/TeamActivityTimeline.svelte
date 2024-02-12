@@ -13,7 +13,7 @@
         link="Test"
     />
     <ActivityItem
-        user="Prshanth Ramachandran"
+        user="Prashanth Ramachandran"
         activity="accepted candidate for sample"
         target="DW-63-76"
         timestamp="October 26th, 2023"

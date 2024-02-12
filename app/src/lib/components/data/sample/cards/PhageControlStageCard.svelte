@@ -34,7 +34,7 @@
                                         <div class="md:h4 lg:h3">{selectedStage}</div>
                                         <div class="flex items-center">
                                             <p class="flex opacity-60 text-xs pr-1">
-                                                <span class="italic mr-1">Escherichia </span> T4 phage extraction control
+                                                <span class="mr-1">Extraction and sequencing controls</span>
                                             </p>
                                         </div>
                                     </div>
@@ -46,12 +46,36 @@
                         <div class="p-1">
                             
                                 <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
-                                    <div><span class="opacity-60 mr-4">Phage reads</span></div>
-                                    <div>{formatAsThousands(selectedQualityControlSummary.phage_reads)}</div>
-                                    <div><span class="opacity-60 mr-4">Phage coverage</span></div>
-                                    <div>{formatAsPercentage(selectedQualityControlSummary.phage_coverage_percent)}</div>
-                                    <div><span class="opacity-60 mr-4">Phage biomass</span></div>
-                                    <div>{selectedQualityControlSummary.phage_biomass} pg</div>
+
+                                    <div><span class="opacity-60 mr-4">DNA phage</span></div>
+                                    <div>{selectedQualityControlSummary.dna_phage_id}</div>
+                                    <div><span class="opacity-60 mr-4">DNA phage reads</span></div>
+                                    <div>{formatAsThousands(selectedQualityControlSummary.dna_phage_reads)}</div>
+                                    <div><span class="opacity-60 mr-4">DNA phage coverage</span></div>
+                                    <div>{formatAsPercentage(selectedQualityControlSummary.dna_phage_coverage_percent)}</div>
+                                    <div><span class="opacity-60 mr-4">DNA phage biomass</span></div>
+                                    <div>{selectedQualityControlSummary.dna_phage_biomass} pg</div>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4 mt-12">
+                                    <div><span class="opacity-60 mr-4">RNA phage</span></div>
+                                    <div>{selectedQualityControlSummary.rna_phage_id}</div>
+                                    <div><span class="opacity-60 mr-4">RNA phage reads</span></div>
+                                    <div>{formatAsThousands(selectedQualityControlSummary.rna_phage_reads)}</div>
+                                    <div><span class="opacity-60 mr-4">RNA phage coverage</span></div>
+                                    <div>{formatAsPercentage(selectedQualityControlSummary.rna_phage_coverage_percent)}</div>
+                                    <div><span class="opacity-60 mr-4">RNA phage biomass</span></div>
+                                    <div>{selectedQualityControlSummary.rna_phage_biomass} pg</div>
+                                </div>
+
+                                <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4 mt-12">
+                                    <div><span class="opacity-60 mr-4">SEQ phage</span></div>
+                                    <div>{selectedQualityControlSummary.seq_phage_id}</div>
+                                    <div><span class="opacity-60 mr-4">SEQ phage reads</span></div>
+                                    <div>{formatAsThousands(selectedQualityControlSummary.seq_phage_reads)}</div>
+                                    <div><span class="opacity-60 mr-4">SEQ phage coverage</span></div>
+                                    <div>{formatAsPercentage(selectedQualityControlSummary.seq_phage_coverage_percent)}</div>
+                                    <div><span class="opacity-60 mr-4">SEQ phage biomass</span></div>
+                                    <div>{selectedQualityControlSummary.seq_phage_biomass} pg</div>
                                 </div>
                         </div>
                     </section>

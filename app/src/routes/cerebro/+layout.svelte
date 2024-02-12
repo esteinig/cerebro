@@ -1,11 +1,12 @@
 <script lang="ts">
 
-import { Modal, initializeStores } from '@skeletonlabs/skeleton';
+import { Modal, ProgressBar, initializeStores } from '@skeletonlabs/skeleton';
 import { AppShell } from '@skeletonlabs/skeleton';
 import { Toast } from '@skeletonlabs/skeleton';
 
 import Header from '$lib/components/shell/Header.svelte';
 import Footer from '$lib/components/shell/Footer.svelte';
+import { navigating } from '$app/stores';
 
 initializeStores();
 
@@ -17,6 +18,9 @@ initializeStores();
 <AppShell>
 	<svelte:fragment slot="header">
         <Header />
+		{#if $navigating}
+			<ProgressBar height="h-1"/>
+		{/if}
 	</svelte:fragment>
     
 	<svelte:fragment slot="footer">

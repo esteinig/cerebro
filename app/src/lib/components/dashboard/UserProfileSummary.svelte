@@ -2,9 +2,13 @@
     import { page } from "$app/stores";
     import { Role } from "$lib/utils/types";
 	import { getInitials } from "$lib/utils/helpers";
+    import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
 	import { Accordion, AccordionItem, Avatar } from "@skeletonlabs/skeleton";
 
+    let selectedTeam: string;
     let initials = getInitials($page.data.userData.name);
+
+
 
 </script>
 
@@ -81,10 +85,24 @@
                 <Accordion>
                     {#each $page.data.userTeams.sort() as team}
                         <AccordionItem>
-                            <svelte:fragment slot="lead"> 
-                            </svelte:fragment>
+                            <svelte:fragment slot="lead"></svelte:fragment>
                             <svelte:fragment slot="summary">{team.name}</svelte:fragment>
-                            <svelte:fragment slot="content"><span class="opacity-60 pl-4">{team.description}</span></svelte:fragment>
+                            <svelte:fragment slot="content">
+                            <ListBox>
+                                {#each team.databases as db}
+                                    <ListBoxItem bind:group={selectedTeam} name="selectedTeam" value="{db.id}" active='variant-soft' rounded='rounded-token'>
+                                        <svelte:fragment slot="lead">
+                                            <div class="w-5">
+                                            <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                        </div>
+                                        </svelte:fragment>
+                                        <div class="opacity-60 pl-2 cursor-pointer">{db.name}</div>
+                                    </ListBoxItem>
+                                {/each} 
+                            </ListBox>
+                            </svelte:fragment>
                         </AccordionItem>
                     {/each}
                 </Accordion>

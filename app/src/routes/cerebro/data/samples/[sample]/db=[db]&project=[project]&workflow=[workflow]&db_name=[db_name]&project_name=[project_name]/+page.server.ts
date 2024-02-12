@@ -82,8 +82,6 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
         if (sampleControlResponse.ok) {
             let workflowSampleControlsData: CerebroNotaxaResponse = await sampleControlResponse.json();
             controlCerebro = workflowSampleControlsData.data.cerebro;
-        } else {
-            throw error(sampleControlResponse.status, "Failed to retrieve sample-associated negative controls")
         }
     }
 
@@ -93,8 +91,8 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     let qualitySummaries: Array<QualityControlSummary> = [];
     
     if (cerebroIdentifiers.length){
-         // Get all run-specific negative control documents for the samples 
-         const sampleSummaryResponse: Response = await fetch(
+        // Get all run-specific negative control documents for the samples 
+        const sampleSummaryResponse: Response = await fetch(
             `${api.routes.cerebro.getSampleSummary}?db=${params.db}&project=${params.project}`, 
             { 
                 method: 'POST', 

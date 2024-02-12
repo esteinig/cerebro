@@ -20,13 +20,3 @@ pub struct TraefikTemplates;
 #[prefix = "cerebro/"]
 pub struct CerebroTemplates;
 
-#[derive(RustEmbed)]
-#[folder = "templates/email/"]
-#[prefix = "email/"]
-pub struct EmailTemplates;
-
-#[derive(RustEmbed)]
-#[folder = "templates/report/"]
-#[prefix = "report/"]
-pub struct ReportTemplates;
-

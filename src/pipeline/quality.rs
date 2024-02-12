@@ -275,19 +275,41 @@ pub struct QualityControlSummary {
     pub other_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
     pub other_biomass: Option<f64>,
-    pub phage_reads: Option<u64>,
+    // DNA phage control
+    pub dna_phage_id: Option<String>,
+    pub dna_phage_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
-    pub phage_percent: Option<f64>,
+    pub dna_phage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
-    pub phage_coverage_percent: Option<f64>,
+    pub dna_phage_coverage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
-    pub phage_biomass: Option<f64>,
+    pub dna_phage_biomass: Option<f64>,
+    pub rna_phage_id: Option<String>,
+    pub rna_phage_reads: Option<u64>,
+    #[serde(serialize_with = "round_two")]
+    pub rna_phage_percent: Option<f64>,
+    #[serde(serialize_with = "round_two")]
+    pub rna_phage_coverage_percent: Option<f64>,
+    #[serde(serialize_with = "round_two")]
+    pub rna_phage_biomass: Option<f64>,
+    // Sequencing phage control
+    pub seq_phage_id: Option<String>,
+    pub seq_phage_reads: Option<u64>,
+    #[serde(serialize_with = "round_two")]
+    pub seq_phage_percent: Option<f64>,
+    #[serde(serialize_with = "round_two")]
+    pub seq_phage_coverage_percent: Option<f64>,
+    #[serde(serialize_with = "round_two")]
+    pub seq_phage_biomass: Option<f64>,
+    // Output reads after quality control
     pub output_reads: u64,
     #[serde(serialize_with = "round_two")]
     pub output_percent: Option<f64>,
-    pub extraction_control_status: Option<String>,
-    pub sequencing_control_status: Option<String>,
-    pub library_control_status: Option<String>
+    // Threshold important quality control
+    pub control_status_dna_extraction: Option<bool>,
+    pub control_status_rna_extraction: Option<bool>,
+    pub control_status_library: Option<bool>,
+    pub control_status_sequencing: Option<bool>,
 }
 impl QualityControlSummary {
     pub fn from(
@@ -407,24 +429,21 @@ impl QualityControlSummary {
             None => (None, None, None, None, None, None)
         };
 
-        let (phage_reads, phage_percent, phage_biomass, phage_coverage_percent) = match &quality_control_module.phage {
-            Some(phage_data) => {
 
-                // Currently only one phage (T4)
-                let phage = &phage_data[0];
-
-                let phage_reads = phage.reads;
-                let phage_percent = (phage_reads as f64 / total_reads as f64)*100.;
-                let phage_coverage = phage.coverage*100.;
-
-                let phage_biomass = match ercc_mass_per_read {
-                    Some(ercc_read_mass) => Some(ercc_read_mass*phage_reads as f64),
-                    None => None,
-                };
-                (Some(phage_reads), Some(phage_percent), phage_biomass, Some(phage_coverage))
-            },
-            None => (None, None, None, None)
+        let (dna_phage_id, rna_phage_id, seq_phage_id) = match workflow_config {
+            Some(config) => (
+                config.params.qc.controls.phage.identifiers.dna_extraction.as_str(), 
+                config.params.qc.controls.phage.identifiers.rna_extraction.as_str(), 
+                config.params.qc.controls.phage.identifiers.sequencing.as_str(), 
+            ),
+            None => (
+                "T4-Monash", "MS2-Monash", "PhiX"
+            )
         };
+
+        let (dna_phage_reads, dna_phage_percent, dna_phage_biomass, dna_phage_coverage_percent) = get_phage_data(quality_control_module, dna_phage_id, total_reads, &ercc_mass_per_read);
+        let (rna_phage_reads, rna_phage_percent, rna_phage_biomass, rna_phage_coverage_percent) = get_phage_data(quality_control_module, rna_phage_id, total_reads, &ercc_mass_per_read);
+        let (seq_phage_reads, seq_phage_percent, seq_phage_biomass, seq_phage_coverage_percent) = get_phage_data(quality_control_module, seq_phage_id, total_reads, &ercc_mass_per_read);
 
         let (low_complexity_reads, low_complexity_percent) = match fastp.filter.low_complexity {
             Some(low_complexity_reads) => (Some(low_complexity_reads),  Some((low_complexity_reads as f64 / total_reads as f64)*100.)),
@@ -467,19 +486,11 @@ impl QualityControlSummary {
             _ => None
         };
 
-        let (output_reads, output_percent) = match (other_reads, phage_reads) {
-            (Some(other_reads), Some(phage_reads)) => {
-                let out_reads = other_reads - phage_reads;
-                (out_reads, Some(out_reads as f64/total_reads as f64))
-            },
-            (Some(other_reads), None) => (other_reads, other_percent),
-            (None, Some(phage_reads)) => {
-                let out_reads = qc_reads - phage_reads;
-                (out_reads, Some(out_reads as f64/total_reads as f64))
-            },
-            (None, None) => (qc_reads, Some(qc_percent))
-        };
+        let (output_reads, output_percent) = compute_output_reads(
+            total_reads, qc_reads, other_reads, dna_phage_reads, rna_phage_reads, seq_phage_reads
+        );
 
+        
         Ok(Self {
             id: quality_control_module.id.clone(),
             model_id,
@@ -522,15 +533,82 @@ impl QualityControlSummary {
             other_reads,
             other_percent,
             other_biomass,
-            phage_reads,
-            phage_percent,
-            phage_coverage_percent,
-            phage_biomass,
+            dna_phage_id: Some(dna_phage_id.into()),
+            dna_phage_reads,
+            dna_phage_percent,
+            dna_phage_coverage_percent,
+            dna_phage_biomass,
+            rna_phage_id: Some(rna_phage_id.into()),
+            rna_phage_reads,
+            rna_phage_percent,
+            rna_phage_coverage_percent,
+            rna_phage_biomass,
+            seq_phage_id: Some(seq_phage_id.into()),
+            seq_phage_reads,
+            seq_phage_percent,
+            seq_phage_coverage_percent,
+            seq_phage_biomass,
             output_reads,
-            output_percent,
-            sequencing_control_status: None,
-            library_control_status: None,
-            extraction_control_status: None
+            output_percent: Some(output_percent),
+            control_status_dna_extraction: None,
+            control_status_rna_extraction: None,
+            control_status_library: None,
+            control_status_sequencing: None,
         })
+    }
+}
+
+
+fn get_phage_data(quality_control_module: &QualityControlModule, phage_id: &str, total_reads: u64, ercc_mass_per_read: &Option<f64>) -> (Option<u64>, Option<f64>, Option<f64>, Option<f64>) {
+
+    match &quality_control_module.phage {
+        Some(phage_data) => {
+
+            // If phage identifier cannot be found returns none 
+            let phage = match find_phage_by_ref(&phage_data, &phage_id) {
+                Some(phage) => phage, None => return (None, None, None, None)
+            };
+
+            let phage_reads = phage.reads;
+            let phage_percent = (phage_reads as f64 / total_reads as f64)*100.;
+            let phage_coverage = phage.coverage*100.;
+
+            let phage_biomass = match ercc_mass_per_read {
+                Some(ercc_read_mass) => Some(ercc_read_mass*phage_reads as f64),
+                None => None,
+            };
+            (Some(phage_reads), Some(phage_percent), phage_biomass, Some(phage_coverage))
+        },
+        None => (None, None, None, None)
+    }
+
+}
+
+fn find_phage_by_ref(vec: &Vec<Phage>, target_id: &str) -> Option<Phage> {
+    for phage in vec {
+        if &phage.record.reference == target_id {
+            return Some(phage.to_owned());
+        }
+    }
+    None
+}
+
+fn compute_output_reads(total_reads: u64, qc_reads: u64, other_reads: Option<u64>, dna_phage_reads: Option<u64>, rna_phage_reads: Option<u64>, seq_phage_reads: Option<u64>) -> (u64, f64) {
+
+    match other_reads {
+        Some(other_reads) => {
+            // Host depletion was active before phage controls - must remove from 'other_reads'
+            let out_reads = match dna_phage_reads { Some(r) => other_reads - r, None => other_reads };
+            let out_reads = match rna_phage_reads { Some(r) => out_reads - r, None => out_reads };
+            let out_reads = match seq_phage_reads { Some(r) => out_reads - r, None => out_reads };
+            (out_reads, (out_reads as f64 / total_reads as f64)*100.)
+        },
+        None => {
+            // Host depletion was not active before phage controls - must remove from 'qc_reads'
+            let out_reads = match dna_phage_reads { Some(r) => qc_reads - r, None => qc_reads };
+            let out_reads = match rna_phage_reads { Some(r) => out_reads - r, None => out_reads };
+            let out_reads = match seq_phage_reads { Some(r) => out_reads - r, None => out_reads };
+            (out_reads, (out_reads as f64 / total_reads as f64)*100.)
+        }
     }
 }

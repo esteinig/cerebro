@@ -23,6 +23,31 @@ process MinimapAlignPAF {
 
 }
 
+process MinimapAlignOntPAF {
+
+    tag { "$id : $idx_name" }
+    label "minimap2"
+
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}.paf"
+
+    input:
+    tuple val(id), path(reads)
+    path(index)
+
+    output:
+    tuple val(id), path(reads)
+    tuple val(id), val(idx_name), path("${id}.paf")
+
+    script:
+
+    idx_name = index.baseName
+
+    """
+    minimap2 -t $task.cpus -c -x $params.ont.minimap2.preset ${index} $reads> ${id}.paf
+    """
+
+}
+
 process MinimapRealignBAM {
 
     tag { "$id : $idx_name" }

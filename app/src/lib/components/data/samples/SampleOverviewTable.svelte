@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SampleOverviewData } from "$lib/utils/types";
+	import type { ProjectCollection, SampleOverviewData, TeamDatabase } from "$lib/utils/types";
     import { PriorityTaxonType } from "$lib/utils/types";
 	import { Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
     import { baseTags, getDateTimeString } from "$lib/utils/helpers";
@@ -8,6 +8,9 @@
     export let sampleOverviewData: Array<SampleOverviewData>;
     export let selectedSampleOverview: SampleOverviewData;
     export let selectedSamples: string[] = [];
+
+    export let selectedDatabase: TeamDatabase;
+    export let selectedProject: ProjectCollection;
 
     let tableData: Array<SampleOverviewData>;
     
@@ -59,6 +62,8 @@
                 <th>Group</th>
                 <th>Candidates</th>
                 <th>Completed</th>
+
+                <th></th>
                 <th>
                     <div class="flex justify-end mr-2">
                         <input class="checkbox" type="checkbox" on:click={changeSelectAll}/>
@@ -69,38 +74,50 @@
         <tbody>
             {#each tableData as sample}
                 <tr class="hover:cursor-pointer" on:click={() => {selectedSampleOverview = sample}}>
-                    <td><span class="ml-1">{sample.id}</span></td>
-                    <td class="truncate"><span class="ml-1">{baseTags(sample.tags, true).join(", ")}</span></td>
-                    <td class="truncate"><span class="ml-1">{sample.types.join(", ")}</span></td>
-                    <td class="truncate"><span class="ml-1">{sample.groups.join(", ")}</span></td>
-                    <td>
-                        <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-1 items-center w-2/3 ml-1">
-                        
-                            {#if getUniquePriorityTaxonTypes(sample).includes(PriorityTaxonType.Pathogen)}
-                                <CandidateIcon priorityTaxonType={PriorityTaxonType.Pathogen}></CandidateIcon>
-                            {:else}
-                                <div></div>
-                            {/if}
+                        <td class=""><span class="ml-1">{sample.id}</span></td>
+                        <td class="truncate"><span class="ml-1">{baseTags(sample.tags, true).join(", ")}</span></td>
+                        <td class="truncate"><span class="ml-1">{sample.types.join(", ")}</span></td>
+                        <td class="truncate"><span class="ml-1">{sample.groups.join(", ")}</span></td>
+                        <td>
+                            <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-1 items-center w-2/3 ml-1">
+                            
+                                {#if getUniquePriorityTaxonTypes(sample).includes(PriorityTaxonType.Pathogen)}
+                                    <CandidateIcon priorityTaxonType={PriorityTaxonType.Pathogen}></CandidateIcon>
+                                {:else}
+                                    <div></div>
+                                {/if}
 
-                            {#if getUniquePriorityTaxonTypes(sample).includes(PriorityTaxonType.Unknown)}
-                                <CandidateIcon priorityTaxonType={PriorityTaxonType.Unknown}></CandidateIcon>
-                            {:else}
-                                <div></div>
-                            {/if}
+                                {#if getUniquePriorityTaxonTypes(sample).includes(PriorityTaxonType.Unknown)}
+                                    <CandidateIcon priorityTaxonType={PriorityTaxonType.Unknown}></CandidateIcon>
+                                {:else}
+                                    <div></div>
+                                {/if}
 
-                            {#if getUniquePriorityTaxonTypes(sample).includes(PriorityTaxonType.Contaminant)}
-                                <CandidateIcon priorityTaxonType={PriorityTaxonType.Contaminant}></CandidateIcon>
-                            {:else}
-                                <div></div>
-                            {/if}
-                        </div>
-                    </td>
-                    <td><span class="ml-1">{getDateTimeString(sample.latest_workflow)}</span></td>
-                    <td>
-                        <div class="flex justify-end mr-3">
-                            <input class="checkbox" type="checkbox" checked={checkAll} on:click={() => changeSelectedSample(sample.id)}/>
-                        </div>
-                    </td>
+                                {#if getUniquePriorityTaxonTypes(sample).includes(PriorityTaxonType.Contaminant)}
+                                    <CandidateIcon priorityTaxonType={PriorityTaxonType.Contaminant}></CandidateIcon>
+                                {:else}
+                                    <div></div>
+                                {/if}
+                            </div>
+                        </td>
+                        <td><span class="ml-1">{getDateTimeString(sample.latest_workflow)}</span></td>
+                        <td>
+                            <div class="w-1/4 text-xs">
+                                <a href={`samples/${selectedSampleOverview?.id}/db=${selectedDatabase.id}&project=${selectedProject.id}&workflow=0&db_name=${selectedDatabase.name}&project_name=${selectedProject.name}`} class="btn btn-sm variant-outline-primary m-2">
+                                    <div class="w-4 h-4 mr-2">
+                                        <svg aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                            <path clip-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" fill-rule="evenodd"></path>
+                                        </svg>
+                                    </div>
+                                    Results
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="flex justify-end mr-3">
+                                <input class="checkbox" type="checkbox" checked={checkAll} on:click={() => changeSelectedSample(sample.id)}/>
+                            </div>
+                        </td>
                 </tr>
             {/each}
         </tbody>

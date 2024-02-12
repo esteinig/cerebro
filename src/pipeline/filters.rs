@@ -109,9 +109,15 @@ pub fn filter_by_tags(taxa: Vec<Taxon>, tags: &Vec<String>) -> Vec<Taxon> {
     }).collect()
 }
 
-pub fn filter_by_kraken2uniq(taxa: Vec<Taxon>, min_reads: u64) -> Vec<Taxon> {
+pub fn filter_by_kraken2uniq(taxa: Vec<Taxon>, min_reads: u64, databases: Vec<String>) -> Vec<Taxon> {
+
     taxa.into_iter().map(|mut taxon| {
         taxon.evidence.kmer = taxon.evidence.kmer.into_iter().filter(|record| record.reads >= min_reads).collect();
+        
+        if !databases.is_empty() {
+            taxon.evidence.kmer = taxon.evidence.kmer.into_iter().filter(|record| databases.contains(&record.db)).collect();
+        }
+        
         taxon
     }).collect()
 }
