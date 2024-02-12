@@ -1,30 +1,31 @@
 
-<!-- <p align="left" style="margin-top: 2rem; margin-bottom: 2rem">
-    <img src="assets/logo.png#only-light"  width="300" height="200">
-    <img src="assets/logo.png#only-dark" width="300" height="200">
-</p> -->
-
 `Cerebro` is a metagenomics platform for clinical diagnostics and reporting in production environments. 
 
-`Cerebro` is broadly applicable for short-read (for now) metagenomics and -transcriptomics. It is optimized for sample types with low microbial biomass (for now).
+`Cerebro` uses an ensemble-like approach with multiple classification and profiling strategies, tools and databases targeting **pathogen detection**.
 
-`Cerebro` has been primarily tested on central nervous system infections and cerebrospinal fluid samples in combination with our [clinical assay protocol](). Viral detection and consensus genome assembly modules have been validated for panviral enrichment using clinical samples extracted from [rapid antigen test devices]().
+## Application
 
+Our primary workflow is optimized for [pathogen detection in low microbial biomass samples]() using short-read deep sequencing assays including our open-source protocol.
+
+`Cerebro` is **not** designed for complex community analysis or methods that require high microbial biomass samples, such as recovering metagenome-assembled genomes and strain typing.
+
+!!! info
+    
+    `Cerebro` can be re-configured for other applications using `Nextflow` configuration profiles to recover [viral consensus genomes and genotypes](), perform [metagenome co-assembly]() to assess background contamination or run simple best-practice implementations like the pathogen detection [protocol for Kraken]().
 
 ## Components
 
-We provide a collection of integrated tools that aim to ease taxonomic classification, data management, interpretation and reporting in clinical production environments. 
+We provide a collection of integrated modules that aim to ease taxonomic profiling, data management, interpretation and reporting in clinical production environments. 
 
-* Metagenomic and -transcriptomic [pathogen detection pipeline]()
-* Database server and application programming interface (API) 
-* [Command-line application]() for pipeline integration, quality assurance and API
-* Interface for (multi-user) exploration of taxonomic classifications and clinical reports
-
+* `Nextflow`: metagenomic- and transcriptomic pathogen detection pipeline 
+* `Rust`: command-line application for pipeline integration and quality assurance
+* `Rust`: database server and application programming interface for data management 
+* `Svelte`: web application for collaborative exploration and interpretation of results 
+* `Rust`: templating engine for data integration in auditable clinical reports
 
 !!! info
 
-    Pipeline and command-line utilities are independent of the platform. Server and interface setups are slightly more involved, but are recommended for ease of interpretation and reporting.
-
+    Pipeline and command-line utilities are independent of the full-stack application. Server and web-interface setups are recommended for ease of interpretation and reporting.
 
 ## Documentation
 
@@ -32,13 +33,13 @@ We provide a collection of integrated tools that aim to ease taxonomic classific
 Installation and configuration of `Cerebro`
 
 * [Pipeline](pipeline.md)  
-Pipeline configuration and execution 
+`Cerebro` pipeline configuration and execution 
 
-* [Server](server.md)  
-Server configuration and API specification
+* [Deployment](deployment.md)  
+Deploying the `Cerebro` application stack
 
 * [Interface](interface.md)  
-User interface configuration and navigation 
+`Cerebro` interface configuration and navigation 
 
 * [Reports](reports.md)  
 Clinical report compilation with `Cerebro`
@@ -46,51 +47,32 @@ Clinical report compilation with `Cerebro`
 * [Security](security.md)  
 Data privacy and security in `Cerebro`
 
-* [Deployment](deployment.md)  
-Deploying or hosting the `Cerebro` stack
+* [Development](development.md)  
+Setting up development environments for `Cerebro`
 
 * [Dependencies](dependencies.md)  
-Description and citations of tools used in `Cerebro`
-
-## Tutorials
+Description and citations of tools used by `Cerebro`
 
 
+### Tutorials
 
-## Data Privacy
+* [Taxonomic profiling for clinical applications](dependencies.md)  
+How to setup, execute and interpret outputs from taxonomic profiling
 
-Metagenomic sequencing inevitably captures host nucleic acid. We strongly care about the ethical and privacy implications of this kind of data. 
+* [Panviral enrichment and consensus assembly](dependencies.md)  
+Viral detection and consensus genome recovery from panviral enrichment assays
 
-`Cerebro` aims to:
+* [Data interpretation and reporting for diagnostics](dependencies.md)  
+How to interpret the data outputs and generate reports in the user interface
 
-* Retain patient sequence data on infrastructure where it was generated
-* Decouple sequence analysis from results accessible in the database and interface
-* Produce clinical reports without sending sensitive information over the network
-* Enable quality assurance for accredited production services
+* [Local production deployment as diagnostic service](dependencies.md)  
+Deploy one or multiple stacks in a production environment
 
-We have concerns about data privacy using well-advertised, philanthropically- or commerically-funded metagenomics platforms where patient sequence- and meta-data are uploaded to servers that are not under our control. 
-
-Our priority was developing pipelines and reporting tools that allow users to retain complete control over source code, deployment and operation on their own infrastructure. We hope that this conceptualisation is useful for clinical metagenomic services where there may be concerns about how sequence data is handled and evaluated by third parties.
-
-
-## Data Security
-
-!!! info
-
-    You can read more about data security and privacy considerations in the [security](#security.md) section.
+* [Stack administration for multiple users and projects](dependencies.md)  
+Learn how to manage teams, databases and data collections in production
 
 
-`Cerebro` de-couples pipeline execution from the analytical stack, and does not store sequence or patient data in the database. Once the pipeline outputs are generated, they are generally safe to be transmitted on a network. However, there are residual risks for accidental (or purposeful) data linkage, which are described in the [data security]() section of the deployment guide. Special consideration should be given to how sensitive patient information can be included in the [clinical report headers]().
-
-Note that in the current version access to the database and interface are implemented through scoped token authentication with logging and rate limiting on critical endpoints, verification and password-reset emails for user management and traffic encryption through a reverse-proxy (SSL/TLS). All user and database management runs through the administrator of the application who controls the container stack. 
-
-One major reason for the current implementation is one of scale and purpose. We primarily deploy the database, server and interface on a secure local network to which a limited number of users from the production team have access. We also routinely spin up the stack on a laptop to quickly view and interpret workflow results after transfer of pipeline outputs through SSH over a VPN.
-
-!!! warning
-
-    While user authentication follows the `Authorization Code Flow` defined in [OAuth 2.0 RFC 6749, section 4.1](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1) it is **not** a replacement for certified authentication/authorization flows. Do not deploy `Cerebro` on the open internet unless you are familiar with the implications for data security.
-
-
-## Schematic
+### Schematics
 
 Pipeline schematic:
 
@@ -98,37 +80,87 @@ Pipeline schematic:
 
 Platform schematic:
 
+## Considerations
 
-## Contributors
+### Data privacy
+
+Metagenomic sequencing inevitably captures host nucleic acid. We have concerns about data privacy using well-advertised, philanthropically- or commerically-funded metagenomics platforms where sequence- and meta-data are uploaded to servers that are under third party control and not accountable to the public. We strongly care about the ethical and privacy implications of this kind of data. 
+
+`Cerebro` aims to:
+
+* Retain patient sequence data withing local networks where it was generated
+* Decouple sequence analysis from diagnostic results accessible in the database and interface
+* Produce clinical reports without sending sensitive information over the network
+* Enable quality assurance and routine operation as clinical or public health service
+* Provide all tools necessary for accreditation and validation forproduction environments
+
+Our priority was developing pipelines and reporting tools that allow users to retain complete control over source code, deployment and operation on their own infrastructure. We hope that this conceptualisation is useful for clinical metagenomic services where there may be concerns about how sequence data is handled and evaluated by third parties.
 
 
-`Cerebro` is being developed as part of an open-source protocol for central-nervous system infections in the state of Victoria, Australia. Our work contributes to the `META-GP` program funded by the Medical Research Future Fund (MRFF) - a collaboration between Australia’s leading researchers in pathogen genomics and clinical infectious diseases. 
+### Data security
 
-`META-GP` central nervous system infection team led by [Prof. Deborah Williamson]() at The Peter Doherty Institute for Infection and Immunity:
+!!! info
 
+    You can read more about data security and privacy considerations in the [security](#security.md) section.
+
+
+`Cerebro` de-couples pipeline execution from the analytical stack, and does not store sequence or patient (meta-)data in the database. Once the pipeline outputs are generated, they are generally safe to be transmitted on a network. 
+
+However, there are residual risks for accidental (or purposeful) data linkage, which are described in the [data security]() section of the deployment guide. Special consideration should be given to how sensitive patient information can be included in the [clinical report headers]().
+
+
+## Support 
+
+### Contributors
+
+
+`Cerebro` is being developed as part of an open-source protocol for central-nervous system infections in the state of Victoria, Australia. Our work contributes to the [`META-GP`]() program funded by the Medical Research Future Fund (MRFF). 
+
+`META-GP` central nervous system infection team at [The Peter Doherty Institute for Infection and Immunity]():
+
+* Deborah Williamson
+* Tim Stinear
 * Prashanth Ramachandran
-* Marcelina Krysiak
-* Janath Fernando
 * Eike Steinig 
 * Chhay Lim
+* Marcelina Krysiak
+* Janath Fernando
+* George Taiaroa
 * Kirti Deo
 
-Victorian Infectious Diseases Reference Laboratory:
+Translational diagnostics group at the [Victorian Infectious Diseases Reference Laboratory]():
 
 * Chuan Lim
 * Leon Caly
 * Jean Moselen
+* Ammar Aziz
 
-Royal Melbourne Hospital (RMH):
+Microbiology department at the [Royal Melbourne Hospital]():
 
 * Katherine Bond
+* Michael Moso
 
-## Citations
+### Publications
 
-If you use `Cerebro` for your research please cite:
+Viral detection and genome recovery from rapid antigen devices using `Cerebro`:
 
-> Steinig (2023) - Clinical metagenomic diagnostics and reporting of central nervous system infections with Cerebro
+> Moso, Taiaroa, Steinig et al. (2023) - Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: A laboratory evaluation study - The Lancet Microbe
 
-## Contact
+### Citation
 
-[Eike Steinig](https://github.com/esteinig)
+If you use `Cerebro` for your research, please cite:
+
+> Steinig et al. (2024) - Clinical metagenomic diagnostics and reporting in production environments
+
+
+If you use the panviral enrichment configuration, please also cite:
+
+> Moso, Taiaroa, Steinig et al. (2023) - Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: A laboratory evaluation study - The Lancet Microbe
+
+### Contact
+
+If you have a feature request or find a bug, please feel free to [open an issue](https://github.com/esteinig/cerebro) in the repository.
+
+If you would like to contribute to `Cerebro` development (you're awesome) please read the [Development](#development.md) section of the documentation and get into contact through the repository.
+
+If you would like to get in contact to discuss extensions to `Cerebro` or local production setups for public health or clinical applications please contact [Prashanth Ramachandran]() or [Eike Steinig](https://github.com/esteinig).

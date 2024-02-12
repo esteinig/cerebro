@@ -161,9 +161,9 @@ pub struct ReportEntry {
     pub report_pdf: Option<bool>
 }
 impl ReportEntry {
-    pub fn from_schema(schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
+    pub fn from_schema(id: String, schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
         Self {
-            id: uuid::Uuid::new_v4().to_string(),
+            id,
             date: Utc::now().to_string(),
             user_id: schema.user_id.clone(),
             user_name: schema.user_name.clone(),
@@ -177,6 +177,12 @@ impl ReportEntry {
     pub fn log_description(&self) -> String {
         format!(
             "Report entry added: report_id={} report_date={} user_id={} user_name='{}' organism='{}' review_date='{}' negative={}", 
+            self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
+        )
+    }
+    pub fn log_deletion(&self) -> String {
+        format!(
+            "Report entry deleted: report_id={} report_date={} user_id={} user_name='{}' organism='{}' review_date='{}' negative={}", 
             self.id, self.date, self.user_id, self.user_name, self.organism, self.review_date, self.negative
         )
     }
@@ -343,8 +349,20 @@ pub struct WorkflowParamsQcErcc {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcPhage {
     pub enabled: bool,
-    pub fasta: Option<PathBuf>
+    pub fasta: Option<PathBuf>,
+    pub identifiers: WorkflowParamsQcPhageIdentifiers,
 }
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowParamsQcPhageIdentifiers {
+    pub dna_extraction: String,
+    pub rna_extraction: String,
+    pub sequencing: String,
+}
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcHost {

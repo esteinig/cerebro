@@ -14,12 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use cerebro::api::report::ClinicalReport;
+use crate::api::report::ClinicalReport;
+use crate::stack::watcher;
 use clap::Parser;
 use rayon::prelude::*;
 use pipeline::sheet::SampleSheet;
+use stack::watcher::SlackConfig;
 use terminal::{ReportCommands, UtilCommands};
 use tools::modules::anon::ReadAnonymizer;
+use tools::modules::slack::{SlackMessage, SlackMessenger};
 use tools::modules::split::Splitter;
 use tools::modules::subset::FastaSubset;
 use tools::modules::virus::{VirusAlignmentSummary, AnnotationOptions};
@@ -187,6 +190,25 @@ fn main() -> anyhow::Result<()> {
                                 splitter.split(&fasta)?
                             }
                         },
+                    
+                        UtilCommands::Slack( args ) => {
+                            let messenger = SlackMessenger::new(&args.token);
+                            messenger.send(
+                                &SlackMessage::new(&args.channel, &args.message)
+                            ).expect("Failed to send message");
+                        },
+                        UtilCommands::Watcher( args ) => {
+
+                            if let Err(error) = watcher::watch_production(
+                                &args.path, 
+                                std::time::Duration::from_secs(args.interval),
+                                std::time::Duration::from_secs(args.timeout),
+                                std::time::Duration::from_secs(args.timeout_interval),
+                                SlackConfig { channel: args.slack_channel.clone(), token: args.slack_token.clone() }
+                            ) {
+                                log::error!("Error: {error:?}");
+                            }
+                        },
                     }
                 }
                 _ => {}
@@ -202,7 +224,27 @@ fn main() -> anyhow::Result<()> {
                 // output directory with templated assets
                 StackCommands::Deploy( args ) => {
                     let mut stack = stack::deploy::Stack::from_toml(&args.config)?;
-                    stack.configure( &args.outdir, args.dev.clone() )?;
+                    stack.configure( &args.outdir, args.dev, args.subdomain.clone(), args.trigger )?;
+
+                    #[cfg(feature = "libgit")]
+                    {
+                        stack.clone_and_checkout_repository_libgit(
+                            &args.git_url, 
+                            args.libgit,
+                            args.branch.clone(),
+                            args.revision.clone(), 
+                            args.git_ssh_key.clone(), 
+                            args.git_ssh_pwd.clone()
+                        )?;
+                        std::process::exit(0)  // premature exit ok
+
+                    }
+                    stack.clone_and_checkout_repository_process(
+                        &args.git_url, 
+                        args.branch.clone(),
+                        args.revision.clone()
+                    )?;
+                    
                 },
                 // Run the stack server with provided configuration
                 // Arguments are re-parsed in the asynchroneous routine

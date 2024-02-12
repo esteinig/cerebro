@@ -1,20 +1,20 @@
 description                 = """
-CSF was extracted using the QIAGEN EZ1 platform and EZ1 kits. Total nucleic acid was split, with half treated with DNase for RNA library preparation. 
+Extraction was conducted using the QIAGEN EZ1 platform and EZ1 kits. Total nucleic acid was split, with half treated with DNase for RNA library preparation. 
 A positive and negative template control were run alongside clinical samples. DNA and RNA libraries were prepared using the NEB NEBNext Ultra II FS DNA and
 NEBNext Ultra II RNA library preparation kit, with the use of NEBNext Dual Index Barcodes. EDCC and ERCC internal controls were spiked into DNA and RNA libraries 
 respectively. Libraries were size selected and quantified using the Agilent TapeStation and the Invitrogen Qubit 4 Fluorometer. 
 """
 
 [header]
-protocol                    = "DW-SOP028"
-version                     = "1.0"
+protocol                    = "DW-SOP-028"
+version                     = "0.7.0-dev.1"
 extraction                  = "QIAGEN EZ1"
 ribosomal                   = "QIAGEN FastSelect"
 adapters                    = "NEBNext Dual Index"
 library                     = "NEBNext Ultra II"
 sequencer                   = "ILLUMINA NextSeq"
-extraction_control          = "MONASH T4"
+extraction_control          = "T4"
 library_control             = "INVITROGEN ERCC"
-sequencing_control          = "NextSeq PhiX"
-negative_control            = ""                # multi-sample string
-positive_control            = ""                # multi-sample string
+sequencing_control          = "N/A"
+negative_control            = "TRUE"               # multi-sample string
+positive_control            = "FALSE"              # multi-sample string

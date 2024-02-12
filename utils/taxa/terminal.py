@@ -7,9 +7,16 @@ from ..utils import read_qc_table, YESTERDAY_MEDIUM
 
 
 from matplotlib import pyplot as plt
+
 import seaborn as sns
+import sys
+
+from typing import List, Optional
 
 warnings.filterwarnings("ignore")
+
+def stdin_callback(value: Optional[Path]) -> Path:
+    return value if value else Path('/dev/stdin')
 
 app = typer.Typer(add_completion=False)
 
@@ -23,6 +30,9 @@ def plot_group_metric(
     ),
     metric: str = typer.Option(
         "rpm", help="Metric to plot"
+    ),
+    names: List[str] = typer.Option(
+        None, help="Taxon names to plot"
     )
 ):
     
@@ -36,10 +46,12 @@ def plot_group_metric(
             
     ax1 = axes1
     
-    df_taxa = df[df["name"].isin(["Entamoeba dispar", "Escherichia coli"])]
+    df_taxa = df[df["name"].isin(names)] if names else df
+
     sns.stripplot(x=group, y=metric, hue="name", data=df_taxa, palette=YESTERDAY_MEDIUM, ax=ax1, size=8, alpha=0.7)
     ax1.set_xlabel(f"\n{group}")
     ax1.set_ylabel(f"{metric}\n")
+
     ax1.tick_params(axis='x', labelsize=8, rotation=45)
     legend = ax1.get_legend()
     legend.set_title("Taxa") 

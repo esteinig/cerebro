@@ -6,3 +6,4 @@ pub mod completeness;
 pub mod password;
 pub mod umi;
 pub mod virus;
+pub mod slack;
