@@ -61,96 +61,6 @@ def plot_group_metric(
     fig1.savefig("taxa_species_summary.png", dpi=300,  transparent=False)
 
 @app.command()
-def plot_taxon(
-    taxa: Path = typer.Argument(
-        Path("/dev/stdin"), help="Taxa overview summary"
-    ),
-    tax_name: str = typer.Option(
-        None, help="Taxon name to plot"
-    ),
-    taxid: str = typer.Option(
-        None, help="Taxon identifier to plot"
-    ),
-    group: str = typer.Option(
-        "run_date", help="Grouping variable (x-axis)"
-    ),
-    metric: str = typer.Option(
-        "rpm", help="Metric to plot"
-    ),
-    hue: str =typer.Option(
-        "sample_tag", help="Categories to plot"
-    ),
-    panel: str = typer.Option(
-        None, help="Panel variable"
-    ),
-    highlight: List[str] = typer.Option(
-        None, help="Highlight these samples/libraries (sample_id)"
-    ),
-    highlight_color: str = typer.Option(
-        "black", help="Color for highlighted data point edges"
-    ),
-):
-    
-    """
-    Plot taxa metrics across a grouping variable
-    """
-
-
-    df = pandas.read_csv(taxa, sep=",", header=0)
-
-    panels = len(df[panel].unique()) if panel else 1
-    fig1, axes = plt.subplots(nrows=1, ncols=panels, figsize=(6*panels,6))
-            
-    if taxid:
-        df_taxa = df[df["taxid"] == taxid]
-    elif tax_name:
-        df_taxa = df[df["name"] == tax_name]
-    else:
-        tops = []
-        for g, group_df in df.groupby("cerebro_id"):
-            sort_df = group_df.sort_values(metric, ascending=False)
-            top_df = sort_df[0:20]
-            tops.append(top_df)
-            df_taxa = pandas.concat(tops).reset_index(drop=True)
-    
-    if panel:
-        for (i, (p, panel_data)) in enumerate(df_taxa.groupby(panel)):
-            ax = axes[i]
-
-            if highlight:
-                mask = panel_data['sample_id'].isin(highlight)
-                a = sns.stripplot(x=group, y=metric, hue=hue, data=panel_data[~mask], palette=YESTERDAY_MEDIUM, ax=ax, size=8 if taxid or tax_name else 2, alpha=0.7, jitter=True, legend=True if i == panels-1 else None)
-                sns.stripplot(x=group, y=metric, hue=hue, data=panel_data[mask], color=highlight_color, edgecolor=highlight_color, linewidth=1, ax=a, size=8 if taxid or tax_name else 2, alpha=0.7, jitter=True, legend=None)
-            else:
-                sns.stripplot(x=group, y=metric, hue=hue, data=panel_data, palette=YESTERDAY_MEDIUM, ax=ax, size=8, alpha=0.7, jitter=True, legend=True if i == panels-1 else None)
-
-            ax.set_title(f"{p}")
-            ax.set_xlabel(f"\n{group}")
-            ax.set_ylabel(f"{metric}\n")
-            ax.tick_params(axis='x', labelsize=8, rotation=45)
-            if i == panels-1:
-                legend = ax.get_legend()
-                legend.set_title("") 
-                sns.move_legend(ax, bbox_to_anchor=(1, 1.02), loc='upper left')
-            sns.despine()
-            ax.grid(False)
-    else:
-        ax = axes
-        sns.stripplot(x=group, y=metric, hue=hue, data=df_taxa, palette=YESTERDAY_MEDIUM, ax=axes, size=8, alpha=0.7)
-        ax.set_title(f"{tax_name if tax_name else taxid} ({metric})")
-        ax.set_xlabel(f"\n{group}")
-        ax.set_ylabel(f"{metric}\n")
-        
-        ax.tick_params(axis='x', labelsize=8, rotation=45)
-        legend = ax.get_legend()
-        legend.set_title("") 
-        sns.despine()
-        ax.grid(False)
-
-    plt.suptitle(tax_name if tax_name else taxid if taxid else "Top 10")
-    fig1.savefig("taxon_summary.png", dpi=300,  transparent=False)    
-
-@app.command()
 def plot_heatmap(
     taxa: Path = typer.Option(
         ..., help="Taxa overview summary table"
@@ -175,7 +85,7 @@ def plot_heatmap(
     ),
 ):
     """
-    Plot taxa heatmap for a set of sample taxonomic profiles returned from Cerebro API
+    Plot taxa heatmap for a set of sample taxonomic profiles returned from cerebro API
     """
 
 
