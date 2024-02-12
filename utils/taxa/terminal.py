@@ -20,46 +20,6 @@ def stdin_callback(value: Optional[Path]) -> Path:
 app = typer.Typer(add_completion=False)
 
 @app.command()
-def plot_group_metric(
-    taxa: Path = typer.Option(
-        ..., help="Taxa overview summary table"
-    ),
-    group: str = typer.Option(
-        "sample_id", help="Grouping variable to plot by"
-    ),
-    metric: str = typer.Option(
-        "rpm", help="Metric to plot"
-    ),
-    names: List[str] = typer.Option(
-        None, help="Taxon names to plot"
-    )
-):
-    
-    """
-    Plot taxa metrics across a grouping variable
-    """
-
-    df = pandas.read_csv(taxa, sep=",", header=0)
-
-    fig1, axes1 = plt.subplots(nrows=1, ncols=1, figsize=(6,6))
-            
-    ax1 = axes1
-    
-    df_taxa = df[df["name"].isin(names)] if names else df
-
-    sns.stripplot(x=group, y=metric, hue="name", data=df_taxa, palette=YESTERDAY_MEDIUM, ax=ax1, size=8, alpha=0.7)
-    ax1.set_xlabel(f"\n{group}")
-    ax1.set_ylabel(f"{metric}\n")
-
-    ax1.tick_params(axis='x', labelsize=8, rotation=45)
-    legend = ax1.get_legend()
-    legend.set_title("Taxa") 
-    sns.despine()
-    ax1.grid(False)
-
-    fig1.savefig("taxa_species_summary.png", dpi=300,  transparent=False)
-
-@app.command()
 def plot_taxon(
     taxa: Path = typer.Argument(
         Path("/dev/stdin"), help="Taxa overview summary"
