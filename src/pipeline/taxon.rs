@@ -100,17 +100,6 @@ pub struct Taxon {
     pub evidence: TaxonEvidence
 }
 impl Taxon {
-    /// Creates a test instance of `Taxon`
-    pub fn test_case() -> Self {
-        Self {
-            taxid: "9606".into(),
-            rank: TaxRank::Species,
-            name: "Homo sapiens".into(),
-            lineage: vec!["1".into(), "9606".into()],
-            level: TaxonLevel::test_case(),
-            evidence: TaxonEvidence::test_case()
-        }
-    }
     /// Creates a taxon from a taxid
     pub fn from_taxid(taxid: String, taxonomy: &GeneralTaxonomy, ncbi_domain: bool) -> Result<Self, WorkflowError> {
 
@@ -174,6 +163,31 @@ impl Taxon {
             }
         }
         self.clone()
+    }
+    /// Update taxon evidence with new evidence object
+    pub fn update_evidence_sample_id(&self, sample_id: &str) -> Self {
+
+        let mut cc = self.clone();
+
+        cc.evidence.kmer = self.evidence.kmer.iter().map(|ev| {
+            let mut evidence_update = ev.clone();
+            evidence_update.id = sample_id.to_string();
+            evidence_update
+        }).collect::<Vec<Kraken2UniqRecord>>();
+
+        cc.evidence.alignment = self.evidence.alignment.iter().map(|ev| {
+            let mut evidence_update = ev.clone();
+            evidence_update.id = sample_id.to_string();
+            evidence_update
+        }).collect::<Vec<VircovScanRemapRecord>>();
+
+        cc.evidence.assembly = self.evidence.assembly.iter().map(|ev| {
+            let mut evidence_update = ev.clone();
+            evidence_update.id = sample_id.to_string();
+            evidence_update
+        }).collect::<Vec<BlastLcaRecord>>();
+
+        cc
     }
 }
 

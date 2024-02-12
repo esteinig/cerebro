@@ -22,7 +22,7 @@
 		},
 		{
 			title: 'Accreditation',
-			description: 'Cerebro and the main sequencing assay are NATA-accredited at the Victorian Infectious Disease Reference Laboratory (VIDRL).'
+			description: 'Cerebro and the main sequencing assay will be undergoing accreditation at the Victorian Infectious Disease Reference Laboratory (VIDRL).'
 		},
 		{
 			title: 'Development',
@@ -30,15 +30,15 @@
 		},
 		{
 			title: 'Analysis',
-			description: 'Assay protocol and analysis pipeline implement best practices in the field of metagenomic pathogen detection. Our work is published in ...'
+			description: 'Assay protocol and analysis pipeline implement best practices in the field of metagenomic pathogen detection.'
 		},
 		{
 			title: 'Open-source',
-			description: 'Code and assay protocols are open-source under the GNU GPL v3. Cerebro can be deployed in local networks for increased data privacy and security.',
+			description: 'Code and assay protocols are open-source under the GNU GPL v3. Cerebro can be deployed in local networks for data privacy and security.',
 		},
 		{
 			title: 'Research',
-			description: 'Cerebro is implemented by a multi-disciplinary clinical research team at The Peter Doherty Institute for Infection and Immunity with collaborations at the UK Health Security Agency and the Mayo Clinic.'
+			description: 'Cerebro is implemented by a multi-disciplinary clinical research team at The Peter Doherty Institute for Infection and Immunity.'
 		},
 	]
 </script>

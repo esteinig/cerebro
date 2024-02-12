@@ -7,7 +7,7 @@
 % This is a template based on https://github.com/amcrisan/TB-WGS-MicroReport
 % Please cite the associated publication when using this report for Cerebro
 
-\usepackage[letterpaper, margin=0.5in,headheight=77pt,top=3.5cm]{geometry}
+\usepackage[letterpaper, margin=0.5in,headheight=77pt,top=3.5cm,bottom=4.5cm,footskip=4cm]{geometry}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{hyperref}
@@ -22,7 +22,7 @@
 \usepackage{fontspec}
 \usepackage[title]{appendix}
 \usepackage{stix}
-
+\usepackage{ragged2e}
 \setmainfont{Lato}
 
 \hypersetup{
@@ -59,6 +59,28 @@
 
 \newcommand{\squad}{\hspace{0.5em} } 
 
+\newcommand{\InlineFillableField}[3]{ 
+  \begin{Form}
+  \raisebox{-.27\baselineskip}{
+    \TextField[name=#1,width=#2,borderstyle=U,bordercolor={white},backgroundcolor={white},charsize=#3]{}
+  }
+  \end{Form}
+}
+
+\newcommand{\FooterFillableField}[3]{ 
+  \begin{Form}
+  \raisebox{-.17\baselineskip}{
+    \TextField[name=#1,width=#2,borderstyle=U,bordercolor={white},backgroundcolor={white},charsize=#3]{}
+  }
+  \end{Form}
+}
+
+\newcommand{\TableFillableField}[1]{ 
+    \raisebox{-.14\baselineskip}{
+      \TextField[name=#1,width=\linewidth,bordercolor={white},backgroundcolor={white}]{}
+    }
+}
+
 %--------------------------------------------
 % Creating Header Style
 %-------------------------------------------
@@ -73,28 +95,37 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{\Large{\textbf{META-GP \\ CLINICAL REPORT} } \\ %ISO15189 reporting requirements stipulate that you provide "a clear, unambiguous identification of the examination including, where appropriate, the examination procedure"
+\lhead{\Large{\textbf{METAGENOMICS \\ CLINICAL REPORT} } \\ %ISO15189 reporting requirements stipulate that you provide "a clear, unambiguous identification of the examination including, where appropriate, the examination procedure"
 \normalsize{NOT FOR DIAGNOSTIC USE} }
 \chead{}
 \rhead{
-    \includegraphics[scale=0.3]{ {{ template.logo_path }} }
+    \includegraphics[scale=0.4]{ {{ template.logo_path }} }
     % \hspace{2mm}
     % \includegraphics[scale=0.25]{doherty.png}
 }
 \renewcommand{\headrulewidth}{0pt} % no line in header area
 
 
-
+{{!-- \phantom{Address: } --}}
 
 %--------
 % FOOTER
 %--------
 
+
+\renewcommand{\footrulewidth}{1pt}
+
 \lfoot{
-  \small Page \thepage\ of \pageref*{LastPage}
+  \scriptsize Page \thepage\ of \pageref*{LastPage}
 }
 
-\rfoot{\small Patient ID: {{ patient.header.patient_urn }} | Date: {{ patient.header.reporting_date }} | Location: {{ patient.header.reporting_location }} } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
+\cfoot {
+  \vspace{-4cm}
+  \justifying\noindent{\small{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
+}
+
+\rfoot{
+  \scriptsize Patient ID: {{#if patient.header.patient_urn }} {{ patient.header.patient_urn }} {{else}} \FooterFillableField{footer_patient_urn}{2cm}{8pt} {{/if}} | Collection Date: {{#if patient.header.date_collected}} {{ patient.header.date_collected }} {{else}} \FooterFillableField{footer_date_collected}{2cm}{8pt}  {{/if}}  | Reporting Date: {{#if patient.header.reporting_date}} {{ patient.header.reporting_date }} {{else}} \FooterFillableField{footer_patient_reporting_date}{2cm}{8pt} {{/if}}   | Location: {{#if patient.header.reporting_location}} {{ patient.header.reporting_location }} {{else}} \FooterFillableField{footer_patient_reporting_location}{2cm}{8pt} {{/if}}  } %ISO15189 reporting standards require that patient identification and location occur on every page of the report, along with a 'Page X of Y' designation.
 
 %---------------
 % MAIN DOCUMENT
@@ -107,22 +138,24 @@
 %  TABLE WITH RELEVANT PATIENT INFORMATION
 %------------------------------------------
 
+% Has to be XX format otherwise fillable fields do not work!
+
 \tabulinesep=5pt
 \noindent 
 \taburulecolor{lightgray}
-\noindent \begin{tabu} to \textwidth {|XU|XU|}
+\noindent \begin{tabu} to \textwidth {|XX|XX|}  
 \hline
-% The table below contains the information that is required by ISO15189 reporting standards
 %-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
-Patient Name      &  {{ patient.header.patient_name }}               & Specimen ID          &  {{ patient.header.specimen_id }}           \\ \hline
-URN Number        &  {{ patient.header.patient_urn }}                & Date Collected       &  {{ patient.header.date_collected }}        \\ \hline
-Date of Birth     &  {{ patient.header.patient_dob }}                & Date Received        &  {{ patient.header.date_received }}         \\ \hline
-Requested Doctor  &  {{ patient.header.requested_doctor }}           & Specimen Type        &  {{ patient.header.specimen_type }}         \\ \hline
-Hospital Site     &  {{ patient.header.hospital_site }}              & Reporting Laboratory &  {{ patient.header.reporting_laboratory }}  \\ \hline
-Laboratory Number &  {{ patient.header.laboratory_number }}          & Reporting Date       &  {{ patient.header.reporting_date }}        \\ \hline
-%-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------
+Patient Name      & {{#if patient.header.patient_name}} {{ patient.header.patient_name }} {{else}} \TableFillableField{header_patient_name} {{/if}}                   & Specimen ID          &  {{#if patient.header.specimen_id}} {{ patient.header.specimen_id }} {{else}} \TableFillableField{header_specimen_id} {{/if}}                                \\ \hline
+URN Number        & {{#if patient.header.patient_urn }} {{ patient.header.patient_urn }} {{else}} \TableFillableField{header_patient_urn} {{/if}}                     & Date Collected       &  {{#if patient.header.date_collected}} {{ patient.header.date_collected }} {{else}} \TableFillableField{header_date_collected} {{/if}}                       \\ \hline
+Date of Birth     & {{#if patient.header.patient_dob }} {{ patient.header.patient_dob }} {{else}} \TableFillableField{header_patient_dob} {{/if}}                     & Date Received        &  {{#if patient.header.date_received}} {{ patient.header.date_received }} {{else}} \TableFillableField{header_date_received} {{/if}}                          \\ \hline
+Requested Doctor  & {{#if patient.header.requested_doctor }} {{ patient.header.requested_doctor }} {{else}} \TableFillableField{header_requested_doctor}{{/if}}       & Specimen Type        &  {{#if patient.header.specimen_type}} {{ patient.header.specimen_type }} {{else}} \TableFillableField{header_specimen_type} {{/if}}                         \\ \hline
+Hospital Site     & {{#if patient.header.hospital_site }} {{ patient.header.hospital_site }} {{else}} \TableFillableField{header_hospital_site}{{/if}}                & Reporting Laboratory &  {{#if patient.header.reporting_laboratory}} {{ patient.header.reporting_laboratory }} {{else}} \TableFillableField{header_reporting_laboratory} {{/if}}     \\ \hline
+Laboratory Number & {{#if patient.header.laboratory_number }} {{ patient.header.laboratory_number }} {{else}} \TableFillableField{header_laboratory_number}{{/if}}    & Reporting Date       &  {{#if patient.header.reporting_date}} {{ patient.header.reporting_date }} {{else}} \TableFillableField{header_reporting_date} {{/if}}                       \\ \hline
+
 \end{tabu}
 \vspace{5mm}
+
 
 %----------
 % REFERRAL
@@ -130,14 +163,13 @@ Laboratory Number &  {{ patient.header.laboratory_number }}          & Reporting
 
 \begin{reportSection}{Referral}
 \vspace{5mm}
-
-Thank you for referring your patient\textbf{ {{patient.header.patient_name}}, DOB: {{ patient.header.patient_dob }} }to the Metagenomic next-generation sequencing for improving infectious disease diagnostics and 
+Thank you for referring your patient {{#if patient.header.patient_name}} \textbf{ {{ patient.header.patient_name }} } {{else}} \InlineFillableField{patient_text_name}{6cm}{12pt} {{/if}} {{#if patient.header.patient_dob}} \textbf{DOB:} {{ patient.header.patient_dob }} {{else}} \textbf{DOB:} \InlineFillableField{patient_text_dob}{3cm}{12pt} {{/if}} to the Metagenomic next-generation sequencing for improving infectious disease diagnostics and 
 pathogen discovery clinical research project (MetaGP - HREC/74254/2021.110).
 
 \vspace{5mm}
 
 Metagenomic sequencing and analysis is complete, your patient’s case and data were 
-reviewed and discussed during a multi-disciplinary research team meeting on\textbf{ {{patient.result.review_date}}. }
+reviewed and discussed during a multi-disciplinary research team meeting on {{#if patient.result.review_date}} \textbf{ {{ patient.result.review_date }} } {{else}} \InlineFillableField{patient_result_review_date}{4cm}{12pt} {{/if}}
 
 \vspace{5mm}
 
@@ -175,29 +207,10 @@ Please refer to the appendices for details regarding the sequencing results.
 \vspace{3mm}
 \end{reportSection}
 
-\mbox{}
-\vfill
 
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
-
-%------------
-% CONFIDENCE
-%------------
-
-% \begin{reportSection}{Disclaimer}
-% \vspace{5mm}
-
-% \footnotesize{
-%   Disclaimer
-% }
-
-% \vspace{3mm}
-% \end{reportSection}
-% \vspace{5mm}
-
-%---------------
-% ACTIONS TAKEN
-%---------------
+%-----------------------
+% ADDITIONAL INFORMATION
+%-----------------------
 
 \newpage
 \begin{reportSection}{Contact}
@@ -206,11 +219,11 @@ Please refer to the appendices for details regarding the sequencing results.
 For any further questions regarding these results, please contact:
 
 \vspace{3mm}
-{{ patient.result.contact }}
+{{#if patient.result.contact}} {{ patient.result.contact }} {{else}} \InlineFillableField{patient_result_contact}{10cm}{12pt} {{/if}}
+
 \vspace{1mm}
 \end{reportSection}
 \vspace{5mm}
-
 
 \begin{reportSection}{Comments}
 \vspace{3mm}
@@ -242,10 +255,6 @@ For any further questions regarding these results, please contact:
 \end{reportSection}
 \vspace{5mm}
 
-\mbox{}
-\vfill
-
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
 
 
 %-----------------------
@@ -254,12 +263,13 @@ For any further questions regarding these results, please contact:
 
 
 \newpage
+
 \begin{reportSection}{Authorisation}
 \vspace{5mm}
 
-Your patient’s case and data were reviewed and discussed at a multi-disciplinary research team meeting on \textbf{ {{ patient.result.review_date }} }. Results are based on data meeting specific reporting thresholds and clinical relevance.
+Your patient’s case and data were reviewed and discussed at a multi-disciplinary research team meeting on {{#if patient.result.review_date}} \textbf{ {{ patient.result.review_date }} } {{else}} \InlineFillableField{patient_result_review_date}{4cm}{12pt} {{/if}}. Results are based on data meeting specific reporting thresholds and clinical relevance.
 
-{{#each template.authorisation as |a| }}
+{{#each template.authorisation.signature as |a| }}
 
 \vspace{20mm}
 
@@ -274,11 +284,20 @@ Your patient’s case and data were reviewed and discussed at a multi-disciplina
 {{/each}}
 
 \end{reportSection}
+\vspace{5mm}
 
-\mbox{}
-\vfill
 
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ template.legal.disclaimer }} } }
+\begin{reportSection}{Issuing Laboratory}
+\vspace{3mm}
+\footnotesize{ {{ template.authorisation.issuing_laboratory_text }} }
+
+\vspace{3mm}
+
+\footnotesize{ {{ template.authorisation.report_identifier_text }} {{ template.authorisation.report_identifier }} }
+
+\end{reportSection}
+\vspace{5mm}
+
 
 %--------------
 %  APPENDICES
@@ -311,9 +330,9 @@ Your patient’s case and data were reviewed and discussed at a multi-disciplina
 %-------------------- v ADD YOUR TABLE CONTENTS BELOW v --------------------------
 Protocol                     &  {{ s.laboratory.header.protocol }}     & Sample ID               &  {{ s.sample_id }}   \\ \hline
 Version                      &  {{ s.laboratory.header.version }}      & Run ID                  &  {{ s.run_id }}   \\ \hline
-Extraction                   &  {{ s.laboratory.header.extraction }}   & Extraction IC           &  {{ s.laboratory.header.extraction_control }}   \\ \hline
-Ribosomal depletion          &  {{ s.laboratory.header.ribosomal }}    & Library IC              &  {{ s.laboratory.header.library_control }}   \\ \hline
-Adapters/barcodes            &  {{ s.laboratory.header.adapters }}     & Sequencing IC           &  {{ s.laboratory.header.sequencing_control }}   \\ \hline   
+Extraction                   &  {{ s.laboratory.header.extraction }}   & Extraction Control      &  {{ s.laboratory.header.extraction_control }}   \\ \hline
+Ribosomal depletion          &  {{ s.laboratory.header.ribosomal }}    & Library Control         &  {{ s.laboratory.header.library_control }}   \\ \hline
+Adapters/barcodes            &  {{ s.laboratory.header.adapters }}     & Sequencing Control      &  {{ s.laboratory.header.sequencing_control }}   \\ \hline   
 Library kit                  &  {{ s.laboratory.header.library }}      & Negative Control        &  {{ s.laboratory.header.negative_control }}   \\ \hline   
 Sequencer                    &  {{ s.laboratory.header.sequencer }}    & Positive Control        &  {{ s.laboratory.header.positive_control }}   \\ \hline  
 %-------------------- ^ ADD YOUR TABLE CONTENTS ABOVE ^ --------------------------
@@ -341,10 +360,7 @@ Sequencer                    &  {{ s.laboratory.header.sequencer }}    & Positiv
 \vspace{1mm}
 \end{reportSection}
 
-\mbox{}
-\vfill
 
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
 
 %-------------------------
 % BIOINFORMATICS PIPELINE
@@ -385,11 +401,6 @@ Completed          & {{ s.bioinformatics.header.completed }}        & Taxonomy  
 {{ s.bioinformatics.comments }}
 \vspace{1mm}
 \end{reportSection}
-
-\mbox{}
-\vfill
-
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
 
 
 %----------------------
@@ -451,10 +462,6 @@ Sample was reviewed and determined to be \textbf{negative}.
 \end{reportSection}
 
 
-\mbox{}
-\vfill
-
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
 
 %---------------------
 % OTHER EVIDENCE PAGE
@@ -472,10 +479,6 @@ Sample was reviewed and determined to be \textbf{negative}.
 \end{reportSection}
 
 
-\mbox{}
-\vfill
-
-\noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
 
 {{/if}}
 
@@ -487,11 +490,6 @@ Sample was reviewed and determined to be \textbf{negative}.
   \newpage
   \section{Audit \normalsize{ ({{ s.sample_id }}) } }
   \label{sec:appendixC}
-
-  \mbox{}
-  \vfill
-
-  \noindent{\scriptsize{\textbf{Disclaimer}: {{ s.disclaimer }} } }
 
 {{/if}}
 

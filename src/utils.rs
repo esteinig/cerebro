@@ -25,6 +25,26 @@ impl CompressionExt for niffler::compression::Format {
     }
 }
 
+pub trait StringUtils {
+    fn substring(&self, start: usize, len: usize) -> Self;
+}
+
+impl StringUtils for String {
+    fn substring(&self, start: usize, len: usize) -> Self {
+        self.chars().skip(start).take(len).collect()
+    }
+}
+
+
+pub trait UuidUtils {
+    fn shorten(&self, len: usize) -> String;
+}
+
+impl UuidUtils for uuid::Uuid {
+    fn shorten(&self, len: usize) -> String {
+        self.to_string().substring(0, len)
+    }
+}
 
 pub fn init_logger() {
 
@@ -62,3 +82,4 @@ pub fn init_logger() {
         .filter(None, LevelFilter::Info)
         .init();
 }
+

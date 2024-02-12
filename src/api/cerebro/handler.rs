@@ -5,11 +5,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use futures::stream::TryStreamExt;
 use mongodb::{bson::doc, Collection};
-use base64::{engine::general_purpose, Engine as _};
 
 use crate::api::auth::jwt;
 use crate::api::config::Config;
-use crate::api::report::{TemplateConfig, AssayTemplate};
+use crate::api::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
 use crate::api::users::model::Role;
 use crate::api::utils::{as_csv_string, get_teams_db_collection};
 use crate::pipeline::filters::*;
@@ -205,9 +204,9 @@ struct CerebroGetStoredReportQuery {
 }
 
 #[get("/cerebro/reports/{id}")]
-async fn get_report_from_storage_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroGetStoredReportQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn get_report_from_storage_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroGetStoredReportQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (mongo_db_name, _) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -247,7 +246,136 @@ async fn get_report_from_storage_handler(request: HttpRequest, data: web::Data<A
 
 }
 
-#[cfg(feature = "pdf")]
+#[derive(Deserialize)]
+struct CerebroDeleteStoredReportQuery {
+    // Required for access authorization in user guard middleware
+    db: DatabaseId,
+    project: ProjectId
+}
+
+#[delete("/cerebro/reports/{id}")]
+async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroDeleteStoredReportQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+
+    if !auth_guard.user.roles.contains(&Role::Data) {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
+            "status": "fail", "message": "You do not have permission to delete a report", "data": serde_json::json!({})
+        }))
+    }
+
+    let (mongo_db_name, _) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+    // TODO: Delete from DB models
+
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+    
+    let report_id: String = id.into_inner();
+
+    let ids = match project_collection
+        .find(
+            doc! { "sample.reports.id":  &report_id }, None)
+        .await
+    {
+        Ok(cursor) => cursor
+            .try_collect()
+            .await
+            .unwrap_or_else(|_| vec![])
+            .into_iter()
+            .map(|c| c.id )
+            .collect::<Vec<String>>(),
+        Err(err) => return HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "error", "message": format!("{}", err.to_string())})
+        ),
+    };
+
+    if ids.is_empty() {
+        return HttpResponse::NotFound().json(
+            serde_json::json!({
+                "status": "fail", 
+                "message": format!("Failed to find documents with report entries for report identifier: {}", &report_id), 
+                "data": serde_json::json!({})
+        }))
+    };
+
+    let update =  doc! { "$pull": { "sample.reports": {"id": &report_id } } };
+    match project_collection
+        .update_many(
+            doc! { "id":  { "$in" : &ids } }, update, None)
+        .await
+    {   
+        Ok(_) => {},
+        Err(err) => return HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "fail", "message": format!("{}", err.to_string()), "data": serde_json::json!({})})
+        ),
+    };
+
+    // Delete stored report in database but also the entry in the Cerebro models under the shared identifier
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, "reports");
+
+    match reports_collection
+        .find_one_and_delete(
+            doc! { "id":  &report_id}, None)
+        .await
+    {   
+        Ok(deleted) => {
+            match deleted {
+                Some(_) | None => {
+                    // Log the action in admin and team databases
+                    match log_database_change(
+                        &data, 
+                        &mongo_db_name, 
+                        RequestLog::new(
+                            LogModule::UserAction,
+                            Action::ReportEntryRemoved,
+                            true,  // should not happen except in dev for archival / data retention policy compliance (deletion can be deactivated by admin)
+                            format!("Report entry removed: id={}", &report_id),
+                            AccessDetails::new( 
+                                &request, 
+                                Some(&auth_guard.user.id),
+                                Some(&auth_guard.user.email),
+                                Some(&query.db), 
+                                Some(&query.project)
+                            )
+                        )
+                    ).await
+                    {
+                        Ok(_) => HttpResponse::Ok().json(
+                            serde_json::json!({
+                                "status": "success", 
+                                "message": "Deleted report",
+                                "data": serde_json::json!({}) 
+                            })
+                        ),
+                        Err(_) =>  HttpResponse::InternalServerError().json(
+                            serde_json::json!({
+                                "status": "fail", 
+                                "message": "Failed to log deletion of stored report",
+                                "data": serde_json::json!({}) 
+                            })
+                        )
+                    }
+                    
+                }
+            }
+            
+        },
+        Err(_) => HttpResponse::InternalServerError().json(
+            serde_json::json!({
+                "status": "error", 
+                "message": "Failed to query stored report",
+                "data": serde_json::json!({}) 
+            })
+        ),
+    }
+
+}
+
+#[cfg(feature = "pdf")] 
 #[derive(Deserialize)]
 struct CerebroAddReportPdfQuery {
     // Required for access authorization in user guard middleware
@@ -255,9 +383,11 @@ struct CerebroAddReportPdfQuery {
     project: ProjectId
 }
 
-#[cfg(feature = "pdf")]
+#[cfg(feature = "pdf")] 
+// If PDF feature is not supported the endpoint is still reavhable but will always return server error
 #[post("/cerebro/reports/pdf")]
 async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportPdfQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+
 
     if !auth_guard.user.roles.contains(&Role::Report) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -275,13 +405,26 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Err(err_response) => return err_response
     };
 
-    let (report_text, is_pdf) = match report.render_pdf(None, None) {
-        Ok(pdf_bytes) => (general_purpose::STANDARD.encode(pdf_bytes), true),
+    let report_id = report.id.clone();
+
+    let rendered = tokio::task::spawn_blocking(move || {
+        report.render_pdf(None, None)
+    });
+
+    let (report_text, is_pdf) = match rendered.await {
+        Ok(result) => {
+            match result {
+                Ok(pdf_bytes) => (general_purpose::STANDARD.encode(pdf_bytes), true),
+                Err(err) => return HttpResponse::InternalServerError().json(
+                    serde_json::json!({"status": "fail", "message": format!("Failed to render LaTeX to PDF: {}", err.to_string()), "data": serde_json::json!({}) })
+                )
+            }
+        },
         Err(err) => return HttpResponse::InternalServerError().json(
             serde_json::json!({"status": "fail", "message": format!("Failed to render LaTeX to PDF: {}", err.to_string()), "data": serde_json::json!({}) })
         )
     };
-
+    
     let access_details = AccessDetails::new( 
         &request, 
         Some(&auth_guard.user.id),
@@ -290,7 +433,9 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_id, report_text, is_pdf, &access_details).await
+
+    
 }
 
 
@@ -335,7 +480,7 @@ async fn create_tex_report_handler(request: HttpRequest, data: web::Data<AppStat
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report.id, report_text, is_pdf, &access_details).await
 }
 
 
@@ -549,6 +694,7 @@ fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &CerebroFilterConfig) -> V
         taxa = filter_by_parent(taxa, "domain", Some(domain.to_string()), None)
     }
     
+    
     // Evidence tag filter - tags passed via the filter configuration 
     // are the Cerebro IDs (name of the sample in workflow) rather than
     // the actual tags, because the evidence records contai nreferences
@@ -558,8 +704,10 @@ fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &CerebroFilterConfig) -> V
      // Filter by evidence 
     taxa = filter_by_kraken2uniq(
         taxa, 
-        filter_config.kmer_min_reads
+        filter_config.kmer_min_reads,
+        filter_config.kmer_databases.to_owned(),
     );
+    
     taxa = filter_by_vircov_scan(
         taxa, 
         filter_config.alignment_min_reads, 
@@ -1454,8 +1602,8 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
     template_config.file_path = PathBuf::from("/data/templates/report/report.hbs");
     template_config.logo_path = PathBuf::from("/data/templates/report/logo.png");
 
-     // Read the requested template from file
-     let assay_str = match std::fs::read_to_string("/data/templates/report/assay.toml") {
+    // Read the requested template from file
+    let assay_str = match std::fs::read_to_string("/data/templates/report/assay.toml") {
         Ok(assay_str) => assay_str,
         Err(_) => return Err(HttpResponse::InternalServerError().json(
             serde_json::json!({"status": "fail", "message": "Failed to read the assay template configuration file" })
@@ -1470,9 +1618,25 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
         ))
     }; 
 
+     // Read the requested template from file
+     let bioinfo_str = match std::fs::read_to_string("/data/templates/report/bioinformatics.toml") {
+        Ok(bioinfo_str) => bioinfo_str,
+        Err(_) => return Err(HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "fail", "message": "Failed to read the bioinformatics template configuration file" })
+        ))
+    };
+
+    // Read the requested assay template from file
+    let bioinfo_config: BioinformaticsTemplate = match toml::from_str(&bioinfo_str) {
+        Ok(config) => config,
+        Err(_) => return Err(HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "fail", "message": "Failed to read the bioinformatics template configuration TOML" })
+        ))
+    }; 
+
     // Create the report from schema and templates
     Ok(
-        ClinicalReport::from_api(&report_schema, &template_config, &assay_config, &quality_summaries)
+        ClinicalReport::from_api(&report_schema, &mut template_config, &assay_config, &bioinfo_config, &quality_summaries)
     )
     
 
@@ -1483,6 +1647,7 @@ async fn store_and_log_report(
     project_collection: &Collection<Cerebro>,  
     report_schema: &web::Json<ReportSchema>,
     mongo_db_name: &String,
+    report_id: uuid::Uuid,
     report_text: String,
     is_pdf: bool,
     access_details: &AccessDetails
@@ -1490,7 +1655,7 @@ async fn store_and_log_report(
 
     // Create a report entry for team database storage that includes the compiled report
     let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, "reports");
-    let mut report_entry = ReportEntry::from_schema(&report_schema, Some(report_text.clone()), Some(is_pdf));
+    let mut report_entry = ReportEntry::from_schema(report_id.to_string(), &report_schema, Some(report_text.clone()), Some(is_pdf));
 
     match reports_collection.insert_one(
         &report_entry, None
@@ -1530,7 +1695,7 @@ async fn store_and_log_report(
                 Ok(_) => {
                     HttpResponse::Ok().json(
                         serde_json::json!({
-                            "status": "fail", 
+                            "status": "success", 
                             "message": "Generated report (PDF)", 
                             "data": serde_json::json!({"report": report_text, "pdf": is_pdf}) 
                         })
@@ -1568,6 +1733,7 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(filtered_taxa_summary_handler)
        .service(create_tex_report_handler)
        .service(get_report_from_storage_handler)
+       .service(delete_stored_report_handler)
        .service(status_handler);
 
     if config.security.components.comments {

@@ -1,41 +1,31 @@
 
 include { c } from '../../utils';
 
-include { UmiToolsAlignment } from '../../processes/umi';
 include { NaiveDeduplication } from '../../processes/umi';
 include { CalibDeduplication } from '../../processes/umi';
-include { UmiToolsDeduplication } from '../../processes/umi';
 
 include { ercc_control } from './ercc';
-include { ercc_control as ercc_clean } from './ercc';
 include { phage_control } from './phage';
 
-include { Fastp as ReadQualityControl } from '../../processes/fastp' addParams(
+
+nclude { Nanoq } from '../../processes/nanoq' addParams(
     subdir: "quality_control/read_qc",
 )
-include { FastpScan as ReadScan } from '../../processes/fastp' addParams(
+include { Fastp } from '../../processes/fastp' addParams(
+    subdir: "quality_control/read_qc",
+)
+include { FastpScan } from '../../processes/fastp' addParams(
     subdir: "quality_control/read_qc/scan",
 )
 
-include { ScrubbyReadsKrakenMinimapDepletion as HostDepletion } from '../../processes/scrubby' addParams(
-    subdir: "quality_control/host",
-    result_file: "qc__scrubby__host",
-    kraken_taxa: params.qc.host.depletion.taxa,
-    kraken_taxa_direct: params.qc.host.depletion.direct,
-    deplete_min_cov: params.qc.host.depletion.min_cov, 
-    deplete_min_len: params.qc.host.depletion.min_len, 
-    deplete_min_mapq: params.qc.host.depletion.min_mapq
-)
-
-workflow quality_control {
+workflow quality_control_illumina {
     take:
-        reads
+        reads // id, r1, r2
         adapter_fasta
         ercc_fasta
         phage_fasta
         kraken_dbs
         host_references
-        host_ercc_index
         deduplication
         deduplication_method
         host_removal
@@ -43,18 +33,12 @@ workflow quality_control {
     main:
 
         if (deduplication) {
-            // If we deduplicate, we must scan the reads first 
-            // to get the total read counts for processing later
-            ReadScan(reads)
-            scan_results = ReadScan.out.results
+            // If we deduplicate, we must scan the reads 
+            // to get the total read counts for parsing
+            FastpScan(reads)
+            scan_results = FastpScan.out.results
 
-            if (deduplication_method == "umi-tools" || deduplication_method == "umi-tools-naive") {
-                UmiToolsAlignment(reads, host_ercc_index, "host_ercc")
-                reads = UmiToolsDeduplication(UmiToolsAlignment.out.alignment, params.qc.deduplication.seed)
-                if (deduplication == "umi-tools-naive") {
-                    reads = NaiveDeduplication(reads, true)      
-                }
-            } else if (deduplication_method == "umi-calib"){
+            if (deduplication_method == "umi-calib"){
                 reads = CalibDeduplication(reads)
             } else if (deduplication_method == "naive"){
                 reads = NaiveDeduplication(reads, false)
@@ -67,28 +51,25 @@ workflow quality_control {
         
         // ERCCs are aligned and removed
         if (params.qc.controls.ercc.enabled) {
-
-            ercc_control(reads, ercc_fasta)
+            ercc_control(reads, ercc_fasta, false)
+            
             reads = ercc_control.out.reads
             ercc_results = ercc_control.out.results
-
         } else {
             ercc_results = Channel.empty()
         }
 
         // Read quality control and removal of low-complexity reads,
         // optional de-duplication of identical sequences
-        ReadQualityControl(reads, adapter_fasta, false)
-        reads = ReadQualityControl.out.reads
-        qc_results = ReadQualityControl.out.results
+        Fastp(reads, adapter_fasta, false)
+        reads = Fastp.out.reads
+        qc_results = Fastp.out.results
 
         // Sequential k-mer and alignment host depletion
         if (host_removal) {
-
-            HostDepletion(reads, kraken_dbs, host_references)
-            reads = HostDepletion.out.reads
-            host_results = HostDepletion.out.results
-
+            host_depletion(reads, kraken_dbs, host_references, false)
+            reads = host_depletion.out.reads
+            host_results = host_depletion.out.results
         } else {
             host_results = Channel.empty()
         }
@@ -96,8 +77,7 @@ workflow quality_control {
         // Phage spike-ins are aligned and removed
         // after human removal for faster read alignments
         if (phage_removal) {
-
-            phage_control(reads, phage_fasta)
+            phage_control(reads, phage_fasta, false)
             reads = phage_control.out.reads
             phage_results = phage_control.out.results
 
@@ -110,4 +90,49 @@ workflow quality_control {
         results = qc_results.mix(scan_results, ercc_results, host_results, phage_results)
 }
 
+
+
+workflow quality_control_ont {
+    take:
+        reads  // id, fq
+        ercc_fasta
+        phage_fasta
+        kraken_dbs
+        host_references
+        host_removal
+        phage_removal
+    main:
+        
+        if (params.qc.controls.ercc.enabled) {
+            ercc_control(reads, ercc_fasta, true)
+            reads = ercc_control.out.reads
+            ercc_results = ercc_control.out.results
+        } else {
+            ercc_results = Channel.empty()
+        }
+
+        Nanoq(reads)
+        reads = Nanoq.out.reads
+        qc_results = Nanoq.out.results
+
+        if (host_removal) {
+            host_depletion(reads, kraken_dbs, host_references, true)
+            reads = host_depletion.out.reads
+            host_results = host_depletion.out.results
+        } else {
+            host_results = Channel.empty()
+        }
+
+        if (phage_removal) {
+            phage_control(reads, phage_fasta, true)
+            reads = phage_control.out.reads
+            phage_results = phage_control.out.results
+        } else {
+            phage_results = Channel.empty()
+        }
+
+    emit:
+        reads = reads
+        results = qc_results.mix(ercc_results, host_results, phage_results)
+}
 

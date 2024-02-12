@@ -274,13 +274,58 @@ export type QualityControlSummary = {
     other_reads: number | null,
     other_percent: number | null,
     other_biomass: number | null,
-    phage_reads: number | null,
-    phage_percent: number | null,
-    phage_coverage_percent: number | null,
-    phage_biomass: number | null,
+    dna_phage_id: string | null,
+    dna_phage_reads: number | null,
+    dna_phage_percent: string | null,
+    dna_phage_coverage_percent: string | null,
+    dna_phage_biomass: number | null,
+    rna_phage_id: string | null,
+    rna_phage_reads: number | null,
+    rna_phage_percent: string | null,
+    rna_phage_coverage_percent: string | null,
+    rna_phage_biomass: number | null,
+    seq_phage_id: string | null,
+    seq_phage_reads: number | null,
+    seq_phage_percent: string | null,
+    seq_phage_coverage_percent: string | null,
+    seq_phage_biomass: number | null,
     output_reads: number,
-    output_percent: number | null
+    output_percent: string | null,
+    control_status_dna_extraction: boolean | null,
+    control_status_rna_extraction:  boolean | null,
+    control_status_library: boolean | null,
+    control_status_sequencing: boolean | null,
 }
+
+/**
+ * Quality control thresholds to indicate pass 
+ * 
+ * Will be set by user in team interface for preset storage in DB
+ * 
+ * @file lib/utils/types
+ */
+export type QualityControlThresholds = {
+    input: Threshold[],
+    deduplication: Threshold[],
+    synthetic_controls: Threshold[],
+    read_quality: Threshold[],
+    host_depletion: Threshold[],
+    phage_controls: Threshold[],
+    output: Threshold[]
+}
+
+/**
+ * Threshold value and logic with description to inform quality control status
+ */
+export type Threshold = {
+    value: number,
+    operator: string,
+    description: string,
+    symbol: string
+}
+
+
+
 
 /**
  * Sample overview response model from the match aggregate pipeline at endpoint: /cerebro/samples/overview/{id}
@@ -1246,6 +1291,7 @@ export type CerebroFilterConfig = {  // ADD WORKFLOW ID
     domains: Array<string>,
     tags: Array<string>,
     kmer_min_reads: number,
+    kmer_databases: Array<string>,
     alignment_min_reads: number,
     alignment_min_bases: number,
     alignment_min_regions: number,
@@ -1391,7 +1437,14 @@ export type WorkflowParamsQcErcc  = {
 }
 export type WorkflowParamsQcPhage  = {
     enabled: boolean,
-    fasta: string | null
+    fasta: string | null,
+    identifiers: WorkflowParamsQcPhageIdentifiers
+}
+
+export type WorkflowParamsQcPhageIdentifiers  = {
+    dna_extraction: string,
+    rna_extraction: string,
+    sequencing: string
 }
 
 export type WorkflowParamsQcHost = {
