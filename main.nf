@@ -296,7 +296,7 @@ workflow {
                 if (params.culture.enabled) {
                     ont_reads = get_single_reads(inputs.sample_sheet, false);
                     pe_reads = get_paired_reads(inputs.sample_sheet, false);
-
+                    
                     culture_identification(ont_reads, pe_reads, inputs);
                     
                 }

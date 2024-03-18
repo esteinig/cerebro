@@ -35,13 +35,13 @@ workflow phage_control {
         ont
     main: 
         if (ont) {
-            MinimapAlignment(reads, reference)
-            depletion = AlignmentDepletion(MinimapAlignment.out)
-            evaluation = AlignmentEvaluation(MinimapAlignment.out, reference)
-        } else {
             MinimapAlignmentOnt(reads, reference)
             AlignmentDepletionOnt(MinimapAlignmentOnt.out)
             evaluation = AlignmentEvaluationOnt(MinimapAlignmentOnt.out, reference)
+        } else {
+            MinimapAlignment(reads, reference)
+            depletion = AlignmentDepletion(MinimapAlignment.out)
+            evaluation = AlignmentEvaluation(MinimapAlignment.out, reference)
         }
         
     emit: 

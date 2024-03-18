@@ -56,6 +56,38 @@ process ScrubbyReadsKrakenMinimapDepletion {
     """
 }
 
+
+process ScrubbyReadsKrakenMinimapDepletionOnt {
+
+    label "scrubby_reads"
+    tag { "$id" }
+
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}.json", saveAs: { "$params.result_file" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.json"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.log"
+    publishDir "$params.outdir/workflow/$params.subdir/fastq", mode: "symlink", pattern: "${id}_depleted.fq.gz"
+
+    input:
+    tuple val(id), path("input_1")
+    path "dbs/*"
+    path "refs/*"
+
+    output:
+    tuple (val(id), path("${id}_depleted.fq.gz"), emit: reads)
+    tuple (val(id), path("$params.result_file"), emit: results)
+    tuple path("${id}.log"), path("${id}.json")
+
+    script:
+
+    """
+    scrubby scrub-reads -i input_1 -o ${id}_depleted.fq.gz \
+        --kraken-db dbs/* --kraken-taxa $params.kraken_taxa --kraken-taxa-direct $params.kraken_taxa_direct --kraken-threads $task.cpus \
+        --minimap2-index refs/* --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq \
+        --minimap2-threads $task.cpus --json ${id}.json 2> ${id}.log
+    cp ${id}.json $params.result_file
+    """
+}
+
 process ScrubbyAlignmentDepletion {
 
     // Auto detection based on SAM/BAM/CRAM/PAF extension
@@ -81,6 +113,36 @@ process ScrubbyAlignmentDepletion {
 
     """
     scrubby scrub-alignment -i input_1 input_2 -o ${id}_depleted_1.fq.gz ${id}_depleted_2.fq.gz --alignment $alignment --alignment-name ${idx_name} --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq --json ${id}.json 2> ${id}.log
+    cp ${id}.json $params.result_file
+    """
+}
+
+
+process ScrubbyAlignmentDepletionOnt {
+
+    // Auto detection based on SAM/BAM/CRAM/PAF extension
+
+    label "scrubby_single"
+    tag { "$id : $idx_name" }
+
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}.json", saveAs: { "$params.result_file" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.json"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.log"
+    publishDir "$params.outdir/workflow/$params.subdir/fastq", mode: "symlink", pattern: "${id}_depleted.fq.gz"
+
+    input:
+    tuple val(id), path("input_1")
+    tuple val(id), val(idx_name), path(alignment)
+
+    output:
+    tuple (val(id), path("${id}_depleted.fq.gz"), emit: reads)
+    tuple (val(id), path("$params.result_file"), emit: results)
+    tuple path("${id}.log"), path("${id}.json")
+
+    script:
+
+    """
+    scrubby scrub-alignment -i input_1 -o ${id}_depleted.fq.gz --alignment $alignment --alignment-name ${idx_name} --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq --json ${id}.json 2> ${id}.log
     cp ${id}.json $params.result_file
     """
 }
