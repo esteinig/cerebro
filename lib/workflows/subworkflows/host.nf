@@ -33,5 +33,5 @@ workflow host_depletion {
         }
     emit:
         reads = scrubby.reads
-        host_results = scrubby.results 
+        results = scrubby.results 
 }
