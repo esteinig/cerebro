@@ -6,7 +6,7 @@ include { CalibDeduplication } from '../../processes/umi';
 
 include { ercc_control } from './ercc';
 include { phage_control } from './phage';
-
+include { host_depletion } from './host';
 
 include { Nanoq } from '../../processes/nanoq' addParams(
     subdir: "quality_control/read_qc",
