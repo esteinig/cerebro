@@ -82,7 +82,7 @@ workflow kmer_pathogen_detection {
 
 
 // Kraken2Bracken
-workflow kmer_profiling {
+workflow kmer_pathogen_profiling {
     take:
         reads
         kraken_dbs
