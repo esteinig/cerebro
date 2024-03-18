@@ -8,7 +8,7 @@ include { ercc_control } from './ercc';
 include { phage_control } from './phage';
 
 
-nclude { Nanoq } from '../../processes/nanoq' addParams(
+include { Nanoq } from '../../processes/nanoq' addParams(
     subdir: "quality_control/read_qc",
 )
 include { Fastp } from '../../processes/fastp' addParams(
