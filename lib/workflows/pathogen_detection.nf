@@ -4,7 +4,7 @@ include { bacteria_subset_alignment }  from './pathogen/subset_alignment'
 include { virus_detection }            from './pathogen/virus_detection'
 include { kmer_pathogen_detection }    from './pathogen/kmer_profiling'
 include { kmer_pathogen_profiling }    from './pathogen/kmer_profiling'
-include { meta_assembly }              from './pathogen/meta_assembly'
+include { metagenome_assembly }        from './pathogen/metagenome_assembly'
 include { quality_control_illumina }   from './subworkflows/quality_control'
 
 workflow pathogen_detection {
@@ -107,7 +107,7 @@ workflow pathogen_detection {
         // ================
 
         if (params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
-            meta_assembly(
+            metagenome_assembly(
                 quality_control.out.reads, 
                 inputs.meta_blast_nt, 
                 inputs.meta_diamond_nr
