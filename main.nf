@@ -231,7 +231,7 @@ workflow {
         } else {
             
             if (params.subsample.enabled) {
-                reads = RasusaReadsMultiple(reads, params.subsample.reads., 1..params.subsample.replicates)
+                reads = RasusaReadsMultiple(reads, params.subsample.reads, 1..params.subsample.replicates)
             }
 
             /*
