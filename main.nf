@@ -182,11 +182,11 @@ params.covtobed_max_cov                             = 1000000    // Viral remapp
 
 // Workflow imports
 
-include { cerebro_production }         from './lib/workflows/subworkflows/production'
-include { quality_control_illumina }   from './lib/workflows/subworkflows/quality_control'
-include { pathogen_detection }         from './lib/workflows/pathogen_detection'
-include { aneuploidy_detection }       from './lib/workflows/aneuploidy_detection'
-include { culture_identification }     from './lib/workflows/culture_identification'
+include { cerebro_production }              from './lib/workflows/subworkflows/production'
+include { quality_control_illumina }        from './lib/workflows/subworkflows/quality_control'
+include { pathogen_detection }              from './lib/workflows/pathogen_detection'
+include { aneuploidy_detection_illumina }   from './lib/workflows/aneuploidy_detection'
+include { culture_identification }          from './lib/workflows/culture_identification'
 
 // Utility imports
 include { PingServer} from './lib/processes/cerebro'
