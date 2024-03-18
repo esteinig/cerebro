@@ -57,7 +57,7 @@ workflow kraken2bracken {
         ont    
     main:
         if (ont) {
-            k2b n= Kraken2Bracken(reads, kraken_dbs)
+            k2b = Kraken2Bracken(reads, kraken_dbs)
         } else {
             k2b = Kraken2Bracken(reads, kraken_dbs)
         }
