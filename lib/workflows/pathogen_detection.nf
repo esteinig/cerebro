@@ -41,7 +41,7 @@ workflow pathogen_detection {
         // Viral profiling, coverage assessment, consensus assembly after background depletion
         if (params.taxa.alignment.enabled && params.taxa.alignment.viruses.enabled) {
             virus_detection(
-                quality_control.out.reads, 
+                quality_control_illumina.out.reads, 
                 inputs.virus_background_references, 
                 inputs.virus_background_dbs, 
                 inputs.virus_db_index, 
@@ -57,7 +57,7 @@ workflow pathogen_detection {
         // Bacterial subset alignments
         if (params.taxa.alignment.enabled && params.taxa.alignment.bacteria.enabled) {
             bacteria_subset_alignment(
-                quality_control.out.reads, 
+                quality_control_illumina.out.reads, 
                 inputs.bacteria_mash_index, 
                 inputs.bacteria_fasta
             )
@@ -69,7 +69,7 @@ workflow pathogen_detection {
         // Eukaryotic subset alignments
         if (params.taxa.alignment.enabled && params.taxa.alignment.eukaryots.enabled){
             eukaryots_subset_alignment(
-                quality_control.out.reads, 
+                quality_control_illumina.out.reads, 
                 inputs.eukaryots_mash_index, 
                 inputs.eukaryots_fasta
             )
@@ -85,7 +85,7 @@ workflow pathogen_detection {
         if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled && !params.taxa.kmer.bracken.enabled){
             // Pathogen detection as per Nature Protocols (Kraken2Uniq)
             kmer_pathogen_detection(
-                quality_control.out.reads, 
+                quality_control_illumina.out.reads, 
                 inputs.kraken2_dbs,
                 ont
             )
@@ -93,7 +93,7 @@ workflow pathogen_detection {
         } else if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled && params.taxa.kmer.bracken.enabled) {
             // Pathogen profiling with Kraken2 + Bracken
             kmer_pathogen_profiling(
-                quality_control.out.reads, 
+                quality_control_illumina.out.reads, 
                 inputs.kraken2_dbs,
                 ont
             )
@@ -108,7 +108,7 @@ workflow pathogen_detection {
 
         if (params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
             metagenome_assembly(
-                quality_control.out.reads, 
+                quality_control_illumina.out.reads, 
                 inputs.meta_blast_nt, 
                 inputs.meta_diamond_nr
             )
@@ -118,7 +118,7 @@ workflow pathogen_detection {
         }
 
         // We wait until all processes have finished by collecting all their results file outputs
-        result_files = quality_control.out.results.mix(
+        result_files = quality_control_illumina.out.results.mix(
             align_virus_results, 
             align_bacteria_results, 
             align_eukaryots_results, 
