@@ -230,8 +230,8 @@ workflow {
             println "\n${c('red')}Development mode for inputs active, modules deactivated.${c('reset')}\n"
         } else {
             
-            if (params.reads.subsample.enabled) {
-                reads = RasusaReadsMultiple(reads, params.subsample.reads, 1..params.subsample.replicates)
+            if (params.subsample.enabled) {
+                reads = RasusaReadsMultiple(reads, params.subsample.reads., 1..params.subsample.replicates)
             }
 
             /*
