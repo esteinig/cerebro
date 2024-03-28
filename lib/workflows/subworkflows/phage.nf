@@ -39,9 +39,9 @@ workflow phage_control {
             AlignmentDepletionOnt(MinimapAlignmentOnt.out)
             evaluation = AlignmentEvaluationOnt(MinimapAlignmentOnt.out, reference)
         } else {
-            MinimapAlignment(reads, reference)
-            depletion = AlignmentDepletion(MinimapAlignment.out)
-            evaluation = AlignmentEvaluation(MinimapAlignment.out, reference)
+            MinimapAlignmentIllumina(reads, reference)
+            depletion = AlignmentDepletionIllumina(MinimapAlignmentIllumina.out)
+            evaluation = AlignmentEvaluationIllumina(MinimapAlignmentIllumina.out, reference)
         }
         
     emit: 

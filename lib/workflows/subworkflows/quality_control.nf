@@ -80,7 +80,6 @@ workflow quality_control_illumina {
             phage_control(reads, phage_fasta, false)
             reads = phage_control.out.reads
             phage_results = phage_control.out.results
-
         } else {
             phage_results = Channel.empty()
         }
