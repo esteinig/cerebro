@@ -112,7 +112,7 @@ workflow pathogen_detection {
                 inputs.meta_blast_nt, 
                 inputs.meta_diamond_nr
             )
-            meta_assembly_results = meta_assembly.out.results
+            meta_assembly_results = metagenome_assembly.out.results
         } else {
             meta_assembly_results = Channel.empty()
         }
