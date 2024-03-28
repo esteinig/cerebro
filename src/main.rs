@@ -14,22 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::api::report::ClinicalReport;
-use crate::stack::watcher;
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unreachable_code)]
+
 use clap::Parser;
 use rayon::prelude::*;
-use pipeline::sheet::SampleSheet;
+
+use stack::watcher;
+use utils::init_logger;
+use tools::modules::umi::Umi;
+use api::report::ClinicalReport;
 use stack::watcher::SlackConfig;
-use terminal::{ReportCommands, UtilCommands};
-use tools::modules::anon::ReadAnonymizer;
-use tools::modules::slack::{SlackMessage, SlackMessenger};
+use pipeline::sheet::SampleSheet;
 use tools::modules::split::Splitter;
 use tools::modules::subset::FastaSubset;
+use tools::modules::anon::ReadAnonymizer;
+use terminal::{ReportCommands, UtilCommands};
+use tools::modules::slack::{SlackMessage, SlackMessenger};
 use tools::modules::virus::{VirusAlignmentSummary, AnnotationOptions};
-use crate::tools::modules::umi::Umi;
-use crate::utils::init_logger;
 
-use crate::terminal::{
+use terminal::{
     App, 
     Commands, 
     PipelineCommands,
@@ -283,25 +288,36 @@ fn main() -> anyhow::Result<()> {
                 },            
                 // Upload sample models to database
                 ApiCommands::Upload( args ) => {
+                    
+                    let mut cerebro_models = Vec::new();
+                    
+                    for path in &args.sample_models {
+                        let cerebro = api::cerebro::model::Cerebro::from_workflow_sample(
+                            &pipeline::sample::WorkflowSample::read_json(&path)?,
+                            &args.sample_sheet,
+                            &args.pipeline_config
+                        )?;
+    
+                        let cerebro = match &args.replace_sample_id {
+                            Some(new_sample_id) => cerebro.update_sample_id(
+                                &new_sample_id, args.replace_sample_tags.clone()
+                            ),
+                            None => cerebro
+                        };
 
-                    let cerebro = api::cerebro::model::Cerebro::from_workflow_sample(
-                        &pipeline::sample::WorkflowSample::read_json(&args.input)?,
-                        &args.sample_sheet,
-                        &args.pipeline_config
-                    )?;
-
-                    let cerebro = match &args.replace_sample_id {
-                        Some(new_sample_id) => cerebro.update_sample_id(
-                            &new_sample_id, args.replace_sample_tags.clone()
-                        ),
-                        None => cerebro
-                    };
-
-                    client.upload_model(&cerebro, &args.team_name, &args.project_name, args.db_name.as_ref(), &args.input)?;
-
-                    if let Some(output_file) = &args.output {
-                        cerebro.write_json(output_file)?;
+                        cerebro_models.push(cerebro)
                     }
+                    
+
+                    client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+                    
+                    for cerebro_model in cerebro_models {
+                        if let Some(output_file) = &args.model_output {
+                            log::info!("Writing model to file: {}", output_file.display());
+                            cerebro_model.write_json(output_file)?;
+                        }
+                    }
+                   
                 },
                 // Query sample models for taxon summary
                 ApiCommands::Taxa( args ) => {

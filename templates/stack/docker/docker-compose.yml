@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
     {{#if dev }}
     # Development run server - DO NOT RUN IN PRODUCTION
-    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && cp -r /app/node_modules . && npm run dev'
+    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && npm run dev'
     {{else}}
     # Production run of build - show latest tag, branch, commit of deployed repository
     command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && node -r dotenv/config build'

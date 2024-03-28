@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use futures::stream::TryStreamExt;
 use mongodb::{bson::doc, Collection};
+use base64::engine::general_purpose;
+use base64::Engine;
 
 use crate::api::auth::jwt;
 use crate::api::config::Config;
@@ -1040,7 +1042,9 @@ struct CerebroSampleSummaryQcQuery {
     // Aggregation pipelines to get specific overviews
     workflow: Option<WorkflowId>,
     // Return data as comma-separated string
-    csv: Option<bool>
+    csv: Option<bool>,
+    // Include ERCC biomass estimates if ERCC input mass is provided (picogram)
+    ercc: Option<f64>
 }
 
 
@@ -1086,7 +1090,7 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json
 
                     let summaries: Vec<QualityControlSummary> =match  matched_cerebro_data.iter().map(|result| -> Result<QualityControlSummary, HttpResponse> {
 
-                        match QualityControlSummary::from(&result.quality, Some(result.id.clone()), None, Some(&result.run), Some(&result.workflow), Some(&result.sample)) {
+                        match QualityControlSummary::from(&result.quality, Some(result.id.clone()), query.ercc, Some(&result.run), Some(&result.workflow), Some(&result.sample)) {
                             Ok(summary) => Ok(summary),
                             Err(_) => Err(HttpResponse::InternalServerError().json(serde_json::json!({
                                 "status": "error", "message": "Failed to transform retrieved sample data into quality control summaries"

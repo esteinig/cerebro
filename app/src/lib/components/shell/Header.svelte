@@ -52,6 +52,7 @@
         { type: 'skeleton', name: 'Skeleton', icon: '💀' },
 		{ type: 'seafoam', name: 'Seafoam', icon: '🧜‍♀️' },
 		{ type: 'sahara', name: 'Sahara', icon: '🏜️' },
+		{ type: 'dali', name: 'Dali', icon: '🎨' },
 	];
 
 	const setTheme: SubmitFunction = ({ formData }) => {

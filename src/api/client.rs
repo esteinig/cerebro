@@ -306,41 +306,46 @@ impl CerebroClient {
         };
         Ok(())
     }
-    pub fn upload_model(&self, model: &Cerebro, team_name: &str, project_name: &str, db_name: Option<&String>, sample_file: &PathBuf) -> Result<(), HttpClientError> {
+    pub fn upload_models(&self, models: &Vec<Cerebro>, team_name: &str, project_name: &str, db_name: Option<&String>) -> Result<(), HttpClientError> {
 
         let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_insert_model, team_name, project_name, db_name)?;
 
+        log::info!("Cerebro model upload to project `{}` for team `{}`", &project_name, &team_name);
+
         if urls.len() > 1 {
-            log::warn!("Project {} exists for multiple databases belonging to team {}", &project_name, &team_name);
+            log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
             log::warn!("Inserting models into multiple team databases...");
         }
 
-        for url in urls {
+        for url in &urls {
 
-            if model.sample.id.is_empty() {
-                log::error!("Model sample identifier is an empty string - this is not allowed (input: {})", sample_file.display());
-                return Err(HttpClientError::ModelSampleIdentifierEmpty)
-            }
-
-            log::info!("Requesting upload of sample {} (tags: {}, workflow: {})", model.sample.id, model.sample.tags.join(" "), model.workflow.id);
-
-            let response = self.client.post(url)
-                .header(AUTHORIZATION, self.get_token_bearer(None))
-                .json(model)
-                .send()?;
-
-            let status = response.status();
-    
-            match status.is_success() {
-                true => log::info!("Cerebro model uploaded to project {} for team {}", &project_name, &team_name),
-                false => {
-                    let error_response: ErrorResponse = response.json().map_err(|_| {
-                        HttpClientError::InsertModelResponseFailure(format!("{}", status), String::from("failed to make request"))
-                    })?;
-                    log::error!("Upload failed: {}", &status);
-                    return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+            for model in models {
+                if model.sample.id.is_empty() {
+                    log::error!("Model sample identifier is an empty string - this is not allowed");
+                    return Err(HttpClientError::ModelSampleIdentifierEmpty)
                 }
-            };
+    
+                log::info!("Requesting upload of model for sample library {} (tags: {}, workflow: {})", model.sample.id, model.sample.tags.join(" "), model.workflow.id);
+    
+                let response = self.client.post(url)
+                    .header(AUTHORIZATION, self.get_token_bearer(None))
+                    .json(model)
+                    .send()?;
+    
+                let status = response.status();
+        
+                match status.is_success() {
+                    true => log::info!("Cerebro model uploaded successfully to project `{}` ({})", &project_name, &team_name),
+                    false => {
+                        let error_response: ErrorResponse = response.json().map_err(|_| {
+                            HttpClientError::InsertModelResponseFailure(format!("{}", status), String::from("failed to make request"))
+                        })?;
+                        log::error!("Upload failed: {}", &status);
+                        return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                    }
+                };
+            }
+            
         }
         Ok(())
     }
@@ -403,7 +408,7 @@ impl CerebroClient {
         let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, project_name, db_name)?;
 
         if urls.len() > 1 {
-            log::warn!("Project {} exists for multiple databases belonging to team {}", &project_name, &team_name);
+            log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
             log::warn!("Fetching data for all projects...");
         }
 
@@ -443,7 +448,80 @@ impl CerebroClient {
             };
         }
         
+        Ok(())
+    }
+    pub fn qc_summary(
+        &self, 
+        team_name: &str, 
+        project_name: &str, 
+        db_name: Option<&String>, 
+        filter_config: Option<&PathBuf>,
+        run_ids: Option<Vec<String>>, 
+        sample_ids: Option<Vec<String>>, 
+        workflow_ids: Option<Vec<String>>, 
+        workflow_names: Option<Vec<String>>,
+        output: &PathBuf
+    ) -> Result<(), HttpClientError> {
 
+        let run_ids = run_ids.unwrap_or(Vec::new());
+        let sample_ids = sample_ids.unwrap_or(Vec::new());
+        let workflow_ids = workflow_ids.unwrap_or(Vec::new());
+        let workflow_names = workflow_names.unwrap_or(Vec::new());
+
+        let taxa_summary_schema = TaxaSummarySchema {
+            run_ids: run_ids.clone(),
+            sample_ids: sample_ids.clone(),
+            workflow_ids: workflow_ids.clone(),
+            workflow_names: workflow_names.clone(),
+            filter_config: match filter_config { 
+                Some(path) => CerebroFilterConfig::from_path(&path).map_err(|err| HttpClientError::ModelError(err))?, 
+                None => CerebroFilterConfig::default() 
+            }
+        };
+
+        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, project_name, db_name)?;
+
+        if urls.len() > 1 {
+            log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
+            log::warn!("Fetching data for all projects...");
+        }
+
+        for (i, url) in urls.iter().enumerate() {
+            log::info!(
+                "Taxa summary query: project={} team={} run_ids={:?} sample_ids={:?} workflow_ids={:?} workflow_names={:?}", 
+                &project_name, &team_name, &run_ids, &sample_ids, &workflow_ids, &workflow_names
+            );
+
+            let response = self.client.post(format!("{}&csv=true", url))
+                .header(AUTHORIZATION, self.get_token_bearer(None))
+                .json(&taxa_summary_schema)
+                .send()?;
+
+            let status = response.status();
+    
+            match status.is_success() {
+                true => {
+                    log::info!("QC summary retrieved for project `{}` of team `{}`", &project_name, &team_name);
+
+                    let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
+                        HttpClientError::TaxaSummaryDataResponseFailure(format!("{}", status), String::from("failed to obtain data for QC summary"))
+                    })?;
+                    
+                    let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
+
+                    let mut file = File::create(&output_name).unwrap();
+                    write!(file, "{}", data_response.data.csv).unwrap();
+                },
+                false => {
+                    let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
+                        HttpClientError::TaxaSummaryDataResponseFailure(format!("{}", status), String::from("failed to make request for QC summary"))
+                    })?;
+                    log::error!("Data retrieval failed: {}", &status);
+                    return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                }
+            };
+        }
+        
         Ok(())
     }
     pub fn get_database(&self, team_name: &str, db_name: &str) -> Result<TeamDatabase, HttpClientError> {

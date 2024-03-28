@@ -615,9 +615,9 @@ pub struct ApiLoginArgs {
 #[derive(Debug, Args)]
 pub struct ApiUploadArgs {
 
-    /// Processed pipeline sample model (.json)
-    #[clap(long, short = 'i')]
-    pub input: PathBuf,
+    /// Processed pipeline sample models (*.json)
+    #[clap(long, short = 'i', num_args(0..))]
+    pub sample_models: Vec<PathBuf>,
 
     /// Pipeline sample sheet (.csv)
     #[clap(long, short = 's')]
@@ -649,7 +649,7 @@ pub struct ApiUploadArgs {
 
     /// Output model as file (.json)
     #[clap(long, short = 'o')]
-    pub output: Option<PathBuf>,
+    pub model_output: Option<PathBuf>,
 }
 
 
