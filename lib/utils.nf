@@ -345,10 +345,10 @@ def parse_file_params(){
 
     sample_sheet = [];
     if (params.production) {
-        if (params.sample_sheet) {
-            sample_sheet = file(check_file(params.sample_sheet))
+        if (params.production.sample_sheet) {
+            sample_sheet = file(check_file(params.production.sample_sheet))
         } else {
-            println("\n${c_red}Production settings are activated, but no sample sheet was provided (--sample_sheet).${c_reset}\n")
+            println("\n${c_red}Production settings are activated, but no sample sheet was provided (--production.sample_sheet).${c_reset}\n")
             Thread.sleep(2000); // we need a small delay so the message is printed before we exit with error code
             System.exit(1) 
         }
@@ -493,12 +493,12 @@ FILE INPUTS
 
 def get_paired_reads(sample_sheet, production) {
 
-    if (params.sample_sheet){
+    if (params.production.sample_sheet){
         reads = from_sample_sheet(sample_sheet, production)
     } else if (params.fastq_pe) {
         reads = channel.fromFilePairs(params.fastq_pe, flat: true, checkIfExists: true)
     } else {
-        println "\n${c('red')}Either `--fastq_pe` or `--sample_sheet` have to be specified for paired read input${c('reset')}\n"
+        println "\n${c('red')}Either `--fastq_pe` or `--production.sample_sheet` have to be specified for paired read input${c('reset')}\n"
         Thread.sleep(2000); 
         System.exit(1)
     }
@@ -507,12 +507,12 @@ def get_paired_reads(sample_sheet, production) {
 
 def get_single_reads(sample_sheet, production) {
 
-    if (params.sample_sheet){
+    if (params.production.sample_sheet){
         reads = from_sample_sheet(sample_sheet, production)
     } else if (params.fastq_ont) {
         reads = channel.fromPath(params.fastq_ont, checkIfExists: true)
     } else {
-        println "\n${c('red')}Either `--fastq_ont` or `--sample_sheet` have to be specified for nanopore read input${c('reset')}\n"
+        println "\n${c('red')}Either `--fastq_ont` or `--production.sample_sheet` have to be specified for nanopore read input${c('reset')}\n"
         Thread.sleep(2000); 
         System.exit(1)
     }

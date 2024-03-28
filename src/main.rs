@@ -15,8 +15,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #![allow(dead_code)]
+#![allow(unused_imports)]
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
+#![allow(unreachable_patterns)]
 
 use clap::Parser;
 use rayon::prelude::*;
