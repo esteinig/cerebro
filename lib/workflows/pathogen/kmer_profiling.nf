@@ -47,7 +47,7 @@ workflow kraken2uniq {
         
     emit:
         reads = reads
-        results = kraken2uniq.out.results
+        results = k2u[0]
 }
 
 workflow kraken2bracken {
@@ -63,7 +63,7 @@ workflow kraken2bracken {
         }
     emit:
         reads = reads
-        results = k2b.out.results
+        results = k2b[0]
 }
 
 
