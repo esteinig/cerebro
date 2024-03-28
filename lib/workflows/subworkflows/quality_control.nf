@@ -51,7 +51,7 @@ workflow quality_control_illumina {
         
         // ERCCs are aligned and removed
         if (params.qc.controls.ercc.enabled) {
-            ercc_control(reads, ercc_fasta, false)
+            ercc_control(reads, ercc_fasta)
             
             reads = ercc_control.out.reads
             ercc_results = ercc_control.out.results
@@ -104,7 +104,7 @@ workflow quality_control_ont {
     main:
         
         if (params.qc.controls.ercc.enabled) {
-            ercc_control(reads, ercc_fasta, true)
+            ercc_control(reads, ercc_fasta)
             reads = ercc_control.out.reads
             ercc_results = ercc_control.out.results
         } else {
