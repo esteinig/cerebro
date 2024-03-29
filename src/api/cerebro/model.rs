@@ -267,7 +267,7 @@ impl WorkflowConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParams {
-    pub production: bool,
+    pub production: WorkflowParamsProduction,
     pub qc: WorkflowParamsQc
 }
 
@@ -279,6 +279,32 @@ pub struct WorkflowParamsQc {
     pub controls: WorkflowParamsQcControls,
     pub host: WorkflowParamsQcHost
 }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowParamsProduction {
+    pub enabled: bool,
+    pub sample_sheet: PathBuf,
+    pub api: WorkflowParamsProductionApi,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowParamsProductionApi {
+    pub enabled: bool,
+    pub url: String,
+    pub token: String,
+    pub upload: WorkflowParamsProductionApiUpload
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowParamsProductionApiUpload {
+    pub enabled: bool,
+    pub team: Option<String>,
+    pub db: Option<String>,
+    pub project: Option<String>,
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DeduplicationMethod {
@@ -301,13 +327,6 @@ pub enum DeduplicationMethod {
 pub struct WorkflowParamsQcDeduplication {
     pub enabled: bool,
     pub method: DeduplicationMethod,
-    pub umi_tools: WorkflowParamsQcUmiTools
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcUmiTools {
-    pub seed: u64,
-    pub reference: Option<PathBuf>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -351,9 +370,9 @@ pub struct WorkflowParamsQcPhage {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowParamsQcPhageIdentifiers {
-    pub dna_extraction: String,
-    pub rna_extraction: String,
-    pub sequencing: String,
+    pub dna_extraction: Option<String>,
+    pub rna_extraction: Option<String>,
+    pub sequencing: Option<String>,
 }
 
 

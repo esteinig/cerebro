@@ -432,18 +432,18 @@ impl QualityControlSummary {
 
         let (dna_phage_id, rna_phage_id, seq_phage_id) = match workflow_config {
             Some(config) => (
-                config.params.qc.controls.phage.identifiers.dna_extraction.as_str(), 
-                config.params.qc.controls.phage.identifiers.rna_extraction.as_str(), 
-                config.params.qc.controls.phage.identifiers.sequencing.as_str(), 
+                match config.params.qc.controls.phage.identifiers.dna_extraction.clone() { Some(phage) => phage, None =>  String::from("T4-Monash") }, 
+                match config.params.qc.controls.phage.identifiers.rna_extraction.clone() { Some(phage) => phage, None =>  String::from("MS2-Monash") }, 
+                match config.params.qc.controls.phage.identifiers.sequencing.clone() { Some(phage) => phage, None =>  String::from("PhiX") }, 
             ),
             None => (
-                "T4-Monash", "MS2-Monash", "PhiX"
+                String::from("T4-Monash"),  String::from("MS2-Monash"),  String::from("PhiX")
             )
         };
 
-        let (dna_phage_reads, dna_phage_percent, dna_phage_biomass, dna_phage_coverage_percent) = get_phage_data(quality_control_module, dna_phage_id, total_reads, &ercc_mass_per_read);
-        let (rna_phage_reads, rna_phage_percent, rna_phage_biomass, rna_phage_coverage_percent) = get_phage_data(quality_control_module, rna_phage_id, total_reads, &ercc_mass_per_read);
-        let (seq_phage_reads, seq_phage_percent, seq_phage_biomass, seq_phage_coverage_percent) = get_phage_data(quality_control_module, seq_phage_id, total_reads, &ercc_mass_per_read);
+        let (dna_phage_reads, dna_phage_percent, dna_phage_biomass, dna_phage_coverage_percent) = get_phage_data(quality_control_module, &dna_phage_id, total_reads, &ercc_mass_per_read);
+        let (rna_phage_reads, rna_phage_percent, rna_phage_biomass, rna_phage_coverage_percent) = get_phage_data(quality_control_module, &rna_phage_id, total_reads, &ercc_mass_per_read);
+        let (seq_phage_reads, seq_phage_percent, seq_phage_biomass, seq_phage_coverage_percent) = get_phage_data(quality_control_module, &seq_phage_id, total_reads, &ercc_mass_per_read);
 
         let (low_complexity_reads, low_complexity_percent) = match fastp.filter.low_complexity {
             Some(low_complexity_reads) => (Some(low_complexity_reads),  Some((low_complexity_reads as f64 / total_reads as f64)*100.)),

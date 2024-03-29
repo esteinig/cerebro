@@ -50,10 +50,10 @@ pub struct SampleDeleteSchema {
 }
 
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct SampleSummaryQcSchema {
-    pub sample_id: Vec<String>,
-    pub cerebro_id: Vec<String>,
+    pub sample_ids: Vec<String>,
+    pub cerebro_ids: Vec<String>,
 }
 
 

@@ -20,7 +20,7 @@ use itertools::Itertools;
 
 use super::cerebro::model::CerebroFilterConfig;
 use super::cerebro::model::ModelError;
-use super::cerebro::schema::TaxaSummarySchema;
+use super::cerebro::schema::{SampleSummaryQcSchema, TaxaSummarySchema};
 use super::teams::model::TeamDatabase;
 use super::teams::schema::RegisterProjectSchema;
 /*
@@ -314,7 +314,10 @@ impl CerebroClient {
 
         if urls.len() > 1 {
             log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-            log::warn!("Inserting models into multiple team databases...");
+            log::warn!("Inserting data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
+            for (i, url) in urls.iter().enumerate() {
+                log::warn!("Index: {i} @ {url}");
+            }
         }
 
         for url in &urls {
@@ -340,8 +343,10 @@ impl CerebroClient {
                         let error_response: ErrorResponse = response.json().map_err(|_| {
                             HttpClientError::InsertModelResponseFailure(format!("{}", status), String::from("failed to make request"))
                         })?;
-                        log::error!("Upload failed: {}", &status);
-                        return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+
+                        log::error!("Upload failed: {}", & error_response.message);
+                        continue; // return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                        
                     }
                 };
             }
@@ -357,7 +362,7 @@ impl CerebroClient {
             project_mongo_name: project_name.split_whitespace().join("_").to_lowercase()
         };
 
-        let response = self.client.post(format!("{}?team_name={}&db_name={}", self.routes.team_project_create, team_name, project_name))
+        let response = self.client.post(format!("{}?team_name={}&db_name={}", self.routes.team_project_create, team_name, db_name))
             .header(AUTHORIZATION, self.get_token_bearer(None))
             .json(&register_project_schema)
             .send()?;
@@ -409,7 +414,10 @@ impl CerebroClient {
 
         if urls.len() > 1 {
             log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-            log::warn!("Fetching data for all projects...");
+            log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
+            for (i, url) in urls.iter().enumerate() {
+                log::warn!("Index: {i} @ {url}");
+            }
         }
 
         for (i, url) in urls.iter().enumerate() {
@@ -455,46 +463,39 @@ impl CerebroClient {
         team_name: &str, 
         project_name: &str, 
         db_name: Option<&String>, 
-        filter_config: Option<&PathBuf>,
-        run_ids: Option<Vec<String>>, 
+        cerebro_ids: Option<Vec<String>>, 
         sample_ids: Option<Vec<String>>, 
-        workflow_ids: Option<Vec<String>>, 
-        workflow_names: Option<Vec<String>>,
+        ercc_pg: Option<f64>,
         output: &PathBuf
     ) -> Result<(), HttpClientError> {
 
-        let run_ids = run_ids.unwrap_or(Vec::new());
+        let cerebro_ids = cerebro_ids.unwrap_or(Vec::new());
         let sample_ids = sample_ids.unwrap_or(Vec::new());
-        let workflow_ids = workflow_ids.unwrap_or(Vec::new());
-        let workflow_names = workflow_names.unwrap_or(Vec::new());
 
-        let taxa_summary_schema = TaxaSummarySchema {
-            run_ids: run_ids.clone(),
-            sample_ids: sample_ids.clone(),
-            workflow_ids: workflow_ids.clone(),
-            workflow_names: workflow_names.clone(),
-            filter_config: match filter_config { 
-                Some(path) => CerebroFilterConfig::from_path(&path).map_err(|err| HttpClientError::ModelError(err))?, 
-                None => CerebroFilterConfig::default() 
-            }
+        let qc_summary_schema = SampleSummaryQcSchema {
+            cerebro_ids: cerebro_ids.clone(),
+            sample_ids: sample_ids.clone()
         };
 
         let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, project_name, db_name)?;
 
         if urls.len() > 1 {
             log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-            log::warn!("Fetching data for all projects...");
+            log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
+            for (i, url) in urls.iter().enumerate() {
+                log::warn!("Index: {i} @ {url}");
+            }
         }
 
         for (i, url) in urls.iter().enumerate() {
             log::info!(
-                "Taxa summary query: project={} team={} run_ids={:?} sample_ids={:?} workflow_ids={:?} workflow_names={:?}", 
-                &project_name, &team_name, &run_ids, &sample_ids, &workflow_ids, &workflow_names
+                "Quality summary query: project={} team={} cerebro_ids={:?} sample_ids={:?} ercc_pg={:?}", 
+                &project_name, &team_name, &cerebro_ids, &sample_ids, &ercc_pg
             );
 
-            let response = self.client.post(format!("{}&csv=true", url))
+            let response = self.client.post(format!("{}&csv=true{}", url, match ercc_pg { Some(pg) => format!("&ercc={:.2}", pg), None => String::new() } ))
                 .header(AUTHORIZATION, self.get_token_bearer(None))
-                .json(&taxa_summary_schema)
+                .json(&qc_summary_schema)
                 .send()?;
 
             let status = response.status();

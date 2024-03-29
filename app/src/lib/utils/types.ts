@@ -378,12 +378,12 @@ export type SampleDeleteSchema = {
  * Sample summary schema to submit array of either sample identifiers or model identifiers to get quality control sumamries for: /cerebro/samples/summary/qc
  * 
  * @file lib/utils/types
- * @param {string[]} sample_id - Sample identifiers
- * @param {string[]} cerebro_id - Cerebro identifiers
+ * @param {string[]} sample_ids - Sample identifiers
+ * @param {string[]} cerebro_ids - Cerebro identifiers
  */
 export type SampleSummarySchema = {
-    sample_id: string[],         
-    cerebro_id: string[]           
+    sample_ids: string[],         
+    cerebro_ids: string[]           
 }
 
 

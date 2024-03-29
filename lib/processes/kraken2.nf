@@ -4,9 +4,9 @@ process Kraken2Uniq {
     label "kraken2uniq"
     tag { "$id : $idx_name" }
 
-    publishDir "$params.outdir/results/illumina/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report", saveAs: { "kmer__kraken2uniq__${idx_name}" }
-    publishDir "$params.outdir/workflow/illumina/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2uniq"
-    publishDir "$params.outdir/workflow/illumina/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report"
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report", saveAs: { "kmer__kraken2uniq__${idx_name}" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2uniq"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report"
 
     input:
     tuple val(id), path(forward), path(reverse)
@@ -32,9 +32,9 @@ process Kraken2Bracken {
     label "kraken2bracken"
     tag { "$id : $idx_name" }
 
-    publishDir "$params.outdir/results/illumina/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report", saveAs: { "kmer__kraken2bracken__${idx_name}" }
-    publishDir "$params.outdir/workflow/illumina/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2"
-    publishDir "$params.outdir/workflow/illumina/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report"
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report", saveAs: { "kmer__kraken2bracken__${idx_name}" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report"
 
     input:
     tuple val(id), path(forward), path(reverse)
@@ -61,9 +61,9 @@ process Kraken2UniqOnt {
     label "kraken2uniq"
     tag { "$id : $idx_name" }
 
-    publishDir "$params.outdir/results/ont/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report", saveAs: { "kmer__kraken2uniq__${idx_name}" }
-    publishDir "$params.outdir/workflow/ont/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2uniq"
-    publishDir "$params.outdir/workflow/ont/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report"
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report", saveAs: { "kmer__kraken2uniq__${idx_name}" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2uniq"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report"
 
     input:
     tuple val(id), path(reads)
@@ -89,9 +89,9 @@ process Kraken2BrackenOnt {
     label "kraken2bracken"
     tag { "$id : $idx_name" }
 
-    publishDir "$params.outdir/results/ont/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report", saveAs: { "kmer__kraken2bracken__${idx_name}" }
-    publishDir "$params.outdir/workflow/ont/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2"
-    publishDir "$params.outdir/workflow/ont/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report"
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report", saveAs: { "kmer__kraken2bracken__${idx_name}" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}.kraken2"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report"
 
     input:
     tuple val(id), path(reads)

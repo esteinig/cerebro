@@ -90,16 +90,16 @@
     
 </script>
 <div class="flex items-center"> 
-    <button class="btn btn-md variant-outline-primary mb-5 mr-5">
-    <div class="flex items-center gap-2">
-        <svg aria-hidden="true" fill="none" class="h-5 w-5" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" stroke-linecap="round" stroke-linejoin="round"></path>
-      </svg>
-      Download
-    </div>
-</button>
+    
     <InputChip name="logSearch" placeholder="Search request logs..." class="mb-5 w-1/2" bind:value={searchTerms} allowUpperCase/> 
-   
+    <button class="btn btn-md variant-outline-primary mb-5 ml-5">
+        <div class="flex items-center gap-2">
+            <svg aria-hidden="true" fill="none" class="h-5 w-5" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        Download
+        </div>
+    </button>
     <div class="ml-auto mb-2">
         <SlideToggle name="critical-logs" bind:checked={showCriticalLogs} active="variant-filled-error dark:variant-filled-error">Critical Logs</SlideToggle>
     </div>

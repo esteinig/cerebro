@@ -390,7 +390,6 @@ pub struct StackDeployArgs {
     /// Checkout repository at the commit or tag provided, overwrites branch if provided
     #[clap(long, short = 'r')]
     pub revision: Option<String>,
-
     /// Change the subdomain for multiple concurrent stack deployments 
     /// 
     /// This will configure Traefik to deploy to {app,api}.{subdomain}.{domain}
@@ -398,7 +397,6 @@ pub struct StackDeployArgs {
     /// for example to `app.dev.cerebro.localhost` or `app.demo.cerebro.localhost`
     #[clap(long, short = 's')]
     pub subdomain: Option<String>,
-
     /// Public or SSH-like repository URL for cloning into deployment
     #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
     pub git_url: String,
@@ -454,7 +452,6 @@ pub enum PipelineCommands {
 
 #[derive(Debug, Args)]
 pub struct PipelineProcessArgs {
-    
     /// Pipeline sample results directory for processing
     #[clap(long, short = 'i', num_args(0..))]
     pub input: Vec<PathBuf>,
@@ -464,11 +461,9 @@ pub struct PipelineProcessArgs {
     /// the quality control module is proccessed.
     #[clap(long, short = 't')]
     pub taxonomy: Option<PathBuf>,
-
     /// Output file of processed sample database model (.json)
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-
     /// Optional sample identifier to use for output instead of result directory name
     #[clap(long, short = 's')]
     pub sample_id: Option<String>,
@@ -478,19 +473,15 @@ pub struct PipelineProcessArgs {
 
 #[derive(Debug, Args)]
 pub struct PipelineQualityArgs {
-    
     /// Processed pipeline result samples (.json)
     #[clap(long, short = 'i', num_args(0..))]
     pub input: Vec<PathBuf>,
-
     /// Output file for quality control table (.tsv)
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-
     /// Include header in quality control table
     #[clap(long, short = 'H')]
     pub header: bool,
-    
     /// Input mass of ERCC or EDCC for biomass calculations (in pg)
     #[clap(long, short = 'e')]
     pub ercc_mass: Option<f64>,
@@ -500,15 +491,12 @@ pub struct PipelineQualityArgs {
 
 #[derive(Debug, Args)]
 pub struct PipelineSampleSheetArgs {
-    
     /// Processed pipeline result samples (.json)
     #[clap(long, short = 'i', num_args(0..))]
     pub input: Vec<PathBuf>,
-
     /// Output sample sheet file (.csv)
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-
     /// Sample glob - pattern matching to find paired samples
     /// 
     /// The glob string to specify paired sample extensions should be in format: {forward_extension,reverse_extension}
@@ -516,7 +504,6 @@ pub struct PipelineSampleSheetArgs {
     /// "Sample1_R1.fastq.gz" and "Sample1_R2.fastq.gz" to sample identifier "Sample1"
     #[clap(long, short = 'g', default_value = "*_{R1_001,R2_001}.fastq.gz")]
     pub glob: String,
-
     /// Run identifier - if not provided uses input directory name
     /// 
     /// If you want to fill in custom run identifiers for each sample, 
@@ -524,7 +511,6 @@ pub struct PipelineSampleSheetArgs {
     /// manually.
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,
-
     /// Run date - if not provided uses current date (YYYYMMDD)
     /// 
     /// If you want to fill in custom run dates for each sample, 
@@ -532,7 +518,6 @@ pub struct PipelineSampleSheetArgs {
     /// manually.
     #[clap(long, short = 'd')]
     pub run_date: Option<String>,
-
     /// Sample group - if not provided sample group designation is an empty string
     /// 
     /// Sample groups can be specified manually for larger runs containing
@@ -540,7 +525,6 @@ pub struct PipelineSampleSheetArgs {
     /// in the front-end application
     #[clap(long, short = 's')]
     pub sample_group: Option<String>,
-
     /// Sample type - if not provided sample type designation is an empty string
     /// 
     /// Sample types can be specified manually for larger runs containing
@@ -548,7 +532,6 @@ pub struct PipelineSampleSheetArgs {
     /// in the front-end application
     #[clap(long, short = 't')]
     pub sample_type: Option<String>,
-
     /// ERCC input mass in picogram - if not provided input mass is 0
     /// 
     /// In the validation experiments, we test different input masses per sample.
@@ -556,11 +539,9 @@ pub struct PipelineSampleSheetArgs {
     /// workflow settings later. Set to 25 pg for standard ERCC.
     #[clap(long, short = 'e')]
     pub ercc_input: Option<f64>,
-
     /// Allow symlink target reading for glob file walking
     #[clap(long, short = 'l')]
     pub symlinks: bool
-
 }
 
 /*
@@ -581,6 +562,8 @@ pub enum ApiCommands {
     Upload(ApiUploadArgs),
     /// Summary of taxa evidence for requested models
     Taxa(ApiTaxaArgs),
+    /// Summary of quality control for requested models or samples
+    Quality(ApiQualityArgs),
 
     /// CRUD operations for teams
     #[clap(subcommand)]
@@ -614,39 +597,30 @@ pub struct ApiLoginArgs {
 
 #[derive(Debug, Args)]
 pub struct ApiUploadArgs {
-
     /// Processed pipeline sample models (*.json)
     #[clap(long, short = 'i', num_args(0..))]
     pub sample_models: Vec<PathBuf>,
-
     /// Pipeline sample sheet (.csv)
     #[clap(long, short = 's')]
     pub sample_sheet: PathBuf,
-    
     /// Pipeline configuration (.json)
     #[clap(long, short = 'c')]
     pub pipeline_config: PathBuf,
-
     /// Team name for model upload
     #[clap(long, short = 't')]
     pub team_name: String,
-
     /// Project name for model upload
     #[clap(long, short = 'p')]
     pub project_name: String,
-
     /// Database name for model upload
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
-
     /// Replace sample identifier before upload
     #[clap(long)]
     pub replace_sample_id: Option<String>,
-
     /// Replace sample tags before upload
     #[clap(long, num_args(0..))]
     pub replace_sample_tags: Option<Vec<String>>,
-
     /// Output model as file (.json)
     #[clap(long, short = 'o')]
     pub model_output: Option<PathBuf>,
@@ -655,55 +629,70 @@ pub struct ApiUploadArgs {
 
 #[derive(Debug, Args)]
 pub struct ApiTaxaArgs {
-
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
-
     /// Project name for model query
     #[clap(long, short = 'p')]
     pub project_name: String,
-
     /// Output summary (.csv)
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-
     /// Database name for model query
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
-
     /// Filter JSON that satisfies `CerebroFilterConfig` schema
     #[clap(long, short = 'f')]
     pub filter_config: Option<PathBuf>,
-
     /// Run identifiers to filter results
     #[clap(long, short = 'r', num_args(0..))]
     pub run_ids: Option<Vec<String>>,
-
     /// Sample identifiers to filter results
     #[clap(long, short = 's', num_args(0..))]
     pub sample_ids: Option<Vec<String>>,
-
     /// Workflow identifiers to filter results
     #[clap(long, short = 'w', num_args(0..))]
     pub workflow_ids: Option<Vec<String>>,
-
     /// Workflow mnemnonic names to filter results
     #[clap(long, short = 'n', num_args(0..))]
     pub workflow_names: Option<Vec<String>>,
 }
 
-#[derive(Debug, Args)]
-pub struct ApiTeamArgs {
 
+#[derive(Debug, Args)]
+pub struct ApiQualityArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
+    /// Project name for model query
+    #[clap(long, short = 'p')]
+    pub project_name: String,
+    /// Output summary (.csv)
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+    /// Database name for model query
+    #[clap(long, short = 'd')]
+    pub db_name: Option<String>,
+    /// Cerebro database model identifiers to filter results
+    #[clap(long, short = 'r', num_args(0..))]
+    pub cerebro_ids: Option<Vec<String>>,
+    /// Sample identifiers to filter results
+    #[clap(long, short = 's', num_args(0..))]
+    pub sample_ids: Option<Vec<String>>,
+    /// ERCC control input mass for biomass calculations (picogram)
+    #[clap(long, short = 'e')]
+    pub ercc_pg: Option<f64>,
 
+}
+
+#[derive(Debug, Args)]
+pub struct ApiTeamArgs {
+    /// Team name for model query
+    #[clap(long, short = 't')]
+    pub team_name: String,
     /// Project name for model query
     #[clap(long, short = 'p')]
     pub team_descriptions: String,
-
 }
 
 #[derive(Debug, Subcommand)]
@@ -729,53 +718,41 @@ pub enum ApiProjectCommands {
 
 #[derive(Debug, Args)]
 pub struct ApiTeamCreateArgs {
-
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
-
     /// Project name for model query
     #[clap(long, short = 'p')]
     pub team_descriptions: String,
-
 }
 
 #[derive(Debug, Args)]
 pub struct ApiDatabaseCreateArgs {
-
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
-
     /// Project name for model query
     #[clap(long, short = 'p')]
     pub project_name: String,
-
     /// Database name for model query
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
-
 }
 
 #[derive(Debug, Args)]
 pub struct ApiProjectCreateArgs {
-
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
-
     /// Database name for model query
     #[clap(long, short = 'd')]
     pub db_name: String,
-
     /// Project name for model query
     #[clap(long, short = 'n')]
     pub project_name: String,
-
     /// Project name for model query
     #[clap(long, short = 'i')]
     pub project_description: String,
-
 }
 
 

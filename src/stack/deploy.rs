@@ -728,7 +728,7 @@ impl Stack {
     pub fn clone_and_checkout_repository_process(&self, url: &str, branch: Option<String>, revision: Option<String>) -> Result<(), StackConfigError> {
 
         let repo_dir = self.outdir.join("cerebro");
-        let repo_dir_str = self.outdir.join("cerebro").display().to_string();;
+        let repo_dir_str = self.outdir.join("cerebro").display().to_string();
         
         if repo_dir.exists() {
             log::warn!("Repository exists at: {}", repo_dir.display());

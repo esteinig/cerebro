@@ -1065,7 +1065,7 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json
         Err(error_response) => return error_response
     };
 
-    let pipeline = get_matched_samples_cerebro_notaxa_pipeline(&samples.sample_id, &samples.cerebro_id, &query.workflow);
+    let pipeline = get_matched_samples_cerebro_notaxa_pipeline(&samples.sample_ids, &samples.cerebro_ids, &query.workflow);
 
     if pipeline.is_empty(){
         return HttpResponse::BadRequest().json(serde_json::json!({

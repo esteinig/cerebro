@@ -337,6 +337,20 @@ fn main() -> anyhow::Result<()> {
                     )?;
 
                 },
+                // Query sample models for quality control summary
+                ApiCommands::Quality( args ) => {
+
+                    client.qc_summary(
+                        &args.team_name, 
+                        &args.project_name, 
+                        args.db_name.as_ref(),
+                        args.cerebro_ids.clone(),
+                        args.sample_ids.clone(),
+                        args.ercc_pg.clone(),
+                        &args.output
+                    )?;
+
+                },
                 // Modify (create-delete-update) a project
                 ApiCommands::Project( subcommand ) => {
                     match subcommand {

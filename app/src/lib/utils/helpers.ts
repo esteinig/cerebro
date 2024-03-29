@@ -71,7 +71,7 @@ export const formatAsThousands = (num: number | null): string => {
 }
 
 
-export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = ["DNA", "RNA", "NTC"]): string[] => {
+export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = ["DNA", "RNA"]): string[] => {
     if (tags === undefined) {
         return []
     }

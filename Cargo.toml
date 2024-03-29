@@ -1,8 +1,8 @@
 [package]
 name = "cerebro"
-version = "0.2.0"
+version = "0.8.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
-description = "Cerebro: metagenomic diagnostics for clinical production"
+description = "Cerebro: meta-metagenomic diagnostics for clinical production"
 documentation = "https://github.com/esteinig/cerebro"
 homepage = "https://github.com/esteinig/cerebro"
 repository = "https://github.com/esteinig/cerebro"
