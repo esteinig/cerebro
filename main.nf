@@ -125,6 +125,10 @@ params.ivar_min_freq                                 = 0.75
 params.kraken2_dbs                                   = null
 params.kraken2_minimum_hit_groups                    = 3
 
+params.bracken_read_length                           = 100
+params.bracken_taxonomic_level                       = "S"
+params.bracken_read_threshold                        = 3
+
 // ==============================================
 // Bacteria and Eukaryot subset alignment module
 // ==============================================
@@ -178,6 +182,7 @@ params.meta_diamond_nr_index_chunks                 = 4
 params.monochrome                                   = false
 params.minimap2_preset                              = "sr"       // Scrubby global settings for minimap2-preset 
 params.covtobed_max_cov                             = 1000000    // Viral remapping if coverage really high (e.g. TWIST)
+
 
 
 // Workflow imports
