@@ -89,12 +89,12 @@ services:
     restart: unless-stopped
     {{#if dev}}
     {{#if trigger}}
-    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run --features pdf stack run-server --host 0.0.0.0 --port 8080 --threads 8"'
+    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads "'
     {{else}}
-    command: cargo watch -w /usr/src/cerebro/src -w /usr/src/cerebro/Cargo.toml -x "run --features pdf stack run-server --host 0.0.0.0 --port 8080 --threads 8"
+    command: cargo watch -w /usr/src/cerebro/cerebro/lib/model -w /usr/src/cerebro/cerebro/stack/server -w /usr/src/cerebro/Cargo.toml -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"
     {{/if}}
     {{else}}
-    command: cerebro stack run-server --host 0.0.0.0 --port 8080 --threads 8
+    command: cerebro-server run --host 0.0.0.0 --port 8080 --threads 8
     {{/if}}
     expose:
       - 8080
@@ -188,7 +188,7 @@ services:
       - cerebro-database
     security_opt:
       - no-new-privileges:true
-
+  
 volumes:
   cerebro_app:
     driver: local

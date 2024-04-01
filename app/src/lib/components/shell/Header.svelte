@@ -68,7 +68,7 @@
 
 <AppBar>
 	<svelte:fragment slot="lead">
-        <h2 class="h2">Cerebro</h2>
+        <h2 class="h2"><a href="/cerebro">Cerebro</a></h2>
     </svelte:fragment>
 
 	<svelte:fragment slot="trail">

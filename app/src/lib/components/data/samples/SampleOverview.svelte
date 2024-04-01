@@ -268,7 +268,9 @@
 
     let newProjectName: string = "";
     let newProjectDesription: string = "";
-
+    let newDatabaseName: string = "";
+    let newDatabaseDescription: string = "";
+    let create: string = 'Project';
 
 </script>
 
@@ -293,35 +295,89 @@
                     </div>
                 </div>
             </div>
-            <div class="mb-4">
-                <p class="opacity-60 mb-4">Create a new project</p>
-                <p class="opacity-40 mb-4 text-xs">New projects are the primary way to store workflow outputs in distinct collections.</p>
+            {#if create == "Project"}
+                <div class="mt-10 mb-4">
+                    <p class="opacity-80 mb-4">Create a new project</p>
+                    <p class="opacity-40 mb-4 text-xs">New projects are the primary way to store workflow outputs in a collection.</p>
 
-                <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-4 items-center w-full mb-4">
-                    <div class="">
-                        <label class="label text-sm">
-                            <span class="opacity-60">Project name</span>
-                            <input class="input w-full" type="text" placeholder="..." bind:value={newProjectName}/>
-                        </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-4 items-center w-full mb-4">
+                        <div class="">
+                            <label class="label text-sm">
+                                <span class="opacity-60">Project name</span>
+                                <input class="input w-full" type="text" placeholder="..." bind:value={newProjectName}/>
+                            </label>
+                        </div>
+                        <div class="">
+                            <label class="label text-sm">
+                                <span class="opacity-60">Project description</span>
+                                <textarea class="textarea" rows="3" placeholder="..." bind:value={newProjectDesription} />
+                            </label>
+                        </div>
                     </div>
-                    <div class="">
-                        <label class="label text-sm">
-                            <span class="opacity-60">Project description</span>
-                            <textarea class="textarea" rows="3" placeholder="..." bind:value={newProjectDesription} />
-                        </label>
+                    <div class="flex items-center justify-between">
+                        <div class="">
+                            {#each ['Project', 'Database'] as c}
+                                <button
+                                    class="chip {create === c ? 'variant-filled-primary' : 'variant-soft'} ml-2"
+                                    on:click={() => { create = c }}
+                                    on:keypress
+                                >
+                                    <span>{c}</span>
+                                </button>
+                            {/each} 
+                        </div>
+                        <button type="button" class="btn btn-md variant-outline-primary" on:click={getSelectedSampleCsv}>
+                            <div class="w-5 h-5 mr-2">
+                                <svg data-slot="icon" aria-hidden="true" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </div>            
+                            Create   
+                        </button>
                     </div>
                 </div>
-                <div class="flex justify-start">
-                    <button type="button" class="btn btn-md variant-outline-primary" on:click={getSelectedSampleCsv}>
-                        <div class="w-5 h-5 mr-2">
-                            <svg data-slot="icon" aria-hidden="true" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
-                        </div>            
-                        Create project   
-                    </button>
+            {:else}
+                <div class="mt-10 mb-4">
+                    <p class="opacity-80 mb-4">Create a new database</p>
+                    <p class="opacity-40 mb-4 text-xs">New databases are the primary way to organise project environments e.g. collecting data in production, from validation experiments or clinical research cohorts.</p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-4 items-center w-full mb-4">
+                        <div class="">
+                            <label class="label text-sm">
+                                <span class="opacity-60">Database name</span>
+                                <input class="input w-full" type="text" placeholder="..." bind:value={newDatabaseName}/>
+                            </label>
+                        </div>
+                        <div class="">
+                            <label class="label text-sm">
+                                <span class="opacity-60">Database description</span>
+                                <textarea class="textarea" rows="3" placeholder="..." bind:value={newDatabaseDescription} />
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="">
+                            {#each ['Project', 'Database'] as c}
+                                <button
+                                    class="chip {create === c ? 'variant-filled-primary' : 'variant-soft'} ml-2"
+                                    on:click={() => { create = c }}
+                                    on:keypress
+                                >
+                                    <span>{c}</span>
+                                </button>
+                            {/each} 
+                        </div>
+                        <button type="button" class="btn btn-md variant-outline-primary" on:click={getSelectedSampleCsv}>
+                            <div class="w-5 h-5 mr-2">
+                                <svg data-slot="icon" aria-hidden="true" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </div>            
+                            Create   
+                        </button>
+                    </div>
                 </div>
-            </div>
+            {/if}
         </div>
     </div>
     <div class="gap-y-4 md:mt-1 col-span-3">
@@ -381,7 +437,18 @@
                                         <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" stroke-linecap="round" stroke-linejoin="round"></path>
                                     </svg>
                                 </div>            
-                                QC Data     
+                                Taxa    
+                            </button>
+                        </div>
+                        <div class="mt-7">
+                            <button type="button" class="btn btn-md variant-outline-secondary" on:click={getSelectedSampleCsv}>
+
+                                <div class="w-5 h-5 mr-2">
+                                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </div>            
+                                Quality     
                             </button>
                         </div>
                     </div>
