@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
-/// Cerebro: production stack server
+/// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 #[command(styles=get_styles())]

@@ -27,6 +27,11 @@ path = "src/cli.rs"
 # for the user from models in the database
 cerebro-workflow = { path = "../workflow" }
 
+
+# Report library dependency to access module structs and definitions
+# to use in endpoints e.g. to generate the report template
+cerebro-report = { path = "../report" }
+
 # Model library dependency to access shared module structs and definitions
 # to use in endpoints and client responses
 cerebro-model = { path = "../../lib/model" }
@@ -60,17 +65,6 @@ governor = "0.5.1"
 toml = "0.7.6"
 clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
 anstyle = "1.0.1"
-
-# Optional dependencies for features
-tectonic = { version = "0.14.1", optional = true }
-git2 = { version = "0.18.1", optional = true} 
-
-[features]
-# PDF feature includes `Tectonic` for LaTeX template compilation
-# which has additional system dependencies; example install on Debian:
-# sudo apt install libgraphite2-dev fonts-lato libfreetype6-dev libicu-dev libfontconfig-dev 
-pdf = ["dep:tectonic"]
-libgit = ["dep:git2"]
 
 
 

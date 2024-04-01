@@ -5,7 +5,7 @@ use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
 
-pub const CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION", "Failed to get the crate version at compile time - this is not good!");
+pub const _CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION", "Failed to get the crate version at compile time - this is not good!");
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;

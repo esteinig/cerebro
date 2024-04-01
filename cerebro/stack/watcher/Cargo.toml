@@ -21,6 +21,9 @@ include = [
 name = "cerebro-watcher"
 path = "src/cli.rs"
 
+[lib]
+name = "cerebro_watcher"
+
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"

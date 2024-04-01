@@ -20,10 +20,10 @@ pub enum WorkflowLauncherError {
     InputValidationFailed,
     /// Indicates failure to parse sample sheet
     #[error("failed to read sample sheet")]
-    SampleSheetNotRead,
+    _SampleSheetNotRead,
     /// Indicates failure to find entries in sample sheet
     #[error("failed to detect entries in sample sheet")]
-    SampleSheetEmpty,
+    _SampleSheetEmpty,
 
     /// Indicates failure to detect sample sheet
     #[error("failed to detect sample sheet")]

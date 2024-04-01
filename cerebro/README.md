@@ -9,7 +9,7 @@ Imports and provides access to:
 * `stack/watcher`: command-line and library interface to input file system upload watchers 
 * `stack/workflow`: command-line and library interface to pipeline operations and outputs for Cerebro
 * `stack/client`: command-line interface for a native client to the stack API
-
+* `stack/report`: command-line and library interface for report template and compilers for WASM
 * `lib/model`: library interface to shared stack models between client and API
 
 Does not import:

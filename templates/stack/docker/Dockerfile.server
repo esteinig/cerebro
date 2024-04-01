@@ -24,7 +24,7 @@ WORKDIR /usr/src/cerebro
 RUN cargo install cargo-watch 
 {{/if}}
 
-COPY ./src src
+COPY ./cerebro cerebro
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 
@@ -34,10 +34,9 @@ COPY ./Cargo.toml Cargo.toml
 
 {{#unless dev}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
-RUN cargo build --release --features pdf && \
+RUN cargo build --release && \
     mkdir -p /opt/cerebro/bin && \
-    cp target/release/cerebro /opt/cerebro/bin
-RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
+    cp target/release/cerebro-server /opt/cerebro/bin
 WORKDIR /opt/cerebro
 {{/unless}}
 

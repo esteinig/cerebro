@@ -11,7 +11,7 @@ use actix_web::{get, post, web, HttpResponse, patch, delete, HttpRequest};
 
 use crate::api::auth::jwt;
 use cerebro_model::api::config::Config;
-use crate::api::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
+use cerebro_report::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
 use cerebro_model::api::users::model::Role;
 use crate::api::utils::{as_csv_string, get_teams_db_collection};
 use crate::api::server::AppState;
@@ -46,7 +46,7 @@ use cerebro_model::api::cerebro::schema::{
     ReportSchema
 };
 use cerebro_model::api::cerebro::response::{TaxonSummaryOverview, TaxaSummaryMongoPipeline};
-use crate::api::report::ClinicalReport;
+use cerebro_report::report::ClinicalReport;
 
 use cerebro_workflow::filters::*;
 use cerebro_workflow::module::QualityControlModule;
@@ -436,7 +436,6 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
 
 }
 
-#[cfg(feature = "pdf")] 
 #[derive(Deserialize)]
 struct CerebroAddReportPdfQuery {
     // Required for access authorization in user guard middleware
@@ -444,8 +443,6 @@ struct CerebroAddReportPdfQuery {
     project: ProjectId
 }
 
-#[cfg(feature = "pdf")] 
-// If PDF feature is not supported the endpoint is still reavhable but will always return server error
 #[post("/cerebro/reports/pdf")]
 async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportPdfQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
 
@@ -468,8 +465,8 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
 
     let report_id = report.id.clone();
 
-    let rendered = tokio::task::spawn_blocking(move || {
-        report.render_pdf(None, None)
+    let rendered = actix_web::rt::task::spawn_blocking(move || {
+        report.render_pdf(None, None, None)
     });
 
     let (report_text, is_pdf) = match rendered.await {
@@ -508,7 +505,7 @@ struct CerebroAddReportTexQuery {
 }
 
 #[post("/cerebro/reports/tex")]
-async fn create_tex_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportTexQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn create_typst_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportTexQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
 
     if !auth_guard.user.roles.contains(&Role::Report) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -860,7 +857,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                 }))
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error in retrieving aggregated taxa with evidence", "data": serde_json::json!({"taxa": []})
         }))
     }
@@ -950,7 +947,7 @@ async fn filtered_taxa_summary_handler(data: web::Data<AppState>, schema: web::J
                 }))
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error in retrieving taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
         }))
     }
@@ -1046,7 +1043,7 @@ async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<Str
                 "status": "success", "message": "Retrieved sample overview data", "data": serde_json::json!({"sample_overview": sample_overview})
             }))
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error retrieving sample overview data", "data": serde_json::json!({"sample_overview": []})
         })),
     }
@@ -1086,7 +1083,7 @@ async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, que
                 })),
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error retrieving data models for requested sample", "data": serde_json::json!({"cerebro": []})
         })),
     }
@@ -1195,7 +1192,7 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json
                 })),
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error retrieving sample summaries for requested samples", "data": serde_json::json!({"summary": [], "csv": ""})
         })),
     }
@@ -1300,7 +1297,7 @@ async fn sample_description_handler(data: web::Data<AppState>, update: web::Json
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({
             "status": "success", "message": "Updated sample description", "data": serde_json::json!({})
         })),
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error updating sample description", "data": serde_json::json!({})
         })),
     }
@@ -1355,7 +1352,7 @@ async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>,
                 Err(err_response) => err_response
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error adding sample comment", "data": serde_json::json!({})
         })),
     }
@@ -1409,7 +1406,7 @@ async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<App
                 Err(err_response) => err_response
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error removing sample comments", "data": serde_json::json!({})
         })),
     }
@@ -1545,7 +1542,7 @@ async fn workflow_id_handler(data: web::Data<AppState>, id: web::Path<WorkflowId
                 ),
             }
         },
-        Err(err) =>  HttpResponse::InternalServerError().json(serde_json::json!({
+        Err(_) =>  HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error retrieving models by workflow", "data": serde_json::json!({"cerebro": []})
         })),
     }
@@ -1815,9 +1812,10 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(sample_qc_summary_handler)
        .service(sample_description_handler)
        .service(filtered_taxa_summary_handler)
-       .service(create_tex_report_handler)
+       .service(create_typst_report_handler)
        .service(get_report_from_storage_handler)
        .service(delete_stored_report_handler)
+       .service(create_pdf_report_handler)
        .service(status_handler);
 
     if config.security.components.comments {
@@ -1825,12 +1823,8 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
         // Comments on priority taxon decisions and submissions are disabled in the endpoints
         cfg.service(sample_comment_handler)
            .service(delete_sample_comment_handler);
-           
     }
 
-    #[cfg(feature = "pdf")]
-    {
-        cfg.service(create_pdf_report_handler);
-    }
+    
 
 }

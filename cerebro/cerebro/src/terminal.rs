@@ -1,6 +1,11 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
+use cerebro_workflow::terminal::Commands as WorkflowCommands;
+use cerebro_report::terminal::Commands as ReportCommands;
+use cerebro_client::terminal::Commands as ClientCommands;
+use cerebro_watcher::terminal::Commands as WatcherCommands;
+
 /// Cerebro: metagenomic diagnostic for clinical production
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -45,21 +50,22 @@ pub struct App {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     #[clap(subcommand)]
-    /// Pipeline processing
-    Pipeline(PipelineCommands),
+    /// File system watchers
+    Watcher(WatcherCommands),
     #[clap(subcommand)]
-    /// Report configurations and compiler
+    /// Workflow processing
+    Workflow(WorkflowCommands),
+    #[clap(subcommand)]
+    /// API terminal client
+    Client(ClientCommands),
+    #[clap(subcommand)]
+    /// Report compiler
     Report(ReportCommands),
-    #[clap(subcommand)]
-    /// Utility tools for pipeline and stack
-    Tools(ToolCommands),
     #[clap(subcommand)]
     /// Stack configuration and deployment
     Stack(StackCommands),
-    #[clap(subcommand)]
-    /// Application programming interface client
-    Api(ApiCommands),
 }
+
 
 /*
 ==================================
@@ -70,7 +76,9 @@ STACK CONFIGURATION AND DEPLOYMENT
 #[derive(Debug, Subcommand)]
 pub enum StackCommands {
     /// Deploy a stack configuration
-    Deploy(StackDeployArgs)
+    Deploy(StackDeployArgs),
+    /// Hash a password using the stack hash function
+    HashPassword(StackHashPasswordArgs)
 }   
 
 #[derive(Debug, Args)]
@@ -107,175 +115,13 @@ pub struct StackDeployArgs {
     /// Public or SSH-like repository URL for cloning into deployment
     #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
     pub git_url: String,
-
-    /// Use libgit2 bindings instead of system call (feature not stable)
-    #[cfg(feature = "libgit")]
-    #[clap(long, short = 'l')]
-    pub libgit: bool,
-    /// SSH private key for repository clone via SSH
-    #[cfg(feature = "libgit")]
-    #[clap(long, short = 'k', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY")]
-    pub git_ssh_key: Option<PathBuf>,
-    /// SSH private key passphrase 
-    #[cfg(feature = "libgit")]
-    #[clap(long, short = 'p', env = "CEREBRO_STACK_GIT_SSH_PRIVATE_KEY_PWD")]
-    pub git_ssh_pwd: Option<String>,
-}
-
-
-/*
-===============================
-PIPELINE PARSERS AND PROCESSORS
-===============================
-*/
-
-#[derive(Debug, Subcommand)]
-pub enum PipelineCommands {
-    /// Parse and process pipeline results
-    Process(PipelineProcessArgs),
-    /// Quality control table from processed results
-    Quality(PipelineQualityArgs),
-    /// Create a sample sheet from the input directory
-    SampleSheet(PipelineSampleSheetArgs)
 }
 
 #[derive(Debug, Args)]
-pub struct PipelineProcessArgs {
-    /// Pipeline sample results directory for processing
-    #[clap(long, short = 'i', num_args(0..))]
-    pub input: Vec<PathBuf>,
-    /// Taxonomy directory containing 'names.dmp' and 'nodes.dmp' used for classification (NCBI)
-    /// 
-    /// Must be present for classification processing, otherwise only
-    /// the quality control module is proccessed.
-    #[clap(long, short = 't')]
-    pub taxonomy: Option<PathBuf>,
-    /// Output file of processed sample database model (.json)
-    #[clap(long, short = 'o')]
-    pub output: PathBuf,
-    /// Optional sample identifier to use for output instead of result directory name
-    #[clap(long, short = 's')]
-    pub sample_id: Option<String>,
-
-}
-
-
-#[derive(Debug, Args)]
-pub struct PipelineQualityArgs {
-    /// Processed pipeline result samples (.json)
-    #[clap(long, short = 'i', num_args(0..))]
-    pub input: Vec<PathBuf>,
-    /// Output file for quality control table (.tsv)
-    #[clap(long, short = 'o')]
-    pub output: PathBuf,
-    /// Include header in quality control table
-    #[clap(long, short = 'H')]
-    pub header: bool,
-    /// Input mass of ERCC or EDCC for biomass calculations (in pg)
-    #[clap(long, short = 'e')]
-    pub ercc_mass: Option<f64>,
-
-}
-
-
-#[derive(Debug, Args)]
-pub struct PipelineSampleSheetArgs {
-    /// Processed pipeline result samples (.json)
-    #[clap(long, short = 'i', num_args(0..))]
-    pub input: Vec<PathBuf>,
-    /// Output sample sheet file (.csv)
-    #[clap(long, short = 'o')]
-    pub output: PathBuf,
-    /// Sample glob - pattern matching to find paired samples
-    /// 
-    /// The glob string to specify paired sample extensions should be in format: {forward_extension,reverse_extension}
-    /// where the wildcard specifies the sample identifier, for example: *_{R1,R2}.fastq.gz will match files
-    /// "Sample1_R1.fastq.gz" and "Sample1_R2.fastq.gz" to sample identifier "Sample1"
-    #[clap(long, short = 'g', default_value = "*_{R1_001,R2_001}.fastq.gz")]
-    pub glob: String,
-    /// Run identifier - if not provided uses input directory name
-    /// 
-    /// If you want to fill in custom run identifiers for each sample, 
-    /// you can provide an empty string ("") and edit the sample sheet 
-    /// manually.
-    #[clap(long, short = 'r')]
-    pub run_id: Option<String>,
-    /// Run date - if not provided uses current date (YYYYMMDD)
-    /// 
-    /// If you want to fill in custom run dates for each sample, 
-    /// you can provide an empty string ("") and edit the sample sheet 
-    /// manually.
-    #[clap(long, short = 'd')]
-    pub run_date: Option<String>,
-    /// Sample group - if not provided sample group designation is an empty string
-    /// 
-    /// Sample groups can be specified manually for larger runs containing
-    /// sampels from multiple experimental groups - these are later available
-    /// in the front-end application
-    #[clap(long, short = 's')]
-    pub sample_group: Option<String>,
-    /// Sample type - if not provided sample type designation is an empty string
-    /// 
-    /// Sample types can be specified manually for larger runs containing
-    /// sampels from multiple biological sources- these are later available
-    /// in the front-end application
-    #[clap(long, short = 't')]
-    pub sample_type: Option<String>,
-    /// ERCC input mass in picogram - if not provided input mass is 0
-    /// 
-    /// In the validation experiments, we test different input masses per sample.
-    /// Generally not needed and can be overwritten with options in the fixed
-    /// workflow settings later. Set to 25 pg for standard ERCC.
-    #[clap(long, short = 'e')]
-    pub ercc_input: Option<f64>,
-    /// Allow symlink target reading for glob file walking
-    #[clap(long, short = 'l')]
-    pub symlinks: bool
-}
-
-/*
-=======================
-REPORT TEMPLATE ENGINE
-======================
-*/
-
-#[derive(Debug, Subcommand)]
-pub enum ReportCommands {
-    /// Generate clinical reports from data and templates
-    Compile(ReportCompileArgs),
-}
-
-#[derive(Debug, Args)]
-pub struct ReportCompileArgs {
-    /// Output report LaTeX template
-    #[clap(long, short = 'o')]
-    pub output: PathBuf,
-    /// Compile LaTeX template into output report
-    #[cfg(feature = "pdf")]
-    #[clap(long, short = 'p')]
-    pub pdf: bool,
-    /// Base template configuration file (.toml)
-    #[clap(long, short = 'c')]
-    pub base_config: PathBuf,
-    /// Sample template configuration file (.toml)
-    #[clap(long, short = 's')]
-    pub sample_config: Option<Vec<PathBuf>>,
-    /// Complete: patient template configuration file (.toml)
-    #[clap(long, short = 'P')]
-    pub patient_config: Option<PathBuf>,
-    /// Partial: patient header template configuration file (.toml)
-    #[clap(long, short = 'H')]
-    pub patient_header_config: Option<PathBuf>,
-    /// Partial: patient result template configuration file (.toml)
-    #[clap(long, short = 'R')]
-    pub patient_result_config: Option<PathBuf>,
-}
-
-
-
-#[derive(Debug, Subcommand)]
-pub enum AnalysisCommands {
-
+pub struct StackHashPasswordArgs {
+    /// Password to hash
+    #[clap(long, short = 'p', env = "CEREBRO_STACK_HASH_PASSWORD")]
+    pub password: String
 }
 
 

@@ -167,8 +167,6 @@ pub async fn main() -> std::io::Result<()> {
             .bind((args.host, args.port))?
             .run()
             .await
-
         }
-        _ => Ok(())
     }
 }

@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize, Deserializer};
 use base64::{engine::general_purpose, Engine as _};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey};
 
-use crate::CRATE_VERSION;
+use crate::utils::CRATE_VERSION;
 
 use crate::stack::assets::{MongoInitTemplates, DockerTemplates, TraefikTemplates, CerebroTemplates};
-use crate::tools::modules::password::hash_password;
-use crate::api::{self, config::{SmtpConfig, TokenEncryptionConfig, ConfigError, SecurityComponentsConfig}};
+use crate::tools::password::hash_password;
+use cerebro_model::api::config::{SmtpConfig, TokenEncryptionConfig, ConfigError, SecurityComponentsConfig};
 
 #[derive(Error, Debug)]
 pub enum StackConfigError {
@@ -67,13 +67,7 @@ pub enum StackConfigError {
     #[error("failed to create pem format for public rsa key")]
     RsaPublicKeyPemNotGenerated(#[from] rsa::pkcs8::spki::Error),
     #[error("failed to parse template server configuration file")]
-    CerebroServerConfigNotParsed(#[from] api::config::ConfigError),
-    #[cfg(feature = "libgit")]
-    #[error("failed to clone remote git repository")]
-    RemoteRepositoryNotCloned(#[source] git2::Error),
-    #[cfg(feature = "libgit")]
-    #[error("failed to checkout repository")]
-    RemoteRepositoryNotCheckedOut(#[source] git2::Error)
+    CerebroServerConfigNotParsed(#[from] cerebro_model::api::config::ConfigError),
 }
 
 fn write_embedded_file(embedded_file: &EmbeddedFile, outfile: &PathBuf) -> Result<(), StackConfigError> {
@@ -592,7 +586,7 @@ impl Stack {
 
         log::info!("Read default server configuration");
         // Read the default server template configuration
-        let mut server_config = api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
+        let mut server_config = cerebro_model::api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
             .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;
 
     
@@ -764,7 +758,7 @@ impl Stack {
         let checkout = match (branch, revision) {
             (Some(b), None) => Some(b),
             (None, Some(r)) => Some(r),
-            (Some(b), Some(r)) => Some(r),  // prefer revision over branch if both supplied
+            (Some(_), Some(r)) => Some(r),  // prefer revision over branch if both supplied
             (None, None) => None
         };
 

@@ -15,18 +15,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
-use crate::utils::init_logger;
-use crate::terminal::{App, Commands};
-use crate::slack::{SlackMessage, SlackMessenger};
-use crate::watcher::watch_production;
-use crate::watcher::SlackConfig;
+use cerebro_watcher::utils::init_logger;
+use cerebro_watcher::terminal::{App, Commands};
+use cerebro_watcher::slack::{SlackMessage, SlackMessenger};
+use cerebro_watcher::watcher::watch_production;
+use cerebro_watcher::watcher::SlackConfig;
 
-mod error;
-mod slack;
-mod terminal;
-mod launcher;
-mod watcher;
-mod utils;
 
 
 fn main() -> anyhow::Result<()> {

@@ -1,23 +1,20 @@
 
-use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
-use thiserror::Error;
 use handlebars::Handlebars;
+use std::path::PathBuf;
 use std::fs;
-use cerebro_workflow::quality::QualityControlSummary;
 
+use typst::foundations::Smart;
+use typst::{eval::Tracer, layout::Abs};
+
+use cerebro_workflow::quality::QualityControlSummary;
 use cerebro_model::{
     api::cerebro::model::{CerebroId, PriorityTaxonDecision}, 
     api::cerebro::schema::ReportSchema, 
 };
 
-#[derive(Error, Debug)]
-pub enum ReportError {
-    #[error("Failed to open configuration file")]
-    TomlConfigFile(#[source] std::io::Error),
-    #[error("Failed to parse configuration")]
-    TomlConfigParse(#[from] toml::de::Error),
-}
+use crate::typst::TypstWrapperWorld;
+use crate::error::ReportError;
 
 // Template sub-sections - can be read from TOML
 
@@ -574,30 +571,41 @@ impl ClinicalReport {
             }
         }
     }
-    #[cfg(feature = "pdf")]
-    pub fn render_pdf(&self, file: Option<PathBuf>, template: Option<PathBuf>) -> Result<Vec<u8>, handlebars::RenderError> {
+    pub fn render_pdf(&self, output: Option<PathBuf>, output_template: Option<PathBuf>, output_svg: Option<PathBuf>) -> Result<Vec<u8>, handlebars::RenderError> {
 
-        let template_string = self.render_template(template)?;
-        let pdf_data: Vec<u8> = tectonic::latex_to_pdf(&template_string).expect(
-            "Rendering PDF with Tectonic failed; this is likely caused by an error in the template (LaTeX)."
-        );
-        
-        if let Some(file) = file {
-            fs::write(file.clone(), pdf_data.clone()).expect(
-                &format!("Failed to write PDF data to file: {}", file.display())
-            );
+        let current_dir: PathBuf = std::env::current_dir()?;
+
+        let template_string = self.render_template(output_template)?;
+
+        // Create Typst world with template as content:
+        let world = TypstWrapperWorld::new(current_dir.display().to_string(), template_string);
+
+        // Render document
+        let mut tracer = Tracer::default();
+        let document = typst::compile(&world, &mut tracer).expect("Error compiling typst.");
+
+        let pdf = typst_pdf::pdf(&document, Smart::Auto, None);
+
+        if let Some(path) = output {
+                fs::write(&path, &pdf).expect("Error writing PDF.");
+                
+        }
+        if let Some(path) = output_svg {
+            let svg_string = typst_svg::svg_merged(&document, Abs::pt(2.0));
+            fs::write(&path, &svg_string).expect("Error writing SVG.");
         }
 
-        Ok(pdf_data)
+        Ok(pdf)
     }
-    pub fn render_template(&self, file: Option<PathBuf>) -> Result<String, handlebars::RenderError> {
+
+    pub fn render_template(&self, output: Option<PathBuf>) -> Result<String, handlebars::RenderError> {
 
         let mut handlebars = Handlebars::new();
 
         handlebars.register_template_file(&self.config.template.name, &self.config.template.file_path)?;
         let content_template = handlebars.render(&self.config.template.name, &self.config)?;
 
-        if let Some(file) = file {
+        if let Some(file) = output {
             fs::write(file.clone(), content_template.clone()).expect(
                 &format!("Unable to write template to file: {}", file.display())
             );
