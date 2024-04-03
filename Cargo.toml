@@ -7,5 +7,6 @@ members = [
     "cerebro/stack/server",
     "cerebro/stack/client",
     "cerebro/stack/watcher",
+    "cerebro/stack/fs",
 ]
 resolver = "2"

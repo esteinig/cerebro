@@ -37,7 +37,7 @@ process IvarConsensus {
     if (fwd_aligned.size() > 0 && rev_aligned.size() > 0) {
 
         """
-        cerebro tools utils split --input $reference --outdir sequences/ 
+        cerebro workflow tools split-fasta --input $reference --outdir sequences/ 
         count=\$(find sequences/ | wc -l)
         
         if [ \$count -gt 2 ]

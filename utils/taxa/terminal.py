@@ -492,13 +492,21 @@ def create_qualitative_dataframe(
     for sample_name, quantitative_results in data.items():
         row = [sample_name]
 
+        labels_seen = []
         for result in quantitative_results:
             # Column headers if not already present
             if result.label not in column_names:
                 column_names.append(result.label)
-            row.append(int(getattr(result, field)))
+
+            if result.label in labels_seen:
+                continue
+            
+            row.append(getattr(result, field))
+            labels_seen.append(result.label)
+
         rows.append(row)
 
+    print(rows, column_names)
     df = pandas.DataFrame(rows, columns=column_names).set_index("Library").sort_index()
     
     return df
@@ -507,19 +515,28 @@ def create_qualitative_dataframe(
 def create_quantitative_dataframe(
     data: Dict[str, List[QuantitativeResult]],
     field: str = "present"
-):
+):  
+    
     column_names = ["Library"]
     rows = []
     for sample_name, quantitative_results in data.items():
         row = [sample_name]
-
+            
+        labels_seen = []
         for result in quantitative_results:
             # Column headers if not already present
             if result.label not in column_names:
                 column_names.append(result.label)
+            
+            if result.label in labels_seen:
+                continue
+            
             row.append(getattr(result, field))
+            labels_seen.append(result.label)
         rows.append(row)
 
+    print(rows)
+    print(column_names)
     df = pandas.DataFrame(rows, columns=column_names).set_index("Library").sort_index()
     
     return df

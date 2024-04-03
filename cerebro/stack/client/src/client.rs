@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::Write;
 use anyhow::Result;
+use cerebro_model::api::files::response::ListFilesResponse;
+use cerebro_model::api::files::response::RegisterFileResponse;
 use std::path::PathBuf;
 use itertools::Itertools;
 use reqwest::blocking::Client;
@@ -21,6 +23,7 @@ use cerebro_model::api::cerebro::model::CerebroFilterConfig;
 use cerebro_model::api::cerebro::schema::{SampleSummaryQcSchema, TaxaSummarySchema};
 use cerebro_model::api::teams::model::TeamDatabase;
 use cerebro_model::api::teams::schema::RegisterProjectSchema;
+use cerebro_model::api::files::schema::RegisterFileSchema;
 
 use crate::error::HttpClientError;
 
@@ -31,13 +34,16 @@ pub struct CerebroRoutes {
     pub auth_login_user: String,
     pub auth_refresh_token: String,
 
-    pub data_server_status: String,
     pub data_user_self: String,
     pub data_user_self_teams: String,
+
     pub data_cerebro_insert_model: String,
     pub data_cerebro_taxa_summary: String,
 
     pub team_project_create: String,
+
+    pub team_files_register: String,
+    pub team_files_list: String
 }
 impl CerebroRoutes {
     pub fn new(url: &str) -> Self  {
@@ -46,12 +52,14 @@ impl CerebroRoutes {
             auth_server_status: format!("{}/auth/status", url),
             auth_login_user: format!("{}/auth/login", url),
             auth_refresh_token: format!("{}/auth/refresh", url),
-            data_server_status: format!("{}/cerebro/status", url),
             data_user_self: format!("{}/users/self", url),
             data_user_self_teams: format!("{}/users/self/teams", url),
             data_cerebro_insert_model: format!("{}/cerebro", url),
             data_cerebro_taxa_summary: format!("{}/cerebro/taxa/summary", url),
             team_project_create: format!("{}/teams/project", url),
+
+            team_files_register: format!("{}/files/register", url),
+            team_files_list: format!("{}/files", url),
         }
     }
 }
@@ -149,11 +157,15 @@ impl CerebroClient {
         let response = self.client
             .get(&self.routes.server_status)
             .send()?;
-    
-        match response.status().is_success() {
-            true => println!("ok"),
-            false => return Err(HttpClientError::PingServer(format!("{}", response.status()), "Could not ping server".to_string()))
-        };
+
+        if response.status().is_success() {
+           log::info!("Cerebro API status: ok");
+        } else if response.status().is_server_error() {
+            return Err(HttpClientError::PingServer(format!("{:?}", response.status()), "server error".to_string()))
+        } else {
+            return Err(HttpClientError::PingServer(format!("{:?}", response.status()), "failed to ping server".to_string()))
+        }
+        
     
         Ok(())
     }
@@ -168,19 +180,10 @@ impl CerebroClient {
             .send()?;
     
         if !response.status().is_success() {
-            return Err(HttpClientError::PingServer(format!("{}", response.status()), "Could not ping auth server".to_string()))
-        };
-        
-        let response = self.client
-            .get(&self.routes.data_server_status)
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        if  !response.status().is_success() {
-            return Err(HttpClientError::PingServer(format!("{}", response.status()), "Could not ping data server".to_string()))
+            return Err(HttpClientError::PingServer(format!("{:?}", response.status()), "failed to ping server - are you logged in?".to_string()))
         };
 
-        println!("ok");
+        log::info!("Cerebro API status: ok");
         
         Ok(())
     }
@@ -257,7 +260,7 @@ impl CerebroClient {
     }
     pub fn upload_models(&self, models: &Vec<Cerebro>, team_name: &str, project_name: &str, db_name: Option<&String>) -> Result<(), HttpClientError> {
 
-        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_insert_model, team_name, project_name, db_name)?;
+        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_insert_model, team_name, Some(project_name), db_name)?;
 
         log::info!("Cerebro model upload to project `{}` for team `{}`", &project_name, &team_name);
 
@@ -330,6 +333,78 @@ impl CerebroClient {
         };
         Ok(())
     }
+    pub fn register_file(&self, register_file_schema: RegisterFileSchema, team_name: &str, db_name: &str) -> Result<(), HttpClientError> {
+
+        let urls = self.get_database_and_project_queries(
+            &self.routes.team_files_register, team_name, None, Some(&db_name.to_owned())
+        )?;
+
+        for url in &urls {
+            log::info!(
+                "Registering file {} in database {} for team {}", &register_file_schema.name, &db_name, &team_name
+            );
+
+            let response = self.client.post(url)
+                .header(AUTHORIZATION, self.get_token_bearer(None))
+                .json(&register_file_schema)
+                .send()?;
+
+            let status = response.status();
+    
+            match status.is_success() {
+                true => {
+                    log::info!("File registered successfully!");
+                },
+                false => {
+                    let error_response: RegisterFileResponse = response.json().map_err(|_| {
+                        HttpClientError::RegisterFileResponseFailure(format!("{}", status), String::from("failed to extract response data"))
+                    })?;
+                    log::error!("Data retrieval failed: {}", &status);
+                    return Err(HttpClientError::RegisterFileResponseFailure(format!("{}", status), error_response.message))
+                }
+            }
+        }       
+        Ok(())
+    }
+    pub fn list_files(&self, team_name: &str, db_name: &str, page: u32, limit: u32) -> Result<(), HttpClientError> {
+
+        let urls = self.get_database_and_project_queries(
+            &self.routes.team_files_list, team_name, None, Some(&db_name.to_owned())
+        )?;
+
+        for url in &urls {
+            log::info!(
+                "Listing {limit} files on page {page} in database {} for team {}", &db_name, &team_name, 
+            );
+
+            let response = self.client.get(
+                format!("{url}&page={page}&limit={limit}")
+            )
+                .header(AUTHORIZATION, self.get_token_bearer(None))
+                .send()?;
+
+            let status = response.status();
+    
+            match status.is_success() {
+                true => {
+                    let response: ListFilesResponse = response.json().map_err(|_| {
+                        HttpClientError::ListFilesResponseFailure(format!("{}", status), String::from("failed to extract response data"))
+                    })?;
+                    for file in response.data {
+                        println!("{}\t{}\t{}\t{}\t{:.0} MB\t{}", file.date, file.watcher.name, file.watcher.location, file.fid, file.size_mb(), file.name)
+                    }
+                },
+                false => {
+                    let error_response: ListFilesResponse = response.json().map_err(|_| {
+                        HttpClientError::ListFilesResponseFailure(format!("{}", status), String::from("failed to extract response data"))
+                    })?;
+                    log::error!("Data retrieval failed: {}", &status);
+                    return Err(HttpClientError::ListFilesResponseFailure(format!("{}", status), error_response.message))
+                }
+            }
+        }       
+        Ok(())
+    }
     pub fn taxa_summary(
         &self, 
         team_name: &str, 
@@ -359,7 +434,7 @@ impl CerebroClient {
             }
         };
 
-        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, project_name, db_name)?;
+        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
 
         if urls.len() > 1 {
             log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
@@ -426,7 +501,7 @@ impl CerebroClient {
             sample_ids: sample_ids.clone()
         };
 
-        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, project_name, db_name)?;
+        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
 
         if urls.len() > 1 {
             log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
@@ -503,7 +578,7 @@ impl CerebroClient {
 
         get_database_by_name(&team.databases, db_name)
     }
-    pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: &str, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
+    pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: Option<&str>, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
 
         let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
         
@@ -546,9 +621,15 @@ impl CerebroClient {
                     continue
                 }
             }
-            let project = get_project_by_name(&database.projects, &project_name)?;
-            urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
-
+            match project_name {
+                Some(name) => {
+                    let project = get_project_by_name(&database.projects, name)?;
+                    urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
+                },
+                None => {
+                    urls.push(format!("{}?db={}", &route, database.id))
+                }
+            }
         }    
 
         Ok(urls)
@@ -585,3 +666,4 @@ fn get_database_by_name(databases: &Vec<TeamDatabase>, db_name: &str) -> Result<
         Err(HttpClientError::InsertModelDatabaseParameter(valid_database_name_string))
     }
 }
+

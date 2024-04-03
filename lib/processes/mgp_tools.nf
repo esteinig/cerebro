@@ -16,7 +16,7 @@ process Anonymize {
     uuid = UUID.randomUUID().toString().substring(0, 8)
 
     """
-    cerebro tools utils anonymize -i $forward -i $reverse -o ${uuid}_R1.fq.gz -o ${uuid}_R2.fq.gz --fake-illumina-header
+    cerebro workflow tools anonymize -i $forward -i $reverse -o ${uuid}_R1.fq.gz -o ${uuid}_R2.fq.gz --fake-illumina-header
     """
 
 }
@@ -39,11 +39,11 @@ process MashDatabaseSubset {
 
     if (params.subset_group_index) {
         """
-        cerebro tools utils subset --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --group-index $params.subset_group_index --group-sep "$params.subset_group_sep" --output ${idx_name}_subset.fasta 
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --group-index $params.subset_group_index --group-sep "$params.subset_group_sep" --output ${idx_name}_subset.fasta 
         """
     } else {
         """
-        cerebro tools utils subset --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --output ${idx_name}_subset.fasta
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --output ${idx_name}_subset.fasta
         """
     }
 

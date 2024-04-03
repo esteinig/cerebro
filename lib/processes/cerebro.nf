@@ -14,7 +14,7 @@ process PingServer {
     script:
 
     """
-    cerebro --token-env $params.cerebro_token_env --api-url $params.cerebro_api_url ping-api
+    cerebro --token-env $params.cerebro_token_env --api-url $params.cerebro_api_url client ping-api
     """
 
 }
@@ -35,7 +35,7 @@ process ParseSample {
     script:
 
     """
-    cerebro parse-sample --input . --sample-id ${id} --taxonomy $taxonomy --output ${id}.json 
+    cerebro workflow parse-sample --input . --sample-id ${id} --taxonomy $taxonomy --output ${id}.json 
     """
 
 }
@@ -58,7 +58,7 @@ process UploadSample {
     script:
 
     """
-    cerebro --token-env $params.cerebro_token_env --api-url $params.cerebro_api_url insert-sample --input $sample_json --sample-sheet $sample_sheet --workflow-config $config_json --team-name $params.cerebro_team_name --project-name $params.cerebro_project_name
+    cerebro --token-env $params.cerebro_token_env --api-url $params.cerebro_api_url client upload --input $sample_json --sample-sheet $sample_sheet --workflow-config $config_json --team-name $params.cerebro_team_name --project-name $params.cerebro_project_name
     """
 
 }
@@ -101,9 +101,9 @@ process ProcessVirusAlignment {
 
         if [ \$cov_count -gt 0 ]; then
             cat *.txt > ${id}.coverage.tsv
-            cerebro tools virus scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --consensus ${id}.consensus.fasta --coverage ${id}.coverage.tsv --output ${id}.tsv -H
+            cerebro workflow tools scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --consensus ${id}.consensus.fasta --coverage ${id}.coverage.tsv --output ${id}.tsv -H
         else
-            cerebro tools virus scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --consensus ${id}.consensus.fasta --output ${id}.tsv -H
+            cerebro workflow tools scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --consensus ${id}.consensus.fasta --output ${id}.tsv -H
         fi
 
     else
@@ -111,9 +111,9 @@ process ProcessVirusAlignment {
 
         if [ \$cov_count -gt 0 ]; then
             cat *.txt > ${id}.coverage.tsv
-            cerebro tools virus scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --coverage ${id}.coverage.tsv --output ${id}.tsv -H
+            cerebro workflow tools scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --coverage ${id}.coverage.tsv --output ${id}.tsv -H
         else
-            cerebro tools virus scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --output ${id}.tsv -H
+            cerebro workflow tools scan-remap --id ${id} --db ${db_name} --scan align__vircov__${db_name}__scan --remap align__vircov__${db_name}__remap --output ${id}.tsv -H
         fi
 
     fi    

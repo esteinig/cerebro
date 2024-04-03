@@ -94,6 +94,7 @@ def complete_msg(){
         - scrubby        0.3.0      https://github.com/esteinig/scrubby 
         - rasusa         0.7.1      https://github.com/mbhall88/rasusa
         - cnvkit         0.9.10     https://github.com/etal/cnvkit
+        - nanoq          0.10.0     https://github.com/esteinig/nanoq
 
     Bibtex citations file can be found in the output directory for your convenience;
     please include citations of tools used in your workflow run when citing Cerebro
@@ -106,7 +107,7 @@ def complete_msg(){
         - needletail                 https://github.com/onecodex/needletail
         - taxonomy                   https://github.com/onecodex/taxonomy 
         - niffler                    https://github.com/luizirber/niffler 
-        - tectonic                   https://github.com/tectonic-typesetting/tectonic 
+        - typst                      https://github.com/typst/typst
 
     ${c_indigo}=============================================================${c_reset}
 

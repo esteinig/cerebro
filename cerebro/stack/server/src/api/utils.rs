@@ -34,6 +34,7 @@ pub fn get_teams_db_collection<T>(data: &Data<AppState>, db_name: &MongoDatabase
     let collection_name = match collection {
         "logs" => &data.env.database.names.team_database_logs_collection,
         "reports" => &data.env.database.names.team_database_reports_collection,
+        "files" => &data.env.database.names.team_database_files_collection,
         _ => unimplemented!("Collection is not supported. Something went wrong in your code, dude!")
     };
     db.collection(collection_name)

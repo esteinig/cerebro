@@ -19,7 +19,10 @@ use cerebro_workflow::{
     sample::WorkflowSample, 
     error::{WorkflowError, WorkflowUtilityError}
 };
+
 use crate::api::users::model::{UserId, User};
+use crate::api::files::model::{SeaweedFile, SeaweedReads};
+
 use crate::api::cerebro::schema::{
     PriorityTaxonDecisionSchema, 
     SampleCommentSchema, 
@@ -125,23 +128,6 @@ Sample configuration
 pub type SampleId = String;
 pub type Tag = String;
 
-pub type SeaweedId = String;
-
-// A struct representing the file system access to 
-// the input and workflow files for this library
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileStorage {
-    pub raw_reads: Option<SeaweedReads>,
-    pub qc_reads: Option<SeaweedReads>,
-    pub results: Option<SeaweedId>,  // for now compressed archive - implement more differentiated file get + contig/classified read access late
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SeaweedReads {
-    pub id_reads_1: Option<SeaweedId>,
-    pub id_reads_2: Option<SeaweedId>
-}
-
 // A struct representing a biological sample data configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SampleConfig {
@@ -177,6 +163,7 @@ impl SampleConfig {
 }
 
 pub type ReportId = String;
+
 // A struct representing an entry for a report to be stored
 // in the models that were reported on
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -267,6 +254,18 @@ fn get_sample_regex_matches(file_name: &String)-> Result<(String, Vec<String>), 
         library_tags.push(tag)
     }
     Ok((sample_id, library_tags))
+}
+
+
+
+
+// A struct representing the file system access to 
+// the input and workflow files for this library
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileStorage {
+    pub raw_reads: Option<SeaweedReads>,          // input reads including  host background
+    pub qc_reads: Option<SeaweedReads>,           // reads after qc and background depletion - add additional human depletion after contig assembly
+    pub wf_data: Option<SeaweedFile>,             // for now compressed archive - implement more differentiated file get + contig/classified read access late
 }
 
 
@@ -632,7 +631,7 @@ pub struct Cerebro {
     pub id: CerebroId,                      // the unique identifier of this model in the database
     pub name: String,                       // the basename of the sample as processed in the workflow
 
-    pub files: Option<FileStorage>,         // the file storage configuration if running in production
+    pub fs: Option<FileStorage>,            // the file storage configuration if running in production
 
     pub run: RunConfig,                     // the configuration of the sequence run
     pub sample: SampleConfig,               // the configuration of the biological sample
@@ -659,7 +658,7 @@ impl Cerebro {
                     schema_version: format!("{}", SCHEMA_VERSION),
                     id: uuid::Uuid::new_v4().to_string(),
                     name: workflow_sample.id.to_owned(),
-                    files: None,
+                    fs: None,
                     run:  RunConfig::from(&SampleSheet::from(&sample_sheet)?, &workflow_sample)?, 
                     sample: SampleConfig::from(&SampleSheet::from(&sample_sheet)?, &workflow_sample)?, 
                     workflow: WorkflowConfig::from(workflow_config)?,
@@ -678,7 +677,6 @@ impl Cerebro {
         write!(file, "{}", json_string)?;
         Ok(())
     }
-
     pub fn update_sample_id(&self, sample_id: &str, sample_tags: Option<Vec<String>>) -> Self {
        
        // TODO: Updates sample identifier throughout model

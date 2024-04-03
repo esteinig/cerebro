@@ -272,13 +272,12 @@ pub enum PipelineCommands {
 
 #[derive(Debug, Args)]
 pub struct PipelineProcessArgs {
-    /// Pipeline sample results directory for processing
+    /// Pipeline sample results directories for processing
     #[clap(long, short = 'i', num_args(0..))]
     pub input: Vec<PathBuf>,
     /// Taxonomy directory containing 'names.dmp' and 'nodes.dmp' used for classification (NCBI)
     /// 
-    /// Must be present for classification processing, otherwise only
-    /// the quality control module is proccessed.
+    /// Must be present for taxonomic processing, otherwise only the quality control module is proccessed.
     #[clap(long, short = 't')]
     pub taxonomy: Option<PathBuf>,
     /// Output file of processed sample database model (.json)
@@ -287,7 +286,6 @@ pub struct PipelineProcessArgs {
     /// Optional sample identifier to use for output instead of result directory name
     #[clap(long, short = 's')]
     pub sample_id: Option<String>,
-
 }
 
 

@@ -34,6 +34,12 @@ pub enum HttpClientError {
     /// Represents failure to retrieve taxa summary data
     #[error("{0} - {1}")]
     TaxaSummaryDataResponseFailure(String, String),
+    /// Represents failure to retrieve file registration response
+    #[error("{0} - {1}")]
+    RegisterFileResponseFailure(String, String),
+    /// Represents failure to retrieve file listing response
+    #[error("{0} - {1}")]
+    ListFilesResponseFailure(String, String),
     /// Represents failure to obtain user teams
     #[error("{0} - {1}")]
     UserTeamsResponseFailure(String, String),

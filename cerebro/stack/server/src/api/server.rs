@@ -12,6 +12,8 @@ use crate::api::auth::handler::auth_config;
 use crate::api::users::handler::user_config;
 use crate::api::teams::handler::team_config;
 use crate::api::cerebro::handler::cerebro_config;
+use crate::api::files::handler::files_config;
+
 use crate::terminal::{App as Cli, Commands};
 
 /*
@@ -159,6 +161,7 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(user_config)
                     .configure(team_config)
                     .configure(logs_config)
+                    .configure(files_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
                     .wrap(Logger::default())

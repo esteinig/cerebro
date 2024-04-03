@@ -60,6 +60,9 @@ impl DataAccessQuery {
                     (Some(db), Some(project)) => {
                         Self { db: Some(db.to_owned()), project: Some(project.to_owned())  }
                     },
+                    (Some(db), None) => {
+                        Self { db: Some(db.to_owned()), project: None  }  // TODO: check security
+                    },
                     _ => Self { db: None, project: None }
                 }
             },
@@ -67,7 +70,7 @@ impl DataAccessQuery {
         }
     }
     pub fn is_valid(&self) -> bool {
-        self.db.is_some() && self.project.is_some()
+        self.db.is_some()
     }
 }
 
@@ -274,7 +277,7 @@ impl FromRequest for JwtUserMiddleware {
                 let user_id = user.id.clone();
 
                 // If we received valid data query parameters for a data access endpoint, check 
-                // access of authorized user to the requested team database and project
+                // access of authorized user to the requested team database and/or project
                 if data_access_query.is_valid() {
 
                     let team_result = async move {
@@ -291,29 +294,30 @@ impl FromRequest for JwtUserMiddleware {
                             }
                         };
 
-                        let project_query = match &data_access_query.project {
-                            Some(query) => query,
-                            None => {
-                                let json_error = ErrorResponse {
-                                    status: "fail".to_string(),
-                                    message: "No project query specified".to_string(),
-                                };
-                                return Err(ErrorBadRequest(json_error));
-                            }
-                        };
-
                         // Database connection and user id query
                         let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
 
-                        let query_result = team_collection
-                            .find_one(mongodb::bson::doc! {
-                                "$and": [
-                                    { "users": &user_id },
-                                    { "databases.id": &database_query }, 
-                                    { "databases.projects.id": &project_query } 
-                                ]
-                            }, None)
-                            .await;
+                        let query_result = match &data_access_query.project {
+                            Some(project) => {
+                                team_collection.find_one(mongodb::bson::doc! {
+                                    "$and": [
+                                        { "users": &user_id },
+                                        { "databases.id": &database_query }, 
+                                        { "databases.projects.id": &project } 
+                                    ]
+                                }, None)
+                                .await
+                            },
+                            None => {
+                                team_collection.find_one(mongodb::bson::doc! {
+                                    "$and": [
+                                        { "users": &user_id },
+                                        { "databases.id": &database_query }, 
+                                    ]
+                                }, None)
+                                .await
+                            }
+                        };
                         
                         match query_result {
                             Ok(Some(team)) => Ok(team),

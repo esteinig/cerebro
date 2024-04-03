@@ -6,3 +6,4 @@ pub mod teams;
 pub mod email;
 pub mod logs;
 pub mod utils;
+pub mod files;
