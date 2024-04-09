@@ -184,7 +184,7 @@ fn check_unique_sample_id(entries: &Vec<SampleSheetEntry>) -> Result<(), Workflo
 }
 
 // A helper function to get paired files from a suitable glob match
-fn get_paired_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool) -> Result<HashMap<String, Vec<PathBuf>>, WorkflowUtilityError> {
+pub fn get_paired_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool) -> Result<HashMap<String, Vec<PathBuf>>, WorkflowUtilityError> {
    
     let glob = Glob::new(paired_glob).map_err(|_| WorkflowUtilityError::GlobCreate(paired_glob.to_string()))?;
 

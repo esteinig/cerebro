@@ -1,18 +1,3 @@
-// Cerebro: metagenomic and -transcriptomic diagnostics for clinical production environments
-// Copyright (C) 2023  Eike Steinig
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
 use anyhow::Result;
@@ -52,10 +37,10 @@ fn main() -> Result<()> {
         },           
         Commands::Upload( args ) => {
 
-            log::info!("Checking availability of authenticated Cerebro API {}", &cli.url);
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
             api_client.ping_servers()?;
 
-            log::info!("Checking availability of SeaweedFS master at {}", &cli.fs_url);
+            log::info!("Checking status of SeaweedFS master at {}", &cli.fs_url);
             fs_client.ping_status()?;
 
             log::info!("Starting file processing and upload");

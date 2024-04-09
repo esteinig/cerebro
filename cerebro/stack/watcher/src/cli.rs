@@ -1,18 +1,3 @@
-// Cerebro: metagenomic and -transcriptomic diagnostics for clinical production environments
-// Copyright (C) 2023  Eike Steinig
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
 use cerebro_watcher::utils::init_logger;
@@ -38,12 +23,19 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Watch( args ) => {
 
+            let slack_config = match (&args.slack_channel, &args.slack_token) {
+                (Some(channel), Some(token)) => Some(
+                    SlackConfig { channel: channel.to_string(), token: token.to_string() }
+                ),
+                _ => None
+            };
+
             if let Err(error) = watch_production(
                 &args.path, 
                 std::time::Duration::from_secs(args.interval),
                 std::time::Duration::from_secs(args.timeout),
                 std::time::Duration::from_secs(args.timeout_interval),
-                SlackConfig { channel: args.slack_channel.clone(), token: args.slack_token.clone() }
+                slack_config
             ) {
                 log::error!("Error: {error:?}");
             }

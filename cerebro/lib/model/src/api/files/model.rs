@@ -15,7 +15,9 @@ pub type SeaweedFileId = String;
 pub struct WatcherConfig {
     pub id: String,
     pub name: String,
-    pub location: String
+    pub location: String,
+    pub cerebro_team_name: String,
+    pub cerebro_db_name: String
 }
 
 impl Default for WatcherConfig {
@@ -23,7 +25,9 @@ impl Default for WatcherConfig {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name: "Eye of Sauron".to_string(),
-            location: "Barad-dûr".to_string()
+            location: "Barad-dûr".to_string(),
+            cerebro_db_name: "CNS".to_string(),
+            cerebro_team_name: "CNS".to_string(),
         }
     }
 }
@@ -36,7 +40,7 @@ pub struct SeaweedFile {
     pub hash: String,
     pub fid: SeaweedFileId,
     pub size: u64,
-    pub watcher: WatcherConfig
+    pub watcher: WatcherConfig,
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {

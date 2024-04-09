@@ -18,5 +18,4 @@ pub fn get_latest_files_paginated_pipeline(page: i64, limit: i64) -> Vec<Documen
             "$limit": limit
         }
     ]
-
 }

@@ -1,5 +1,5 @@
 // Cerebro: metagenomic and -transcriptomic diagnostics for clinical production environments
-// Copyright (C) 2023  Eike Steinig
+// Copyright (C) 2024  Eike Steinig
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -179,13 +179,21 @@ fn main() -> anyhow::Result<()> {
                     ).expect("Failed to send message");
                 },
                 cerebro_watcher::terminal::Commands::Watch( args ) => {
-        
+                    
+
+                    let slack_config = match (&args.slack_channel, &args.slack_token) {
+                        (Some(channel), Some(token)) => Some(
+                            cerebro_watcher::watcher::SlackConfig { channel: channel.to_string(), token: token.to_string() }
+                        ),
+                        _ => None
+                    };
+
                     if let Err(error) = cerebro_watcher::watcher::watch_production(
                         &args.path, 
                         std::time::Duration::from_secs(args.interval),
                         std::time::Duration::from_secs(args.timeout),
                         std::time::Duration::from_secs(args.timeout_interval),
-                        cerebro_watcher::watcher::SlackConfig { channel: args.slack_channel.clone(), token: args.slack_token.clone() }
+                        slack_config
                     ) {
                         log::error!("Error: {error:?}");
                     }
