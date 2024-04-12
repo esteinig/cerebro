@@ -19,6 +19,7 @@ admin_database_logs_collection    = 'logs'
 team_database_logs_collection     = 'logs'
 team_database_reports_collection  = 'reports'
 team_database_files_collection    = 'files'
+team_database_stage_collection    = 'stage'
 
 [security.components]
 email                           = false

@@ -44,6 +44,7 @@ pub struct DatabaseNameConfig {
     pub team_database_reports_collection: String,
     // Teams database files collection
     pub team_database_files_collection: String,
+    pub team_database_stage_collection: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

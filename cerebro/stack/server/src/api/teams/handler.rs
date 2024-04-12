@@ -164,14 +164,25 @@ async fn register_team_database_project_handler(
 
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
-            "status": "fail", "message": "You do not have permission to create a new team database", "data": serde_json::json!({"team_db": []})
+            "status": "fail", "message": "You do not have permission to create a new team project", "data": serde_json::json!({})
+        }))
+    }
+
+    if [
+        data.env.database.names.team_database_logs_collection.clone(),
+        data.env.database.names.team_database_reports_collection.clone(),
+        data.env.database.names.team_database_files_collection.clone(),
+        data.env.database.names.team_database_stage_collection.clone(),
+    ].contains(&body.project_mongo_name) {
+        return HttpResponse::Forbidden().json(serde_json::json!({
+            "status": "fail", "message": format!("Project collection name not allowed: {}",  body.project_mongo_name), "data": serde_json::json!({})
         }))
     }
 
     let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
 
     // Check if team exists already using its team name OR
-    // its database field (must be unique)
+    // its database name field (must be unique)
     let user_team = match team_collection
         .find_one(doc! { 
             "$and": [
@@ -182,12 +193,12 @@ async fn register_team_database_project_handler(
         }, None)
         .await
     {
-        Ok(None) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail", "message": format!("Failed to find user team ({}) with database ({})", &query.team_name, &query.db_name), "data": serde_json::json!({"team_db": []})}),  // not informative 
-        ),
         Ok(Some(team)) => team,
+        Ok(None) => return HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "fail", "message": format!("Failed to find team ({}) with database ({})", &query.team_name, &query.db_name), "data": serde_json::json!({})}),  // not informative 
+        ),
         Err(_) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": "Failed to retrieve user team", "data": serde_json::json!({"team_db": []})}),  // not informative 
+            serde_json::json!({"status": "error","message": "Failed to retrieve team with database", "data": serde_json::json!({})}),  // not informative 
         )
     };
 
@@ -205,10 +216,10 @@ async fn register_team_database_project_handler(
 
     match team_collection.update_one(doc! { "id": user_team.id}, update, project_update_options).await {
         Ok(_) => {
-            let json_response = serde_json::json!({"status": "success", "message": "Added team project",  "data": serde_json::json!({"team_db": &new_project})});
+            let json_response = serde_json::json!({"status": "success", "message": "Added project to team database", "data": serde_json::json!({"team_project": &new_project})});
             HttpResponse::Ok().json(json_response)
         },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": "Failed to register project",  "data": serde_json::json!({"team_db": &new_project})}))
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": "Failed to register project with team database", "data": serde_json::json!({"team_project": &new_project})}))
     }
 
 }
