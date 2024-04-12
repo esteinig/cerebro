@@ -218,7 +218,9 @@ pub fn get_paired_files(directory: &Path, paired_glob: &str, single: bool, symli
         },
         true => paired_files
     };
-    log::info!("{:?}", paired_files);
+
+    log::info!("{:#?}", paired_files);
+    
     Ok(paired_files)
 }
 
