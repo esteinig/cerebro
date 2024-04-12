@@ -16,8 +16,8 @@ pub struct WatcherConfig {
     pub id: String,
     pub name: String,
     pub location: String,
-    pub cerebro_team_name: String,
-    pub cerebro_db_name: String
+    pub team_name: String,
+    pub db_name: String
 }
 
 impl Default for WatcherConfig {
@@ -26,8 +26,8 @@ impl Default for WatcherConfig {
             id: uuid::Uuid::new_v4().to_string(),
             name: "Eye of Sauron".to_string(),
             location: "Barad-dûr".to_string(),
-            cerebro_db_name: "CNS".to_string(),
-            cerebro_team_name: "CNS".to_string(),
+            db_name: "CNS".to_string(),
+            team_name: "CNS".to_string(),
         }
     }
 }
@@ -35,6 +35,8 @@ impl Default for WatcherConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeaweedFile {
     pub id: String,
+    pub run_id: Option<String>,
+    pub sample_id: Option<String>,
     pub date: String,
     pub name: String,
     pub hash: String,
@@ -46,6 +48,8 @@ impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {
         Self {
             id: register_file_schema.id.clone(),
+            run_id: register_file_schema.run_id.clone(),
+            sample_id: register_file_schema.sample_id.clone(),
             date: register_file_schema.date.clone(),
             name: register_file_schema.name.clone(),
             hash: register_file_schema.hash.clone(),

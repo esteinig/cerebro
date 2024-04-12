@@ -14,12 +14,12 @@ process PingServer {
     script:
 
     """
-    cerebro --token-env $params.cerebro_token_env --api-url $params.cerebro_api_url client ping-api
+    cerebro --token-env $params.production.api.token --api-url $params.production.api.url client ping-api
     """
 
 }
 
-process ParseSample {
+process ProcessSamples {
 
     publishDir "$params.outdir/cerebro", mode: "copy", pattern: "${id}.json"
 
@@ -35,7 +35,7 @@ process ParseSample {
     script:
 
     """
-    cerebro workflow parse-sample --input . --sample-id ${id} --taxonomy $taxonomy --output ${id}.json 
+    cerebro workflow process --input $results --sample-id ${id} --taxonomy $taxonomy --output ${id}.json 
     """
 
 }
@@ -57,8 +57,11 @@ process UploadSample {
 
     script:
 
+
+
     """
-    cerebro --token-env $params.cerebro_token_env --api-url $params.cerebro_api_url client upload --input $sample_json --sample-sheet $sample_sheet --workflow-config $config_json --team-name $params.cerebro_team_name --project-name $params.cerebro_project_name
+
+    cerebro --token-env  $params.production.api.toke --api-url $params.production.api.url client upload --input $sample_json --sample-sheet $sample_sheet --workflow-config $config_json --team-name $params.cerebro_team_name --project-name $params.cerebro_project_name
     """
 
 }

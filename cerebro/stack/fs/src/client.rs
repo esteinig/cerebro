@@ -77,6 +77,8 @@ impl FileSystemClient {
         files: &Vec<PathBuf>,
         team_name: &str,
         db_name: &str,
+        run_id: &Option<String>,
+        sample_id: &Option<String>,
         upload_config: UploadConfig,
         watcher_config: WatcherConfig,
     ) -> Result<(), FileSystemError> {
@@ -87,7 +89,7 @@ impl FileSystemClient {
                 return Err(FileSystemError::FileNotExist(file.display().to_string()));
             }
 
-            log::info!("Generating file hash with BLAKE3 hashing algorithm");
+            log::info!("Generating file hash with BLAKE3: {}", file.display());
             let file_hash = fast_file_hash(&file)?;
 
             log::info!("Uploading file to SeaweedFS storage");
@@ -106,6 +108,8 @@ impl FileSystemClient {
 
             let file_schema = RegisterFileSchema {
                 id: uuid::Uuid::new_v4().to_string(),
+                run_id: run_id.clone(),
+                sample_id: sample_id.clone(),
                 date: Utc::now().to_string(),
                 name: upload_response.file_name,
                 hash: file_hash,
@@ -129,11 +133,12 @@ impl FileSystemClient {
         files: &HashMap<String, Vec<PathBuf>>,
         team_name: &str,
         db_name: &str,
+        run_id: Option<String>,
         upload_config: UploadConfig,
         watcher_config: WatcherConfig,
     ) -> Result<(), FileSystemError> {
 
-        for (file_id, files) in files { 
+        for (sample_id, files) in files { 
 
             for file in files {
                 if !file.exists() {
@@ -159,6 +164,8 @@ impl FileSystemClient {
 
                 let file_schema = RegisterFileSchema {
                     id: uuid::Uuid::new_v4().to_string(),
+                    run_id: run_id.clone(),
+                    sample_id: Some(sample_id.clone()),
                     date: Utc::now().to_string(),
                     name: upload_response.file_name,
                     hash: file_hash,
@@ -166,6 +173,7 @@ impl FileSystemClient {
                     size: upload_response.size,
                     watcher: watcher_config.clone()
                 };
+                log::info!("{:#?}", file_schema);
 
                 log::info!("Registering file with Cerebro API");
                 self.api_client.register_file(

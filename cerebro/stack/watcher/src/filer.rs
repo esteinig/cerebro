@@ -126,6 +126,7 @@ impl WatchFiler {
             None => return Err(WatchFilerError::PathBaseName(path_string))
         };
 
+
        let slack = match slack_config {
             Some(slack_config) => {
                 // Slack notification setup
@@ -197,6 +198,7 @@ impl WatchFiler {
             return Ok(())
         }
 
+
         log::info!("[{watcher_name}@{watcher_loc}::{run_id}] Uploading and registering files with Cerebro FS API");
 
         log::info!("Starting file processing and upload...");
@@ -204,6 +206,7 @@ impl WatchFiler {
             &files,  
             team_name,
             db_name,
+            Some(run_id),
             UploadConfig::default(),
             WatcherConfig::default()
         )?;

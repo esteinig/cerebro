@@ -227,6 +227,12 @@ interface LogsRoutes {
 }
 
 
+interface FilesRoutes {
+    getFiles: string
+}
+
+
+
 
 /**
  * Cerebro API Routes
@@ -242,6 +248,7 @@ export class Routes {
     users: UserRoutes;
     teams: TeamRoutes;
     logs: LogsRoutes;
+    files: FilesRoutes;
     cerebro: CerebroRoutes;
 
     constructor(apiUrl: string) {
@@ -250,6 +257,7 @@ export class Routes {
         let userRoute = `${apiUrl}/users`;
         let teamRoute = `${apiUrl}/teams`;
         let logsRoute = `${apiUrl}/logs`;
+        let filesRoute = `${apiUrl}/files`;
         let cerebroRoute = `${apiUrl}/cerebro`;
 
         this.auth = {
@@ -301,6 +309,10 @@ export class Routes {
         }
         this.logs = {
             admin: `${logsRoute}/admin`
+        }
+
+        this.files = {
+            getFiles: `${filesRoute}`
         }
     }
 }

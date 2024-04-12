@@ -96,8 +96,8 @@ pub fn watch_production<P: AsRef<Path>>(watch_path: P, interval: Duration, timeo
                                                     log::warn!("[{}@{}] Failed to validate inputs (error: {})", watch_cfg.name, watch_cfg.location, err.to_string())
                                                 } else {
                                                     if let Err(err) = filer.upload_and_register_illumina_pe(
-                                                        &watch_cfg.cerebro_team_name, 
-                                                        &watch_cfg.cerebro_db_name,
+                                                        &watch_cfg.team_name, 
+                                                        &watch_cfg.db_name,
                                                         "*_{R1,R2}.fastq.gz",
                                                         false,
                                                         true

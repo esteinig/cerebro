@@ -41,10 +41,10 @@ services:
     restart: unless-stopped
     {{#if dev }}
     # Development run server - DO NOT RUN IN PRODUCTION
-    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && npm run dev'
+    command: npm run dev
     {{else}}
     # Production run of build - show latest tag, branch, commit of deployed repository
-    command: bash -c 'export PUBLIC_CEREBRO_APP_REVISION="$(git -C /home/node/cerebro name-rev --tags --name-only $(git -C /home/node/cerebro rev-parse HEAD)) @ $(git -C /home/node/cerebro rev-parse --abbrev-ref HEAD) $(git -C /home/node/cerebro show --oneline -s |  cut -d" " -f1)" && node -r dotenv/config build'
+    command: node -r dotenv/config build
     {{/if}}
     expose:
       - 8000
@@ -54,7 +54,6 @@ services:
       - {{{ outdir }}}/cerebro/app/:/home/node/app
       {{/if}}
       - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
-      - {{{ outdir }}}/cerebro:/home/node/cerebro:ro  # host the repository for runtime git version parsing (see above commands)
     networks:
       - cerebro
       - proxy
@@ -89,7 +88,7 @@ services:
     restart: unless-stopped
     {{#if dev}}
     {{#if trigger}}
-    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads "'
+    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"'
     {{else}}
     command: cargo watch -w /usr/src/cerebro/cerebro/lib/model -w /usr/src/cerebro/cerebro/stack/server -w /usr/src/cerebro/Cargo.toml -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"
     {{/if}}
@@ -189,6 +188,70 @@ services:
     security_opt:
       - no-new-privileges:true
   
+
+  # Cerebro file-system
+  cerebro-fs-master:
+    build:
+      context: /data/dev/meta-gp/dev/cerebro_dev/cerebro
+      dockerfile: /data/dev/meta-gp/dev/cerebro_dev/docker/Dockerfile.fs
+    ports:
+      - 19333:19333  # gRPC port required to be open for current `weed` file upload implementation
+    command: "weed master -mdir=/data -ip=cerebro-fs-master -ip.bind=0.0.0.0 -metricsPort=9324 -defaultReplication=100" # diff data center replication to replicate to backup
+    restart: unless-stopped
+    expose:
+      - 9324
+      - 9333
+      - 19333
+    volumes:
+      - cerebro_fs_master:/data
+    networks:
+      - cerebro
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.cerebro-fs-test.rule: "Host(`fs.dev.cerebro.localhost`)"
+      traefik.http.services.cerebro-fs-test.loadbalancer.server.port: "9333"
+      traefik.http.routers.cerebro-fs-test.tls: "false"
+      traefik.http.routers.cerebro-fs-test.entrypoints: "http"
+
+
+  cerebro-fs-sda:
+    build:
+      context: /data/dev/meta-gp/dev/cerebro_dev/cerebro
+      dockerfile: /data/dev/meta-gp/dev/cerebro_dev/docker/Dockerfile.fs
+    expose:
+      - 8010
+      - 18010
+      - 9325
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8010 -metricsPort=9325 -dataCenter=dgx -rack=dev -dir /data'
+    volumes:
+      # Host mounted disk
+      - /data/data/cerebro/data:/data
+    networks:
+      - cerebro
+    depends_on:
+      - cerebro-fs-master
+
+  cerebro-fs-sdb:
+    build:
+      context: /data/dev/meta-gp/dev/cerebro_dev/cerebro
+      dockerfile: /data/dev/meta-gp/dev/cerebro_dev/docker/Dockerfile.fs
+    expose:
+      - 8011
+      - 18011
+      - 9326
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8011 -metricsPort=9326 -dataCenter=gfs -rack=dev -dir /data'
+    volumes:
+      # Host mounted disk
+      - /data/data/cerebro/backup:/data
+    networks:
+      - cerebro
+    depends_on:
+      - cerebro-fs-master
+
 volumes:
   cerebro_app:
     driver: local

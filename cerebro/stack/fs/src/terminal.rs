@@ -71,8 +71,18 @@ pub enum Commands {
     /// Download of files from SeaweedFS
     Download(DownloadFileArgs),
     /// List accessible files from SeaweedFS registered with Cerebro
-    List(ListFileArgs)
+    List(ListFileArgs),
+    /// Stage files fromn SeaweedFS periodically from stage databases registered with Cerebro
+    Stage(StageFileArgs),
 }
+
+#[derive(Debug, Args)]
+pub struct StageFileArgs {
+    /// Stage file directory
+    #[clap(long, short = 'o')]
+    pub outdir: PathBuf,
+}
+
 
 #[derive(Debug, Args)]
 pub struct UploadFileArgs {
@@ -85,6 +95,12 @@ pub struct UploadFileArgs {
     /// Database name for model query
     #[clap(long, short = 'd')]
     pub db_name: String,
+    /// Sequence run identifier
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
 }
 
 

@@ -1647,3 +1647,35 @@ export type PatientResultSchema = {
 export type TimelineField = {
     
 }
+
+
+export type WatcherConfig = {
+    id: string,
+    name: string,
+    location: string,
+    team_name: string,
+    db_name: string
+}
+
+export type SeaweedFile = {
+    id: string,
+    run_id: string | null,
+    sample_id: string | null,
+    date: string,
+    name: string,
+    hash: string,
+    fid: string,
+    size: number,
+    watcher: WatcherConfig,
+}
+
+
+/**
+ * Status and data returned in successful user endpoint response (single user)
+ * 
+ * @file lib/utils/types
+ * @param {string} data - Response data with user
+ */
+export type FileResponseData = {
+    data: SeaweedFile[]
+} & ErrorResponseData

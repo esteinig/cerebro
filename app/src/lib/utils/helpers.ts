@@ -150,6 +150,8 @@ export const getInitials = (name: string): string => {
 }
 
 
+
+
 export const ERCC_CONCENTRATIONS: Map<string, number> = new Map([
     ["ERCC-00130", 30000],
     ["ERCC-00004", 7500],

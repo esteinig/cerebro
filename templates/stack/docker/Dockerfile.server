@@ -34,7 +34,7 @@ COPY ./Cargo.toml Cargo.toml
 
 {{#unless dev}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
-RUN cargo build --release && \
+RUN cargo build --release -p cerebro-server && \
     mkdir -p /opt/cerebro/bin && \
     cp target/release/cerebro-server /opt/cerebro/bin
 WORKDIR /opt/cerebro

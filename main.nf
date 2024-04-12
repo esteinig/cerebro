@@ -287,12 +287,27 @@ workflow {
 
                 if (params.taxa.enabled) {
                     pathogen_detection(reads, inputs, false)
+
+                    pathogen_detection.out.results | view
+
                     WriteConfig(
                         inputs.sample_sheet, 
                         pathogen_detection.out.results | collect, 
                         started
                     )
+
+                    if (params.production.enabled) {
+                        cerebro_production(
+                            inputs.taxonomy,
+                            pathogen_detection.out.results,
+                            inputs.sample_sheet,
+                            WriteConfig.out.config,
+                        )
+                    }
+
                 }
+
+                if ()
                 
                 // ===========================================
                 // Cultured isolate identification subworkflow

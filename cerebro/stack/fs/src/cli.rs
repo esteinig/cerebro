@@ -48,11 +48,16 @@ fn main() -> Result<()> {
                 &args.files,  
                 &args.team_name,
                 &args.db_name,
+                &args.run_id,
+                &args.sample_id,
                 UploadConfig::default(),
                 WatcherConfig::default()
             )?;
         },
         Commands::Download( args ) => {
+            
+        },
+        Commands::Stage( args ) => {
             
         },
         Commands::List( args ) => {
