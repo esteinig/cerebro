@@ -286,9 +286,7 @@ workflow {
                 // ==============================
 
                 if (params.taxa.enabled) {
-                    pathogen_detection(reads, inputs, false)
-
-                    pathogen_detection.out.results | view
+                    pathogen_detection(reads, inputs, false) | view
 
                     WriteConfig(
                         inputs.sample_sheet, 
@@ -301,14 +299,12 @@ workflow {
                             inputs.taxonomy,
                             pathogen_detection.out.results,
                             inputs.sample_sheet,
-                            WriteConfig.out.config,
+                            WriteConfig.out.config
                         )
                     }
 
                 }
 
-                if ()
-                
                 // ===========================================
                 // Cultured isolate identification subworkflow
                 // ===========================================
