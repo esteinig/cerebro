@@ -39,7 +39,7 @@ workflow pathogen_detection {
         // =================
 
         // Viral profiling, coverage assessment, consensus assembly after background depletion
-        if (params.taxa.alignment.enabled && params.taxa.alignment.viruses.enabled) {
+        if (params.taxa.alignment.enabled && params.taxa.alignment.consensus.enabled) {
             virus_detection(
                 quality_control_illumina.out.reads, 
                 inputs.virus_background_references, 
