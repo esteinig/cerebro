@@ -14,7 +14,7 @@ process MetaSpades {
     script:
 
     """
-    spades.py --meta -t $task.cpus -1 $forward -2 $reverse -o ${id}_meta_spades -k $params.meta.spades.k
+    spades.py --meta -t $task.cpus -1 $forward -2 $reverse -o ${id}_meta_spades -k $params.taxa.assembly.meta.spades.k
     mv ${id}_meta_spades/contigs.fasta ${id}.fasta
     """
 

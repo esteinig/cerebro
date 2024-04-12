@@ -19,8 +19,8 @@ process BlastNT {
     // Set the execution environment variable BLASTDB to database path to enable the taxonomic assignments
 
     """
-    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity $params.meta.blastn.min_identity -evalue $params.meta.blastn.min_evalue -db ${database}/nt \
-    -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' -max_target_seqs $params.meta.blastn.max_target_seqs  > ${id}_ncbi_nt.tsv
+    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity $params.taxa.assembly.meta.blastn.min_identity -evalue $params.taxa.assembly.meta.blastn.min_evalue -db ${database}/nt \
+    -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' -max_target_seqs $params.taxa.assembly.meta.blastn.max_target_seqs  > ${id}_ncbi_nt.tsv
     cp ${id}_ncbi_nt.tsv assembly__blastn__ncbi_nt
     """
 
