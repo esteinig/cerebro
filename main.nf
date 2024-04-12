@@ -113,10 +113,6 @@ params.vircov_remap_regions_coverage                 = 0
 
 // Viral consensus assembly (submodule)
 
-params.ivar_mpileup_args                             = "-d 50000"
-params.ivar_min_qual                                 = 20
-params.ivar_min_depth                                = 20
-params.ivar_min_freq                                 = 0.75
 
 // ======================
 // K-mer profiling module
@@ -162,18 +158,18 @@ params.eukaryots_min_reads                          = 0
 // Metagenome and -transciptome assembly with alignment
 // ====================================================
 
-params.meta_blast_nt                                = null  // path of database directory without the 'nt' file/index specifier
-params.meta_blast_nt_min_evalue                     = 0.000001
-params.meta_blast_nt_min_identity                   = 95    // we only want high identity hits for identification, not looking for unusual things for now
-params.meta_blast_nt_max_seqs                       = 100   // use the highest scoring hits ones for LCA computation
+// params.meta_blast_nt                                = null  // path of database directory without the 'nt' file/index specifier
+// params.meta_blast_nt_min_evalue                     = 0.000001
+// params.meta_blast_nt_min_identity                   = 95    // we only want high identity hits for identification, not looking for unusual things for now
+// params.meta_blast_nt_max_seqs                       = 100   // use the highest scoring hits ones for LCA computation
 
-params.meta_diamond_nr                              = null  // path of database file created with diamond (including taxonomic information)
-params.meta_diamond_nr_min_evalue                   = 0.000001
-params.meta_diamond_nr_min_identity                 = 95    // we only want high identity hits for identification, not looking for unusual things for now
-params.meta_diamond_nr_max_seqs                     = 100   // use the highest scoring hits ones for LCA computation
+// params.meta_diamond_nr                              = null  // path of database file created with diamond (including taxonomic information)
+// params.meta_diamond_nr_min_evalue                   = 0.000001
+// params.meta_diamond_nr_min_identity                 = 95    // we only want high identity hits for identification, not looking for unusual things for now
+// params.meta_diamond_nr_max_seqs                     = 100   // use the highest scoring hits ones for LCA computation
 
-params.meta_diamond_nr_block_size                   = 2     // I think this improves runtime with higher memory (2(b+9b/c)MB where b = block size and c = index chunks)
-params.meta_diamond_nr_index_chunks                 = 4
+// params.meta_diamond_nr_block_size                   = 2     // I think this improves runtime with higher memory (2(b+9b/c)MB where b = block size and c = index chunks)
+// params.meta_diamond_nr_index_chunks                 = 4
 
 // ====================
 // Other configurations

@@ -48,10 +48,7 @@ process ScrubbyReadsKrakenMinimapDepletion {
     script:
 
     """
-    scrubby scrub-reads -i input_1 input_2 -o ${id}_depleted_1.fq.gz ${id}_depleted_2.fq.gz \ 
-        --kraken-db dbs/* --kraken-taxa $params.kraken_taxa --kraken-taxa-direct $params.kraken_taxa_direct --kraken-threads $task.cpus \ 
-        --minimap2-index refs/* --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq \ 
-        --minimap2-threads $task.cpus --json ${id}.json 2> ${id}.log
+    scrubby scrub-reads -i input_1 input_2 -o ${id}_depleted_1.fq.gz ${id}_depleted_2.fq.gz --kraken-db dbs/* --kraken-taxa $params.kraken_taxa --kraken-taxa-direct $params.kraken_taxa_direct --kraken-threads $task.cpus --minimap2-index refs/* --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq --minimap2-threads $task.cpus --json ${id}.json 2> ${id}.log
     cp ${id}.json $params.result_file
     """
 }
@@ -80,10 +77,7 @@ process ScrubbyReadsKrakenMinimapDepletionOnt {
     script:
 
     """
-    scrubby scrub-reads -i input_1 -o ${id}_depleted.fq.gz \ 
-        --kraken-db dbs/* --kraken-taxa $params.kraken_taxa --kraken-taxa-direct $params.kraken_taxa_direct --kraken-threads $task.cpus \ 
-        --minimap2-index refs/* --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq \ 
-        --minimap2-threads $task.cpus --json ${id}.json 2> ${id}.log
+    scrubby scrub-reads -i input_1 -o ${id}_depleted.fq.gz --kraken-db dbs/* --kraken-taxa $params.kraken_taxa --kraken-taxa-direct $params.kraken_taxa_direct --kraken-threads $task.cpus --minimap2-index refs/* --min-cov $params.deplete_min_cov --min-len $params.deplete_min_len --min-mapq $params.deplete_min_mapq --minimap2-threads $task.cpus --json ${id}.json 2> ${id}.log
     cp ${id}.json $params.result_file
     """
 }

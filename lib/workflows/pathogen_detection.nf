@@ -47,7 +47,7 @@ workflow pathogen_detection {
                 inputs.virus_db_index, 
                 inputs.virus_db_fasta, 
                 inputs.virus_blacklist,
-                params.taxa.assembly.viruses.enabled
+                params.taxa.assembly.consensus.enabled
             )
             align_virus_results = virus_detection.out.results
         } else {

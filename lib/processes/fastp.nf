@@ -31,8 +31,7 @@ process Fastp {
     
 
     """
-    fastp -i $forward -I $reverse -o ${id}_qc_1.fq.gz -O ${id}_qc_2.fq.gz --thread $task.cpus --json ${id}.json --dup_calc_accuracy 6 \ 
-        $read_length $tail_quality $complexity_filter $adapter_auto_detection $adapter_file $adapter_sequence $dedup $trim_poly_g
+    fastp -i $forward -I $reverse -o ${id}_qc_1.fq.gz -O ${id}_qc_2.fq.gz --thread $task.cpus --json ${id}.json --dup_calc_accuracy 6 $read_length $tail_quality $complexity_filter $adapter_auto_detection $adapter_file $adapter_sequence $dedup $trim_poly_g
     cp ${id}.json qc__fastp__reads
     """
 
@@ -58,9 +57,7 @@ process FastpScan {
     script:
 
     """
-    fastp -i $forward -I $reverse --thread $task.cpus --json ${id}.json \ 
-        --disable_adapter_trimming --dont_eval_duplication --disable_trim_poly_g \ 
-        --disable_quality_filtering --disable_length_filtering 
+    fastp -i $forward -I $reverse --thread $task.cpus --json ${id}.json --disable_adapter_trimming --dont_eval_duplication --disable_trim_poly_g --disable_quality_filtering --disable_length_filtering 
     cp ${id}.json qc__fastp__scan
     """
 

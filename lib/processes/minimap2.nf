@@ -155,9 +155,7 @@ process MinimapAneuploidy {
         // Optical duplicate setting `-d 100` for HiSeq style platforms, use `-d 2500` for NovaSeq style platforms
 
         """
-        minimap2 -t $task.cpus --sam-hit-only -ax sr $index $forward $reverse | samtools view -Su - | \ 
-            samtools collate -@ $task.cpus -O -u - | samtools fixmate -@ $task.cpus -m -u - -  | samtools sort -@ $task.cpus -u - | \ 
-            samtools markdup -@ $task.cpus -f markdup.json --json -S -d $params.host.aneuploidy.markdup_distance --mode s --include-fails -r - ${id}.bam
+        minimap2 -t $task.cpus --sam-hit-only -ax sr $index $forward $reverse | samtools view -Su - | samtools collate -@ $task.cpus -O -u - | samtools fixmate -@ $task.cpus -m -u - -  | samtools sort -@ $task.cpus -u - | samtools markdup -@ $task.cpus -f markdup.json --json -S -d $params.host.aneuploidy.markdup_distance --mode s --include-fails -r - ${id}.bam
         samtools coverage ${id}.bam --no-header > coverage.txt
         """
     } else {
