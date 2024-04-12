@@ -26,8 +26,7 @@ process CnvKitAneuploidy {
     target_average_bin_size = params.host.aneuploidy.cnvkit.target_avg_size ? "--target-avg-size $params.host.aneuploidy.cnvkit.target_avg_size" : ""
 
     """
-    cnvkit.py batch $sample_bam -n $control_bam -m wgs -f $fasta -p $task.cpus \
-        --output-reference ${id}_${idx_name}.cnn --output-dir results/ --diagram --scatter $drop_low_coverage $target_average_bin_size
+    cnvkit.py batch $sample_bam -n $control_bam -m wgs -f $fasta -p $task.cpus --output-reference ${id}_${idx_name}.cnn --output-dir results/ --diagram --scatter $drop_low_coverage $target_average_bin_size
     mv results/${id}-scatter.png .
     mv results/${id}.cns .
     mv results/${id}.cnr .

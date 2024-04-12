@@ -47,16 +47,16 @@ process IvarConsensus {
 
                 minimap2 -t $task.cpus --sam-hit-only -ax sr \${seq} $fwd_aligned $rev_aligned | samtools view -@ $task.cpus -Sb - | samtools sort -@ $task.cpus - -o tmp.bam
                                 
-                samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 tmp.bam | ivar consensus -p \${seq_name}.consensus \
-                    -q $params.ivar_min_qual \
-                    -t $params.ivar_min_freq \
-                    -m $params.ivar_min_depth \
+                samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 tmp.bam | ivar consensus -p \${seq_name}.consensus \ 
+                    -q $params.ivar_min_qual \ 
+                    -t $params.ivar_min_freq \ 
+                    -m $params.ivar_min_depth \ 
                     -n N
                 
-                samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 tmp.bam | ivar variants -p \${seq_name}.variants \
-                    -q $params.ivar_min_qual \
-                    -t $params.ivar_min_freq \
-                    -m $params.ivar_min_depth \
+                samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 tmp.bam | ivar variants -p \${seq_name}.variants \ 
+                    -q $params.ivar_min_qual \ 
+                    -t $params.ivar_min_freq \ 
+                    -m $params.ivar_min_depth \ 
                     -r \$seq 
 
                 rm tmp.bam
@@ -68,16 +68,16 @@ process IvarConsensus {
             cat *.consensus.fa > ${id}_${idx_name}.consensus.fasta
             cat *.variants.tsv > ${id}_${idx_name}.variants.tsv
         else 
-            samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 $bam | ivar consensus -p ${id}_${idx_name}.consensus \
-                    -q $params.ivar_min_qual \
-                    -t $params.ivar_min_freq \
-                    -m $params.ivar_min_depth \
+            samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 $bam | ivar consensus -p ${id}_${idx_name}.consensus \ 
+                    -q $params.ivar_min_qual \ 
+                    -t $params.ivar_min_freq \ 
+                    -m $params.ivar_min_depth \ 
                     -n N
                 
-            samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 $bam | ivar variants -p ${id}_${idx_name}.variants \
-                -q $params.ivar_min_qual \
-                -t $params.ivar_min_freq \
-                -m $params.ivar_min_depth \
+            samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 $bam | ivar variants -p ${id}_${idx_name}.variants \ 
+                -q $params.ivar_min_qual \ 
+                -t $params.ivar_min_freq \ 
+                -m $params.ivar_min_depth \ 
                 -r $reference 
 
 

@@ -58,7 +58,7 @@ process UploadSample {
     script:
 
     """
-    cerebro --token-env  $params.production.api.token --api-url $params.production.api.url client upload --input $sample_json --sample-sheet $sample_sheet --workflow-config $config_json --team-name $params.production.api.team_name --project-name $params.production.api.project_name
+    cerebro --token-env  $params.production.api.token --api-url $params.production.api.url client upload --input $sample_json --sample-sheet $sample_sheet --workflow-config $config_json --team-name $params.production.api.upload.team_name --project-name $params.production.api.upload.project_name
     """
 
 }

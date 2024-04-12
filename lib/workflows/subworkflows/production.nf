@@ -13,13 +13,13 @@ workflow cerebro {
         sample_sheet
         config_file
     main:
-        if (params.cerebro_upload){
+        if (params.production.api.upload.enabled){
             PingServer(result_files) | collect  // await results before proceeding
         }
 
         ProcessSamples(result_files, taxonomy_directory)
         
-        if (params.cerebro_upload){
+        if (params.production.api.upload.enabled){
             UploadSample(ProcessSamples.out.cerebro, sample_sheet, config_file)
         }
 }

@@ -25,21 +25,21 @@ process VircovReferenceSelection {
     exclude = blacklist ? "--exclude $params.virus_blacklist" : ""
 
     """
-    vircov --alignment $alignment \
-           --fasta $alignment_fasta \
-           --min-len $params.vircov_scan_min_len \
-           --min-cov $params.vircov_scan_min_cov \
-           --min-mapq $params.vircov_scan_min_mapq \
-           --reads $params.vircov_scan_reads \
-           --coverage $params.vircov_scan_coverage \
-           --regions $params.vircov_scan_regions \
-           --regions-coverage $params.vircov_scan_regions_coverage \
-           --group-by "$params.vircov_group_by" \
-           --group-sep "$params.vircov_group_sep" \
-           --group-select-by "$params.vircov_group_select_by" \
-           --group-select-split references \
-           --group-select-order \
-           --group-select-data "${id}_scan_${db_name}.grouped.tsv" \
+    vircov --alignment $alignment \ 
+           --fasta $alignment_fasta \ 
+           --min-len $params.vircov_scan_min_len \ 
+           --min-cov $params.vircov_scan_min_cov \ 
+           --min-mapq $params.vircov_scan_min_mapq \ 
+           --reads $params.vircov_scan_reads \ 
+           --coverage $params.vircov_scan_coverage \ 
+           --regions $params.vircov_scan_regions \ 
+           --regions-coverage $params.vircov_scan_regions_coverage \ 
+           --group-by "$params.vircov_group_by" \ 
+           --group-sep "$params.vircov_group_sep" \ 
+           --group-select-by "$params.vircov_group_select_by" \ 
+           --group-select-split references \ 
+           --group-select-order \ 
+           --group-select-data "${id}_scan_${db_name}.grouped.tsv" \ 
            $segment_field $segment_field_nan $exclude > ${id}_scan_${db_name}.select.tsv
     cp ${id}_scan_${db_name}.select.tsv align__vircov__${db_name}__scan
     """
@@ -66,16 +66,16 @@ process VircovRealign {
     script:
     
     """
-    vircov --alignment $alignment \
-           --fasta $fasta \
-           --min-len $params.vircov_remap_min_len \
-           --min-cov $params.vircov_remap_min_cov \
-           --min-mapq $params.vircov_remap_min_mapq \
-           --reads $params.vircov_remap_reads \
-           --coverage $params.vircov_remap_coverage \
-           --regions $params.vircov_remap_regions \
-           --regions-coverage $params.vircov_remap_regions_coverage \
-           --read-ids ${id}_${idx_name}.txt \
+    vircov --alignment $alignment \ 
+           --fasta $fasta \ 
+           --min-len $params.vircov_remap_min_len \ 
+           --min-cov $params.vircov_remap_min_cov \  
+           --min-mapq $params.vircov_remap_min_mapq \ 
+           --reads $params.vircov_remap_reads \ 
+           --coverage $params.vircov_remap_coverage \ 
+           --regions $params.vircov_remap_regions \ 
+           --regions-coverage $params.vircov_remap_regions_coverage \ 
+           --read-ids ${id}_${idx_name}.txt \ 
            -v > ${id}_${idx_name}.tsv
     """
 
@@ -186,13 +186,13 @@ process VircovSubsetAlign {
     script:
     
     """
-    vircov --alignment $alignment \
-           --fasta $fasta \
-           --min-len $params.vircov_min_len \
-           --min-cov $params.vircov_min_cov \
-           --min-mapq $params.vircov_min_mapq \
-           --reads $params.vircov_min_reads \
-           --regions $params.vircov_min_regions \
+    vircov --alignment $alignment \ 
+           --fasta $fasta \ 
+           --min-len $params.vircov_min_len \ 
+           --min-cov $params.vircov_min_cov \  
+           --min-mapq $params.vircov_min_mapq \ 
+           --reads $params.vircov_min_reads \ 
+           --regions $params.vircov_min_regions \ 
            -v > ${id}_${idx_name}_subset.tsv
     cp ${id}_${idx_name}_subset.tsv align__vircov__${idx_name}__subset
     """
