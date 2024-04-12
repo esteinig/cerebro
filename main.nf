@@ -220,10 +220,13 @@ workflow {
         def inputs = parse_file_params()
 
         if (params.production.enabled) {
+            
             if (params.production.api.upload.enabled) {
                 PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
             }
+            
             data = get_paired_reads(inputs.sample_sheet, true)                       // production requires sample sheet
+
             reads = data.pathogen                                                    // pathogen analysis uses all input reads
             reads_aneuploidy = data.aneuploidy                                       // host genome analysis if enabled uses subset of activated input reads
         } else {
@@ -296,7 +299,7 @@ workflow {
 
                     if (params.production.enabled) {
                         cerebro_production(
-                            inputs.taxonomy,
+                            inputs.taxonomy_directory,
                             pathogen_detection.out.results,
                             inputs.sample_sheet,
                             WriteConfig.out.config
