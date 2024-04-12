@@ -325,7 +325,7 @@ def parse_file_params(){
 
     meta_diamond_nr = [];
     meta_blast_nt = [];
-    if (params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
+    if (params.taxa.assembly.meta.enabled) {
         if (params.meta_blast_nt) {
             meta_blast_nt = Channel.fromPath(check_file(params.meta_blast_nt)).first()
         } else {

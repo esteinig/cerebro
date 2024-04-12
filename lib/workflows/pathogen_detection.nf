@@ -39,7 +39,7 @@ workflow pathogen_detection {
         // =================
 
         // Viral profiling, coverage assessment, consensus assembly after background depletion
-        if (params.taxa.alignment.enabled && params.taxa.alignment.consensus.enabled) {
+        if (params.taxa.alignment.enabled && params.taxa.assembly.consensus.enabled) {
             virus_detection(
                 quality_control_illumina.out.reads, 
                 inputs.virus_background_references, 
@@ -106,7 +106,7 @@ workflow pathogen_detection {
         // Assembly modules
         // ================
 
-        if (params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
+        if (params.taxa.assembly.meta.enabled) {
             metagenome_assembly(
                 quality_control_illumina.out.reads, 
                 inputs.meta_blast_nt, 
