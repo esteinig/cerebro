@@ -19,8 +19,8 @@ process DiamondNR {
     // TODO: Empty file guard from assembly
 
     """
-    diamond blastx -d $database -p $task.cpus -q $contigs -f 6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxids sscinames stitle --sensitive \
-    --max-target-seqs $params.meta_diamond_nr_max_seqs --index-chunks $params.meta_diamond_nr_index_chunks --block-size $params.meta_diamond_nr_block_size --evalue $params.meta_diamond_nr_min_evalue --id $params.meta_diamond_nr_min_identity -o ${id}_ncbi_nr.tsv
+    diamond blastx -d $database -p $task.cpus -q $contigs -f 6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxids sscinames stitle $params.emta.diamond.args \
+    --max-target-seqs $params.meta.diamond.max_target_seqs--index-chunks $params.meta.diamond.index_chunks --block-size  $params.meta.diamond.block_size --evalue  $params.meta.diamond.min_evalue --id $params.meta.diamond.min_identity -o ${id}_ncbi_nr.tsv
     cp ${id}_ncbi_nr.tsv assembly__diamond__ncbi_nr 
     """ 
 
