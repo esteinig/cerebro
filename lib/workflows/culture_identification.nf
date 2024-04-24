@@ -1,8 +1,7 @@
 
-include { kmer_pathogen_profiling as kmer_pathogen_profiling_ont }    from './pathogen/kmer_profiling'
-include { metagenome_assembly }        from './pathogen/metagenome_assembly'
-include { quality_control_ont }        from './subworkflows/quality_control'
-include { quality_control_illumina }   from './subworkflows/quality_control'
+include { kmer_pathogen_profiling as kmer_pathogen_profiling_ont }    from './pathogen/kmer_profiling';
+include { quality_control_ont; quality_control_illumina }             from './subworkflows/quality_control';
+include { metagenome_assembly }                                       from './pathogen/metagenome_assembly';
 
 workflow culture_identification {
     take:

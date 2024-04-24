@@ -233,7 +233,7 @@ workflow {
                 }
 
                 // ==============================
-                // Pathogen detection subworkflow
+                // Pathogendetection subworkflow
                 // ==============================
 
                 if (params.taxa.enabled) {
@@ -264,9 +264,9 @@ workflow {
                     }
                 }
 
-                // ===========================================
-                // Cultured isolate identification subworkflow
-                // ===========================================
+                // ==================================================================
+                // Cultured isolate assembly for taxonomic identification subworkflow
+                // ==================================================================
 
                 if (params.culture.enabled) {
                     ont_reads = get_single_reads(inputs.sample_sheet, false);
@@ -275,7 +275,7 @@ workflow {
                     culture_identification(ont_reads, pe_reads, inputs);
                 }
 
-
+                
 
 
             }

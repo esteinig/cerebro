@@ -40,8 +40,7 @@ pub fn create_qc_table(samples: Vec<PathBuf>, output: &PathBuf, header: bool, er
     for file in samples {
         let sample = WorkflowSample::read_json(&file).expect(&format!("Failed to parse sample file: {}", file.display()));
         let row = QualityControlSummary::from(&sample.qc_module, None, ercc_input_mass, None)?;
-        writer.serialize(&row)?;
-            
+        writer.serialize(&row).map_err(|err|WorkflowError::SerializeTableRow(err))?;     
     }
     Ok(())
 }

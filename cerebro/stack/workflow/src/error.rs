@@ -149,6 +149,9 @@ pub enum WorkflowError {
     /// Represents a failure to parse the reference taxonomy
     #[error("failed to parse the reference taxonomy")]
     TaxonomyNotParsed(#[source] taxonomy::Error),
+    /// Represents a failure to parse the reference taxonomy
+    #[error("failed to parse the reference taxonomy")]
+    SerializeTableRow(#[source] csv::Error),
     /// Indicates failure to parse scannign stage alignment summary
     #[error("failed get parse vircov records from scanning stage")]
     VircovScanParseFailed,
