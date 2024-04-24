@@ -167,3 +167,30 @@ process ScrubbyExtractVircovReads {
     """
     
 }
+
+process ScrubbyExtractVircovReadsOnt {
+
+    // TXT file of read identifiers is supported by Scrubby
+
+    label "scrubby_single"
+    tag { "$id : $db_name : $idx_name" }
+
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: { "${id}_${idx_name}.json" }
+    publishDir "$params.outdir/workflow/$params.subdir/fastq", mode: "symlink", pattern: "${id}_${idx_name}_extracted.fq.gz"
+
+    input:
+    tuple val(id), path("input_1")
+    tuple val(id), val(idx_name), path(read_path)
+    tuple val(id), val(db_name), path(vircov_path), path(ref_fasta), path(ref_alignment)
+
+    output:
+    tuple(val(id), val(db_name), val(idx_name), path(ref_fasta), path(ref_alignment), path(vircov_path), path("${id}_${idx_name}_extracted.fq.gz"), emit: aligned)
+    path("${id}_${idx_name}.json")
+
+    script:
+
+    """
+    scrubby scrub-alignment --alignment $read_path --alignment-name ${idx_name} -i input_1 -o ${id}_${idx_name}_extracted.fq.gz --extract --json ${id}_${idx_name}.json
+    """
+    
+}

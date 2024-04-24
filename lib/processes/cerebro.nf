@@ -2,7 +2,7 @@
 
 process PingServer {
 
-    tag { "$params.cerebro_api_url/status" }
+    tag { "$params.production.api.url/status" }
     label "cerebro"
     
     input:
@@ -19,7 +19,7 @@ process PingServer {
 
 }
 
-process ProcessSamples {
+process ProcessSamplesTaxonomy {
 
     publishDir "$params.outdir/cerebro", mode: "copy", pattern: "${id}.json"
 
@@ -37,6 +37,50 @@ process ProcessSamples {
     """
     cerebro workflow process --input . --sample-id ${id} --taxonomy $taxonomy --output ${id}.json 
     """
+}
+
+process ProcessSamples {
+
+    publishDir "$params.outdir/cerebro", mode: "copy", pattern: "${id}.json"
+
+    label "cerebro"
+    
+    input:
+    tuple val(id), path(results)
+
+    output:
+    tuple(val(id), path("${id}.json"), emit: cerebro)
+
+    script:
+
+    """
+    cerebro workflow process --input . --sample-id ${id} --output ${id}.json 
+    """
+    
+}
+
+
+
+process QualityControlTable {
+
+    publishDir "$params.outdir", mode: "copy", pattern: "qc.tsv"
+
+    label "cerebro"
+    
+    input:
+    path(json_files)
+    
+    output:
+    path("qc.tsv")
+
+    script:
+
+    ercc_mass = params.process.ercc_mass ? "--ercc-mass $params.process.ercc_mass" : ""
+
+    """
+    cerebro workflow quality --input *.json --output qc.tsv --header $ercc_mass
+    """
+  
 
 }
 
@@ -123,3 +167,81 @@ process ProcessVirusAlignment {
 }
 
     
+process MashDatabaseSubset {
+
+    label "cerebro"
+    tag { id }
+
+    publishDir "$params.outdir/workflow/$params.subdir/subsets/${id}", mode: "symlink", pattern: "${idx_name}_subset.fasta"
+
+    input:
+    tuple val(id), val(idx_name), path(forward), path(reverse), path(mash_screen)  
+    path(fasta)
+
+    output:
+    tuple val(id), val(idx_name), path(forward), path(reverse), path("${idx_name}_subset.fasta")
+
+    script: 
+
+    if (params.subset_group_index) {
+        """
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --group-index $params.subset_group_index --group-sep "$params.subset_group_sep" --output ${idx_name}_subset.fasta 
+        """
+    } else {
+        """
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --output ${idx_name}_subset.fasta
+        """
+    }
+
+}
+
+process MashDatabaseSubsetOnt {
+
+    label "cerebro"
+    tag { id }
+
+    publishDir "$params.outdir/workflow/$params.subdir/subsets/${id}", mode: "symlink", pattern: "${idx_name}_subset.fasta"
+
+    input:
+    tuple val(id), val(idx_name), path(mash_screen)  
+    path(fasta)
+
+    output:
+    tuple val(id), val(idx_name), path("${idx_name}_subset.fasta")
+
+    script: 
+
+    if (params.subset_group_index) {
+        """
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --group-index $params.subset_group_index --group-sep "$params.subset_group_sep" --output ${idx_name}_subset.fasta 
+        """
+    } else {
+        """
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --output ${idx_name}_subset.fasta
+        """
+    }
+
+}
+
+process Anonymize {
+
+    label "cerebro"
+    tag { id }
+
+    publishDir "$params.outdir/workflow/$params.subdir/${id}", mode: "symlink", pattern: "*.fq.gz"
+
+    input:
+    tuple val(id), path(forward), path(reverse)
+    
+    output:
+    tuple val(id), path("${uuid}_R1.fq.gz"), path("${uuid}_R2.fq.gz")
+
+    script: 
+
+    uuid = UUID.randomUUID().toString().substring(0, 8)
+
+    """
+    cerebro workflow tools anonymize -i $forward -i $reverse -o ${uuid}_R1.fq.gz -o ${uuid}_R2.fq.gz --fake-illumina-header
+    """
+
+}

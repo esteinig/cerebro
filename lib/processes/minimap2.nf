@@ -23,7 +23,7 @@ process MinimapAlignPAF {
 
 }
 
-process MinimapAlignOntPAF {
+process MinimapAlignPafOnt {
 
     tag { "$id : $idx_name" }
     label "minimap2"
@@ -43,10 +43,11 @@ process MinimapAlignOntPAF {
     idx_name = index.baseName
 
     """
-    minimap2 -t $task.cpus -c -x $params.ont.minimap2.preset ${index} $reads> ${id}.paf
+    minimap2 -t $task.cpus -c -x $params.ont.minimap2.preset ${index} $reads > ${id}.paf
     """
 
 }
+
 
 process MinimapRealignBAM {
 
@@ -81,6 +82,39 @@ process MinimapRealignBAM {
 }
 
 
+process MinimapRealignBamOnt {
+
+    tag { "$id : $idx_name" }
+    label "minimap2_realign"
+
+    publishDir "$params.outdir/workflow/$params.subdir/", mode: "symlink", pattern: "${id}_${idx_name}.bam"
+    publishDir "$params.outdir/workflow/$params.subdir/coverage", mode: "copy", pattern: "${id}_${idx_name}.bed"
+    publishDir "$params.outdir/workflow/$params.subdir/coverage", mode: "copy", pattern: "${id}_${idx_name}.txt"
+
+    input:
+    tuple val(id), path(reads), val(db_name), path(fasta)
+
+    output:
+    tuple(val(id), path(reads), emit: reads)
+    tuple(val(id), val(db_name), val(idx_name), path(fasta), path("${id}_${idx_name}.bam"), emit: aligned)
+    tuple(val(id), val(db_name), path("${id}_${idx_name}.txt"), emit: coverage)
+    path("${id}_${idx_name}.bed")
+    
+    script:
+
+    idx_name = fasta.baseName
+
+    """
+    minimap2 -t $task.cpus --sam-hit-only -ax $params.ont.minimap2.preset ${fasta} $reads | samtools view -@ $task.cpus -Sb - | samtools sort -@ $task.cpus - -o ${id}_${idx_name}.bam
+    covtobed --max-cov $params.covtobed_max_cov ${id}_${idx_name}.bam > ${id}_${idx_name}.bed
+    samtools coverage ${id}_${idx_name}.bam --no-header > coverage.txt
+    grep "^>" $fasta | cut -c2- | cut -d' ' -f2- > descr.txt
+    paste coverage.txt descr.txt > ${id}_${idx_name}.txt
+    """
+}
+
+
+
 process MinimapIndexSubset {
 
     tag { "$idx_name" }
@@ -100,7 +134,28 @@ process MinimapIndexSubset {
     """
     minimap2 -t $task.cpus -x sr -d ${idx_name}.mmi $fasta
     """
+}
 
+
+process MinimapIndexSubsetOnt {
+
+    tag { "$idx_name" }
+    label "minimap2"
+
+    publishDir "$params.outdir/workflow/$params.subdir/subsets/${id}", mode: "symlink", pattern: "${idx_name}.mmi"
+
+    input:
+    tuple val(id), val(idx_name), path(fasta)
+
+    output:
+    path("${idx_name}.mmi"), emit: index
+    path(fasta), emit: fasta
+
+    script:
+
+    """
+    minimap2 -t $task.cpus -x $params.ont.minimap2.preset -d ${idx_name}.mmi $fasta
+    """
 }
 
 process MinimapAlignSubsetPAF {
@@ -122,6 +177,29 @@ process MinimapAlignSubsetPAF {
 
     """
     minimap2 -t $task.cpus -c -x sr ${index} $forward $reverse > ${idx_name}.paf
+    """
+
+}
+
+process MinimapAlignSubsetPafOnt {
+
+    tag { "$id : $idx_name" }
+    label "minimap2"
+
+    publishDir "$params.outdir/workflow/$params.subdir/subsets/${id}/", mode: "symlink", pattern: "${idx_name}.paf"
+
+    input:
+    tuple val(id), path(reads)
+    tuple val(id), val(idx_name), path(index), path(fasta)
+
+    output:
+    tuple val(id), path(forward), path(reverse)
+    tuple val(id), val(idx_name), path("${idx_name}.paf"), path(fasta)
+
+    script:
+
+    """
+    minimap2 -t $task.cpus -c -x $params.ont.minimap2.preset ${index} $forward $reverse > ${idx_name}.paf
     """
 
 }

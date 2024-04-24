@@ -9,7 +9,7 @@ use crate::error::WorkflowError;
 use crate::output::WorkflowOutputs;
 use crate::quality::Phage;
 use crate::record::VircovRecord;
-use crate::quality::{Fastp, Ercc, Scrubby};
+use crate::quality::{Fastp, Ercc, Scrubby, Nanoq};
 use crate::taxon::{Taxon, TaxonomyWarning, aggregate};
 use crate::tools::{Kraken2Uniq, Blast, Diamond, Vircov, VircovScanRemap};
 use crate::virus::AnnotationOptions;
@@ -18,7 +18,9 @@ use crate::virus::AnnotationOptions;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityControlModule {
     pub id: String,
+    pub nanoq: Option<Nanoq>,
     pub fastp: Option<Fastp>,
+    pub nanoq_scan: Option<Nanoq>,
     pub fastp_scan: Option<Fastp>,
     pub ercc: Option<Ercc>,
     pub phage: Option<Vec<Phage>>,
@@ -31,31 +33,58 @@ impl QualityControlModule {
         files: &WorkflowOutputs
     ) -> Result<Self, WorkflowError>{
         
+        let nanoq_scan_results = match &files.nanoq_scan {
+            Some(file) => {
+                log::info!("Results detected for Nanoq read scanning");
+                let input = File::open(file)?;
+                let buffered = BufReader::new(input);
+                let results: Nanoq = serde_json::from_reader(buffered).map_err(WorkflowError::ParseNanoq)?;
+                Some(results)
+            },
+            None => {
+                log::info!("No results detected for Nanoq read scanning");
+                None
+            }
+        };
+
+        let nanoq_results = match &files.nanoq {
+            Some(file) => {
+                log::info!("Results detected for Nanoq read quality control");
+                let input = File::open(file)?;
+                let buffered = BufReader::new(input);
+                let results: Nanoq = serde_json::from_reader(buffered).map_err(WorkflowError::ParseNanoq)?;
+                Some(results)
+            },
+            None => {
+                log::info!("No results detected for Nanoq read quality control");
+                None
+            }
+        };
 
         let fastp_scan_results = match &files.fastp_scan {
             Some(file) => {
-                log::info!("Results detected for read scanning");
+                log::info!("Results detected for Fastp read scanning");
                 let input = File::open(file)?;
                 let buffered = BufReader::new(input);
                 let results: Fastp = serde_json::from_reader(buffered).map_err(WorkflowError::ParseFastp)?;
                 Some(results)
             },
             None => {
-                log::info!("No results detected for read scanning");
+                log::info!("No results detected for Fastp read scanning");
                 None
             }
         };
 
         let fastp_results = match &files.fastp {
             Some(file) => {
-                log::info!("Results detected for read quality control");
+                log::info!("Results detected for Fastp read quality control");
                 let input = File::open(file)?;
                 let buffered = BufReader::new(input);
                 let results: Fastp = serde_json::from_reader(buffered).map_err(WorkflowError::ParseFastp)?;
                 Some(results)
             },
             None => {
-                log::info!("No results detected for read quality control");
+                log::info!("No results detected for Fastp read quality control");
                 None
             }
         };
@@ -131,6 +160,8 @@ impl QualityControlModule {
 
         Ok(Self { 
             id: id.to_owned(), 
+            nanoq: nanoq_results, 
+            nanoq_scan: nanoq_scan_results,
             fastp: fastp_results, 
             fastp_scan: fastp_scan_results,
             ercc: ercc_results, 

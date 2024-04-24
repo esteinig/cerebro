@@ -13,7 +13,7 @@ include { VircovZero as AlignmentEvaluationIllumina } from '../../processes/virc
     result_file: "qc__vircov__phage"
 )
 
-include { MinimapAlignOntPAF as MinimapAlignmentOnt } from '../../processes/minimap2' addParams(
+include { MinimapAlignPafOnt as MinimapAlignmentOnt } from '../../processes/minimap2' addParams(
     subdir: "quality_control/phage/alignments"
 )
 include { ScrubbyAlignmentDepletionOnt as AlignmentDepletionOnt } from '../../processes/scrubby' addParams(
@@ -43,7 +43,6 @@ workflow phage_control {
             depletion = AlignmentDepletionIllumina(MinimapAlignmentIllumina.out)
             evaluation = AlignmentEvaluationIllumina(MinimapAlignmentIllumina.out, reference)
         }
-        
     emit: 
         reads = depletion.reads
         results = depletion.results.mix(evaluation.results)                                     

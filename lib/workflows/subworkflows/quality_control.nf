@@ -1,22 +1,23 @@
 
 include { c } from '../../utils';
-
-include { NaiveDeduplication } from '../../processes/umi';
-include { CalibDeduplication } from '../../processes/umi';
-
 include { ercc_control } from './ercc';
 include { phage_control } from './phage';
 include { host_depletion } from './host';
+include { NaiveDeduplication } from '../../processes/umi';
+include { CalibDeduplication } from '../../processes/umi';
 
 include { Nanoq } from '../../processes/nanoq' addParams(
     subdir: "quality_control/read_qc",
-)
+);
+include { NanoqScan } from '../../processes/nanoq' addParams(
+    subdir: "quality_control/read_qc/scan",
+);
 include { Fastp } from '../../processes/fastp' addParams(
     subdir: "quality_control/read_qc",
-)
+);
 include { FastpScan } from '../../processes/fastp' addParams(
     subdir: "quality_control/read_qc/scan",
-)
+);
 
 workflow quality_control_illumina {
     take:
@@ -101,37 +102,40 @@ workflow quality_control_ont {
         host_removal
         phage_removal
     main:
-        
+        NanoqScan(reads)
+        scan_results = NanoqScan.out.results
+
         if (params.qc.controls.ercc.enabled) {
-            ercc_control(reads, ercc_fasta)
-            reads = ercc_control.out.reads
-            ercc_results = ercc_control.out.results
+            ercc = ercc_control(reads, ercc_fasta)
+            reads = ercc.reads
+            ercc_results = ercc.results
         } else {
             ercc_results = Channel.empty()
         }
 
-        Nanoq(reads)
-        reads = Nanoq.out.reads
-        qc_results = Nanoq.out.results
+        nanoq = Nanoq(reads)
+        reads = nanoq.reads
+        qc_results = nanoq.results
 
         if (host_removal) {
-            host_depletion(reads, kraken_dbs, host_references, true)
-            reads = host_depletion.out.reads
-            host_results = host_depletion.out.results
+            host = host_depletion(nanoq.reads, kraken_dbs, host_references, true)
+            reads = host.reads
+            host_results = host.results
         } else {
             host_results = Channel.empty()
         }
 
         if (phage_removal) {
-            phage_control(reads, phage_fasta, true)
-            reads = phage_control.out.reads
-            phage_results = phage_control.out.results
+            phage_control = phage_control(reads, phage_fasta, true)
+
+            reads = phage_control.reads
+            phage_results = phage_control.results
         } else {
             phage_results = Channel.empty()
         }
 
     emit:
         reads = reads
-        results = qc_results.mix(ercc_results, host_results, phage_results)
+        results = qc_results.mix(scan_results, ercc_results, host_results, phage_results)
 }
 

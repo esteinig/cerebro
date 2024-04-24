@@ -8,7 +8,7 @@ BACTERIAL SUBSET ALIGNMENT
 include { MashScreenWinner as MashScreenBacteria } from '../../processes/mash' addParams(
     subdir: "alignment/bacteria/mash_subset"
 )
-include { MashDatabaseSubset as MashDatabaseSubsetBacteria } from '../../processes/mgp_tools' addParams(
+include { MashDatabaseSubset as MashDatabaseSubsetBacteria } from '../../processes/cerebro' addParams(
     subdir: "alignment/bacteria/mash_subset",
     min_shared_hashes: params.subset_min_shared_hashes
 )
@@ -52,7 +52,7 @@ BACTERIAL SUBSET ALIGNMENT
 include { MashScreenWinner as MashScreenEukaryots } from '../../processes/mash' addParams(
     subdir: "alignment/eukaryots/mash_subset"
 )
-include { MashDatabaseSubset as MashDatabaseSubsetEukaryots } from '../../processes/mgp_tools' addParams(
+include { MashDatabaseSubset as MashDatabaseSubsetEukaryots } from '../../processes/cerebro' addParams(
     subdir: "alignment/eukaryots/mash_subset",
     min_shared_hashes: params.subset_min_shared_hashes
 )

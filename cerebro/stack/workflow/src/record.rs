@@ -8,6 +8,7 @@ use crate::{error::WorkflowError, module::get_lca_taxid};
 use crate::virus::{ConsensusRecord, Annotation, CoverageRecord, AnnotationOptions};
 
 
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VircovRecord {
     pub id: String,

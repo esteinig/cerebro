@@ -3,6 +3,23 @@ use serde::{Deserialize, Serialize, Serializer};
 
 use crate::{record::VircovRecord, module::QualityControlModule, error::WorkflowError};
 
+// NANOQ 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Nanoq {
+    reads: u64,
+    bases: u64,
+    n50: u64,
+    longest: u64,
+    shortest: u64,
+    mean_length: u64,
+    median_length: u64,
+    mean_quality: Option<f64>,
+    median_quality: Option<f64>,
+    filtered: u64
+}
+
+// FASTP 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FastpSummary {
     #[serde(rename = "fastp_version")] 
@@ -279,66 +296,123 @@ impl Default for ModelConfig {
     }
 }
 
+fn is_zero(b: &u64) -> bool { *b == 0 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityControlSummary {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub model_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub run_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub library_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_group: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_date: Option<String>,
     pub total_reads: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_bases: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub total_biomass: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deduplicated_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub deduplicated_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ercc_constructs: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ercc_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub ercc_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub ercc_input_mass: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_nine")]
     pub ercc_mass_per_read: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub adapter_trimmed_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub adapter_trimmed_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub low_complexity_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub low_complexity_percent: Option<f64>,
+    #[serde(skip_serializing_if = "is_zero")]
     pub mean_length_r1: u64,
+    #[serde(skip_serializing_if = "is_zero")]
     pub mean_length_r2: u64,
     pub qc_reads: u64,
     #[serde(serialize_with = "round_two")]
     pub qc_percent: Option<f64>,
-    pub qc_missing_bases_reads: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qc_bases: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "round_two")]
+    pub qc_bases_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qc_missing_bases_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub qc_missing_bases_percent: Option<f64>,
-    pub qc_min_length_reads: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qc_min_length_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub qc_min_length_percent: Option<f64>,
-    pub qc_low_quality_reads: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qc_low_quality_reads: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub qc_low_quality_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub q20_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub q30_percent: Option<f64>,
     pub host_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub host_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub host_biomass: Option<f64>,
     pub other_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub other_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub other_biomass: Option<f64>,
+    // ONT options
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub longest_read: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shortest_read: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub median_read_length: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_read_length: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_length_n50: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub median_read_q: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_read_q: Option<u64>,
     // DNA phage control
     pub dna_phage_id: Option<String>,
     pub dna_phage_reads: Option<u64>,
@@ -346,6 +420,7 @@ pub struct QualityControlSummary {
     pub dna_phage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
     pub dna_phage_coverage_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub dna_phage_biomass: Option<f64>,
     pub rna_phage_id: Option<String>,
@@ -354,6 +429,7 @@ pub struct QualityControlSummary {
     pub rna_phage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
     pub rna_phage_coverage_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub rna_phage_biomass: Option<f64>,
     // Sequencing phage control
@@ -363,6 +439,7 @@ pub struct QualityControlSummary {
     pub seq_phage_percent: Option<f64>,
     #[serde(serialize_with = "round_two")]
     pub seq_phage_coverage_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub seq_phage_biomass: Option<f64>,
     // Output reads after quality control
@@ -370,9 +447,13 @@ pub struct QualityControlSummary {
     #[serde(serialize_with = "round_two")]
     pub output_percent: Option<f64>,
     // Threshold important quality control
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub control_status_dna_extraction: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub control_status_rna_extraction: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub control_status_library: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub control_status_sequencing: Option<bool>,
 }
 impl QualityControlSummary {
@@ -399,11 +480,147 @@ impl QualityControlSummary {
             }
         };
 
-
-        let fastp = match &quality_control_module.fastp {
-            Some(fastp) => fastp,
-            None => return Err(WorkflowError::QualityControlNotConducted)
+        // Illumina derivation of the quality contrrol module for the database model and output tables
+        let summary = match (&quality_control_module.fastp, &quality_control_module.nanoq)  {
+            (Some(fastp), None) => {
+                Self::from_illumina(fastp, quality_control_module, model_id, ercc_input_mass, model_cfg)?
+            },
+            (None, Some(nanoq)) => {
+                Self::from_ont(nanoq, quality_control_module, model_id, model_cfg)?
+            },
+            _ => return Err(WorkflowError::QualityControlNotConducted)
         };
+
+       
+
+        
+        Ok(summary)
+    }
+    fn from_ont(
+        nanoq: &Nanoq,
+        quality_control_module: &QualityControlModule, 
+        model_id: Option<String>,
+        model_cfg: ModelConfig,
+    ) -> Result<Self, WorkflowError> {
+
+        let (total_reads, nanoq_scan) = match &quality_control_module.nanoq_scan {
+            Some(nanoq_scan) => (nanoq_scan.reads, nanoq_scan.clone()),
+            None => return Err(WorkflowError::NanoqScan)
+        };
+
+        let (host_reads, other_reads, host_percent, other_percent) = match &quality_control_module.host_background {
+            Some(host_depletion) => {
+                
+                let host_reads = host_depletion.summary.depleted;
+                let other_reads = host_depletion.summary.total - host_depletion.summary.depleted;
+
+                let host_percent = (host_reads as f64 / total_reads as f64)*100.;
+                let other_percent = (other_reads as f64 / total_reads as f64)*100.;
+
+
+                (Some(host_reads), Some(other_reads), Some(host_percent), Some(other_percent))
+            },
+            None => (None, None, None, None)
+        };
+
+
+        let (dna_phage_reads, dna_phage_percent, dna_phage_biomass, dna_phage_coverage_percent) = get_phage_data(
+            quality_control_module, &model_cfg.dna_phage_id, total_reads, &None
+        );
+        let (rna_phage_reads, rna_phage_percent, rna_phage_biomass, rna_phage_coverage_percent) = get_phage_data(
+            quality_control_module, &model_cfg.rna_phage_id, total_reads, &None
+        );
+        let (seq_phage_reads, seq_phage_percent, seq_phage_biomass, seq_phage_coverage_percent) = get_phage_data(
+            quality_control_module, &model_cfg.seq_phage_id, total_reads, &None
+        );
+
+        let qc_reads = nanoq.reads;
+        let (output_reads, output_percent) = compute_output_reads(
+            total_reads, qc_reads, other_reads, dna_phage_reads, rna_phage_reads, seq_phage_reads
+        );
+
+        Ok(Self {
+            id: quality_control_module.id.clone(),
+            model_id,
+            library_tag: model_cfg.library_tag,
+            sample_group: model_cfg.sample_group,
+            sample_type: model_cfg.sample_type,
+            run_id: model_cfg.run_id,
+            run_date: model_cfg.run_date,
+            workflow_name: model_cfg.workflow_name,
+            workflow_id: model_cfg.workflow_id,
+            workflow_date: model_cfg.workflow_date,
+            total_reads,
+            total_bases: Some(nanoq_scan.bases),
+            total_biomass: None,
+            deduplicated_reads: None,
+            deduplicated_percent: None,
+            ercc_constructs: None,
+            ercc_reads: None,
+            ercc_percent: None,
+            ercc_input_mass: None,
+            ercc_mass_per_read: None,
+            adapter_trimmed_reads: None,
+            adapter_trimmed_percent: None,
+            low_complexity_reads: None,
+            low_complexity_percent: None,
+            mean_length_r1: 0,
+            mean_length_r2: 0,
+            qc_reads,
+            qc_percent: Some((nanoq.reads as f64 / total_reads as f64)*100.),
+            qc_bases: Some(nanoq.bases),
+            qc_bases_percent: Some((nanoq.bases as f64 / nanoq_scan.bases as f64)*100.),
+            qc_missing_bases_reads: None,
+            qc_missing_bases_percent: None,
+            qc_min_length_reads: None,
+            qc_min_length_percent: None,
+            qc_low_quality_reads: None,
+            qc_low_quality_percent: None,
+            q20_percent: None,
+            q30_percent: None,
+            host_reads,
+            host_percent,
+            host_biomass: None,
+            other_reads,
+            other_percent,
+            other_biomass: None,
+            longest_read: None,
+            shortest_read: None,
+            median_read_length: None,
+            mean_read_length: None,
+            read_length_n50: None,
+            median_read_q: None,
+            mean_read_q: None,
+            dna_phage_id: Some(model_cfg.dna_phage_id.into()),
+            dna_phage_reads,
+            dna_phage_percent,
+            dna_phage_coverage_percent,
+            dna_phage_biomass,
+            rna_phage_id: Some(model_cfg.rna_phage_id.into()),
+            rna_phage_reads,
+            rna_phage_percent,
+            rna_phage_coverage_percent,
+            rna_phage_biomass,
+            seq_phage_id: Some(model_cfg.seq_phage_id.into()),
+            seq_phage_reads,
+            seq_phage_percent,
+            seq_phage_coverage_percent,
+            seq_phage_biomass,
+            output_reads,
+            output_percent: Some(output_percent),
+            control_status_dna_extraction: None,
+            control_status_rna_extraction: None,
+            control_status_library: None,
+            control_status_sequencing: None,
+        })
+    }
+    fn from_illumina(
+        fastp: &Fastp,
+        quality_control_module: &QualityControlModule, 
+        model_id: Option<String>,
+        ercc_input_mass: Option<f64>,
+        model_cfg: ModelConfig,
+    ) -> Result<Self, WorkflowError> {
 
         let (mut total_reads, deduplicated_reads) = match &quality_control_module.fastp_scan {
             Some(fastp_scan) => {
@@ -536,7 +753,6 @@ impl QualityControlSummary {
             total_reads, qc_reads, other_reads, dna_phage_reads, rna_phage_reads, seq_phage_reads
         );
 
-        
         Ok(Self {
             id: quality_control_module.id.clone(),
             model_id,
@@ -565,11 +781,13 @@ impl QualityControlSummary {
             mean_length_r2,
             qc_reads,
             qc_percent: Some(qc_percent),
-            qc_missing_bases_reads,
+            qc_bases: None,
+            qc_bases_percent: None,
+            qc_missing_bases_reads: Some(qc_missing_bases_reads),
             qc_missing_bases_percent: Some(qc_missing_bases_percent),
-            qc_min_length_reads,
+            qc_min_length_reads: Some(qc_min_length_reads),
             qc_min_length_percent: Some(qc_min_length_percent),
-            qc_low_quality_reads,
+            qc_low_quality_reads: Some(qc_low_quality_reads),
             qc_low_quality_percent: Some(qc_low_quality_percent),
             q20_percent: Some(q20_percent),
             q30_percent: Some(q30_percent),
@@ -579,6 +797,14 @@ impl QualityControlSummary {
             other_reads,
             other_percent,
             other_biomass,
+            total_bases: None,
+            longest_read: None,
+            shortest_read: None,
+            median_read_length: None,
+            mean_read_length: None,
+            read_length_n50: None,
+            median_read_q: None,
+            mean_read_q: None,
             dna_phage_id: Some(model_cfg.dna_phage_id.into()),
             dna_phage_reads,
             dna_phage_percent,
@@ -601,6 +827,7 @@ impl QualityControlSummary {
             control_status_library: None,
             control_status_sequencing: None,
         })
+
     }
 }
 

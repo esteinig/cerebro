@@ -3,9 +3,6 @@
 	import type { Cerebro, Ercc, QualityControlSummary, WorkflowParamsQcErcc } from "$lib/utils/types";
 	import { Tab, TabGroup } from "@skeletonlabs/skeleton";
     import { sampleCorrelation } from "simple-statistics";
-
-	import '@carbon/charts-svelte/styles.css';
-    import "@carbon/charts/styles.css";
     
 	import { ScatterChart, ChartTheme, ScaleTypes } from '@carbon/charts-svelte';
 

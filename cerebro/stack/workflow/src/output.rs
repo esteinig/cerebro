@@ -12,6 +12,8 @@ use crate::error::WorkflowError;
 // Workflow sample aggregate which represents the output of the workflow module 
 // for a single processed sample (distinct from biological sample, which is a set of WorkflowSamples)
 pub struct WorkflowOutputs {
+    pub nanoq: Option<PathBuf>,
+    pub nanoq_scan: Option<PathBuf>,
     pub fastp: Option<PathBuf>,
     pub fastp_scan: Option<PathBuf>,
     pub ercc_vircov: Option<PathBuf>,
@@ -29,6 +31,8 @@ pub struct WorkflowOutputs {
 impl WorkflowOutputs {
     pub fn from_results(path: &PathBuf) -> Result<Self, WorkflowError> {
         Ok(Self{
+            nanoq: WorkflowOutputs::get_file_by_name(&path, "qc__nanoq__reads")?,
+            nanoq_scan: WorkflowOutputs::get_file_by_name(&path, "qc__nanoq__scan")?,
             fastp: WorkflowOutputs::get_file_by_name(&path, "qc__fastp__reads")?,
             fastp_scan: WorkflowOutputs::get_file_by_name(&path, "qc__fastp__scan")?,
             ercc_vircov: WorkflowOutputs::get_file_by_name(&path, "qc__vircov__ercc")?,

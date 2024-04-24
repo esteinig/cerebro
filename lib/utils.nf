@@ -161,7 +161,7 @@ process WriteConfig {
 
     output:
         path 'config.json', emit: config
-        path "${workflow.sessionId}.csv", emit: sample_sheet
+        path "${workflow.sessionId}.csv", emit: sample_sheet optional true 
 
     script:
 
@@ -180,10 +180,17 @@ process WriteConfig {
         json = JsonOutput.toJson(config)
         json_pretty = JsonOutput.prettyPrint(json)
 
-        """
-        echo '${json_pretty}' > config.json
-        cp $sample_sheet ${workflow.sessionId}.csv
-        """
+        if (sample_sheet) {
+            """
+            echo '${json_pretty}' > config.json
+            cp $sample_sheet ${workflow.sessionId}.csv
+            """
+        } else {
+            """
+            echo '${json_pretty}' > config.json
+            """
+        }
+        
 }
 
 
@@ -325,7 +332,7 @@ def parse_file_params(){
 
     meta_diamond_nr = [];
     meta_blast_nt = [];
-    if (params.taxa.assembly.meta.enabled) {
+    if (params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
         if (params.meta_blast_nt) {
             meta_blast_nt = Channel.fromPath(check_file(params.meta_blast_nt)).first()
         } else {
@@ -345,7 +352,7 @@ def parse_file_params(){
     // Here we only need a file, as we create the channel in the sample sheet parsing function
 
     sample_sheet = [];
-    if (params.production) {
+    if (params.production.enabled) {
         if (params.production.sample_sheet) {
             sample_sheet = file(check_file(params.production.sample_sheet))
         } else {
@@ -358,13 +365,13 @@ def parse_file_params(){
     // For production also check that the `nodes.dmp` and `names.dmp` files for taxonomy are available in the database directory
 
     taxonomy_directory = [];
-    if (params.production) {
+    if (params.production.enabled || (params.process.enabled && params.process.taxa)) {
         if (params.taxonomy) {
             check_file("$params.taxonomy/nodes.dmp")
             check_file("$params.taxonomy/names.dmp")
             taxonomy_directory = Channel.fromPath(check_file(params.taxonomy)).first()
         } else {
-            println("\n${c_red}Production settings are activated, but no taxonomy directory (containing `nodes.dmp` and `names.dmp` files) was provided (--taxonomy).${c_reset}\n")
+            println("\n${c_red}Settings are activated that require a taxonomy (production or post-processing), but no taxonomy directory (containing `nodes.dmp` and `names.dmp` files) was provided (--database.taxonomy.directory).${c_reset}\n")
             Thread.sleep(2000); // we need a small delay so the message is printed before we exit with error code
             System.exit(1) 
         }
@@ -511,7 +518,7 @@ def get_single_reads(sample_sheet, production) {
     if (params.production.sample_sheet){
         reads = from_sample_sheet(sample_sheet, production)
     } else if (params.fastq_ont) {
-        reads = channel.fromPath(params.fastq_ont, checkIfExists: true)
+        reads = channel.fromPath(params.fastq_ont, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
     } else {
         println "\n${c('red')}Either `--fastq_ont` or `--production.sample_sheet` have to be specified for nanopore read input${c('reset')}\n"
         Thread.sleep(2000); 

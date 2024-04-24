@@ -1,6 +1,8 @@
 <script lang="ts">
 	import '../app.postcss';
-
+	import '../carbon.css';
+	import '../carbonSvelte.css';
+	
 	// Highlight JS
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/github-dark.css';

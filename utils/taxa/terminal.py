@@ -193,7 +193,7 @@ def plot_heatmap_targets(
          "me_control_1.txt,me_control_2.txt", help="Target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) "
     ),
     target_labels: Optional[str] = typer.Option(
-        None, help="Off target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) - checked for presence in samples"
+        None, help="Off-target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) - checked for presence in samples"
     ),
     vmax_rpm: Optional[int] = typer.Option(
         None, help="RPM for color scale limit - any value above will be at the highest end of the color scale"
@@ -304,11 +304,23 @@ class QuantitativeResult:
     assembly_contigs: Optional[int] = None
     assembly_contigs_bases: Optional[int] = None
 
+
+@dataclass
+class LibraryData:
+    panel:  Optional[str]
+    pellet:  Optional[str]
+    extraction: Optional[str]
+    machine:  Optional[str]
+    nucleic_acid: Optional[str]
+    primer: Optional[str]
+    extraction_machine_primer: Optional[str]
+
 @dataclass
 class LibraryResult:
     group: str
     sample_id: str
     sample_tag: str
+    library_data: Optional[LibraryData]
     qualitative: QualitativeResult
     quantitative: QuantitativeResult
 
@@ -333,7 +345,46 @@ class LibraryResult:
             control_tag = None
 
         return control_tag
+    
 
+    def get_primer_tag(self) -> Optional[str]:
+
+        if "BIO" in self.sample_tag:
+            primer_tag = "BIO"
+        elif "NEB" in self.sample_tag:
+            primer_tag = "NEB"
+        else:
+            primer_tag = None
+
+        return primer_tag
+
+
+@dataclass
+class LibraryDataFrame:
+    results: List[LibraryResult]
+    dataframe: Optional[pandas.DataFrame]
+
+    def get_dataframe(self, qualitative: bool = False):
+
+        data = []
+        for result in self.results:
+            row = {
+                'sample_id': result.sample_id,
+                'sample_tag': result.sample_tag,
+                'group': result.group,
+            }
+            if qualitative:
+                row.update(result.qualitative.__dict__)
+            else:
+                row.update(result.quantitative.__dict__)
+
+            if result.library_data:
+                row.update(result.library_data.__dict__)
+
+            data.append(row)
+        
+        return pandas.DataFrame(data)
+    
 def extract_classifications(
     df: pandas.DataFrame, 
     group: str,
@@ -354,6 +405,54 @@ def extract_classifications(
             # may change on testing
             sample_id = library.sample_id.unique()[0]
             sample_tag = library.sample_tag.unique()[0]
+
+            if library.empty:
+                raise ValueError("Empty library!")
+            
+            try :
+                panel = library["panel"].unique()[0]
+            except KeyError:
+                panel = None
+        
+            try :
+                pellet = library["pellet"].unique()[0]
+            except KeyError:
+                pellet = None
+            try :
+                extraction = library["extraction"].unique()[0]
+            except KeyError:
+                extraction = None
+            try :
+                machine = library["machine"].unique()[0]
+            except KeyError:
+                machine = None
+            try :
+                nucleic_acid = library["nucleic_acid"].unique()[0]
+            except KeyError:
+                nucleic_acid = None
+            try :
+                primer = library["primer"].unique()[0]
+            except KeyError:
+                primer = None
+
+            try :
+                extraction_machine_primer = library["extraction-machine-primer"].unique()[0]
+            except KeyError:
+                primer = None
+
+
+            if (panel, pellet, extraction, machine, nucleic_acid, primer) == (None, None, None, None, None, None):
+                library_data = None
+            else:
+                library_data = LibraryData(
+                    panel=panel,
+                    pellet=pellet,
+                    extraction=extraction,
+                    machine=machine,
+                    nucleic_acid=nucleic_acid,
+                    primer=primer,
+                    extraction_machine_primer=extraction_machine_primer
+                )
 
             # Quantitative and qualitiative results
             if not target_profile.empty:
@@ -383,6 +482,7 @@ def extract_classifications(
                 group=grp,
                 sample_id=sample_id,
                 sample_tag=sample_tag,
+                library_data=library_data,
                 quantitative=quantitative,
                 qualitative=qualititative
             ))
@@ -636,7 +736,6 @@ def plot_quantitative_heatmap(
 
         dataframe.replace(to_replace=0, value=np.nan, inplace=True)
 
-
         x_labels = dataframe.columns.tolist()
         ax = axes[i]
 
@@ -646,6 +745,8 @@ def plot_quantitative_heatmap(
         custom_cmap = LinearSegmentedColormap.from_list("custom_cmap", rgb_colors)
 
         dataframe = dataframe.sort_index()
+        
+        dataframe = dataframe[dataframe.columns].astype(float)  # important
 
         p = sns.heatmap(
             dataframe, 

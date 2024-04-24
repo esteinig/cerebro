@@ -87,9 +87,7 @@ impl WorkflowSample {
                 }
             },
             None => {
-                
                 log::warn!("No taxonomy provided for sample {} - processed only quality control data", id);
-
                 Ok(Self {
                     id: id.clone(),
                     taxa: HashMap::new(),

@@ -11,9 +11,15 @@ pub enum WorkflowError {
     /// Indicates failure to parse a the fastp JSON
     #[error("failed to parse fastp output from JSON")]
     ParseFastp(#[source] serde_json::Error),
+    /// Indicates failure to parse a the nanoq JSON
+    #[error("failed to parse nanoq output from JSON")]
+    ParseNanoq(#[source] serde_json::Error),
     /// Indicates failure to parse the Scrubby JSON
     #[error("failed to parse Scrubby output from JSON")]
     ParseScrubby(#[source] serde_json::Error),
+    /// Indicates failure to find the required nanoq scan output
+    #[error("failed to find nanoq scan output")]
+    NanoqScan,
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IOError(#[from] std::io::Error),

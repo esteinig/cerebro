@@ -17,36 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-===========
-CEREBRO
-===========
-
-Version:    0.3.0
-Inception:  2023-01-26
-Maintainer: esteinig
-
 */
 
-/*
-
-Notes for this workflow:
-
-    - Fastp deduplication is not deterministic due to low-bit hash algorithm and hash collisions, affects ~ 0.01% of reads: https://github.com/OpenGene/fastp
-    
-    - UMI-tools deduplication may also not be determistic despite specified seed value:  https://github.com/CGATOxford/UMI-tools/pull/550
-
-    - UMI-tools with the current Neb UMI protocol against human reference is escalating RAM massively for some deep samples - 
-      there may be interactions with the method (directional-adjacency), allowing multi-mapped read alignments, and generatign output stats (disabled)
-      as described here: https://github.com/CGATOxford/UMI-tools/issues/561 where it seems that RAM usage escalates exponentially with increasing number 
-      of unique UMIs per position (likely due to high read depth on human. This may be the case since the space of possible UMIs is 3^12 and we have
-      high human coverage - this may still need to be tested properly.
-
-
-
-*/
-
-nextflow.enable.dsl=2
 
 /* 
 ===================
@@ -55,15 +27,12 @@ Workflow parameters
 */
 
 params.help                                          = false
-params.outdir                                        = "mgp_csf_v${workflow.manifest.version}"
-params.databases                                     = 'db'
-params.taxonomy                                      = 'db/ncbi_tax'
+params.monochrome                                    = false
+params.outdir                                        = "cerebro_v${workflow.manifest.version}"
 
-// File input
+// File input from command-line
 
-params.fastq                                         = null
-
-params.fastq_illumina                                = null
+params.fastq_pe                                      = null
 params.fastq_ont                                     = null
 
 // ===================================
@@ -83,33 +52,41 @@ params.virus_db_index                                = null
 params.virus_db_fasta                                = null
 params.virus_blacklist                               = null
 
-// Viral scanning and remapping
-
-params.vircov_scan_min_cov                           = 0  
-params.vircov_scan_min_len                           = 50 
-params.vircov_scan_min_mapq                          = 60                                                   // this applies to ungrouped alignment and filter reads that do not map uniquely to database references
-
-params.vircov_scan_reads                             = 0  
-params.vircov_scan_coverage                          = 0 
-params.vircov_scan_regions                           = 0
-params.vircov_scan_regions_coverage                  = 0
-
-params.vircov_group_by                               = "taxid="
-params.vircov_group_sep                              = ";"
-
-params.vircov_group_select_by                        = "coverage"         
-params.vircov_group_select_segment_field             = "segment="
-params.vircov_group_select_segment_field_nan         = "segment=N/A"
 
 
-params.vircov_remap_min_cov                          = 0  
-params.vircov_remap_min_len                          = 50 
-params.vircov_remap_min_mapq                         = 0  
+params.bacteria_mash_index                          = "db/bacteria.msh"
+params.bacteria_fasta                               = "db/bacteria.fasta"
 
-params.vircov_remap_reads                            = 0
-params.vircov_remap_coverage                         = 0
-params.vircov_remap_regions                          = 0
-params.vircov_remap_regions_coverage                 = 0
+params.eukaryots_mash_index                         = "db/eukaryots_complete.msh"
+params.eukaryots_fasta                              = "db/eukaryots_complete.fasta"
+
+params.subset_min_shared_hashes                     = 2 
+params.subset_group_index                           = null     // null or int, recognized in process and switches to group selection [e.g 1 on seq index kraken fmt "taxid|1147|NC_014725.1"] -- picks the best genome by max shared hashes from taxid group
+params.subset_group_sep                             = "|"      // format required for both bacterial and eukaryotic *|{taxid}|*
+
+// Dummy parameters for domain-specific scanning stage in the alignment popelines
+// these are only used to configure processes with specific parameters for viral
+// bacterial and eukaryotic alignment options
+
+params.vircov_scan_min_cov                           = null  
+params.vircov_scan_min_len                           = null 
+params.vircov_scan_min_mapq                          = null  // this applies to ungrouped alignment and filter reads that do not map uniquely to database references
+params.vircov_scan_reads                             = null  
+params.vircov_scan_coverage                          = null 
+params.vircov_scan_regions                           = null
+params.vircov_scan_regions_coverage                  = null
+params.vircov_group_by                               = null
+params.vircov_group_sep                              = null
+params.vircov_group_select_by                        = null        
+params.vircov_group_select_segment_field             = null
+params.vircov_group_select_segment_field_nan         = null
+params.vircov_remap_min_cov                          = null  
+params.vircov_remap_min_len                          = null
+params.vircov_remap_min_mapq                         = null
+params.vircov_remap_reads                            = null
+params.vircov_remap_coverage                         = null
+params.vircov_remap_regions                          = null
+params.vircov_remap_regions_coverage                 = null
 
 // Viral consensus assembly (submodule)
 
@@ -131,16 +108,6 @@ params.bracken_read_threshold                        = 3
 
 // Bacterial and eukaryotic subset alignment
 
-params.bacteria_mash_index                          = "db/bacteria.msh"
-params.bacteria_fasta                               = "db/bacteria.fasta"
-
-params.eukaryots_mash_index                         = "db/eukaryots_complete.msh"
-params.eukaryots_fasta                              = "db/eukaryots_complete.fasta"
-
-params.subset_min_shared_hashes                     = 2 
-params.subset_group_index                           = null     // null or int, recognized in process and switches to group selection [e.g 1 on seq index kraken fmt "taxid|1147|NC_014725.1"] -- picks the best genome by max shared hashes from taxid group
-params.subset_group_sep                             = "|"      // format required for both bacterial and eukaryotic *|{taxid}|*
-
 params.bacteria_min_cov                             = 0
 params.bacteria_min_len                             = 50
 params.bacteria_min_mapq                            = 60          
@@ -154,33 +121,6 @@ params.eukaryots_min_regions                        = 0
 params.eukaryots_min_reads                          = 0       
 
 
-// ====================================================
-// Metagenome and -transciptome assembly with alignment
-// ====================================================
-
-// params.meta_blast_nt                                = null  // path of database directory without the 'nt' file/index specifier
-// params.meta_blast_nt_min_evalue                     = 0.000001
-// params.meta_blast_nt_min_identity                   = 95    // we only want high identity hits for identification, not looking for unusual things for now
-// params.meta_blast_nt_max_seqs                       = 100   // use the highest scoring hits ones for LCA computation
-
-// params.meta_diamond_nr                              = null  // path of database file created with diamond (including taxonomic information)
-// params.meta_diamond_nr_min_evalue                   = 0.000001
-// params.meta_diamond_nr_min_identity                 = 95    // we only want high identity hits for identification, not looking for unusual things for now
-// params.meta_diamond_nr_max_seqs                     = 100   // use the highest scoring hits ones for LCA computation
-
-// params.meta_diamond_nr_block_size                   = 2     // I think this improves runtime with higher memory (2(b+9b/c)MB where b = block size and c = index chunks)
-// params.meta_diamond_nr_index_chunks                 = 4
-
-// ====================
-// Other configurations
-// ====================
-
-params.monochrome                                   = false
-params.minimap2_preset                              = "sr"       // Scrubby global settings for minimap2-preset 
-params.covtobed_max_cov                             = 1000000    // Viral remapping if coverage really high (e.g. TWIST)
-
-
-
 // Workflow imports
 
 include { cerebro_production }              from './lib/workflows/subworkflows/production'
@@ -190,7 +130,7 @@ include { aneuploidy_detection_illumina }   from './lib/workflows/aneuploidy_det
 include { culture_identification }          from './lib/workflows/culture_identification'
 
 // Utility imports
-include { PingServer} from './lib/processes/cerebro'
+include { PingServer; ProcessSamples; ProcessSamplesTaxonomy; QualityControlTable } from './lib/processes/cerebro'
 include { RasusaReadsMultiple } from './lib/processes/rasusa' addParams(subdir: "subsample")
 include { c; parse_file_params; init_msg; complete_msg; help_msg; get_paired_reads; get_single_reads; WriteConfig } from './lib/utils'
 
@@ -204,30 +144,30 @@ workflow {
     } else {
 
         /*
-        
-        ================
-        Input validation
-        ================
-
-        Necessary for input file checks and optional or paired input validation
-
+        ==========================
+        Input validation and reads
+        ==========================
         */
         
         def inputs = parse_file_params()
 
         if (params.production.enabled) {
-            
             if (params.production.api.upload.enabled) {
                 PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
             }
-            
             data = get_paired_reads(inputs.sample_sheet, true)                       // production requires sample sheet
-
             reads = data.pathogen                                                    // pathogen analysis uses all input reads
             reads_aneuploidy = data.aneuploidy                                       // host genome analysis if enabled uses subset of activated input reads
         } else {
-            reads = get_paired_reads(inputs.sample_sheet, false)                     // pathogen analysis 
-            reads_aneuploidy = reads                                                 // all input read files are also used for host genome analysis if enabled
+            if (params.fastq_ont && params.ont.enabled) {
+                reads = get_single_reads(null, false)                                // pathogen analysis 
+            } else if (params.fastq_pe) {
+                reads = get_paired_reads(null, false)                                // pathogen analysis 
+                reads_aneuploidy = reads                                             // all input read files are also used for host genome analysis if enabled
+            } else {
+                 println "\n${c('red')}Production mode is not active - you must provide either `--fastq_pe <GLOB>` or `--ont.enabled --fastq_ont <FILE-OR-GLOB>` for read inputs${c('reset')}\n"
+            }
+            
         }   
 
         if (params.mode.io.enabled){
@@ -253,19 +193,31 @@ workflow {
                 // Quality control subworkflow
                 // ===========================
 
-                quality_control_illumina(
-                    reads, 
-                    inputs.adapter_fasta, 
-                    inputs.ercc_fasta, 
-                    inputs.phage_fasta, 
-                    inputs.host_depletion_dbs, 
-                    inputs.host_depletion_references, 
-                    inputs.host_ercc_index, 
-                    params.qc.deduplication.enabled,
-                    params.qc.deduplication.method,
-                    params.qc.host.depletion.enabled,
-                    params.qc.controls.phage.enabled
-                )  // uses only the pathogen analysis reads (host analysis is the same or a subset of pathogen analysis)
+               
+                if (params.ont.enabled) {
+                    qc_reads = quality_control_ont(
+                        reads, 
+                        inputs.ercc_fasta, 
+                        inputs.phage_fasta, 
+                        inputs.host_depletion_dbs, 
+                        inputs.host_depletion_references, 
+                        params.qc.host.depletion.enabled,
+                        params.qc.controls.phage.enabled
+                    ).out.reads
+                } else {
+                    qc_reads = quality_control_illumina(
+                        reads, 
+                        inputs.adapter_fasta, 
+                        inputs.ercc_fasta, 
+                        inputs.phage_fasta, 
+                        inputs.host_depletion_dbs, 
+                        inputs.host_depletion_references, 
+                        params.qc.deduplication.enabled,
+                        params.qc.deduplication.method,
+                        params.qc.host.depletion.enabled,
+                        params.qc.controls.phage.enabled
+                    ).out.reads
+                }
 
             } else {
                 
@@ -285,7 +237,7 @@ workflow {
                 // ==============================
 
                 if (params.taxa.enabled) {
-                    pathogen_detection(reads, inputs, false) | view
+                    pathogen_detection(reads, inputs, params.ont.enabled)
 
                     WriteConfig(
                         inputs.sample_sheet, 
@@ -300,8 +252,16 @@ workflow {
                             inputs.sample_sheet,
                             WriteConfig.out.config
                         )
+                    } else {
+                        if (params.process.enabled) {
+                            if (params.process.taxa) {
+                                samples = ProcessSamplesTaxonomy(pathogen_detection.out.results, inputs.taxonomy_directory)
+                            } else {
+                                samples = ProcessSamples(pathogen_detection.out.results)
+                            }
+                            samples | map { it -> it[1] } | QualityControlTable
+                        }
                     }
-
                 }
 
                 // ===========================================
@@ -313,7 +273,6 @@ workflow {
                     pe_reads = get_paired_reads(inputs.sample_sheet, false);
                     
                     culture_identification(ont_reads, pe_reads, inputs);
-                    
                 }
 
 
