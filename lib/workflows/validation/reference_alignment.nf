@@ -2,7 +2,7 @@
 
 include { MinimapAlignReferencePAF } from '../../processes/minimap2';
 include { VircovAlignReferenceZero } from '../../processes/vircov';
-include { from_reference_alignment_sample_sheet } from '../../../utils';
+include { from_reference_alignment_sample_sheet } from '../../utils';
 
 
 
