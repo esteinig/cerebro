@@ -23,7 +23,7 @@ workflow reference_alignment_illumina {
         if (params.validation.qc.enabled) {
 
             qc_reads = quality_control_illumina(
-                reads | map { tuple(it[0], it[1], it[2]) }, 
+                reads, 
                 inputs.adapter_fasta, 
                 inputs.ercc_fasta, 
                 inputs.phage_fasta, 
