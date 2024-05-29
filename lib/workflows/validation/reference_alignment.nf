@@ -20,6 +20,6 @@ workflow reference_alignment_illumina {
 }
 
 workflow reference_alignment {
-    reads = from_reference_alignment_sample_sheet(params.sample_sheet)
+    reads = from_reference_alignment_sample_sheet(params.validation.sample_sheet)
     reference_alignment_illumina(reads)
 }
