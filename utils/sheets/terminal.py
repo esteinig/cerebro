@@ -41,6 +41,6 @@ def create_validation_sheet(
         if not (ref_dir / ref).exists():
             print(f"Failed to detect reference file {row['reference']} at: {ref}")
 
-        data.append([row["sample_id"], reads[0], reads[1], ref])
+        data.append([row["sample_id"], reads[0].resolve(), reads[1].resolve(), ref.resolve()])
 
     pandas.DataFrame(data, columns=["sample_id", "forward_path", "reverse_path", "reference_path"]).to_csv(output, sep=",", index=False, header=True)
