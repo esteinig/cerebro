@@ -33,6 +33,7 @@ def create_validation_sheet(
         reads = [file for file in read_files if file.name.startswith(row["sample_id"])]
         
         if len(reads) != 2:
+            print(reads)
             print(f"Could not detect paired end reads for sample identifier: {row['sample_id']}")
             continue
 
