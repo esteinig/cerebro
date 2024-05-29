@@ -1,8 +1,8 @@
 
 
-include { MinimapAlignReferencePAF } from '../processes/minimap2';
-include { VircovAlignReferenceZero } from '../processes/vircov';
-include { from_reference_alignment_sample_sheet } from '../../utils';
+include { MinimapAlignReferencePAF } from '../../processes/minimap2';
+include { VircovAlignReferenceZero } from '../../processes/vircov';
+include { from_reference_alignment_sample_sheet } from '../../../utils';
 
 
 
@@ -19,7 +19,7 @@ workflow reference_alignment_illumina {
 
 }
 
-workflow {
+workflow reference_alignment {
     reads = from_reference_alignment_sample_sheet(params.sample_sheet)
     reference_alignment_illumina(reads)
 }

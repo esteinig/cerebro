@@ -26,12 +26,12 @@ def create_validation_sheet(
 
     df = pandas.read_csv(meta_data, sep="\t", header=0)
 
-    read_files = fastq_dir.glob("*.fastq.gz")
+    read_files = list(fastq_dir.glob("*.fastq.gz"))
 
     data = []
     for i, row in df.iterrows():
         reads = [file for file in read_files if file.name.startswith(row["sample_id"])]
-        
+
         if len(reads) != 2:
             print(reads)
             print(f"Could not detect paired end reads for sample identifier: {row['sample_id']}")

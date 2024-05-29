@@ -128,6 +128,7 @@ include { quality_control_illumina }        from './lib/workflows/subworkflows/q
 include { pathogen_detection }              from './lib/workflows/pathogen_detection'
 include { aneuploidy_detection_illumina }   from './lib/workflows/aneuploidy_detection'
 include { culture_identification }          from './lib/workflows/culture_identification'
+include { reference_alignment }             from './lib/workflows/validation/reference_alignment'
 
 // Utility imports
 include { PingServer; ProcessSamples; ProcessSamplesTaxonomy; QualityControlTable } from './lib/processes/cerebro'
@@ -221,62 +222,73 @@ workflow {
 
             } else {
                 
+                if (params.validation.enabled) {
 
-                // =====================================
-                // Host aneuploidy detection subworkflow
-                // =====================================
-                
-                if (params.host.enabled && params.host.aneuploidy.enabled) {
-                    aneuploidy = aneuploidy_detection_illumina(reads_aneuploidy, inputs)
+                    // =====================================
+                    // Validation experiment workflows
+                    // =====================================
+                    
+                    reference_alignment()
+
+
                 } else {
-                    aneuploidy = Channel.empty()
-                }
 
-                // ==============================
-                // Pathogen detection subworkflow
-                // ==============================
-
-                if (params.taxa.enabled) {
-
-                    pathogen_detection(reads, inputs, params.ont.enabled)
-
-                    WriteConfig(
-                        inputs.sample_sheet, 
-                        pathogen_detection.out.results | collect, 
-                        started
-                    )
-
-                    if (params.production.enabled && params.production.api.upload.enabled) {
-                        cerebro_production(
-                            inputs.taxonomy_directory,
-                            pathogen_detection.out.results,
-                            inputs.sample_sheet,
-                            WriteConfig.out.config
-                        )
+                    // =====================================
+                    // Host aneuploidy detection subworkflow
+                    // =====================================
+                    
+                    if (params.host.enabled && params.host.aneuploidy.enabled) {
+                        aneuploidy = aneuploidy_detection_illumina(reads_aneuploidy, inputs)
                     } else {
-                        if (params.process.enabled) {
-                            if (params.process.taxa) {
-                                samples = ProcessSamplesTaxonomy(pathogen_detection.out.results, inputs.taxonomy_directory)
-                            } else {
-                                samples = ProcessSamples(pathogen_detection.out.results)
+                        aneuploidy = Channel.empty()
+                    }
+
+                    // ==============================
+                    // Pathogen detection subworkflow
+                    // ==============================
+
+                    if (params.taxa.enabled) {
+
+                        pathogen_detection(reads, inputs, params.ont.enabled)
+
+                        WriteConfig(
+                            inputs.sample_sheet, 
+                            pathogen_detection.out.results | collect, 
+                            started
+                        )
+
+                        if (params.production.enabled && params.production.api.upload.enabled) {
+                            cerebro_production(
+                                inputs.taxonomy_directory,
+                                pathogen_detection.out.results,
+                                inputs.sample_sheet,
+                                WriteConfig.out.config
+                            )
+                        } else {
+                            if (params.process.enabled) {
+                                if (params.process.taxa) {
+                                    samples = ProcessSamplesTaxonomy(pathogen_detection.out.results, inputs.taxonomy_directory)
+                                } else {
+                                    samples = ProcessSamples(pathogen_detection.out.results)
+                                }
+                                samples | map { it -> it[1] } | QualityControlTable
                             }
-                            samples | map { it -> it[1] } | QualityControlTable
                         }
+                    }
+
+                    // ==================================================================
+                    // Cultured isolate assembly for taxonomic identification subworkflow
+                    // ==================================================================
+
+                    if (params.culture.enabled) {
+                        ont_reads = get_single_reads(inputs.sample_sheet, false);
+                        pe_reads = get_paired_reads(inputs.sample_sheet, false);
+                        
+                        culture_identification(ont_reads, pe_reads, inputs);
                     }
                 }
 
-                // ==================================================================
-                // Cultured isolate assembly for taxonomic identification subworkflow
-                // ==================================================================
 
-                if (params.culture.enabled) {
-                    ont_reads = get_single_reads(inputs.sample_sheet, false);
-                    pe_reads = get_paired_reads(inputs.sample_sheet, false);
-                    
-                    culture_identification(ont_reads, pe_reads, inputs);
-                }
-
-                
 
 
             }
