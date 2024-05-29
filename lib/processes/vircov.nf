@@ -158,7 +158,7 @@ process VircovZero {
     output:
     tuple (val(id), path(forward), path(reverse), emit: reads)
     tuple (val(id), path("$params.result_file"), emit: results)
-    path("${id}.tsv")c
+    path("${id}.tsv")
     
     script:
     
