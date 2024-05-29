@@ -16,9 +16,11 @@ workflow reference_alignment_illumina {
     /* Workflow for simple alignment against sample specific reference genomes */
     
     take: 
-        reads  // id, fwd, rev, fasta
+        reads   // id, fwd, rev, fasta
+        inputs
     main: 
         if (params.validation.qc.enabled) {
+
             qc_reads = quality_control_illumina(
                 reads | map { tuple(it[0], it[1], it[2]) }, 
                 inputs.adapter_fasta, 
@@ -33,10 +35,12 @@ workflow reference_alignment_illumina {
             ).out.reads
 
             align_reads = qc_reads.cross(reads) | map { tuple(it[0][0], it[0][1], it[0][2], it[1][3]) }
+        
         } else {
+            reads | map { tuple(it[0], it[1], it[2]) } | FastpScan
             align_reads = reads
         }
-        
+
         MinimapAlignReferencePAF(align_reads) | VircovAlignReferenceZero
     emit:
         VircovAlignReferenceZero.out.results
@@ -44,6 +48,12 @@ workflow reference_alignment_illumina {
 }
 
 workflow reference_alignment {
-    reads = from_reference_alignment_sample_sheet(params.validation.sample_sheet)
-    reference_alignment_illumina(reads)
+    
+    take:
+        inputs 
+    main:
+        reads = from_reference_alignment_sample_sheet(params.validation.sample_sheet)
+        results = reference_alignment_illumina(reads, inputs)
+    emit:
+        results
 }
