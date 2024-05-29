@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use cerebro_workflow::taxon::Taxon;
-use crate::api::cerebro::model::TaxonOverview;
+use cerebro_workflow::taxon::{Taxon, TaxonOverview};
 
 #[derive(Deserialize)]
 pub struct TaxaSummaryMongoPipeline {

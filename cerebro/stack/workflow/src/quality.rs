@@ -296,8 +296,6 @@ impl Default for ModelConfig {
     }
 }
 
-fn is_zero(b: &u64) -> bool { *b == 0 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityControlSummary {
     pub id: String,
@@ -353,15 +351,15 @@ pub struct QualityControlSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub low_complexity_percent: Option<f64>,
-    #[serde(skip_serializing_if = "is_zero")]
-    pub mean_length_r1: u64,
-    #[serde(skip_serializing_if = "is_zero")]
-    pub mean_length_r2: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_length_r1: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_length_r2: Option<u64>,
     pub qc_reads: u64,
     #[serde(serialize_with = "round_two")]
     pub qc_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub qc_bases: Option<u64>,
+    // Fastp options
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub qc_bases_percent: Option<f64>,
@@ -564,8 +562,8 @@ impl QualityControlSummary {
             adapter_trimmed_percent: None,
             low_complexity_reads: None,
             low_complexity_percent: None,
-            mean_length_r1: 0,
-            mean_length_r2: 0,
+            mean_length_r1: None,
+            mean_length_r2: None,
             qc_reads,
             qc_percent: Some((nanoq.reads as f64 / total_reads as f64)*100.),
             qc_bases: Some(nanoq.bases),
@@ -777,8 +775,8 @@ impl QualityControlSummary {
             adapter_trimmed_percent,
             low_complexity_reads,
             low_complexity_percent,
-            mean_length_r1,
-            mean_length_r2,
+            mean_length_r1: Some(mean_length_r1),
+            mean_length_r2: Some(mean_length_r2),
             qc_reads,
             qc_percent: Some(qc_percent),
             qc_bases: None,

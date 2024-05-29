@@ -1,8 +1,52 @@
+use std::path::PathBuf;
+
 use taxonomy::TaxRank;
 use serde::{Serialize, Deserialize};
 
+use crate::error::WorkflowError;
 use crate::taxon::Taxon;
 
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaxonFilterConfig {
+    pub domains: Vec<String>,
+    pub tags: Vec<String>,
+    pub kmer_min_reads: u64,
+    pub kmer_databases: Vec<String>,
+    pub alignment_min_reads: u64,
+    pub alignment_min_bases: u64,
+    pub alignment_min_regions: u64,
+    pub alignment_min_coverage: f64,
+    pub alignment_min_ref_length: u64,
+    pub assembly_min_contig_length: u64,
+    pub assembly_min_contig_identity: f64,
+    pub assembly_min_contig_coverage: f64,
+}
+impl Default for TaxonFilterConfig {
+    fn default() -> Self {
+        Self {
+            domains: Vec::new(),
+            tags: Vec::new(),
+            kmer_min_reads: 0,
+            kmer_databases: Vec::new(),
+            alignment_min_reads: 0, 
+            alignment_min_bases: 0,
+            alignment_min_regions: 0,
+            alignment_min_coverage: 0.0,
+            alignment_min_ref_length: 0,
+            assembly_min_contig_length: 0,
+            assembly_min_contig_identity: 0.0,
+            assembly_min_contig_coverage: 0.0,
+        }
+    }
+}
+impl TaxonFilterConfig {
+    pub fn from_path(path: &PathBuf) -> Result<Self, WorkflowError> {
+        serde_json::from_reader(std::fs::File::open(&path).map_err(
+            |err| WorkflowError::IOError(err))?
+        ).map_err(|err| WorkflowError::JsonDeserialization(err))
+    }
+}
 
 // Taxon rank filters (direct rank)
 pub fn filter_by_rank(taxa: Vec<Taxon>, rank: TaxRank) -> Vec<Taxon> {
@@ -192,3 +236,52 @@ impl TaxonFilterSettings {
         }
     }
 }
+
+
+// Duplicated from server handler!
+
+/// A utility function to apply filter settings from `CerebroFilterConfig` 
+/// to a collection of `Taxon` instances when requesting taxa
+pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig) -> Vec<Taxon> {
+
+    // Domain filter 
+    for domain in &filter_config.domains {
+        taxa = filter_by_parent(taxa, "domain", Some(domain.to_string()), None)
+    }
+    
+    
+    // Evidence tag filter - tags passed via the filter configuration 
+    // are the Cerebro IDs (name of the sample in workflow) rather than
+    // the actual tags, because the evidence records contai nreferences
+    // to the IDs
+    taxa = filter_by_tags(taxa, &filter_config.tags);
+    
+     // Filter by evidence 
+    taxa = filter_by_kraken2uniq(
+        taxa, 
+        filter_config.kmer_min_reads,
+        filter_config.kmer_databases.to_owned(),
+    );
+    
+    taxa = filter_by_vircov_scan(
+        taxa, 
+        filter_config.alignment_min_reads, 
+        filter_config.alignment_min_bases, 
+        filter_config.alignment_min_regions, 
+        filter_config.alignment_min_coverage,
+        filter_config.alignment_min_ref_length
+    ); 
+    taxa = filter_by_blast(
+        taxa, 
+        filter_config.assembly_min_contig_length, 
+        filter_config.assembly_min_contig_coverage, 
+        filter_config.assembly_min_contig_identity, 
+    );
+
+    // Remove any taxa that have no more evidence:
+    taxa = filter_by_evidence(taxa);
+
+    taxa
+
+}
+

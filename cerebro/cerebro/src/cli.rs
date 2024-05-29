@@ -20,6 +20,7 @@
 #![allow(unreachable_code)]
 #![allow(unreachable_patterns)]
 
+use cerebro_workflow::taxon::TaxonThresholdConfig;
 use clap::Parser;
 use rayon::prelude::*;
 
@@ -111,6 +112,12 @@ fn main() -> anyhow::Result<()> {
                 // Quality control table
                 cerebro_workflow::terminal::Commands::Quality( args ) => {
                     cerebro_workflow::utils::create_qc_table(args.input.clone(), &args.output, args.header, args.ercc_mass)?;
+                },
+                // Taxa table
+                cerebro_workflow::terminal::Commands::Taxa( args ) => {
+
+                    let threshold_filter = TaxonThresholdConfig::from_args(args);
+                    cerebro_workflow::taxon::taxa_summary(args.input.clone(), &args.output, args.sep, args.header, args.extract, args.filter.clone(), &threshold_filter)?;
                 },
                 // Sample sheet creation
                 cerebro_workflow::terminal::Commands::SampleSheet( args ) => {

@@ -594,3 +594,52 @@ def from_sample_sheet(file, production){
     ]
 
 }
+
+def from_reference_alignment_sample_sheet(file){
+
+    def row_number = 2 // with header
+
+    fastq_files = channel.fromPath("$file") | splitCsv(header:true, strip:true) | map { row -> 
+
+        // Check that required columns are present
+        if (row.sample_id === null || row.forward_path === null || row.reverse_path === null || row.reference_path === null) {
+            println "\n${c('red')}Sample sheet did not contain required columns (sample_id, forward_path, reverse_path, reference_path)${c('reset')}\n"
+            Thread.sleep(2000); 
+            System.exit(1)
+        }
+
+        // Check that required values for this row are set
+        if (row.sample_id.isEmpty() || row.forward_path.isEmpty() || row.reverse_path.isEmpty() || row.reference_path.isEmpty()) {
+            println "\n${c('red')}Sample sheet did not contain required values (sample_id, forward_path, reverse_path, reference_path) in row: ${row_number}${c('reset')}\n"
+            Thread.sleep(2000); 
+            System.exit(1)
+        }
+
+        forward = new File(row.forward_path)
+        reverse = new File(row.reverse_path)
+        reference = new File(row.reference_path)
+
+        if (!forward.exists()){
+            println("Forward read file does not exist: ${forward}")
+            return 
+        }
+        if (!reverse.exists()){
+            println("Reverse read file does not exist: ${reverse}")
+            return 
+        }
+        if (!reference.exists()){
+            println("Reference genome file does not exist: ${reference}")
+            return 
+        }
+
+        row_number++
+
+        return tuple(row.sample_id, row.forward_path, row.reverse_path, row.reference_path)
+
+    }
+
+    fastq_files | ifEmpty { exit 1, "\n${c_red}Could not find read files specified in sample sheet.${c_reset}\n" }
+
+    return fastq_files
+
+}

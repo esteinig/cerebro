@@ -173,17 +173,18 @@ impl WorkflowSample {
         let mut cc = self.clone();
         for (_, taxon) in &mut cc.taxa {
 
-            if let Some(fastp_data) = &self.qc_module.fastp {
+            if let Some(fastp_data) = &self.qc_module.fastp_scan { // fixed to scanning module (input reads)
                 // Kmer evidence
                 let rpm_kmer_records = taxon.evidence.kmer.clone().into_iter().map(|mut record| {
-                    record.rpm = (record.reads as f64 / fastp_data.summary.before.reads as f64)*1_000_000 as f64;
+                    record.rpm = (record.reads_direct as f64 / fastp_data.summary.before.reads as f64)*1_000_000 as f64;  // fixed as `reads_direct`
                     record
                 }).collect();
                 taxon.evidence.kmer = rpm_kmer_records;
 
-                // Alignment evidence
+                // Alignment evidence - should this be alignments instead of reads?
                 let rpm_alignment_records = taxon.evidence.alignment.clone().into_iter().map(|mut record| {
-                    record.scan_rpm = (record.scan_reads as f64 / fastp_data.summary.before.reads as f64)*1_000_000 as f64;  // using scan alignments as read counts! make sure this is ok
+                    record.scan_rpm = (record.scan_reads as f64 / fastp_data.summary.before.reads as f64)*1_000_000 as f64;  
+                    record.remap_rpm = match record.remap_reads { Some(reads) => (reads as f64 / fastp_data.summary.before.reads as f64)*1_000_000 as f64, None => 0.0};  
                     record
                 }).collect();
                 taxon.evidence.alignment = rpm_alignment_records;

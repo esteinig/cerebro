@@ -1,4 +1,5 @@
 
+use fancy_regex::Regex;
 use tabled::Tabled;
 use anyhow::Result;
 use std::hash::Hash;
@@ -6,11 +7,10 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
 use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
-
+use crate::filters::{apply_filters, TaxonFilterConfig};
+use crate::terminal::PipelineTaxaArgs;
 use crate::{
-    utils::get_colored_string,
-    error::WorkflowError, 
-    record::{Kraken2UniqRecord, BlastLcaRecord, VircovScanRemapRecord}
+    error::WorkflowError, record::{BlastLcaRecord, Kraken2UniqRecord, VircovScanRemapRecord}, sample::WorkflowSample, utils::get_colored_string
 };
 
 
@@ -494,3 +494,247 @@ pub fn aggregate(parent_taxa: &mut HashMap<String, Taxon>, taxa: &HashMap<String
     parent_taxa.to_owned()
 }
 
+pub struct TaxonThresholdConfig {
+    min_rpm: f64,
+    min_rpm_kmer: f64,
+    min_rpm_alignment: f64,
+    min_rpm_remap: f64,
+    min_contigs: u64,
+    min_bases: u64
+}
+impl TaxonThresholdConfig {
+    pub fn from_args(args: &PipelineTaxaArgs) -> Self {
+        Self {
+            min_rpm: args.min_rpm,
+            min_rpm_kmer: args.min_rpm_kmer,
+            min_rpm_alignment: args.min_rpm_alignment,
+            min_rpm_remap: args.min_rpm_remap,
+            min_contigs: args.min_contigs,
+            min_bases: args.min_bases
+        }
+    }
+}
+impl Default for TaxonThresholdConfig {
+    fn default() -> Self {
+        Self {
+            min_rpm: 0.0,
+            min_rpm_kmer: 0.0,
+            min_rpm_alignment: 0.0,
+            min_rpm_remap: 0.0,
+            min_contigs: 0,
+            min_bases: 0
+        }
+    }
+}
+
+pub fn taxa_summary(samples: Vec<PathBuf>, output: &PathBuf, sep: char, header: bool, extract: bool, filter_config: Option<PathBuf>, threshold_config: &TaxonThresholdConfig) -> Result<(), WorkflowError> {
+
+    let mut wtr = csv::WriterBuilder::new()
+        .delimiter(sep as u8)
+        .has_headers(header)
+        .from_path(output)
+        .map_err(|err| WorkflowError::CreateTaxaOutputFile(err))?;
+
+    let filter_config = match filter_config {
+        Some(file) => TaxonFilterConfig::from_path(&file)?,
+        None => TaxonFilterConfig::default()
+    };
+
+    for file in samples {
+        let sample = WorkflowSample::read_json(&file).expect(&format!("Failed to parse sample file: {}", file.display()));
+        let taxa: Vec<_> = apply_filters(sample.taxa.clone().into_values().collect(), &filter_config);
+        let taxa_overview: Vec<_> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
+        let taxa_overview_summary: Vec<_> = taxa_overview.iter().map(|taxon_overview|{
+            TaxonSampleOverview::from_taxon_overview(&sample, &taxon_overview, extract).expect("Failed to construct taxon sample overview!") // Fix to error bubbles!
+        }).filter(|taxon_sample_overview| taxon_sample_overview.pass(&threshold_config)).collect();
+
+        if taxa_overview_summary.is_empty() {
+            log::warn!("No taxa for sample {} - sample is excluded from results table!", sample.id);
+        }
+
+        for record in taxa_overview_summary {
+            wtr.serialize(record).map_err(|err| WorkflowError::SerializeTaxaTableRow(err))?;
+        }
+    }
+
+    Ok(())
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+// A struct representing a high level overview
+// of the aggregated taxon evidence
+pub struct TaxonOverview {
+    pub taxid: String,
+    pub domain: Option<String>,
+    pub genus: Option<String>,
+    pub name: String,             // used to later map back the tags
+    pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
+    pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
+    pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
+    pub rpm_remap: f64,           // total rpm summed from  alignment evidence
+    pub contigs: u64,             // total assembled and identified contig evidence
+    pub contigs_bases: u64,
+    pub kmer: bool,
+    pub alignment: bool,
+    pub assembly: bool,
+    pub names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
+}
+impl TaxonOverview {
+    pub fn from(taxon: &Taxon) -> Self {
+
+        let (kmer, alignment, assembly) = (
+            !taxon.evidence.kmer.is_empty(),
+            !taxon.evidence.alignment.is_empty(),
+            !taxon.evidence.assembly.is_empty()
+        );
+
+        // Unique record identifiers (sample names)
+        let mut names = Vec::new();
+        for record in taxon.evidence.kmer.iter() {
+            names.push(record.id.to_owned())
+        };
+        for record in taxon.evidence.alignment.iter() {
+            names.push(record.id.to_owned())
+        };
+        for record in taxon.evidence.assembly.iter() {
+            names.push(record.id.to_owned())
+        }
+        let names = names.into_iter().unique().collect();
+
+        // Summary values
+        let rpm = match kmer || alignment {
+            true => taxon.evidence.alignment.iter().map(|e| e.scan_rpm).sum::<f64>() +
+                taxon.evidence.kmer.iter().map(|e| e.rpm).sum::<f64>(),
+            false => 0.0
+        };
+
+        let rpm_kmer = match kmer {
+            true => taxon.evidence.kmer.iter().map(|e| e.rpm).sum::<f64>(),
+            false => 0.0
+        };
+
+        let rpm_alignment = match alignment {
+            true => taxon.evidence.alignment.iter().map(|e| e.scan_rpm).sum::<f64>(),
+            false => 0.0
+        };
+
+        let rpm_remap = match alignment {
+            true => taxon.evidence.alignment.iter().map(|e| e.remap_rpm).sum::<f64>(),
+            false => 0.0
+        };
+
+        let (contigs, contigs_bases) = match assembly {
+            true => (taxon.evidence.assembly.len() as u64,taxon.evidence.assembly.iter().map(|e| e.length).sum()),
+            false => (0, 0)
+        };
+
+        Self {
+            taxid: taxon.taxid.to_owned(),
+            name: taxon.name.to_owned(),
+            genus: taxon.level.genus_name.to_owned(),
+            domain: taxon.level.domain_name.to_owned(),
+            rpm,
+            rpm_kmer,
+            rpm_alignment,
+            rpm_remap,
+            contigs,
+            contigs_bases,
+            kmer,
+            alignment,
+            assembly,
+            names
+        }
+    }
+}
+
+// DUPLICATED
+
+// Utility function to extract the biological sample identifier and library tags [strict]
+fn get_sample_regex_matches(file_name: &String)-> Result<(String, Vec<String>), WorkflowError> {
+    
+    let mut sample_id = String::new();
+    let sample_id_regex = Regex::new("^([^_]+)(?=__)").map_err(WorkflowError::SampleIdRegex)?;
+    for caps in sample_id_regex.captures_iter(&file_name) {
+        let sample_name = caps.map_err(WorkflowError::SampleIdRegexCapture)?.get(0);
+
+        sample_id = match sample_name {
+            Some(name) => name.as_str().to_string(),
+            None => return Err(WorkflowError::SampleIdRegexCaptureMatch)
+        };
+        break; // always use the first capture
+    }
+
+    let mut library_tags: Vec<String> = Vec::new();
+    let sample_id_regex = Regex::new("(?<=__)([A-Za-z0-9]+)").map_err(WorkflowError::SampleTagRegex)?;
+    for caps in sample_id_regex.captures_iter(&file_name) {
+        let tags = caps.map_err(WorkflowError::SampleTagRegexCapture)?.get(0);
+        let tag = match tags {
+            Some(name) => name.as_str().to_string(),
+            None => return Err(WorkflowError::SampleTagRegexCaptureMatch)
+        };
+        library_tags.push(tag)
+    }
+    Ok((sample_id, library_tags))
+}
+
+
+// TaxonOverview + TaxaSummary
+#[derive(Deserialize, Serialize, Debug)]
+pub struct TaxonSampleOverview {
+    pub id: String,
+    pub sample_id: Option<String>,
+    pub sample_tag: Option<String>,
+    pub taxid: String,
+    pub domain: Option<String>,
+    pub genus: Option<String>,
+    pub name: String,             // used to later map back the tags
+    pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
+    pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
+    pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
+    pub rpm_remap: f64,           // total rpm summed from  alignment evidence
+    pub contigs: u64,             // total assembled and identified contig evidence
+    pub contigs_bases: u64,
+    pub kmer: bool,
+    pub alignment: bool,
+    pub assembly: bool
+}
+impl TaxonSampleOverview {
+    pub fn from_taxon_overview(sample: &WorkflowSample, taxon_overview: &TaxonOverview, tags: bool) -> Result<Self, WorkflowError> {
+        
+        let (sample_id, sample_tag) = match tags {
+            true => {
+                let (sample_id, sample_tags) = get_sample_regex_matches(&sample.id)?;
+                (Some(sample_id), Some(sample_tags.join("-")))
+            }
+            false => (None, None)
+        };
+
+        Ok(Self {
+            id: sample.id.clone(),
+            sample_id,
+            sample_tag,
+            taxid: taxon_overview.taxid.clone(),
+            domain: taxon_overview.domain.clone(),
+            genus: taxon_overview.genus.clone(),
+            name: taxon_overview.name.clone(),            
+            rpm: taxon_overview.rpm,                 
+            rpm_kmer: taxon_overview.rpm_kmer,            
+            rpm_alignment: taxon_overview.rpm_alignment,  
+            rpm_remap: taxon_overview.rpm_remap,  
+            contigs: taxon_overview.contigs,             
+            contigs_bases: taxon_overview.contigs_bases,
+            kmer: taxon_overview.kmer,
+            alignment: taxon_overview.alignment,
+            assembly: taxon_overview.assembly
+        })
+    }
+    pub fn pass(&self, threshold_config: &TaxonThresholdConfig) -> bool {
+        self.rpm >= threshold_config.min_rpm &&
+        self.rpm_kmer >= threshold_config.min_rpm_kmer &&
+        self.rpm_alignment >= threshold_config.min_rpm_alignment &&
+        self.rpm_remap >= threshold_config.min_rpm_remap &&
+        self.contigs >= threshold_config.min_contigs &&
+        self.contigs_bases >= threshold_config.min_bases
+    }
+}

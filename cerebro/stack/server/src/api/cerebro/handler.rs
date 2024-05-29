@@ -21,13 +21,11 @@ use cerebro_model::api::logs::model::{LogModule, Action, RequestLog, AccessDetai
 use cerebro_model::api::teams::model::{DatabaseId, ProjectId, TeamDatabase, ProjectCollection};
 use cerebro_model::api::cerebro::model::{
     Cerebro, 
-    CerebroFilterConfig, 
     PriorityTaxon, 
     ReportEntry, 
     SampleComment, 
     WorkflowId, 
     CerebroId, 
-    TaxonOverview, 
     DecisionType, 
     PriorityTaxonDecision, 
     SampleId,
@@ -51,7 +49,7 @@ use cerebro_report::report::ClinicalReport;
 use cerebro_workflow::filters::*;
 use cerebro_workflow::module::QualityControlModule;
 use cerebro_workflow::quality::{QualityControlSummary, ModelConfig};
-use cerebro_workflow::taxon::{Taxon, aggregate};
+use cerebro_workflow::taxon::{Taxon, TaxonOverview, aggregate};
 
 type CerebroIds = String;
 
@@ -743,53 +741,8 @@ struct TaxaQuery {
 }
 
 
-/// A utility function to apply filter settings from `CerebroFilterConfig` 
-/// to a collection of `Taxon` instances when requesting taxa
-fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &CerebroFilterConfig) -> Vec<Taxon> {
-
-    // Domain filter 
-    for domain in &filter_config.domains {
-        taxa = filter_by_parent(taxa, "domain", Some(domain.to_string()), None)
-    }
-    
-    
-    // Evidence tag filter - tags passed via the filter configuration 
-    // are the Cerebro IDs (name of the sample in workflow) rather than
-    // the actual tags, because the evidence records contai nreferences
-    // to the IDs
-    taxa = filter_by_tags(taxa, &filter_config.tags);
-    
-     // Filter by evidence 
-    taxa = filter_by_kraken2uniq(
-        taxa, 
-        filter_config.kmer_min_reads,
-        filter_config.kmer_databases.to_owned(),
-    );
-    
-    taxa = filter_by_vircov_scan(
-        taxa, 
-        filter_config.alignment_min_reads, 
-        filter_config.alignment_min_bases, 
-        filter_config.alignment_min_regions, 
-        filter_config.alignment_min_coverage,
-        filter_config.alignment_min_ref_length
-    ); 
-    taxa = filter_by_blast(
-        taxa, 
-        filter_config.assembly_min_contig_length, 
-        filter_config.assembly_min_contig_coverage, 
-        filter_config.assembly_min_contig_identity, 
-    );
-
-    // Remove any taxa that have no more evidence:
-    taxa = filter_by_evidence(taxa);
-
-    taxa
-
-}
-
 #[post("/cerebro/taxa")]
-async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<CerebroFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
     
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,

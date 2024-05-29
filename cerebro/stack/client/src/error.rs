@@ -1,4 +1,5 @@
 
+use cerebro_workflow::error::WorkflowError;
 use thiserror::Error;
 use cerebro_model::api::cerebro::model::ModelError;
 
@@ -55,6 +56,9 @@ pub enum HttpClientError {
     /// Represents failure to deserialize a model from file
     #[error("failed to read data model from file")]
     ModelError(#[from] ModelError),
+    /// Represents failure to deserialize the taxon filter from file
+    #[error("failed to read filter configuration")]
+    DeserializeFilter(#[from] WorkflowError),
     /// Represents failure to use a valid sample identifier
     #[error("sample identifier is an empty string")]
     ModelSampleIdentifierEmpty

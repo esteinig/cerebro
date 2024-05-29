@@ -10,14 +10,9 @@ use fancy_regex::Regex;
 use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
-use itertools::Itertools;
 
 use cerebro_workflow::{
-    sheet::SampleSheet, 
-    module::QualityControlModule, 
-    taxon::Taxon, 
-    sample::WorkflowSample, 
-    error::{WorkflowError, WorkflowUtilityError}
+    error::{WorkflowError, WorkflowUtilityError}, filters::TaxonFilterConfig, module::QualityControlModule, sample::WorkflowSample, sheet::SampleSheet, taxon::{Taxon, TaxonOverview}
 };
 
 use crate::api::users::model::{UserId, User};
@@ -159,6 +154,11 @@ impl SampleConfig {
         let ercc_input_mass = sample_sheet.get_ercc_input(&workflow_sample.id);
 
         Ok(Self{ id, tags, description: None, sample_group, sample_type, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
+    }
+     /// Create a biological sample configuration from a parsed workflow sample
+     pub fn from_sample(workflow_sample: &WorkflowSample) -> Result<Self, ModelError> {
+        let (id, tags) = get_sample_regex_matches(&workflow_sample.id)?;
+        Ok(Self{ id, tags, description: None, sample_group: String::new(), sample_type: String::new(), comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass: None })
     }
 }
 
@@ -535,7 +535,7 @@ pub struct PriorityTaxon {
     pub cerebro_identifiers: Vec<CerebroId>,   
     pub taxon_type: TaxonType,
     pub taxon_overview: TaxonOverview,
-    pub filter_config: CerebroFilterConfig,
+    pub filter_config: TaxonFilterConfig,
     pub decisions: Vec<PriorityTaxonDecision>
 }
 impl PriorityTaxon {
@@ -571,47 +571,6 @@ impl PriorityTaxon {
     }
 }
 
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CerebroFilterConfig {
-    pub domains: Vec<String>,
-    pub tags: Vec<String>,
-    pub kmer_min_reads: u64,
-    pub kmer_databases: Vec<String>,
-    pub alignment_min_reads: u64,
-    pub alignment_min_bases: u64,
-    pub alignment_min_regions: u64,
-    pub alignment_min_coverage: f64,
-    pub alignment_min_ref_length: u64,
-    pub assembly_min_contig_length: u64,
-    pub assembly_min_contig_identity: f64,
-    pub assembly_min_contig_coverage: f64,
-}
-impl Default for CerebroFilterConfig {
-    fn default() -> Self {
-        Self {
-            domains: Vec::new(),
-            tags: Vec::new(),
-            kmer_min_reads: 0,
-            kmer_databases: Vec::new(),
-            alignment_min_reads: 0, 
-            alignment_min_bases: 0,
-            alignment_min_regions: 0,
-            alignment_min_coverage: 0.0,
-            alignment_min_ref_length: 0,
-            assembly_min_contig_length: 0,
-            assembly_min_contig_identity: 0.0,
-            assembly_min_contig_coverage: 0.0,
-        }
-    }
-}
-impl CerebroFilterConfig {
-    pub fn from_path(path: &PathBuf) -> Result<Self, ModelError> {
-        serde_json::from_reader(File::open(&path).map_err(
-            |err| ModelError::IOError(err))?
-        ).map_err(|err| ModelError::JsonDeserialization(err))
-    }
-}
 
 /*
 ==============
@@ -706,83 +665,3 @@ impl Cerebro {
 
 
 
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-// A struct representing a high level overview
-// of the aggregated taxon evidence
-pub struct TaxonOverview {
-    pub taxid: String,
-    pub domain: Option<String>,
-    pub genus: Option<String>,
-    pub name: String,             // used to later map back the tags
-    pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
-    pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
-    pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
-    pub contigs: u64,             // total assembled and identified contig evidence
-    pub contigs_bases: u64,
-    pub kmer: bool,
-    pub alignment: bool,
-    pub assembly: bool,
-    pub names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
-}
-impl TaxonOverview {
-    pub fn from(taxon: &Taxon) -> Self {
-
-        let (kmer, alignment, assembly) = (
-            !taxon.evidence.kmer.is_empty(),
-            !taxon.evidence.alignment.is_empty(),
-            !taxon.evidence.assembly.is_empty()
-        );
-
-        // Unique record identifiers (sample names)
-        let mut names = Vec::new();
-        for record in taxon.evidence.kmer.iter() {
-            names.push(record.id.to_owned())
-        };
-        for record in taxon.evidence.alignment.iter() {
-            names.push(record.id.to_owned())
-        };
-        for record in taxon.evidence.assembly.iter() {
-            names.push(record.id.to_owned())
-        }
-        let names = names.into_iter().unique().collect();
-
-        // Summary values
-        let rpm = match kmer || alignment {
-            true => taxon.evidence.alignment.iter().map(|e| e.scan_rpm).sum::<f64>() +
-                taxon.evidence.kmer.iter().map(|e| e.rpm).sum::<f64>(),
-            false => 0.0
-        };
-
-        let rpm_kmer = match kmer {
-            true => taxon.evidence.kmer.iter().map(|e| e.rpm).sum::<f64>(),
-            false => 0.0
-        };
-
-        let rpm_alignment = match alignment {
-            true => taxon.evidence.alignment.iter().map(|e| e.scan_rpm).sum::<f64>(),
-            false => 0.0
-        };
-
-        let (contigs, contigs_bases) = match assembly {
-            true => (taxon.evidence.assembly.len() as u64,taxon.evidence.assembly.iter().map(|e| e.length).sum()),
-            false => (0, 0)
-        };
-
-        Self {
-            taxid: taxon.taxid.to_owned(),
-            name: taxon.name.to_owned(),
-            genus: taxon.level.genus_name.to_owned(),
-            domain: taxon.level.domain_name.to_owned(),
-            rpm,
-            rpm_kmer,
-            rpm_alignment,
-            contigs,
-            contigs_bases,
-            kmer,
-            alignment,
-            assembly,
-            names
-        }
-    }
-}

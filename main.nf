@@ -64,7 +64,7 @@ params.subset_min_shared_hashes                     = 2
 params.subset_group_index                           = null     // null or int, recognized in process and switches to group selection [e.g 1 on seq index kraken fmt "taxid|1147|NC_014725.1"] -- picks the best genome by max shared hashes from taxid group
 params.subset_group_sep                             = "|"      // format required for both bacterial and eukaryotic *|{taxid}|*
 
-// Dummy parameters for domain-specific scanning stage in the alignment popelines
+// Dummy parameters for domain-specific scanning stage in the alignment pipelines
 // these are only used to configure processes with specific parameters for viral
 // bacterial and eukaryotic alignment options
 
@@ -227,16 +227,17 @@ workflow {
                 // =====================================
                 
                 if (params.host.enabled && params.host.aneuploidy.enabled) {
-                    aneuploidy = aneuploidy_detection(reads_aneuploidy, inputs)
+                    aneuploidy = aneuploidy_detection_illumina(reads_aneuploidy, inputs)
                 } else {
                     aneuploidy = Channel.empty()
                 }
 
                 // ==============================
-                // Pathogendetection subworkflow
+                // Pathogen detection subworkflow
                 // ==============================
 
                 if (params.taxa.enabled) {
+
                     pathogen_detection(reads, inputs, params.ont.enabled)
 
                     WriteConfig(
@@ -245,7 +246,7 @@ workflow {
                         started
                     )
 
-                    if (params.production.enabled) {
+                    if (params.production.enabled && params.production.api.upload.enabled) {
                         cerebro_production(
                             inputs.taxonomy_directory,
                             pathogen_detection.out.results,

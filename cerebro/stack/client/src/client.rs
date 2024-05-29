@@ -19,7 +19,7 @@ use cerebro_model::api::teams::model::ProjectCollection;
 use cerebro_model::api::users::response::UserSelfResponse;
 use cerebro_model::api::users::response::UserSelfTeamResponse;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
-use cerebro_model::api::cerebro::model::CerebroFilterConfig;
+use cerebro_workflow::filters::TaxonFilterConfig;
 use cerebro_model::api::cerebro::schema::{SampleSummaryQcSchema, TaxaSummarySchema};
 use cerebro_model::api::teams::model::TeamDatabase;
 use cerebro_model::api::teams::schema::RegisterProjectSchema;
@@ -429,8 +429,8 @@ impl CerebroClient {
             workflow_ids: workflow_ids.clone(),
             workflow_names: workflow_names.clone(),
             filter_config: match filter_config { 
-                Some(path) => CerebroFilterConfig::from_path(&path).map_err(|err| HttpClientError::ModelError(err))?, 
-                None => CerebroFilterConfig::default() 
+                Some(path) => TaxonFilterConfig::from_path(&path).map_err(|err| HttpClientError::DeserializeFilter(err))?, 
+                None => TaxonFilterConfig::default() 
             }
         };
 

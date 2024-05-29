@@ -83,7 +83,6 @@ include { ProcessVirusAlignment as ProcessAlignment } from '../../processes/cere
 )
 
 
-
 /* 
 ==============================
 DATABASE SUBSETS FOR ALIGNMENT

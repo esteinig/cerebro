@@ -29,7 +29,7 @@ workflow aneuploidy_detection_illumina {
         )
 
         aneuploidy_cnv(
-            quality_control.out.reads, 
+            quality_control_illumina.out.reads, 
             inputs
         )
 

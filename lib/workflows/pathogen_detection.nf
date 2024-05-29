@@ -73,25 +73,6 @@ workflow pathogen_detection {
             align_virus_results = Channel.empty()
         }
         
-        
-
-        // // Background depletion non-viral sequence and viral profiling, 
-        // // coverage assessment, optional consensus assembly 
-        // if (params.taxa.alignment.enabled && params.taxa.alignment.domains.viruses.enabled) {
-        //     virus_detection(
-        //         qc_reads, 
-        //         inputs.virus_background_references, 
-        //         inputs.virus_background_dbs, 
-        //         inputs.virus_db_index, 
-        //         inputs.virus_db_fasta, 
-        //         inputs.virus_blacklist,
-        //         params.taxa.assembly.enabled && params.taxa.assembly.consensus.enabled
-        //     )
-        //     align_virus_results = virus_detection.out.results
-        // } else {
-        //     align_virus_results = Channel.empty()
-        // }
-
         // // Bacterial subset alignments
         // if (params.taxa.alignment.enabled && params.taxa.alignment.domains.bacteria.enabled) {
         //     bacteria_subset_alignment(

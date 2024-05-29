@@ -219,14 +219,14 @@ def plot_heatmap_targets(
     exclude_tag_substring: str = typer.Option(
         "", help="Exclude these samples where substring is in the (joined) sample tag (comma-delimited list as string)"
     ),
+    group_by: str = typer.Option(
+        "cerebro_id", help="Group taxonomic identification by values in this column"
+    ),
 
 ):
     """
     Plot target and offtarget taxa heatmap for a set of sample taxonomic profiles returned from Cerebro API
     """
-
-    # Set grouping variable
-    group = "cerebro_id"
 
     # Read target labels
     if target_labels:
@@ -240,11 +240,14 @@ def plot_heatmap_targets(
     # Read the taxon profiles
     df = pandas.read_csv(taxa, sep=",", header=0)
 
+    print(df)
+
     # Filter if requested
     if exclude_tag_substring:
         for substring in exclude_tag_substring.split(','):
             df = df[~df['sample_tag'].str.contains(substring.strip())]
 
+    print(df)
 
     # Check and get target/offtarget list file paths
     target_paths = get_file_paths(targets=targets)
@@ -255,7 +258,7 @@ def plot_heatmap_targets(
     # Create the data for targets
     target_classifications = extract_classifications(
         df=df, 
-        group=group, 
+        group=group_by, 
         label_targets=label_targets 
     )
 
@@ -301,19 +304,21 @@ class QuantitativeResult:
     total_rpm: Optional[float] = None
     kmer_rpm: Optional[float] = None
     alignment_rpm: Optional[float] = None
+    remap_rpm: Optional[float] = None
     assembly_contigs: Optional[int] = None
     assembly_contigs_bases: Optional[int] = None
 
 
 @dataclass
 class LibraryData:
-    panel:  Optional[str]
-    pellet:  Optional[str]
+    organism:  Optional[str]
+    organism_category:  Optional[str]
+    organism_domain: Optional[str]
+    copies_ul:  Optional[str]
     extraction: Optional[str]
-    machine:  Optional[str]
+    machine: Optional[str]
+    extraction_machine: Optional[str]
     nucleic_acid: Optional[str]
-    primer: Optional[str]
-    extraction_machine_primer: Optional[str]
 
 @dataclass
 class LibraryResult:
@@ -410,14 +415,21 @@ def extract_classifications(
                 raise ValueError("Empty library!")
             
             try :
-                panel = library["panel"].unique()[0]
+                organism = library["organism"].unique()[0]
             except KeyError:
-                panel = None
-        
+                organism = None
             try :
-                pellet = library["pellet"].unique()[0]
+                organism_category = library["organism_category"].unique()[0]
             except KeyError:
-                pellet = None
+                organism_category = None
+            try :
+                organism_domain = library["organism_domain"].unique()[0]
+            except KeyError:
+                organism_domain = None
+            try :
+                copies_ul = library["copies_ul"].unique()[0]
+            except KeyError:
+                copies_ul = None
             try :
                 extraction = library["extraction"].unique()[0]
             except KeyError:
@@ -426,32 +438,38 @@ def extract_classifications(
                 machine = library["machine"].unique()[0]
             except KeyError:
                 machine = None
+
+            try :
+                extraction_machine = library["extraction_machine"].unique()[0]
+            except KeyError:
+                extraction_machine = None
+
             try :
                 nucleic_acid = library["nucleic_acid"].unique()[0]
             except KeyError:
                 nucleic_acid = None
-            try :
-                primer = library["primer"].unique()[0]
-            except KeyError:
-                primer = None
 
-            try :
-                extraction_machine_primer = library["extraction-machine-primer"].unique()[0]
-            except KeyError:
-                primer = None
-
-
-            if (panel, pellet, extraction, machine, nucleic_acid, primer) == (None, None, None, None, None, None):
+            if (
+                organism, 
+                organism_category, 
+                organism_domain, 
+                copies_ul, 
+                extraction, 
+                machine, 
+                extraction_machine, 
+                nucleic_acid
+            ) == (None, None, None, None, None, None, None, None):
                 library_data = None
             else:
                 library_data = LibraryData(
-                    panel=panel,
-                    pellet=pellet,
+                    organism=organism,
+                    organism_category=organism_category,
+                    organism_domain=organism_domain,
+                    copies_ul=copies_ul,
                     extraction=extraction,
                     machine=machine,
-                    nucleic_acid=nucleic_acid,
-                    primer=primer,
-                    extraction_machine_primer=extraction_machine_primer
+                    extraction_machine=extraction_machine,
+                    nucleic_acid=nucleic_acid
                 )
 
             # Quantitative and qualitiative results
@@ -470,6 +488,7 @@ def extract_classifications(
                     total_rpm=sum(target_profile.rpm),
                     kmer_rpm=sum(target_profile.rpm_kmer),
                     alignment_rpm=sum(target_profile.rpm_alignment),
+                    remap_rpm=sum(target_profile.rpm_alignment),  # change here plz
                     assembly_contigs=sum(target_profile.contigs),
                     assembly_contigs_bases=sum(target_profile.contigs_bases)
                 )
@@ -517,6 +536,9 @@ def get_taxa_to_include(files: List[Path], substrings: bool = False, df: Optiona
                         continue
                 
                 identifiers = content[0].strip()
+                if identifiers.replace(" ", "") == "":
+                    print("Empty identifier found in file, skipping...")
+                    continue
 
                 if substrings:
                     if df is None:
@@ -527,6 +549,7 @@ def get_taxa_to_include(files: List[Path], substrings: bool = False, df: Optiona
                     organism_substrings = [name.strip() for name in identifiers.split(",")] # substring organism names
                     regex_pattern = '|'.join(organism_substrings)
                     matches = df.loc[df['name'].str.contains(regex_pattern, na=False), :]
+                    print(f"Identifiers: {identifiers}")
                     for i, row in matches.iterrows():
                         label = row['name']
                         taxid = row['taxid']
@@ -606,7 +629,8 @@ def create_qualitative_dataframe(
 
         rows.append(row)
 
-    print(rows, column_names)
+    print(rows)
+    print(column_names)
     df = pandas.DataFrame(rows, columns=column_names).set_index("Library").sort_index()
     
     return df

@@ -20,6 +20,9 @@ pub enum Commands {
     Process(PipelineProcessArgs),
     /// Quality control table from processed results
     Quality(PipelineQualityArgs),
+
+    /// Taxa table from processed results
+    Taxa(PipelineTaxaArgs),
     /// Create a sample sheet from the input directory
     SampleSheet(PipelineSampleSheetArgs),
     #[clap(subcommand)]
@@ -260,16 +263,6 @@ PIPELINE PARSERS AND PROCESSORS
 ===============================
 */
 
-#[derive(Debug, Subcommand)]
-pub enum PipelineCommands {
-    /// Parse and process pipeline results
-    Process(PipelineProcessArgs),
-    /// Quality control table from processed results
-    Quality(PipelineQualityArgs),
-    /// Create a sample sheet from the input directory
-    SampleSheet(PipelineSampleSheetArgs)
-}
-
 #[derive(Debug, Args)]
 pub struct PipelineProcessArgs {
     /// Pipeline sample results directories for processing
@@ -306,6 +299,47 @@ pub struct PipelineQualityArgs {
 
 }
 
+
+#[derive(Debug, Args)]
+pub struct PipelineTaxaArgs {
+    /// Processed pipeline result samples (.json)
+    #[clap(long, short = 'i', num_args(0..))]
+    pub input: Vec<PathBuf>,
+    /// Taxon filter configuration (.json)
+    #[clap(long, short = 'f')]
+    pub filter: Option<PathBuf>,
+    /// Minimum total reads per million 
+    #[clap(long, short = 'r', default_value="0")]
+    pub min_rpm: f64,
+    /// Minimum k-mer reads per million 
+    #[clap(long, short = 'k', default_value="0")]
+    pub min_rpm_kmer: f64,
+    /// Minimum alignment reads per million 
+    #[clap(long, short = 'a', default_value="0")]
+    pub min_rpm_alignment: f64,
+    /// Minimum alignment reads per million 
+    #[clap(long, short = 'm', default_value="0")]
+    pub min_rpm_remap: f64,
+    /// Minimum number of assembled contigs
+    #[clap(long, short = 'c', default_value="0")]
+    pub min_contigs: u64,
+    /// Minimum number of assembled bases
+    #[clap(long, short = 'b', default_value="0")]
+    pub min_bases: u64,
+    /// Output file for taxa table
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+    /// Output delimited for taxa table
+    #[clap(long, short = 's', default_value="\t")]
+    pub sep: char,
+    /// Extract sample identifier and tags for post-processing utilities
+    #[clap(long, short = 'e',)]
+    pub extract: bool,
+    /// Include header in taxa table
+    #[clap(long, short = 'H')]
+    pub header: bool,
+
+}
 
 #[derive(Debug, Args)]
 pub struct PipelineSampleSheetArgs {

@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 
+use cerebro_workflow::filters::TaxonFilterConfig;
+use cerebro_workflow::taxon::TaxonOverview;
+
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
     PriorityTaxonId, 
     PriorityTaxon, 
     DecisionType, 
     TaxonType, 
-    // PriorityTaxonDecisionId, 
-    CerebroFilterConfig, 
     CerebroId, 
-    TaxonOverview, 
     PriorityTaxonDecision, 
     WorkflowConfig
 };
@@ -24,19 +24,6 @@ pub struct PriorityTaxonDecisionSchema {
     pub taxon_taxid: String,
     pub taxon_type: TaxonType
 }
-
-// #[derive(Debug, Deserialize)]
-// #[serde(rename_all = "camelCase")]
-// pub struct PriorityTaxonDecisionCommentSchema {
-//     pub priority_taxon_id: PriorityTaxonId,
-//     pub decision_id: PriorityTaxonDecisionId,
-//     pub decision_comment: String
-// }
-// impl PriorityTaxonDecisionCommentSchema {
-//     pub fn log_description(&self) -> String {
-//         format!("PriorityTaxonDecisionComment: priority_taxon_id={} decision_id={} comment='{}'", self.priority_taxon_id, self.decision_id, self.decision_comment)
-//     }
-// }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,7 +70,7 @@ pub struct TaxaSummarySchema {
     pub run_ids: Vec<String>,
     pub workflow_ids: Vec<String>,
     pub workflow_names: Vec<String>,
-    pub filter_config: CerebroFilterConfig
+    pub filter_config: TaxonFilterConfig
 }
 
 #[derive(Deserialize, Serialize)]
@@ -95,7 +82,7 @@ pub struct PriorityTaxonSchema {
     pub cerebro_identifiers: Vec<CerebroId>,   
     pub taxon_type: TaxonType,
     pub taxon_overview: TaxonOverview,
-    pub filter_config: CerebroFilterConfig,
+    pub filter_config: TaxonFilterConfig,
     pub decisions: Vec<PriorityTaxonDecision>
 }
 

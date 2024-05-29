@@ -149,9 +149,15 @@ pub enum WorkflowError {
     /// Represents a failure to parse the reference taxonomy
     #[error("failed to parse the reference taxonomy")]
     TaxonomyNotParsed(#[source] taxonomy::Error),
-    /// Represents a failure to parse the reference taxonomy
-    #[error("failed to parse the reference taxonomy")]
-    SerializeTableRow(#[source] csv::Error),
+    /// Represents a failure to erialize a row
+    #[error("failed to serialize quality control table row")]
+    SerializeQualityTableRow(#[source] csv::Error),
+    /// Represents a failure to serialize a row
+    #[error("failed to serialize taxa table row")]
+    SerializeTaxaTableRow(#[source] csv::Error),
+    /// Represents a failure to serialize a row
+    #[error("failed to create the taxon output file")]
+    CreateTaxaOutputFile(#[source] csv::Error),
     /// Indicates failure to parse scannign stage alignment summary
     #[error("failed get parse vircov records from scanning stage")]
     VircovScanParseFailed,
@@ -226,11 +232,28 @@ pub enum WorkflowError {
     /// Indicates failure to extract file name
     #[error("failed to extract file name")]
     FileName,
+    /// Indicates failure with JSON deserialization.
+    #[error("failed to deserialize JSON")]
+    JsonDeserialization(#[source] serde_json::Error),
 
-
-
-
-
+    /// Indicates failure to compile the sample id regex
+    #[error("failed to compile sample identifier regex")]
+    SampleIdRegex(#[source] fancy_regex::Error),
+    /// Indicates failure to obtain the sample id regex capture
+    #[error("failed to get sample identifier regex capture")]
+    SampleIdRegexCapture(#[source] fancy_regex::Error),
+    /// Indicates failure to obtain the sample id regex capture match
+    #[error("failed to get sample identifier regex capture match")]
+    SampleIdRegexCaptureMatch,
+    /// Indicates failure to compile the sample tag regex
+    #[error("failed to compile sample tag regex")]
+    SampleTagRegex(#[source] fancy_regex::Error),
+    /// Indicates failure to obtain the sample tag regex capture
+    #[error("failed to get sample tag regex capture")]
+    SampleTagRegexCapture(#[source] fancy_regex::Error),
+    /// Indicates failure to obtain the sample tag regex capture match
+    #[error("failed to get sample tag regex capture match")]
+    SampleTagRegexCaptureMatch,
 }
 
 #[derive(Error, Debug)]
