@@ -52,7 +52,7 @@ workflow quality_control_illumina {
         
         // ERCCs are aligned and removed
         if (params.qc.controls.ercc.enabled) {
-            ercc_control(reads, ercc_fasta)
+            ercc_control(reads, ercc_fasta, false)
             
             reads = ercc_control.out.reads
             ercc_results = ercc_control.out.results
@@ -109,7 +109,7 @@ workflow quality_control_ont {
         scan_results = NanoqScan.out.results
 
         if (params.qc.controls.ercc.enabled) {
-            ercc = ercc_control(reads, ercc_fasta)
+            ercc = ercc_control(reads, ercc_fasta, true)
             reads = ercc.reads
             ercc_results = ercc.results
         } else {

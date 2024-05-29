@@ -32,6 +32,7 @@ workflow ercc_control {
     take: 
         reads                                         
         reference
+        ont
     main: 
         if (ont) {
             MinimapAlignmentOnt(reads, reference)
