@@ -61,7 +61,10 @@ workflow quality_control_illumina {
         }
 
         // Read quality control and removal of low-complexity reads,
-        // optional de-duplication of identical sequences
+        // optional de-duplication of identical sequences (Fastp) but
+        // note that unlike native de-duplication the algorithm in
+        // Fastp has a relatively high chance of hash-collision, so
+        // is essentially non-deterministic
         Fastp(reads, adapter_fasta, false)
         reads = Fastp.out.reads
         qc_results = Fastp.out.results
