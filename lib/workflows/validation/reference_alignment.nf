@@ -1,4 +1,5 @@
 include { from_reference_alignment_sample_sheet } from '../../utils';
+include { quality_control_illumina } from '../subworkflows/quality_control';
 
 include { MinimapAlignReferencePAF } from '../../processes/minimap2' addParams(
     subdir: "validation/reference_alignment"
