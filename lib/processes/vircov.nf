@@ -176,7 +176,8 @@ process VircovAlignReferenceZero {
     tag { "$id : $idx_name : $alignment" }
     label "vircov"
 
-    publishDir "$params.outdir/workflow/validation/reference_alignment", mode: "copy", pattern: "${id}.tsv"
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}.tsv", saveAs: { "align__vircov__reference" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.tsv"
 
     input:
     tuple val(id), path(forward), path(reverse)

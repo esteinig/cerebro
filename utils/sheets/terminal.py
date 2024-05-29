@@ -38,7 +38,7 @@ def create_validation_sheet(
             continue
 
         ref = ref_dir / row["reference"]
-        if not (ref_dir / ref).exists():
+        if not ref.exists():
             print(f"Failed to detect reference file {row['reference']} at: {ref}")
 
         data.append([row["sample_id"], reads[0].resolve(), reads[1].resolve(), ref.resolve()])
