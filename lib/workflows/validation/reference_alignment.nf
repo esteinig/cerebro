@@ -23,7 +23,7 @@ workflow reference_alignment_illumina {
         if (params.validation.qc.enabled) {
 
             qc_reads = quality_control_illumina(
-                reads, 
+                reads | map { tuple(it[0], it[1], it[2]) }, 
                 inputs.adapter_fasta, 
                 inputs.ercc_fasta, 
                 inputs.phage_fasta, 
@@ -33,7 +33,7 @@ workflow reference_alignment_illumina {
                 params.qc.deduplication.method,
                 params.qc.host.depletion.enabled,
                 params.qc.controls.phage.enabled
-            ).out.reads
+            ).reads
 
             align_reads = qc_reads.cross(reads) | map { tuple(it[0][0], it[0][1], it[0][2], it[1][3]) }
         
