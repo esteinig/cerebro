@@ -45,5 +45,5 @@ workflow ercc_control {
         }
     emit: 
         reads = depletion.reads
-        results = depletionresults.mix(evaluation.results)                                     
+        results = depletion.results.mix(evaluation.results)                                     
 }
