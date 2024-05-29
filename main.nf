@@ -228,7 +228,7 @@ workflow {
                     // Validation experiment workflows
                     // =====================================
                     
-                    reference_alignment()
+                    reference_alignment(inputs)
 
 
                 } else {
