@@ -191,7 +191,7 @@ process VircovAlignReferenceZero {
     script:
     
     """
-    vircov --alignment $alignment --fasta $fasta --zero -v > ${id}.tsv
+    vircov coverage --alignment $alignment --fasta $fasta --zero -v > ${id}.tsv
     """
     
 }
