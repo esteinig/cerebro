@@ -1,5 +1,6 @@
 import typer
 import warnings
+import json 
 
 import typer
 import pandas
@@ -11,6 +12,8 @@ from typing import Optional, List
 from pathlib import Path
 from dataclasses import dataclass
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+
 
 from ..utils import read_qc_table, YESTERDAY_MEDIUM
 from ..taxa.terminal import get_file_paths, get_taxa_to_include, extract_classifications, LibraryResult, LibraryDataFrame
@@ -18,7 +21,7 @@ from ..taxa.terminal import get_file_paths, get_taxa_to_include, extract_classif
 # pandas.set_option('display.max_columns', None)
 warnings.filterwarnings("ignore")
 
-EXTRACTION_MACHINE_PALETTE = palette = [
+EXTRACTION_MACHINE_PALETTE = [
     "#D8511D",
     "#FEB424",
     "#FCC893",
@@ -27,6 +30,19 @@ EXTRACTION_MACHINE_PALETTE = palette = [
     # "#B7ABBC",
     # "#F9ECE8",
     # "#FD8700",
+]
+
+HUE_ORDER = [
+    "Baseline - EZ1",
+    "Sonication - EZ1",
+    "Sonication - TanBead",
+    "Bead Beating - EZ1",
+    "Bead Beating - TanBead",
+]
+
+RNA_ORGANISMS = [
+    "Murray Valley encephalitis virus",
+    "Enterovirus B"
 ]
 
 def stdin_callback(value: Optional[Path]) -> Path:
@@ -323,14 +339,6 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
         r for r in target_classifications if r.library_data and r.library_data.organism == organism
     ]
 
-    hue_order = [
-        "Baseline - EZ1",
-        "Sonication - EZ1",
-        "Sonication - TanBead",
-        "Bead Beating - EZ1",
-        "Bead Beating - TanBead",
-    ]
-
     lib = LibraryDataFrame(results=results, dataframe=None)
     df =  lib.get_dataframe(qualitative=False)
 
@@ -379,7 +387,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
             ylabel = "Assembled Bases\n"
 
         if dna_only:
-            p = sns.lineplot(data=df_dna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=hue_order, ax=dna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+            p = sns.lineplot(data=df_dna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=dna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
 
             p.set_title(f"{organism} (DNA)")
             p.set_xlabel("Genome copies per microliter (copies/ul)")
@@ -392,7 +400,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
 
             df_dna_low = df_dna[df_dna["copies_ul"].isin(zoom_range)]
 
-            p = sns.stripplot(data=df_dna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=hue_order, ax=dna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
+            p = sns.stripplot(data=df_dna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=dna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
 
             if metric != "assembly_contigs_bases":
                 p.axhline(y=10, color='black', linestyle='--')
@@ -410,7 +418,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
                 sns.move_legend(p, "upper right")
 
         if rna_only:
-            p = sns.lineplot(data=df_rna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=hue_order, ax=rna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+            p = sns.lineplot(data=df_rna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=rna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
 
             p.set_title(f"{organism} (RNA)")
             p.set_xlabel("Genome copies per microliter (copies/ul)")
@@ -423,7 +431,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
             
             df_rna_low = df_rna[df_rna["copies_ul"].isin(zoom_range)]
 
-            p = sns.stripplot(data=df_rna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=hue_order, ax=rna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
+            p = sns.stripplot(data=df_rna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=rna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
             
             if metric != "assembly_contigs_bases":
                 p.axhline(y=10, color='black', linestyle='--')
@@ -516,3 +524,137 @@ def merge_meta_data(meta: pandas.DataFrame, other: pandas.DataFrame, other_colum
     result = pandas.merge(concatenated_df, meta, on='sample_id')
 
     return result
+
+
+
+@app.command()
+def plot_reference_alignments(
+    workflow: Path = typer.Option(
+        ..., help="Reference alignment validation workflow output folder"
+    ),
+    meta_data: Path = typer.Option(
+        ..., help="Extraction experiment meta data table (.tsv)"
+    ),     
+    quality_control: bool = typer.Option(
+        False, help="Read quality control conducted before reference mapping"
+    ),
+    metric: str = typer.Option(
+        "rpm", help="Metric to plot, must be one of: rpm, alignments, coverage"
+    ),
+    title: str = typer.Option(
+        "Single reference alignments", help="Plot title"
+    ),
+    title_size: Path = typer.Option(
+        48, help="Plot title fontsize"
+    ),
+    output: Path = typer.Option(
+        "reference_alignments.pdf", help="Output plot file"
+    ),
+
+):
+    
+    """
+    Plot the reference alignment validation results
+    """
+
+    meta = pandas.read_csv(meta_data, sep="\t", header=0)
+
+    total_reads_dataframe = get_total_reads(workflow=workflow, quality_control=quality_control)
+    alignment_summary_dataframe = get_alignment_summaries(workflow=workflow)
+
+    data = pandas.merge(total_reads_dataframe, alignment_summary_dataframe, on="sample_id", how="left")
+
+    df = pandas.merge(meta, data, on="sample_id", how="left")
+
+    df["rpm"] = (df["alignments"] / df["total_reads"])*1e06
+
+    print(df)
+
+    dataframes = {}
+    for ((organism, nucleic_acid), data) in df.groupby(["organism", "nucleic_acid"]):
+        if organism in RNA_ORGANISMS and nucleic_acid == "RNA":
+            dataframes[organism] = data
+        elif organism not in RNA_ORGANISMS and nucleic_acid == "DNA":
+            dataframes[organism] = data
+        
+    ncols = 3
+    nrows = 4
+    size = (36,48)
+    
+    fig1, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=size)
+    axes = axes.flat
+
+    for (i, (organism, df)) in enumerate(dataframes.items()):
+        plot_reference_alignment_data(df=df, ax=axes[i], metric=metric, title=organism)
+
+    fig1.suptitle(title, fontweight="bold", fontsize=title_size)
+    fig1.savefig(output, dpi=300, transparent=False)
+
+
+def plot_reference_alignment_data(df: pandas.DataFrame, ax: Axes, metric: str = "rpm", title: str = "Organism"):
+
+    # Replace 0 with NAN to show dropouts more clearly
+    df = df.replace(0, np.nan)
+
+    # Make the dilution range a categorical data type
+    df["copies_ul"] = df["copies_ul"].astype(str)
+
+    p = sns.lineplot(data=df, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+
+    p.set_title(title)
+    p.set_xlabel("Genome copies per microliter (copies/ul)")
+    p.set_ylabel(metric.capitalize())
+    p.set_ylim(0)
+    
+    legend = p.get_legend()
+    if legend:
+        legend.set_title(None) 
+        sns.move_legend(p, "upper right")
+
+    return p
+
+def get_total_reads(workflow: Path, quality_control: bool) -> pandas.DataFrame:
+
+    if quality_control:
+        fastp_scan_outputs = workflow/"workflow"/"quality_control"/"read_qc"/"scan"
+    else:
+        fastp_scan_outputs = workflow/"workflow"/"validation"/"reference_alignment"
+    
+    data = []
+    for file in fastp_scan_outputs.glob("*.json"):
+        sample_id = file.stem
+        total_reads = read_fastp_total_reads(file=file)
+        data.append([sample_id, total_reads])
+
+    return pandas.DataFrame(data, columns=["sample_id", "total_reads"])
+
+def get_alignment_summaries(workflow: Path) -> pandas.DataFrame:
+
+    vircov_outputs = workflow/"workflow"/"validation"/"reference_alignment"
+    
+    data = []
+    for file in vircov_outputs.glob("*.tsv"):
+        sample_id = file.stem
+        genome_size, alignments, coverage = read_vircov_summary(file=file)
+        data.append([sample_id, genome_size, alignments, coverage])
+
+    return pandas.DataFrame(data, columns=["sample_id", "genome_size", "alignments", "coverage"])
+
+
+def read_fastp_total_reads(file: Path):
+
+    with file.open() as fin:
+        data = json.load(fin)
+
+    return data["summary"]["before_filtering"]["total_reads"]
+
+def read_vircov_summary(file: Path):
+
+    df = pandas.read_csv(file, sep="\t", header=None, names=[
+        "accession", "regions", "reads", "alignments", "bp", "refsize", "coverage", "header", "other"
+    ], index_col=None)
+
+    genome_size, alignments, coverage = sum(df["refsize"]), sum(df["alignments"]), sum(df["coverage"])
+
+    return genome_size, alignments, coverage
+

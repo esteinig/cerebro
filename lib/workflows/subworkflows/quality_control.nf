@@ -32,13 +32,12 @@ workflow quality_control_illumina {
         host_removal
         phage_removal
     main:
+        // If we deduplicate, we must scan the reads 
+        // to get the total read counts for parsing
+        FastpScan(reads)
+        scan_results = FastpScan.out.results
 
         if (deduplication) {
-            // If we deduplicate, we must scan the reads 
-            // to get the total read counts for parsing
-            FastpScan(reads)
-            scan_results = FastpScan.out.results
-
             if (deduplication_method == "umi-calib"){
                 reads = CalibDeduplication(reads)
             } else if (deduplication_method == "naive"){
@@ -53,7 +52,6 @@ workflow quality_control_illumina {
         // ERCCs are aligned and removed
         if (params.qc.controls.ercc.enabled) {
             ercc_control(reads, ercc_fasta, false)
-            
             reads = ercc_control.out.reads
             ercc_results = ercc_control.out.results
         } else {
@@ -65,9 +63,14 @@ workflow quality_control_illumina {
         // note that unlike native de-duplication the algorithm in
         // Fastp has a relatively high chance of hash-collision, so
         // is essentially non-deterministic
-        Fastp(reads, adapter_fasta, false)
-        reads = Fastp.out.reads
-        qc_results = Fastp.out.results
+        if (params.qc.reads.fastp.enabled) {
+            Fastp(reads, adapter_fasta, false)
+            reads = Fastp.out.reads
+            qc_results = Fastp.out.results
+        } else {
+            qc_results = Channel.empty()
+        }
+        
 
         // Sequential k-mer and alignment host depletion
         if (host_removal) {
