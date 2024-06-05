@@ -54,7 +54,7 @@ workflow alignment {
         
         // Optional consensus assembly
         if (consensus_assembly) { 
-            consensus = virus_consensus_assembly(alignment.remap_aligned)
+            consensus = IvarConsensus(alignment.remap_aligned).out.consensus
         } else {
             consensus = Channel.empty()
         }
