@@ -1,4 +1,4 @@
-include { MinimapAlignPAF as MinimapAlignmentIllumina } from '../../processes/minimap2' addParams(
+include { MinimapAlignPaf as MinimapAlignmentIllumina } from '../../processes/minimap2' addParams(
     subdir: "quality_control/phage/alignments"
 )
 include { ScrubbyAlignmentDepletion as AlignmentDepletionIllumina } from '../../processes/scrubby' addParams(

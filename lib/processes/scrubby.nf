@@ -68,7 +68,6 @@ process ScrubbyReadsKrakenMinimapDepletionOnt {
     tuple val(id), path("input_1")
     path "dbs/*"
     path "refs/*"
-    val domain
 
     output:
     tuple (val(id), path("${id}_depleted.fq.gz"), emit: reads)
@@ -150,7 +149,7 @@ process ScrubbyExtractVircovReads {
     tag { "$id : $db_name : $idx_name" }
 
     publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: { "${id}_${idx_name}.json" }
-    publishDir "$params.outdir/workflow/$params.subdir/fastq", mode: "symlink", pattern: "${id}_${idx_name}_extracted*.fq.gz"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}_extracted*.fq.gz"
 
     input:
     tuple val(id), path("input_1"), path("input_2")
@@ -177,7 +176,7 @@ process ScrubbyExtractVircovReadsOnt {
     tag { "$id : $db_name : $idx_name" }
 
     publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: { "${id}_${idx_name}.json" }
-    publishDir "$params.outdir/workflow/$params.subdir/fastq", mode: "symlink", pattern: "${id}_${idx_name}_extracted.fq.gz"
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}_${idx_name}_extracted.fq.gz"
 
     input:
     tuple val(id), path("input_1")

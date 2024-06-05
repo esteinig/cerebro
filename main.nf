@@ -230,7 +230,6 @@ workflow {
                     
                     reference_alignment(inputs)
 
-
                 } else {
 
                     // =====================================

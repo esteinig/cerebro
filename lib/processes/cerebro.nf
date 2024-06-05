@@ -108,7 +108,7 @@ process UploadSample {
 }
 
 
-process ProcessVirusAlignment {
+process AlignmentTable {
 
     publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.tsv"
     publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}.tsv", saveAs: { "align__vircov_remap__${db_name}" }

@@ -233,7 +233,7 @@ def parse_file_params(){
     virus_db_index = []; 
     virus_db_fasta = [];
 
-    if (params.taxa.alignment.enabled && params.taxa.alignment.viruses.enabled){
+    if (params.taxa.alignment.enabled){
         if (params.virus_db_index && params.virus_db_fasta) {
             virus_db_index = Channel.fromPath(check_file(params.virus_db_index)).first()
             virus_db_fasta = Channel.fromPath(check_file(params.virus_db_fasta)).first() 
@@ -277,18 +277,6 @@ def parse_file_params(){
         }
     } 
 
-    host_ercc_index = [];
-    if (params.qc.deduplication.enabled && params.qc.deduplication.method == "umi-tools") {
-        if (params.qc.deduplication.reference) {
-            host_ercc_index = Channel.fromPath(check_file(params.qc.deduplication.reference)).first()
-        } else {
-            println("\n${c_red}UMI-tools protocol is activated, but no combined Host and ERCC reference index for alignment provided (--qc.deduplication.reference).${c_reset}\n")
-            Thread.sleep(2000)
-            System.exit(1) 
-        }
-
-    } 
-
     kraken2_dbs = [];
     if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled){
         if (params.kraken2_dbs) {
@@ -303,7 +291,7 @@ def parse_file_params(){
 
     eukaryots_mash_index = [];
     eukaryots_fasta = [];
-    if (params.taxa.alignment.enabled && params.taxa.alignment.eukaryots.enabled) {
+    if (params.taxa.alignment.enabled && params.taxa.alignment.eukaryots) {
         if (params.eukaryots_mash_index && params.eukaryots_fasta) {
             eukaryots_mash_index = Channel.fromPath(check_file(params.eukaryots_mash_index)).first()
             eukaryots_fasta = Channel.fromPath(check_file(params.eukaryots_fasta)).first()
@@ -318,7 +306,7 @@ def parse_file_params(){
 
     bacteria_mash_index = [];
     bacteria_fasta = [];
-    if (params.taxa.alignment.enabled && params.taxa.alignment.bacteria.enabled) {
+    if (params.taxa.alignment.enabled && params.taxa.alignment.bacteria) {
         if (params.bacteria_mash_index && params.bacteria_fasta) {
             bacteria_mash_index = Channel.fromPath(check_file(params.bacteria_mash_index)).first()
             bacteria_fasta = Channel.fromPath(check_file(params.bacteria_fasta)).first()
@@ -419,7 +407,6 @@ def parse_file_params(){
     adapter_fasta   = params.qc.reads.fastp.adapter_fasta ? Channel.fromPath(check_file(params.qc.reads.fastp.adapter_fasta)).first() : []    
 
     return [
-        host_ercc_index: host_ercc_index,
         host_depletion_references: host_depletion_references,
         host_depletion_dbs: host_depletion_dbs, 
         virus_background_references: virus_background_references, 

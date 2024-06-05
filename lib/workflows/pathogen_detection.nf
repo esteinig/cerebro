@@ -1,11 +1,8 @@
 
-include { eukaryots_subset_alignment }    from './pathogen/subset_alignment'
-include { bacteria_subset_alignment }     from './pathogen/subset_alignment'
-include { virus_detection }               from './pathogen/virus_detection'
 include { kmer_pathogen_detection }       from './pathogen/kmer_profiling'
 include { kmer_pathogen_profiling }       from './pathogen/kmer_profiling'
 include { metagenome_assembly }           from './pathogen/metagenome_assembly'
-include { alignment as virus_alignment }  from './pathogen/subset_scan_remap'
+include { alignment as virus_alignment }  from './pathogen/alignment'
 include { quality_control_illumina }      from './subworkflows/quality_control'
 include { quality_control_ont }           from './subworkflows/quality_control'
 
@@ -56,7 +53,7 @@ workflow pathogen_detection {
         // Alignment modules
         // =================
 
-        if (params.taxa.alignment.enabled && params.taxa.alignment.viruses.enabled) {
+        if (params.taxa.alignment.enabled) {
             align_virus_results = virus_alignment(
                 qc_reads,
                 inputs.virus_background_references,
@@ -67,12 +64,25 @@ workflow pathogen_detection {
                 params.taxa.assembly.enabled && params.taxa.assembly.consensus.enabled,
                 false,
                 null,
-                "viruses"
+                "viruses",
+                ont
             )
         } else {
             align_virus_results = Channel.empty()
         }
         
+        qc_results = qc[1]
+
+        result_files = qc_results.mix(
+            align_virus_results
+        ) | groupTuple
+
+    emit:
+        results = result_files
+}
+
+
+
         // // Bacterial subset alignments
         // if (params.taxa.alignment.enabled && params.taxa.alignment.domains.bacteria.enabled) {
         //     bacteria_subset_alignment(
@@ -145,13 +155,3 @@ workflow pathogen_detection {
         //     kmer_results, 
         //     meta_assembly_results
         // ) | groupTuple
-
-        qc_results = qc[1]
-
-        result_files = qc_results.mix(
-            align_virus_results
-        ) | groupTuple
-
-    emit:
-        results = result_files
-}

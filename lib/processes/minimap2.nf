@@ -1,4 +1,4 @@
-process MinimapAlignPAF {
+process MinimapAlignPaf {
 
     tag { "$id : $idx_name" }
     label "minimap2"
@@ -74,12 +74,12 @@ process MinimapAlignPafOnt {
 }
 
 
-process MinimapRealignBAM {
+process MinimapRealignBam {
 
     tag { "$id : $idx_name" }
     label "minimap2_realign"
 
-    publishDir "$params.outdir/workflow/$params.subdir/", mode: "symlink", pattern: "${id}_${idx_name}.bam"
+    publishDir "$params.outdir/workflow/$params.subdir/alignments", mode: "symlink", pattern: "${id}_${idx_name}.bam"
     publishDir "$params.outdir/workflow/$params.subdir/coverage", mode: "copy", pattern: "${id}_${idx_name}.bed"
     publishDir "$params.outdir/workflow/$params.subdir/coverage", mode: "copy", pattern: "${id}_${idx_name}.txt"
 
@@ -98,7 +98,7 @@ process MinimapRealignBAM {
 
     """
     minimap2 -t $task.cpus --sam-hit-only -ax sr ${fasta} $forward $reverse | samtools view -@ $task.cpus -Sb - | samtools sort -@ $task.cpus - -o ${id}_${idx_name}.bam
-    covtobed --max-cov $params.covtobed_max_cov ${id}_${idx_name}.bam > ${id}_${idx_name}.bed
+    covtobed --max-cov 10000000 ${id}_${idx_name}.bam > ${id}_${idx_name}.bed
     samtools coverage ${id}_${idx_name}.bam --no-header > coverage.txt
     grep "^>" $fasta | cut -c2- | cut -d' ' -f2- > descr.txt
     paste coverage.txt descr.txt > ${id}_${idx_name}.txt
@@ -112,7 +112,7 @@ process MinimapRealignBamOnt {
     tag { "$id : $idx_name" }
     label "minimap2_realign"
 
-    publishDir "$params.outdir/workflow/$params.subdir/", mode: "symlink", pattern: "${id}_${idx_name}.bam"
+    publishDir "$params.outdir/workflow/$params.subdir/alignments", mode: "symlink", pattern: "${id}_${idx_name}.bam"
     publishDir "$params.outdir/workflow/$params.subdir/coverage", mode: "copy", pattern: "${id}_${idx_name}.bed"
     publishDir "$params.outdir/workflow/$params.subdir/coverage", mode: "copy", pattern: "${id}_${idx_name}.txt"
 
@@ -131,7 +131,7 @@ process MinimapRealignBamOnt {
 
     """
     minimap2 -t $task.cpus --sam-hit-only -ax $params.ont.minimap2.preset ${fasta} $reads | samtools view -@ $task.cpus -Sb - | samtools sort -@ $task.cpus - -o ${id}_${idx_name}.bam
-    covtobed --max-cov $params.covtobed_max_cov ${id}_${idx_name}.bam > ${id}_${idx_name}.bed
+    covtobed --max-cov 10000000 ${id}_${idx_name}.bam > ${id}_${idx_name}.bed
     samtools coverage ${id}_${idx_name}.bam --no-header > coverage.txt
     grep "^>" $fasta | cut -c2- | cut -d' ' -f2- > descr.txt
     paste coverage.txt descr.txt > ${id}_${idx_name}.txt
