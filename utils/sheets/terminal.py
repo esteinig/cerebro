@@ -30,7 +30,7 @@ def create_validation_sheet(
 
     data = []
     for i, row in df.iterrows():
-        reads = [file for file in read_files if file.name.startswith(row["sample_id"])]
+        reads = sorted([file for file in read_files if file.name.startswith(row["sample_id"])])
 
         if len(reads) != 2:
             print(reads)

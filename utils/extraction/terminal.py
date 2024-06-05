@@ -544,7 +544,7 @@ def plot_reference_alignments(
     title: str = typer.Option(
         "Single reference alignments", help="Plot title"
     ),
-    title_size: Path = typer.Option(
+    title_size: int = typer.Option(
         48, help="Plot title fontsize"
     ),
     output: Path = typer.Option(
@@ -585,6 +585,9 @@ def plot_reference_alignments(
     axes = axes.flat
 
     for (i, (organism, df)) in enumerate(dataframes.items()):
+        if organism == "Mycobacterium tuberculosis":
+            df = df[df["extraction_machine"] != "Baseline - EZ1"]
+            
         plot_reference_alignment_data(df=df, ax=axes[i], metric=metric, title=organism)
 
     fig1.suptitle(title, fontweight="bold", fontsize=title_size)
@@ -592,7 +595,7 @@ def plot_reference_alignments(
 
 
 def plot_reference_alignment_data(df: pandas.DataFrame, ax: Axes, metric: str = "rpm", title: str = "Organism"):
-
+    
     # Replace 0 with NAN to show dropouts more clearly
     df = df.replace(0, np.nan)
 

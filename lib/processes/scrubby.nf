@@ -68,6 +68,7 @@ process ScrubbyReadsKrakenMinimapDepletionOnt {
     tuple val(id), path("input_1")
     path "dbs/*"
     path "refs/*"
+    val domain
 
     output:
     tuple (val(id), path("${id}_depleted.fq.gz"), emit: reads)
