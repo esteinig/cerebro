@@ -60,8 +60,8 @@ process IvarConsensus {
             cat *.consensus.fa > ${id}_${idx_name}.consensus.fasta
             cat *.variants.tsv > ${id}_${idx_name}.variants.tsv
         else 
-            samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 $bam | ivar consensus -p ${id}_${idx_name}.consensus -q $params.taxa.assembly.consensus.ivar.min_qual -t $params.taxa.assembly.consensus.ivar.min_freq -m $params.taxa.assembly.consensus.ivar.min_depth -n N
-            samtools mpileup $params.ivar_mpileup_args -A -B -Q 0 $bam | ivar variants -p ${id}_${idx_name}.variants -q $params.taxa.assembly.consensus.ivar.min_qual -t $params.taxa.assembly.consensus.ivar.min_freq -m $params.taxa.assembly.consensus.ivar.min_depth -r $reference 
+            samtools mpileup $params.taxa.assembly.consensus.ivar.mpileup_args -A -B -Q 0 $bam | ivar consensus -p ${id}_${idx_name}.consensus -q $params.taxa.assembly.consensus.ivar.min_qual -t $params.taxa.assembly.consensus.ivar.min_freq -m $params.taxa.assembly.consensus.ivar.min_depth -n N
+            samtools mpileup $params.taxa.assembly.consensus.ivar.mpileup_args -A -B -Q 0 $bam | ivar variants -p ${id}_${idx_name}.variants -q $params.taxa.assembly.consensus.ivar.min_qual -t $params.taxa.assembly.consensus.ivar.min_freq -m $params.taxa.assembly.consensus.ivar.min_depth -r $reference 
 
             HEADER=\$(head -1 $reference)
             sed -i "1s~.*~\$HEADER~" ${id}_${idx_name}.consensus.fa
