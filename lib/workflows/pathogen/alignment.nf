@@ -54,9 +54,9 @@ workflow alignment {
         
         // Optional consensus assembly
         if (consensus_assembly) { 
-            consensus = IvarConsensus(alignment.remap_aligned).out.consensus
+            assembly = IvarConsensus(alignment.remap_aligned)
         } else {
-            consensus = Channel.empty()
+            assembly = Channel.empty()
         }
 
         // Scan-remap-consensus result aggregation
@@ -65,7 +65,7 @@ workflow alignment {
         // Mixing outputs does not guarantee order, remap results are not guaranteed, 
         // we will account for this inside the process
         result_data = result_tables.mix(
-            consensus | groupTuple(by: [0, 1]),
+            assembly.consensus | groupTuple(by: [0, 1]),
             alignment.remap_coverage | groupTuple(by: [0, 1])
         ) | groupTuple(by: [0, 1]) | map { 
             data -> tuple(
