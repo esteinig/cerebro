@@ -162,6 +162,7 @@ impl VirusAlignmentSummary {
 
         // Group the records by reference sequence identifier
         let mut reference_records = Vec::new();
+
         for scan_record in scan_vircov.records {
 
             let scan_annotation = Annotation::from(&scan_record.description, &annotation_options);

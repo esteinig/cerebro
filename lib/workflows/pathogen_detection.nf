@@ -61,7 +61,7 @@ workflow pathogen_detection {
                 inputs.virus_db_index,
                 inputs.virus_db_fasta, 
                 inputs.virus_blacklist,
-                params.taxa.assembly.enabled && params.taxa.assembly.consensus.enabled,
+                params.taxa.assembly.consensus.enabled,
                 false,
                 null,
                 "viruses",
