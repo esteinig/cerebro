@@ -233,7 +233,7 @@ def parse_file_params(){
     virus_db_index = []; 
     virus_db_fasta = [];
 
-    if (params.taxa.alignment.enabled){
+    if (params.taxa.enabled && params.taxa.alignment.enabled){
         if (params.virus_db_index && params.virus_db_fasta) {
             virus_db_index = Channel.fromPath(check_file(params.virus_db_index)).first()
             virus_db_fasta = Channel.fromPath(check_file(params.virus_db_fasta)).first() 
@@ -278,7 +278,7 @@ def parse_file_params(){
     } 
 
     kraken2_dbs = [];
-    if (params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled){
+    if (params.taxa.enabled && params.taxa.kmer.enabled && params.taxa.kmer.kraken2.enabled){
         if (params.kraken2_dbs) {
             kraken2_dbs = Channel.fromPath(check_file_string(params.kraken2_dbs)).collect() 
         } else {
@@ -291,7 +291,7 @@ def parse_file_params(){
 
     eukaryots_mash_index = [];
     eukaryots_fasta = [];
-    if (params.taxa.alignment.enabled && params.taxa.alignment.eukaryots) {
+    if (params.taxa.enabled && params.taxa.alignment.enabled && params.taxa.alignment.eukaryots) {
         if (params.eukaryots_mash_index && params.eukaryots_fasta) {
             eukaryots_mash_index = Channel.fromPath(check_file(params.eukaryots_mash_index)).first()
             eukaryots_fasta = Channel.fromPath(check_file(params.eukaryots_fasta)).first()
@@ -306,7 +306,7 @@ def parse_file_params(){
 
     bacteria_mash_index = [];
     bacteria_fasta = [];
-    if (params.taxa.alignment.enabled && params.taxa.alignment.bacteria) {
+    if (params.taxa.enabled && params.taxa.alignment.enabled && params.taxa.alignment.bacteria) {
         if (params.bacteria_mash_index && params.bacteria_fasta) {
             bacteria_mash_index = Channel.fromPath(check_file(params.bacteria_mash_index)).first()
             bacteria_fasta = Channel.fromPath(check_file(params.bacteria_fasta)).first()
@@ -320,7 +320,7 @@ def parse_file_params(){
 
     meta_diamond_nr = [];
     meta_blast_nt = [];
-    if (params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
+    if (params.taxa.enabled && params.taxa.assembly.enabled && params.taxa.assembly.meta.enabled) {
         if (params.meta_blast_nt) {
             meta_blast_nt = Channel.fromPath(check_file(params.meta_blast_nt)).first()
         } else {
