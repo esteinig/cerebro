@@ -49,9 +49,11 @@ workflow pathogen_detection {
         // Taxonomic classification modules
         // ================================
 
-        // =================
-        // Alignment modules
-        // =================
+
+
+        // =====================
+        // Alignment subworkflow
+        // =====================
 
         if (params.taxa.alignment.enabled) {
             align_virus_results = virus_alignment(
