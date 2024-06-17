@@ -204,7 +204,7 @@ workflow {
 
                
                 if (params.ont.enabled) {
-                    qc_reads = quality_control_ont(
+                    quality_control_ont(
                         reads, 
                         inputs.ercc_fasta, 
                         inputs.phage_fasta, 
@@ -212,9 +212,9 @@ workflow {
                         inputs.host_depletion_references, 
                         params.qc.host.depletion.enabled,
                         params.qc.controls.phage.enabled
-                    ).out.reads
+                    )
                 } else {
-                    qc_reads = quality_control_illumina(
+                    quality_control_illumina(
                         reads, 
                         inputs.adapter_fasta, 
                         inputs.ercc_fasta, 
@@ -225,7 +225,7 @@ workflow {
                         params.qc.deduplication.method,
                         params.qc.host.depletion.enabled,
                         params.qc.controls.phage.enabled
-                    ).out.reads
+                    )
                 }
 
             } else {
