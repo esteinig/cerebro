@@ -125,6 +125,7 @@ params.eukaryots_min_reads                          = 0
 
 include { cerebro_production }              from './lib/workflows/subworkflows/production'
 include { quality_control_illumina }        from './lib/workflows/subworkflows/quality_control'
+include { quality_control_ont }             from './lib/workflows/subworkflows/quality_control'
 include { pathogen_detection }              from './lib/workflows/pathogen_detection'
 include { aneuploidy_detection_illumina }   from './lib/workflows/aneuploidy_detection'
 include { culture_identification }          from './lib/workflows/culture_identification'
@@ -153,7 +154,7 @@ workflow {
         def inputs = parse_file_params()
 
         if (params.production.enabled) {
-            
+
             if (params.production.api.upload.enabled) {
                 PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
             }
