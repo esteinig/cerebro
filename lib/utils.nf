@@ -353,7 +353,7 @@ def parse_file_params(){
     // For production also check that the `nodes.dmp` and `names.dmp` files for taxonomy are available in the database directory
 
     taxonomy_directory = [];
-    if (params.production.enabled || (params.process.enabled && params.process.taxa)) {
+    if (params.process.enabled && params.process.taxa) {
         if (params.database.taxonomy) {
             check_file("$params.database.taxonomy/nodes.dmp")
             check_file("$params.database.taxonomy/names.dmp")
