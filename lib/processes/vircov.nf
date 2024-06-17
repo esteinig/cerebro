@@ -197,7 +197,7 @@ process VircovAlignReferenceZero {
 }
 
 
-process VircovAlignReferenceOnt {
+process VircovAlignReferenceZeroOnt {
     
     // Simple assessment of aligned reads with zero counts, needs reference sequences
 
