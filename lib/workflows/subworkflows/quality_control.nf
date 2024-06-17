@@ -63,6 +63,7 @@ workflow quality_control_illumina {
         // note that unlike native de-duplication the algorithm in
         // Fastp has a relatively high chance of hash-collision, so
         // is essentially non-deterministic
+
         if (params.qc.reads.fastp.enabled) {
             Fastp(reads, adapter_fasta, false)
             reads = Fastp.out.reads
@@ -108,6 +109,7 @@ workflow quality_control_ont {
         host_removal
         phage_removal
     main:
+    
         NanoqScan(reads)
         scan_results = NanoqScan.out.results
 
@@ -118,11 +120,15 @@ workflow quality_control_ont {
         } else {
             ercc_results = Channel.empty()
         }
-
-        nanoq = Nanoq(reads)
-        reads = nanoq.reads
-        qc_results = nanoq.results
-
+        
+        if (params.qc.reads.fastp.enabled) {
+            nanoq = Nanoq(reads)
+            reads = Nanoq.out.reads
+            qc_results = Nanoq.out.results
+        } else {
+            qc_results = Channel.empty()
+        }
+        
         if (host_removal) {
             host = host_depletion(nanoq.reads, kraken_dbs, host_references, true)
             reads = host.reads

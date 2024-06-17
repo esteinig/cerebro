@@ -50,10 +50,9 @@ workflow pathogen_detection {
         // ================================
 
 
-
-        // =====================
+        // +++++++++++++++++++++
         // Alignment subworkflow
-        // =====================
+        // +++++++++++++++++++++
 
         if (params.taxa.alignment.enabled) {
             align_virus_results = virus_alignment(
@@ -72,6 +71,8 @@ workflow pathogen_detection {
         } else {
             align_virus_results = Channel.empty()
         }
+
+        
         
         qc_results = qc[1]
 

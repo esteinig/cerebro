@@ -6,7 +6,6 @@ use csv::Writer;
 use std::path::Component;
 use serde::{Serialize, Deserialize};
 use std::{path::{Path, PathBuf}, collections::{HashMap, HashSet}};
-
 use crate::error::WorkflowUtilityError;
 
 
@@ -21,14 +20,18 @@ pub struct SampleSheetEntry{
     pub sample_group: Option<String>,
     pub sample_type: Option<String>,
     pub ercc_input: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub forward_path: Option<PathBuf>,  // option because of production sample sheet ionput
-    pub reverse_path: Option<PathBuf>
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reverse_path: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fastq: Option<PathBuf>
 }
 impl SampleSheetEntry {
     pub fn new(run_date: &str, run_id: &str, sample_id: &str, sample_group: Option<&str>, sample_type: Option<&str>, ercc_input: Option<f64>, aneuploidy: bool, files: &Vec<PathBuf>) -> Result<Self, WorkflowUtilityError> {
-        let (forward_path, reverse_path) = match files.len() {
-            1 => (Some(files[0].clone()), None),
-            2 => (Some(files[0].clone()), Some(files[1].clone())),
+        let (forward_path, reverse_path, fastq) = match files.len() {
+            1 => (None, None, Some(files[0].clone())),
+            2 => (Some(files[0].clone()), Some(files[1].clone()), None),
             _ => return Err(WorkflowUtilityError::SampleSheetEntryFiles(format!("{:?}", files)))
         };
         Ok(SampleSheetEntry { 
@@ -41,7 +44,8 @@ impl SampleSheetEntry {
             sample_type: sample_type.map(str::to_string), 
             ercc_input,
             forward_path, 
-            reverse_path 
+            reverse_path,
+            fastq
         })
     }
 }
@@ -60,12 +64,12 @@ impl SampleSheet {
         sample_group: Option<String>, 
         sample_type: Option<String>, 
         ercc_input: Option<f64>, 
-        symlinks: bool
+        symlinks: bool,
     ) -> Result<SampleSheet, WorkflowUtilityError> {
         
         let mut entries = Vec::new();
         for directory in directories {
-            let sample_files = get_paired_files(directory, paired_glob, allow_single, symlinks)?;
+            let sample_files = get_files(directory, paired_glob, allow_single, symlinks)?;
         
             let entries_directory = sample_files.iter().map(|(sample_id, file_paths)| -> Result<SampleSheetEntry, WorkflowUtilityError> {
                 
@@ -82,7 +86,7 @@ impl SampleSheet {
                     Some(date) => date.to_string(),
                     None => chrono::Utc::now().format("%Y-%m-%d").to_string()
                 };
-    
+                
                 SampleSheetEntry::new(
                     &date, 
                     &run, 
@@ -184,7 +188,7 @@ fn check_unique_sample_id(entries: &Vec<SampleSheetEntry>) -> Result<(), Workflo
 }
 
 // A helper function to get paired files from a suitable glob match
-pub fn get_paired_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool) -> Result<HashMap<String, Vec<PathBuf>>, WorkflowUtilityError> {
+pub fn get_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool) -> Result<HashMap<String, Vec<PathBuf>>, WorkflowUtilityError> {
    
     let glob = Glob::new(paired_glob).map_err(|_| WorkflowUtilityError::GlobCreate(paired_glob.to_string()))?;
 

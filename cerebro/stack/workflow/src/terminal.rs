@@ -393,7 +393,10 @@ pub struct PipelineSampleSheetArgs {
     pub ercc_input: Option<f64>,
     /// Allow symlink target reading for glob file walking
     #[clap(long, short = 'l')]
-    pub symlinks: bool
+    pub symlinks: bool,
+    /// Single reads for Oxford Nanopore Technology 
+    #[clap(long)]
+    pub ont: bool
 }
 
 #[derive(Debug, Args)]

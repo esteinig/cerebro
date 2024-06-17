@@ -104,13 +104,13 @@ fn main() -> anyhow::Result<()> {
             let sample_sheet = cerebro_workflow::sheet::SampleSheet::new(
                 &args.input, 
                 &args.glob, 
-                false, 
+                args.ont, 
                 args.run_id.clone(), 
                 args.run_date.clone(),
                 args.sample_group.clone(),
                 args.sample_type.clone(),
                 args.ercc_input,
-                args.symlinks
+                args.symlinks,
             )?;
             sample_sheet.write(&args.output)?;
         }

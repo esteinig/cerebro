@@ -197,6 +197,34 @@ process VircovAlignReferenceZero {
 }
 
 
+process VircovAlignReferenceOnt {
+    
+    // Simple assessment of aligned reads with zero counts, needs reference sequences
+
+    tag { "$id : $idx_name : $alignment" }
+    label "vircov"
+
+    publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}.tsv", saveAs: { "align__vircov__reference" }
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "copy", pattern: "${id}.tsv"
+
+    input:
+    tuple val(id), path(reads)
+    tuple val(id_idx), val(idx_name), path(alignment), path(fasta)
+
+    output:
+    tuple (val(id), path(reads), emit: reads)
+    tuple (val(id), path("${id}.tsv"), emit: results)
+    path("${id}.tsv")
+    
+    script:
+    
+    """
+    vircov coverage --alignment $alignment --fasta $fasta --zero -v > ${id}.tsv
+    """
+    
+}
+
+
 
 process VircovZeroOnt {
     

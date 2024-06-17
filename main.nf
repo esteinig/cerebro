@@ -153,17 +153,24 @@ workflow {
         def inputs = parse_file_params()
 
         if (params.production.enabled) {
+            
             if (params.production.api.upload.enabled) {
                 PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
             }
-            data = get_paired_reads(inputs.sample_sheet, true)                       // production requires sample sheet
+            
+            if (params.ont.enabled) {
+                data = get_single_reads(inputs.sample_sheet, true)
+            } else {
+                data = get_paired_reads(inputs.sample_sheet, true)
+            }
+
             reads = data.pathogen                                                    // pathogen analysis uses all input reads
             reads_aneuploidy = data.aneuploidy                                       // host genome analysis if enabled uses subset of activated input reads
         } else {
             if (params.fastq_ont && params.ont.enabled) {
-                reads = get_single_reads(null, false)                                // pathogen analysis 
+                reads = get_single_reads(null, false)                               
             } else if (params.fastq_pe) {
-                reads = get_paired_reads(null, false)                                // pathogen analysis 
+                reads = get_paired_reads(null, false)                               
                 reads_aneuploidy = reads                                             // all input read files are also used for host genome analysis if enabled
             } else {
                  println "\n${c('red')}Production mode is not active - you must provide either `--fastq_pe <GLOB>` or `--ont.enabled --fastq_ont <FILE-OR-GLOB>` for read inputs${c('reset')}\n"

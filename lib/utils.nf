@@ -489,7 +489,7 @@ FILE INPUTS
 def get_paired_reads(sample_sheet, production) {
 
     if (params.production.sample_sheet){
-        reads = from_sample_sheet(sample_sheet, production)
+        reads = from_sample_sheet_illumina(sample_sheet, production)
     } else if (params.fastq_pe) {
         reads = channel.fromFilePairs(params.fastq_pe, flat: true, checkIfExists: true)
     } else {
@@ -503,7 +503,7 @@ def get_paired_reads(sample_sheet, production) {
 def get_single_reads(sample_sheet, production) {
 
     if (params.production.sample_sheet){
-        reads = from_sample_sheet(sample_sheet, production)
+        reads = from_sample_sheet_ont(sample_sheet, production)
     } else if (params.fastq_ont) {
         reads = channel.fromPath(params.fastq_ont, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
     } else {
@@ -514,7 +514,7 @@ def get_single_reads(sample_sheet, production) {
     return reads
 }
 
-def from_sample_sheet(file, production){
+def from_sample_sheet_illumina(file, production){
 
     def row_number = 2 // with header
 
@@ -582,7 +582,71 @@ def from_sample_sheet(file, production){
 
 }
 
-def from_reference_alignment_sample_sheet(file){
+
+def from_sample_sheet_ont(file, production){
+
+    def row_number = 2 // with header
+
+    fastq_files = channel.fromPath("$file") | splitCsv(header:true, strip:true) | map { row -> 
+
+        // Check that required columns are present
+        if (row.sample_id === null || row.fastq == null) {
+            println "\n${c('red')}Sample sheet did not contain required columns (sample_id, forward_path, reverse_path)${c('reset')}\n"
+            Thread.sleep(2000); 
+            System.exit(1)
+        }
+
+        // Check that required values for this row are set
+        if (row.sample_id.isEmpty() || row.fastq.isEmpty()) {
+            println "\n${c('red')}Sample sheet did not contain required values (sample_id, forward_path, reverse_path) in row: ${row_number}${c('reset')}\n"
+            Thread.sleep(2000); 
+            System.exit(1)
+        }
+
+        fastq = new File(row.fastq)
+
+        if (!fastq.exists()){
+            println("Fastq read file does not exist: ${forward}")
+            return 
+        }
+
+        if (production) {
+             // Check that required columns are present
+            if (row.run_id === null || row.run_date === null) {
+                println "\n${c('red')}Production mode is activated, but the sample sheet did not contain required columns (run_date, run_id)${c('reset')}\n"
+                Thread.sleep(2000); 
+                System.exit(1)
+            }
+            // Check that run date and identifier are set for production models
+            if (row.run_id.isEmpty() || row.run_date.isEmpty()) {
+                println "\n${c('red')}Production mode is activated, but the sample sheet did not contain a sequence run identifier or date for sample: ${row.sample_id}${c('reset')}\n"
+                Thread.sleep(2000); 
+                System.exit(1)
+            }
+            // Check if the aneuploidy column is present
+            if (row.aneuploidy === null || row.aneuploidy.isEmpty()) {
+                println "\n${c('red')}Production mode is activated, but the sample sheet did not specify the aneuploidy detection/consent column for sample: ${row.sample_id}${c('reset')}\n"
+                Thread.sleep(2000); 
+                System.exit(1)
+            }
+        }
+
+        row_number++
+
+        return tuple(row.sample_id, row.fastq, row.aneuploidy.toBoolean())
+
+    }
+
+    fastq_files | ifEmpty { exit 1, "\n${c_red}Could not find read files specified in sample sheet.${c_reset}\n" }
+
+    return [
+        aneuploidy: fastq_files | filter { it[3] } | map { tuple(it[0], it[1]) },
+        pathogen: fastq_files | map { tuple(it[0], it[1]) }
+    ]
+
+}
+
+def from_sample_sheet_reference_alignment_illumina(file){
 
     def row_number = 2 // with header
 
@@ -622,6 +686,50 @@ def from_reference_alignment_sample_sheet(file){
         row_number++
 
         return tuple(row.sample_id, row.forward_path, row.reverse_path, row.reference_path)
+
+    }
+
+    fastq_files | ifEmpty { exit 1, "\n${c_red}Could not find read files specified in sample sheet.${c_reset}\n" }
+
+    return fastq_files
+
+}
+
+
+def from_sample_sheet_reference_alignment_ont(file){
+
+    def row_number = 2 // with header
+
+    fastq_files = channel.fromPath("$file") | splitCsv(header:true, strip:true) | map { row -> 
+
+        // Check that required columns are present
+        if (row.sample_id === null || row.fastq === null || row.reference_path === null) {
+            println "\n${c('red')}Sample sheet did not contain required columns (sample_id, fastq, reference_path)${c('reset')}\n"
+            Thread.sleep(2000); 
+            System.exit(1)
+        }
+
+        // Check that required values for this row are set
+        if (row.sample_id.isEmpty() || row.fastq.isEmpty() || row.reference_path.isEmpty()) {
+            println "\n${c('red')}Sample sheet did not contain required values (sample_id, fastq, reference_path) in row: ${row_number}${c('reset')}\n"
+            Thread.sleep(2000); 
+            System.exit(1)
+        }
+
+        fastq = new File(row.fastq)
+
+        if (!fastq.exists()){
+            println("Forward read file does not exist: ${forward}")
+            return 
+        }
+        if (!reference.exists()){
+            println("Reference genome file does not exist: ${reference}")
+            return 
+        }
+
+        row_number++
+
+        return tuple(row.sample_id, row.fastq, row.reference_path)
 
     }
 

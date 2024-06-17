@@ -32,12 +32,17 @@ EXTRACTION_MACHINE_PALETTE = [
     # "#FD8700",
 ]
 
-HUE_ORDER = [
+HUE_ORDER_EXPERIMENT = [
     "Baseline - EZ1",
     "Sonication - EZ1",
     "Sonication - TanBead",
     "Bead Beating - EZ1",
-    "Bead Beating - TanBead",
+    "Bead Beating - TanBead"
+]
+
+
+HUE_ORDER_SIMULATION = [
+    "SIMULATION",
 ]
 
 RNA_ORGANISMS = [
@@ -324,7 +329,7 @@ def plot_comparison_scatter(df: pandas.DataFrame, x: str, y: str, hue: str | Non
     sns.move_legend(p, "upper right")
 
 
-def plot_comparison(target_classifications: List[LibraryResult], organism: str, dna_only: bool = False, rna_only: bool = False, output: Path = "organims.pdf", remap_rpm: bool = False, zoom_range: List[str] = ["10.0", "1.0", "0.1"]):
+def plot_comparison(target_classifications: List[LibraryResult], organism: str, dna_only: bool = False, rna_only: bool = False, output: Path = "organims.pdf", remap_rpm: bool = False, zoom_range: List[str] = ["10.0", "1.0", "0.1"], simulation: bool = False):
 
     if dna_only and rna_only:
         raise ValueError("Cannot specify `dna_only` and `rna_only` at the same time")
@@ -387,7 +392,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
             ylabel = "Assembled Bases\n"
 
         if dna_only:
-            p = sns.lineplot(data=df_dna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=dna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+            p = sns.lineplot(data=df_dna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER_SIMULATION if simulation else HUE_ORDER_EXPERIMENT, ax=dna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
 
             p.set_title(f"{organism} (DNA)")
             p.set_xlabel("Genome copies per microliter (copies/ul)")
@@ -400,7 +405,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
 
             df_dna_low = df_dna[df_dna["copies_ul"].isin(zoom_range)]
 
-            p = sns.stripplot(data=df_dna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=dna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
+            p = sns.stripplot(data=df_dna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER_SIMULATION if simulation else HUE_ORDER_EXPERIMENT, ax=dna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
 
             if metric != "assembly_contigs_bases":
                 p.axhline(y=10, color='black', linestyle='--')
@@ -418,7 +423,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
                 sns.move_legend(p, "upper right")
 
         if rna_only:
-            p = sns.lineplot(data=df_rna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=rna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+            p = sns.lineplot(data=df_rna, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER_SIMULATION if simulation else HUE_ORDER_EXPERIMENT, ax=rna_ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
 
             p.set_title(f"{organism} (RNA)")
             p.set_xlabel("Genome copies per microliter (copies/ul)")
@@ -431,7 +436,7 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
             
             df_rna_low = df_rna[df_rna["copies_ul"].isin(zoom_range)]
 
-            p = sns.stripplot(data=df_rna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=rna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
+            p = sns.stripplot(data=df_rna_low, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER_SIMULATION if simulation else HUE_ORDER_EXPERIMENT, ax=rna_low_ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
             
             if metric != "assembly_contigs_bases":
                 p.axhline(y=10, color='black', linestyle='--')
@@ -529,7 +534,7 @@ def merge_meta_data(meta: pandas.DataFrame, other: pandas.DataFrame, other_colum
 
 @app.command()
 def plot_reference_alignments(
-    workflow: Path = typer.Option(
+    workflows: List[Path] = typer.Argument(
         ..., help="Reference alignment validation workflow output folder"
     ),
     meta_data: Path = typer.Option(
@@ -537,6 +542,12 @@ def plot_reference_alignments(
     ),     
     quality_control: bool = typer.Option(
         False, help="Read quality control conducted before reference mapping"
+    ),   
+    simulation: bool = typer.Option(
+        False, help="Experiment was conducted with Cipher simulated reads"
+    ),
+    log_scale: bool = typer.Option(
+        False, help="Log scale for metric to plot (y-axis)"
     ),
     metric: str = typer.Option(
         "rpm", help="Metric to plot, must be one of: rpm, alignments, coverage"
@@ -559,22 +570,30 @@ def plot_reference_alignments(
 
     meta = pandas.read_csv(meta_data, sep="\t", header=0)
 
-    total_reads_dataframe = get_total_reads(workflow=workflow, quality_control=quality_control)
-    alignment_summary_dataframe = get_alignment_summaries(workflow=workflow)
+    workflow_data = []
+    for workflow in workflows:
+        total_reads_dataframe = get_total_reads(workflow=workflow, quality_control=quality_control)
+        alignment_summary_dataframe = get_alignment_summaries(workflow=workflow)
 
-    data = pandas.merge(total_reads_dataframe, alignment_summary_dataframe, on="sample_id", how="left")
+        data = pandas.merge(total_reads_dataframe, alignment_summary_dataframe, on="sample_id", how="left")
 
-    df = pandas.merge(meta, data, on="sample_id", how="left")
+        df = pandas.merge(meta, data, on="sample_id", how="left")
 
-    df["rpm"] = (df["alignments"] / df["total_reads"])*1e06
+        df["rpm"] = (df["alignments"] / df["total_reads"])*1e06
+        df["workflow"] = [workflow.name for _ in df.iterrows()]
 
-    print(df)
+        workflow_data.append(df)
+
+    df = pandas.concat(workflow_data)
 
     dataframes = {}
     for ((organism, nucleic_acid), data) in df.groupby(["organism", "nucleic_acid"]):
-        if organism in RNA_ORGANISMS and nucleic_acid == "RNA":
-            dataframes[organism] = data
-        elif organism not in RNA_ORGANISMS and nucleic_acid == "DNA":
+        if not simulation:
+            if organism in RNA_ORGANISMS and nucleic_acid == "RNA":
+                dataframes[organism] = data
+            elif organism not in RNA_ORGANISMS and nucleic_acid == "DNA":
+                dataframes[organism] = data
+        else:
             dataframes[organism] = data
         
     ncols = 3
@@ -585,16 +604,16 @@ def plot_reference_alignments(
     axes = axes.flat
 
     for (i, (organism, df)) in enumerate(dataframes.items()):
-        if organism == "Mycobacterium tuberculosis":
+        if organism == "Mycobacterium tuberculosis" and not simulation:
             df = df[df["extraction_machine"] != "Baseline - EZ1"]
             
-        plot_reference_alignment_data(df=df, ax=axes[i], metric=metric, title=organism)
+        plot_reference_alignment_data(df=df, ax=axes[i], metric=metric, title=organism, simulation=simulation, log_scale=log_scale)
 
     fig1.suptitle(title, fontweight="bold", fontsize=title_size)
     fig1.savefig(output, dpi=300, transparent=False)
 
 
-def plot_reference_alignment_data(df: pandas.DataFrame, ax: Axes, metric: str = "rpm", title: str = "Organism"):
+def plot_reference_alignment_data(df: pandas.DataFrame, ax: Axes, metric: str = "rpm", title: str = "Organism", simulation: bool = False, log_scale: bool = False):
     
     # Replace 0 with NAN to show dropouts more clearly
     df = df.replace(0, np.nan)
@@ -602,11 +621,18 @@ def plot_reference_alignment_data(df: pandas.DataFrame, ax: Axes, metric: str = 
     # Make the dilution range a categorical data type
     df["copies_ul"] = df["copies_ul"].astype(str)
 
-    p = sns.lineplot(data=df, x="copies_ul", y=metric, hue="extraction_machine", hue_order=HUE_ORDER, ax=ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+    if log_scale:
+        df[metric] = np.log10(df[metric])
+
+    print(df)
+
+    p = sns.lineplot(data=df, x="copies_ul", y=metric, hue="workflow", ax=ax, linewidth=4, palette=EXTRACTION_MACHINE_PALETTE, marker='o', markersize=12)
+
+    p = sns.stripplot(data=df, x="copies_ul", y=metric, hue="workflow",  ax=ax, palette=EXTRACTION_MACHINE_PALETTE, size=12)
 
     p.set_title(title)
     p.set_xlabel("Genome copies per microliter (copies/ul)")
-    p.set_ylabel(metric.capitalize())
+    p.set_ylabel(f"{metric.capitalize()}{'(log10)' if log_scale else ''}")
     p.set_ylim(0)
     
     legend = p.get_legend()

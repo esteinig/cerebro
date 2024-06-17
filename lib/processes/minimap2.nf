@@ -23,7 +23,7 @@ process MinimapAlignPaf {
 
 }
 
-process MinimapAlignReferencePAF {
+process MinimapAlignReferencePaf {
 
     tag { "$id : $idx_name" }
     label "minimap2"
@@ -43,6 +43,31 @@ process MinimapAlignReferencePAF {
 
     """
     minimap2 -t $task.cpus -c -x sr ${fasta} $forward $reverse > ${id}.paf
+    """
+
+}
+
+
+process MinimapAlignReferencePafOnt {
+
+    tag { "$id : $idx_name" }
+    label "minimap2"
+
+    publishDir "$params.outdir/workflow/$params.subdir", mode: "symlink", pattern: "${id}.paf"
+
+    input:
+    tuple val(id), path(reads), path(fasta)
+
+    output:
+    tuple val(id), path(reads)
+    tuple val(id), val(idx_name), path("${id}.paf"), path(fasta)
+
+    script:
+
+    idx_name = fasta.baseName
+
+    """
+    minimap2 -t $task.cpus -c -x map-ont ${fasta} $reads > ${id}.paf
     """
 
 }
