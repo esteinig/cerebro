@@ -124,7 +124,7 @@ fn main() -> anyhow::Result<()> {
                     let sample_sheet = cerebro_workflow::sheet::SampleSheet::new(
                         &args.input, 
                         &args.glob, 
-                        false, 
+                        args.ont, 
                         args.run_id.clone(), 
                         args.run_date.clone(),
                         args.sample_group.clone(),
