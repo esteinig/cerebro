@@ -354,9 +354,9 @@ def parse_file_params(){
 
     taxonomy_directory = [];
     if (params.production.enabled || (params.process.enabled && params.process.taxa)) {
-        if (params.taxonomy) {
-            check_file("$params.taxonomy/nodes.dmp")
-            check_file("$params.taxonomy/names.dmp")
+        if (params.database.taxonomy) {
+            check_file("$params.database.taxonomy/nodes.dmp")
+            check_file("$params.database.taxonomy/names.dmp")
             taxonomy_directory = Channel.fromPath(check_file(params.taxonomy)).first()
         } else {
             println("\n${c_red}Settings are activated that require a taxonomy (production or post-processing), but no taxonomy directory (containing `nodes.dmp` and `names.dmp` files) was provided (--database.taxonomy.directory).${c_reset}\n")
