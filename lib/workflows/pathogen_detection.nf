@@ -1,10 +1,9 @@
 
-include { kmer_pathogen_detection }       from './pathogen/kmer_profiling'
-include { kmer_pathogen_profiling }       from './pathogen/kmer_profiling'
-include { metagenome_assembly }           from './pathogen/metagenome_assembly'
-include { alignment as virus_alignment }  from './pathogen/alignment'
-include { quality_control_illumina }      from './subworkflows/quality_control'
-include { quality_control_ont }           from './subworkflows/quality_control'
+include { quality_control_illumina }      from './subworkflows/quality_control';
+include { quality_control_ont }           from './subworkflows/quality_control';
+include { metagenome_assembly }           from './pathogen/metagenome_assembly';
+include { kmer_profiling }                from './pathogen/kmer_profiling';
+include { alignment }                     from './pathogen/alignment';
 
 
 workflow pathogen_detection {
@@ -25,8 +24,11 @@ workflow pathogen_detection {
                 inputs.phage_fasta, 
                 inputs.host_depletion_dbs, 
                 inputs.host_depletion_references, 
+                inputs.background_depletion_dbs, 
+                inputs.background_depletion_references, 
                 params.qc.host.depletion.enabled,
-                params.qc.controls.phage.enabled
+                params.qc.controls.phage.enabled,
+                params.qc.background.depletion.enabled
             )
             qc_reads = qc[0]
         } else {
@@ -37,10 +39,13 @@ workflow pathogen_detection {
                 inputs.phage_fasta, 
                 inputs.host_depletion_dbs, 
                 inputs.host_depletion_references, 
-                params.qc.deduplication.enabled,
-                params.qc.deduplication.method,
+                inputs.background_depletion_dbs, 
+                inputs.background_depletion_references, 
                 params.qc.host.depletion.enabled,
-                params.qc.controls.phage.enabled
+                params.qc.controls.phage.enabled,
+                params.qc.background.depletion.enabled,
+                params.qc.deduplication.enabled,
+                params.qc.deduplication.method
             )
             qc_reads = qc[0]
         }
@@ -55,7 +60,7 @@ workflow pathogen_detection {
         // +++++++++++++++++++++
 
         if (params.taxa.alignment.enabled) {
-            align_virus_results = virus_alignment(
+            alignment_results = alignment(
                 qc_reads,
                 inputs.virus_background_references,
                 inputs.virus_background_dbs,
@@ -69,15 +74,25 @@ workflow pathogen_detection {
                 ont
             )
         } else {
-            align_virus_results = Channel.empty()
+            alignment_results = Channel.empty()
         }
 
-        
+        if (params.taxa.kmer.enabeld) {
+            kmer_profiling_results = kmer_profiling(
+                qc_reads,
+                inputs.kraken2_dbs,
+                inputs.metabuli_dbs,
+                ont
+            )
+        } else {
+            kmer_profiling_results = Channel.empty()
+        }
         
         qc_results = qc[1]
 
         result_files = qc_results.mix(
-            align_virus_results
+            alignment_results,
+            kmer_profiling_results
         ) | groupTuple
 
     emit:

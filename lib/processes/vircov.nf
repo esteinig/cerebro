@@ -22,10 +22,25 @@ process VircovReferenceSelection {
     
     segment_field = params.vircov_group_select_segment_field ? "--segment-field '$params.vircov_group_select_segment_field'" : ""
     segment_field_nan = params.vircov_group_select_segment_field_nan ? "--segment-field-nan '$params.vircov_group_select_segment_field_nan'" : ""
-    exclude = blacklist ? "--exclude $params.virus_blacklist" : ""
+    exclude = blacklist ? "--exclude $blacklist" : ""
 
     """
-    vircov coverage --alignment $alignment --fasta $alignment_fasta --min-len $params.vircov_scan_min_len --min-cov $params.vircov_scan_min_cov --min-mapq $params.vircov_scan_min_mapq --reads $params.vircov_scan_reads --coverage $params.vircov_scan_coverage --regions $params.vircov_scan_regions --regions-coverage $params.vircov_scan_regions_coverage --group-by "$params.vircov_group_by" --group-sep "$params.vircov_group_sep" --group-select-by "$params.vircov_group_select_by" --group-select-split references --group-select-order --group-select-data "${id}_scan_${db_name}.grouped.tsv" $segment_field $segment_field_nan $exclude > ${id}_scan_${db_name}.select.tsv
+    vircov coverage --alignment $alignment --fasta $alignment_fasta \
+        --min-len $params.taxa.alignment.scan.min_len \
+        --min-cov $params.taxa.alignment.scan.min_cov \
+        --min-mapq $params.taxa.alignment.scan.min_mapq \
+        --reads $params.taxa.alignment.scan.min_reads \
+        --coverage $params.taxa.alignment.scan.min_coverage \
+        --regions $params.taxa.alignment.scan.min_regions \
+        --regions-coverage $params.taxa.alignment.scan.min_mapq \
+        --group-by "$params.taxa.alignment.scan.selection.group_by" \
+        --group-sep "$params.taxa.alignment.scan.selection.group_sep" \
+        --group-select-by "$params.taxa.alignment.scan.selection.select_by" \
+        --group-select-split references \
+        --group-select-order \
+        --group-select-data "${id}_scan_${db_name}.grouped.tsv" \
+        $segment_field $segment_field_nan $exclude > ${id}_scan_${db_name}.select.tsv
+        
     cp ${id}_scan_${db_name}.select.tsv align__vircov__${db_name}__scan
     """
     
@@ -53,17 +68,31 @@ process VircovReferenceSelectionOnt {
 
     script:
     
-    segment_field = params.vircov_group_select_segment_field ? "--segment-field '$params.vircov_group_select_segment_field'" : ""
-    segment_field_nan = params.vircov_group_select_segment_field_nan ? "--segment-field-nan '$params.vircov_group_select_segment_field_nan'" : ""
+    segment_field = params.vircov_group_select_segment_field ? "--segment-field '$params.taxa.alignment.scan.selection.segment_field'" : ""
+    segment_field_nan = params.vircov_group_select_segment_field_nan ? "--segment-field-nan '$params.taxa.alignment.scan.selection.segment_field_nan'" : ""
     exclude = blacklist ? "--exclude $params.virus_blacklist" : ""
 
     """
-    vircov coverage --alignment $alignment --fasta $alignment_fasta --min-len $params.vircov_scan_min_len --min-cov $params.vircov_scan_min_cov --min-mapq $params.vircov_scan_min_mapq --reads $params.vircov_scan_reads --coverage $params.vircov_scan_coverage --regions $params.vircov_scan_regions --regions-coverage $params.vircov_scan_regions_coverage --group-by "$params.vircov_group_by" --group-sep "$params.vircov_group_sep" --group-select-by "$params.vircov_group_select_by" --group-select-split references --group-select-order --group-select-data "${id}_scan_${db_name}.grouped.tsv" $segment_field $segment_field_nan $exclude > ${id}_scan_${db_name}.select.tsv
+    vircov coverage --alignment $alignment --fasta $alignment_fasta \
+        --min-len $params.taxa.alignment.scan.min_len \
+        --min-cov $params.taxa.alignment.scan.min_cov \
+        --min-mapq $params.taxa.alignment.scan.min_mapq \
+        --reads $params.taxa.alignment.scan.min_reads \
+        --coverage $params.taxa.alignment.scan.min_coverage \
+        --regions $params.taxa.alignment.scan.min_regions \
+        --regions-coverage $params.taxa.alignment.scan.min_mapq \
+        --group-by "$params.taxa.alignment.scan.selection.group_by" \
+        --group-sep "$params.taxa.alignment.scan.selection.group_sep" \
+        --group-select-by "$params.taxa.alignment.scan.selection.select_by" \
+        --group-select-split references \
+        --group-select-order \
+        --group-select-data "${id}_scan_${db_name}.grouped.tsv" \
+        $segment_field $segment_field_nan $exclude > ${id}_scan_${db_name}.select.tsv
+
     cp ${id}_scan_${db_name}.select.tsv align__vircov__${db_name}__scan
     """
     
 }
-
 
 process VircovRealign {
 
@@ -85,11 +114,18 @@ process VircovRealign {
     script:
     
     """
-    vircov coverage --alignment $alignment --fasta $fasta --min-len $params.vircov_remap_min_len --min-cov $params.vircov_remap_min_cov --min-mapq $params.vircov_remap_min_mapq --reads $params.vircov_remap_reads --coverage $params.vircov_remap_coverage --regions $params.vircov_remap_regions --regions-coverage $params.vircov_remap_regions_coverage --read-ids ${id}_${idx_name}.txt -v > ${id}_${idx_name}.tsv
+    vircov coverage --alignment $alignment --fasta $fasta \
+        --min-len $params.taxa.alignment.remap.min_len \
+        --min-cov $params.taxa.alignment.remap.min_cov \
+        --min-mapq $params.taxa.alignment.remap.min_mapq \
+        --reads $params.vircov_remap_reads \
+        --coverage $params.taxa.alignment.remap.min_coverage\
+        --regions $params.taxa.alignment.remap.min_regions \
+        --regions-coverage $params.taxa.alignment.remap.min_regions_coverage \
+        --read-ids ${id}_${idx_name}.txt -v > ${id}_${idx_name}.tsv
     """
 
 }
-
 
 process VircovRealignOnt {
 
@@ -111,7 +147,15 @@ process VircovRealignOnt {
     script:
     
     """
-    vircov coverage --alignment $alignment --fasta $fasta --min-len $params.vircov_remap_min_len --min-cov $params.vircov_remap_min_cov --min-mapq $params.vircov_remap_min_mapq --reads $params.vircov_remap_reads --coverage $params.vircov_remap_coverage --regions $params.vircov_remap_regions --regions-coverage $params.vircov_remap_regions_coverage --read-ids ${id}_${idx_name}.txt -v > ${id}_${idx_name}.tsv
+    vircov coverage --alignment $alignment --fasta $fasta \
+        --min-len $params.taxa.alignment.remap.min_len \
+        --min-cov $params.taxa.alignment.remap.min_cov \
+        --min-mapq $params.taxa.alignment.remap.min_mapq \
+        --reads $params.vircov_remap_reads \
+        --coverage $params.taxa.alignment.remap.min_coverage\
+        --regions $params.taxa.alignment.remap.min_regions \
+        --regions-coverage $params.taxa.alignment.remap.min_regions_coverage \
+        --read-ids ${id}_${idx_name}.txt -v > ${id}_${idx_name}.tsv
     """
 
 }

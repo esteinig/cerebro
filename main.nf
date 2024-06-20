@@ -53,13 +53,6 @@ params.virus_db_fasta                                = null
 params.virus_blacklist                               = null
 
 
-
-params.bacteria_mash_index                          = "db/bacteria.msh"
-params.bacteria_fasta                               = "db/bacteria.fasta"
-
-params.eukaryots_mash_index                         = "db/eukaryots_complete.msh"
-params.eukaryots_fasta                              = "db/eukaryots_complete.fasta"
-
 params.subset_min_shared_hashes                     = 2 
 params.subset_group_index                           = null     // null or int, recognized in process and switches to group selection [e.g 1 on seq index kraken fmt "taxid|1147|NC_014725.1"] -- picks the best genome by max shared hashes from taxid group
 params.subset_group_sep                             = "|"      // format required for both bacterial and eukaryotic *|{taxid}|*
@@ -68,57 +61,7 @@ params.subset_group_sep                             = "|"      // format require
 // these are only used to configure processes with specific parameters for viral
 // bacterial and eukaryotic alignment options
 
-params.vircov_scan_min_cov                           = null  
-params.vircov_scan_min_len                           = null 
-params.vircov_scan_min_mapq                          = null  // this applies to ungrouped alignment and filter reads that do not map uniquely to database references
-params.vircov_scan_reads                             = null  
-params.vircov_scan_coverage                          = null 
-params.vircov_scan_regions                           = null
-params.vircov_scan_regions_coverage                  = null
-params.vircov_group_by                               = null
-params.vircov_group_sep                              = null
-params.vircov_group_select_by                        = null        
-params.vircov_group_select_segment_field             = null
-params.vircov_group_select_segment_field_nan         = null
-params.vircov_remap_min_cov                          = null  
-params.vircov_remap_min_len                          = null
-params.vircov_remap_min_mapq                         = null
-params.vircov_remap_reads                            = null
-params.vircov_remap_coverage                         = null
-params.vircov_remap_regions                          = null
-params.vircov_remap_regions_coverage                 = null
-
-// Viral consensus assembly (submodule)
-
-
-// ======================
-// K-mer profiling module
-// ====================== 
-
-params.kraken2_dbs                                   = null
-params.kraken2_minimum_hit_groups                    = 3
-
-params.bracken_read_length                           = 100
-params.bracken_taxonomic_level                       = "S"
-params.bracken_read_threshold                        = 3
-
-// ==============================================
-// Bacteria and Eukaryot subset alignment module
-// ==============================================
-
-// Bacterial and eukaryotic subset alignment
-
-params.bacteria_min_cov                             = 0
-params.bacteria_min_len                             = 50
-params.bacteria_min_mapq                            = 60          
-params.bacteria_min_regions                         = 0        
-params.bacteria_min_reads                           = 0         
-
-params.eukaryots_min_cov                            = 0
-params.eukaryots_min_len                            = 50
-params.eukaryots_min_mapq                           = 60        
-params.eukaryots_min_regions                        = 0           
-params.eukaryots_min_reads                          = 0       
+ 
 
 
 // Workflow imports
@@ -141,167 +84,167 @@ workflow {
     // Startup message and help
     params.help ? help_msg() : init_msg()
 
-    if (params.mode.dev.enabled){
-        println "\n${c('red')}Development mode for utilities active, inputs and modules deactivated.${c('reset')}\n"
-    } else {
-
-        /*
-        ==========================
-        Input validation and reads
-        ==========================
-        */
-        
-        def inputs = parse_file_params()
-
-        if (params.production.enabled) {
-
-            if (params.production.api.upload.enabled) {
-                PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
-            }
-            
-            if (params.ont.enabled) {
-                data = get_single_reads(inputs.sample_sheet, true)
-            } else {
-                data = get_paired_reads(inputs.sample_sheet, true)
-            }
-
-            reads = data.pathogen                                                    // pathogen analysis uses all input reads
-            reads_aneuploidy = data.aneuploidy                                       // host genome analysis if enabled uses subset of activated input reads
-        } else {
-            if (params.fastq_ont && params.ont.enabled) {
-                reads = get_single_reads(null, false)                               
-            } else if (params.fastq_pe) {
-                reads = get_paired_reads(null, false)                               
-                reads_aneuploidy = reads                                             // all input read files are also used for host genome analysis if enabled
-            } else {
-                 println "\n${c('red')}Production mode is not active - you must provide either `--fastq_pe <GLOB>` or `--ont.enabled --fastq_ont <FILE-OR-GLOB>` for read inputs${c('reset')}\n"
-            }
-            
-        }   
-
-        if (params.mode.io.enabled){
-            println "\n${c('red')}Development mode for inputs active, modules deactivated.${c('reset')}\n"
-        } else {
-            
-            if (params.subsample.enabled) {
-                reads = RasusaReadsMultiple(reads, params.subsample.reads, 1..params.subsample.replicates)
-            }
-
-            /*
-            =================
-            Workflow modules
-            =================
-            */
-
-            started = java.time.LocalDateTime.now()
-
-            if (params.mode.qc.enabled) {
-                println "\n${c('red')}Quality control mode is active, other modules deactivated.${c('reset')}\n"
-
-                // ===========================
-                // Quality control subworkflow
-                // ===========================
-
-               
-                if (params.ont.enabled) {
-                    quality_control_ont(
-                        reads, 
-                        inputs.ercc_fasta, 
-                        inputs.phage_fasta, 
-                        inputs.host_depletion_dbs, 
-                        inputs.host_depletion_references, 
-                        params.qc.host.depletion.enabled,
-                        params.qc.controls.phage.enabled
-                    )
-                } else {
-                    quality_control_illumina(
-                        reads, 
-                        inputs.adapter_fasta, 
-                        inputs.ercc_fasta, 
-                        inputs.phage_fasta, 
-                        inputs.host_depletion_dbs, 
-                        inputs.host_depletion_references, 
-                        params.qc.deduplication.enabled,
-                        params.qc.deduplication.method,
-                        params.qc.host.depletion.enabled,
-                        params.qc.controls.phage.enabled
-                    )
-                }
-
-            } else {
-                
-                if (params.validation.enabled) {
-
-                    // =====================================
-                    // Validation experiment workflows
-                    // =====================================
-                    
-                    reference_alignment(inputs)
-
-                } else {
-
-                    // =====================================
-                    // Host aneuploidy detection subworkflow
-                    // =====================================
-                    
-                    if (params.host.enabled && params.host.aneuploidy.enabled) {
-                        aneuploidy = aneuploidy_detection_illumina(reads_aneuploidy, inputs)
-                    } else {
-                        aneuploidy = Channel.empty()
-                    }
-
-                    // ==============================
-                    // Pathogen detection subworkflow
-                    // ==============================
-
-                    if (params.taxa.enabled) {
-
-                        pathogen_detection(reads, inputs, params.ont.enabled)
-
-                        WriteConfig(
-                            inputs.sample_sheet, 
-                            pathogen_detection.out.results | collect, 
-                            started
-                        )
-
-                        if (params.production.enabled && params.production.api.upload.enabled) {
-                            cerebro_production(
-                                inputs.taxonomy_directory,
-                                pathogen_detection.out.results,
-                                inputs.sample_sheet,
-                                WriteConfig.out.config
-                            )
-                        } else {
-                            if (params.process.enabled) {
-                                if (params.process.taxa) {
-                                    samples = ProcessSamplesTaxonomy(pathogen_detection.out.results, inputs.taxonomy_directory)
-                                } else {
-                                    samples = ProcessSamples(pathogen_detection.out.results)
-                                }
-                                samples | map { it -> it[1] } | QualityControlTable
-                            }
-                        }
-                    }
-
-                    // ==================================================================
-                    // Cultured isolate assembly for taxonomic identification subworkflow
-                    // ==================================================================
-
-                    if (params.culture.enabled) {
-                        ont_reads = get_single_reads(inputs.sample_sheet, false);
-                        pe_reads = get_paired_reads(inputs.sample_sheet, false);
-                        
-                        culture_identification(ont_reads, pe_reads, inputs);
-                    }
-                }
-
-
-
-
-            }
-        }   
+    if (params.test.dev.enabled){
+        log.info "${c('red')}Development mode for utilities active, inputs and modules deactivated.${c('reset')}"
+        exit 0
     }
-}
+
+    if (params.test.io.enabled) {
+        log.info "${c('red')}Development test mode for inputs active, modules deactivated.${c('reset')}"
+        def inputs = parse_file_params()
+        exit 0
+    }
+
+
+
+    /*
+    ==========================
+    Input validation and reads
+    ==========================
+    */
+
+    def inputs = parse_file_params()
+
+    if (params.production.enabled) {
+
+        if (params.production.api.upload.enabled) {
+            PingServer(Channel.of("PING")) | collect                             // collect to await result before proceeding
+        }
+        
+        if (params.ont.enabled) {
+            data = get_single_reads(inputs.sample_sheet, true)
+        } else {
+            data = get_paired_reads(inputs.sample_sheet, true)
+        }
+
+        reads = data.pathogen                                                    // pathogen analysis uses all input reads
+        reads_aneuploidy = data.aneuploidy                                       // host genome analysis if enabled uses subset of activated input reads
+    } else {
+        if (params.fastq_ont && params.ont.enabled) {
+            reads = get_single_reads(null, false)                               
+        } else if (params.fastq_pe) {
+            reads = get_paired_reads(null, false)                               
+            reads_aneuploidy = reads                                             // all input read files are also used for host genome analysis if enabled
+        } else {
+            error"${c('red')}Production mode is not active - you must provide either `--fastq_pe <GLOB>` or `--ont.enabled --fastq_ont <FILE-OR-GLOB>` for read inputs${c('reset')}"
+        }
+        
+    }   
+
+        
+    if (params.subsample.enabled) {
+        reads = RasusaReadsMultiple(reads, params.subsample.reads, 1..params.subsample.replicates)
+    }
+
+    /*
+    =================
+    Workflow modules
+    =================
+    */
+
+    started = java.time.LocalDateTime.now()
+
+    if (params.test.qc.enabled) {
+        println "\n${c('red')}Quality control mode is active, other modules deactivated.${c('reset')}\n"
+
+        // ===========================
+        // Quality control subworkflow
+        // ===========================
+
+        
+        if (params.ont.enabled) {
+            quality_control_ont(
+                reads, 
+                inputs.ercc_fasta, 
+                inputs.phage_fasta, 
+                inputs.host_depletion_kraken2, 
+                inputs.host_depletion_reference, 
+                params.qc.host.depletion.enabled,
+                params.qc.controls.phage.enabled
+            )
+        } else {
+            quality_control_illumina(
+                reads, 
+                inputs.adapter_fasta, 
+                inputs.ercc_fasta, 
+                inputs.phage_fasta, 
+                inputs.host_depletion_kraken2, 
+                inputs.host_depletion_reference, 
+                params.qc.deduplication.enabled,
+                params.qc.deduplication.method,
+                params.qc.host.depletion.enabled,
+                params.qc.controls.phage.enabled
+            )
+        }
+
+    } else {
+        
+        if (params.validation.enabled) {
+
+            // ===============================
+            // Validation experiment workflows
+            // ===============================
+            
+            reference_alignment(inputs)
+
+        } else {
+
+            // =====================================
+            // Host aneuploidy detection subworkflow
+            // =====================================
+            
+            if (params.host.enabled && params.host.aneuploidy.enabled) {
+                aneuploidy = aneuploidy_detection_illumina(reads_aneuploidy, inputs)
+            } else {
+                aneuploidy = Channel.empty()
+            }
+
+            // ==============================
+            // Pathogen detection subworkflow
+            // ==============================
+
+            if (params.taxa.enabled) {
+
+                pathogen_detection(reads, inputs, params.ont.enabled)
+
+                WriteConfig(
+                    inputs.sample_sheet, 
+                    pathogen_detection.out.results | collect, 
+                    started
+                )
+
+                if (params.production.enabled && params.production.api.upload.enabled) {
+                    cerebro_production(
+                        inputs.taxonomy_directory,
+                        pathogen_detection.out.results,
+                        inputs.sample_sheet,
+                        WriteConfig.out.config
+                    )
+                } else {
+                    if (params.process.enabled) {
+                        if (params.process.taxa) {
+                            samples = ProcessSamplesTaxonomy(pathogen_detection.out.results, inputs.taxonomy_directory)
+                        } else {
+                            samples = ProcessSamples(pathogen_detection.out.results)
+                        }
+                        samples | map { it -> it[1] } | QualityControlTable
+                    }
+                }
+            }
+
+            // ==================================================================
+            // Cultured isolate assembly for taxonomic identification subworkflow
+            // ==================================================================
+
+            if (params.culture.enabled) {
+                ont_reads = get_single_reads(inputs.sample_sheet, false);
+                pe_reads = get_paired_reads(inputs.sample_sheet, false);
+                
+                culture_identification(ont_reads, pe_reads, inputs);
+            }
+        }
+    }
+}   
 
 workflow.onComplete {
     complete_msg()

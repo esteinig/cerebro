@@ -1,7 +1,7 @@
 process Kraken2Uniq {
 
     tag { id }
-    label "kraken2uniq"
+    label "kraken2"
     tag { "$id : $idx_name" }
 
     publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report", saveAs: { "kmer__kraken2uniq__${idx_name}" }
@@ -20,7 +20,7 @@ process Kraken2Uniq {
     idx_name = kraken2_db.baseName
 
     """
-    kraken2 --db $kraken2_db --minimum-hit-groups $params.kraken2_minimum_hit_groups --report-minimizer-data --threads $task.cpus --output ${id}_${idx_name}.kraken2uniq --report ${id}_${idx_name}.kraken2uniq.report --paired $forward $reverse
+    kraken2 --db $kraken2_db --minimum-hit-groups $params.taxa.kmer.kraken2.minimum_hit_groups --report-minimizer-data --threads $task.cpus --output ${id}_${idx_name}.kraken2uniq --report ${id}_${idx_name}.kraken2uniq.report --paired $forward $reverse
     cp ${id}_${idx_name}.kraken2uniq.report kmer__kraken2uniq__${idx_name}
     """
 
@@ -29,7 +29,7 @@ process Kraken2Uniq {
 process Kraken2Bracken {
 
     tag { id }
-    label "kraken2bracken"
+    label "kraken2"
     tag { "$id : $idx_name" }
 
     publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report", saveAs: { "kmer__kraken2bracken__${idx_name}" }
@@ -48,8 +48,8 @@ process Kraken2Bracken {
     idx_name = kraken2_db.baseName
 
     """
-    kraken2 --db $kraken2_db --confidence $params.kraken2_confidence --threads $task.cpus --output ${id}_${idx_name}.kraken2 --report ${id}_${idx_name}.kraken2.report --paired $forward $reverse
-    bracken -d $kraken2_db -i ${id}_${idx_name}.kraken2.report -r $params.bracken_read_length -l $params.bracken_taxonomic_level -t $params.bracken_read_threshold -o {id}_${idx_name}.kraken2bracken.report -w sample.breport
+    kraken2 --db $kraken2_db --confidence $params.taxa.kmer.kraken2.confidence --threads $task.cpus --output ${id}_${idx_name}.kraken2 --report ${id}_${idx_name}.kraken2.report --paired $forward $reverse
+    bracken -d $kraken2_db -i ${id}_${idx_name}.kraken2.report -r $params.taxa.kmer.bracken.read_length -l $params.taxa.kmer.bracken.taxonomic_level -t $params.taxa.kmer.bracken.read_threshold -o {id}_${idx_name}.kraken2bracken.report -w sample.breport
     cp ${id}_${idx_name}.kraken2bracken.report kmer__kraken2bracken__${idx_name}
     """
 
@@ -58,7 +58,7 @@ process Kraken2Bracken {
 process Kraken2UniqOnt {
 
     tag { id }
-    label "kraken2uniq"
+    label "kraken2"
     tag { "$id : $idx_name" }
 
     publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2uniq.report", saveAs: { "kmer__kraken2uniq__${idx_name}" }
@@ -77,7 +77,7 @@ process Kraken2UniqOnt {
     idx_name = kraken2_db.baseName
 
     """
-    kraken2 --db $kraken2_db --minimum-hit-groups $params.kraken2_minimum_hit_groups --report-minimizer-data --threads $task.cpus --output ${id}_${idx_name}.kraken2uniq --report ${id}_${idx_name}.kraken2uniq.report $reads
+    kraken2 --db $kraken2_db --minimum-hit-groups $params.taxa.kmer.kraken2.minimum_hit_groups --report-minimizer-data --threads $task.cpus --output ${id}_${idx_name}.kraken2uniq --report ${id}_${idx_name}.kraken2uniq.report $reads
     cp ${id}_${idx_name}.kraken2uniq.report kmer__kraken2uniq__${idx_name}
     """
 
@@ -86,7 +86,7 @@ process Kraken2UniqOnt {
 process Kraken2BrackenOnt {
 
     tag { id }
-    label "kraken2bracken"
+    label "kraken2"
     tag { "$id : $idx_name" }
 
     publishDir "$params.outdir/results/$id", mode: "copy", pattern: "${id}_${idx_name}.kraken2bracken.report", saveAs: { "kmer__kraken2bracken__${idx_name}" }
@@ -105,8 +105,8 @@ process Kraken2BrackenOnt {
     idx_name = kraken2_db.baseName
 
     """
-    kraken2 --db $kraken2_db --confidence $params.kraken2_confidence --threads $task.cpus --output ${id}_${idx_name}.kraken2 --report ${id}_${idx_name}.kraken2.report $reads
-    bracken -d $kraken2_db -i ${id}_${idx_name}.kraken2.report -r $params.bracken_read_length -l $params.bracken_taxonomic_level -t $params.bracken_read_threshold -o {id}_${idx_name}.kraken2bracken.report -w sample.breport
+    kraken2 --db $kraken2_db --confidence $params.taxa.kmer.kraken2.confidence --threads $task.cpus --output ${id}_${idx_name}.kraken2 --report ${id}_${idx_name}.kraken2.report $reads
+    bracken -d $kraken2_db -i ${id}_${idx_name}.kraken2.report -r $params.taxa.kmer.bracken.read_length -l $params.taxa.kmer.bracken.taxonomic_level -t $params.taxa.kmer.bracken.read_threshold -o {id}_${idx_name}.kraken2bracken.report -w sample.breport
     cp ${id}_${idx_name}.kraken2bracken.report kmer__kraken2bracken__${idx_name}
     """
 

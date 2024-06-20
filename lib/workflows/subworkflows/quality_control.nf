@@ -1,8 +1,11 @@
 
 include { c } from '../../utils';
+
 include { ercc_control } from './ercc';
 include { phage_control } from './phage';
 include { host_depletion } from './host';
+include { background_depletion } from './background';
+
 include { NaiveDeduplication } from '../../processes/umi';
 include { CalibDeduplication } from '../../processes/umi';
 
@@ -25,12 +28,15 @@ workflow quality_control_illumina {
         adapter_fasta
         ercc_fasta
         phage_fasta
-        kraken_dbs
+        host_kraken_dbs
         host_references
-        deduplication
-        deduplication_method
+        background_kraken_dbs
+        background_references
         host_removal
         phage_removal
+        background_removal
+        deduplication
+        deduplication_method
     main:
         // If we deduplicate, we must scan the reads 
         // to get the total read counts for parsing
@@ -75,7 +81,7 @@ workflow quality_control_illumina {
 
         // Sequential k-mer and alignment host depletion
         if (host_removal) {
-            host_depletion(reads, kraken_dbs, host_references, false)
+            host_depletion(reads, host_kraken_dbs, host_references, false)
             reads = host_depletion.out.reads
             host_results = host_depletion.out.results
         } else {
@@ -83,7 +89,6 @@ workflow quality_control_illumina {
         }
 
         // Phage spike-ins are aligned and removed
-        // after human removal for faster read alignments
         if (phage_removal) {
             phage_control(reads, phage_fasta, false)
             reads = phage_control.out.reads
@@ -92,9 +97,18 @@ workflow quality_control_illumina {
             phage_results = Channel.empty()
         }
 
+        // Other background removal is conducted
+        if (background_removal) {
+            background_depletion(reads, background_kraken_dbs, background_references, false)
+            reads = background_depletion.out.reads
+            background_results = background_depletion.out.results
+        } else {
+            background_results = Channel.empty()
+        }
+
     emit:
         reads = reads
-        results = qc_results.mix(scan_results, ercc_results, host_results, phage_results)
+        results = qc_results.mix(scan_results, ercc_results, host_results, phage_results, background_results)
 }
 
 
@@ -104,10 +118,13 @@ workflow quality_control_ont {
         reads  // id, fq
         ercc_fasta
         phage_fasta
-        kraken_dbs
+        host_kraken_dbs
         host_references
+        background_kraken_dbs
+        background_references
         host_removal
         phage_removal
+        background_removal
     main:
     
         NanoqScan(reads)
@@ -129,14 +146,16 @@ workflow quality_control_ont {
             qc_results = Channel.empty()
         }
         
+        // Sequential k-mer and alignment host depletion
         if (host_removal) {
-            host = host_depletion(nanoq.reads, kraken_dbs, host_references, true)
+            host = host_depletion(nanoq.reads, host_kraken_dbs, host_references, true)
             reads = host.reads
             host_results = host.results
         } else {
             host_results = Channel.empty()
         }
 
+        // Phage spike-ins are aligned and removed
         if (phage_removal) {
             phage_control = phage_control(reads, phage_fasta, true)
 
@@ -146,8 +165,17 @@ workflow quality_control_ont {
             phage_results = Channel.empty()
         }
 
+        // Other background removal
+        if (background_removal) {
+            background_depletion(reads, background_kraken_dbs, background_references, true)
+            reads = background_depletion.out.reads
+            background_results = background_depletion.out.results
+        } else {
+            background_results = Channel.empty()
+        }
+
     emit:
         reads = reads
-        results = qc_results.mix(scan_results, ercc_results, host_results, phage_results)
+        results = qc_results.mix(scan_results, ercc_results, host_results, phage_results, background_results)
 }
 

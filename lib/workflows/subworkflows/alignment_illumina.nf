@@ -1,14 +1,3 @@
-// ILLUMINA
-
-include { ScrubbyReadsKrakenMinimapDepletion as ScrubbyBackgroundDepletion } from '../../processes/scrubby' addParams(
-    result_file: "qc__scrubby__virus_background",
-    subdir: "pathogens/alignment/background_depletion",
-    kraken_taxa: params.qc.background.depletion.taxa,
-    kraken_taxa_direct: params.qc.background.depletion.direct,
-    deplete_min_cov: 0, 
-    deplete_min_len: 0, 
-    deplete_min_mapq: 0
-);
 include { MinimapAlignPaf as MinimapAlign } from '../../processes/minimap2' addParams(
     subdir: "pathogens/alignment/scan"
 );
@@ -16,29 +5,10 @@ include { MinimapRealignBam as MinimapRealign } from '../../processes/minimap2' 
     subdir: "pathogens/alignment/remap"
 );
 include { VircovReferenceSelection as VircovReferenceSelection } from '../../processes/vircov' addParams(
-    subdir: "pathogens/alignment/scan",
-    vircov_scan_min_mapq: params.taxa.alignment.scan.min_mapq,
-    vircov_scan_min_len: params.taxa.alignment.scan.min_len,
-    vircov_scan_min_cov: params.taxa.alignment.scan.min_cov,
-    vircov_scan_reads: params.taxa.alignment.scan.min_reads,
-    vircov_scan_coverage: params.taxa.alignment.scan.min_coverage,
-    vircov_scan_regions: params.taxa.alignment.scan.min_regions,
-    vircov_scan_regions_coverage: params.taxa.alignment.scan.min_mapq,
-    vircov_group_by: params.taxa.alignment.scan.selection.group_by,
-    vircov_group_sep: params.taxa.alignment.scan.selection.group_sep,
-    vircov_group_select_by: params.taxa.alignment.scan.selection.select_by,
-    vircov_group_select_segment_field: params.taxa.alignment.scan.selection.segment_field,
-    vircov_group_select_segment_field_nan: params.taxa.alignment.scan.selection.segment_field_nan,
+    subdir: "pathogens/alignment/scan"
 );
 include { VircovRealign as VircovRealign } from '../../processes/vircov' addParams(
-    subdir: "pathogens/alignment/remap",
-    vircov_remap_min_mapq: params.taxa.alignment.remap.min_mapq,
-    vircov_remap_min_len: params.taxa.alignment.remap.min_len,
-    vircov_remap_min_cov: params.taxa.alignment.remap.min_cov,
-    vircov_remap_reads: params.taxa.alignment.remap.min_reads,
-    vircov_remap_coverage: params.taxa.alignment.remap.min_coverage,
-    vircov_remap_regions: params.taxa.alignment.remap.min_regions,
-    vircov_remap_regions_coverage: params.taxa.alignment.remap.min_mapq,
+    subdir: "pathogens/alignment/remap"
 );
 include { ConcatenateVircov as ConcatenateVircov } from '../../processes/vircov' addParams(
     subdir: "pathogens/alignment/remap"
@@ -62,20 +32,6 @@ include { MinimapIndexSubset as MinimapIndexSubset } from '../../processes/minim
 DATABASE SUBSETS FOR ALIGNMENT
 ==============================
 */
-
-
-workflow background {
-    take: 
-        reads
-        references                                   
-        kraken_dbs    
-        domain                                             
-    main: 
-        output = ScrubbyBackgroundDepletion(reads, kraken_dbs, references)     
-    emit: 
-        reads = output.reads
-        results = output.results                 
-}
 
 workflow subset {
     take:
