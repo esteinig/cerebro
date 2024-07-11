@@ -5,8 +5,8 @@ Metagenomic diagnostic pipelines and collaborative reporting for pathogen detect
 🩸 **Metagenomic diagnostic core functions** 
 
 - Multi-classifier taxonomic profiling, metagenome assembly and alignment in Nextflow pipelines
-- Optimized pangenome host depletion and background depletion with [`Scrubby`]()
-- Viral infections, pan-viral enrichment protocols and syndrome specific subtyping panels using [`Vircov`]()
+- Optimized pangenome host depletion and background depletion with [`Scrubby`]() and `Metabuli`/`Strobealign`
+- Viral infections, pan-viral enrichment protocols and syndrome-specific subtyping panels using [`Vircov`]()
 
 - Differential host tumor DNA diagnostics using segmental CNV detection and methylation classifiers ([`Sturgeon`]())
 - Species identification pipelines with [`GTDB`]() for prokaryotic ONT/Illumina reference level genomes
