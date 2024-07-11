@@ -4,11 +4,15 @@ Metagenomic diagnostic pipelines and collaborative reporting for pathogen detect
 
 🩸 **Metagenomic diagnostic core functions** 
 
+Main
+
 - Multi-classifier taxonomic profiling, metagenome assembly and alignment in Nextflow pipelines
 - Optimized pangenome host depletion and background depletion with [`Scrubby`]() and `Metabuli`/`Strobealign`
 - Viral infections, pan-viral enrichment protocols and syndrome-specific subtyping panels using [`Vircov`]()
-
 - Differential host tumor DNA diagnostics using segmental CNV detection and methylation classifiers ([`Sturgeon`]())
+
+Support
+ 
 - Species identification pipelines with [`GTDB`]() for prokaryotic ONT/Illumina reference level genomes
 - MAG recovery from enriched culture and sample co-assembly, unclassified viral bin prediction ([`geNomad`, `RdRP`]())
 - Custom database and index construction, grafted taxonomies, genome cleaning and syndromic diversity injection with [`Cipher`]()
@@ -34,9 +38,9 @@ Metagenomic diagnostic pipelines and collaborative reporting for pathogen detect
 
 Let's step through some common tasks and core functions of `Cerebro` and its Docker stack. 
 
-### Nextflow pipelines 
+❗ You do not need the `Docker` stack for core functions - you can run the Nextflow pipelines separately or use the `Cerebro CLI` for data manipulation and processing of pipeline outputs. 
 
-❗ You do not need the `Docker` stack if you want to run only the Nextflow pipelines, or the command-line interface binary for data manipulation and core utility tasks around pipeline outputs. 
+### Nextflow pipelines 
 
 Nextflow pipelines are purposefully decoupled from the API/DB/App so that data can be analysed and summarized into the database models within a secure network (i.e. where primary samples are sequenced). These models can then be transfered outside the secure network e.g. by uploading to a web-deployment of the Docker stack, as it does not contain potentially identifiable information like incidental host sequences which may be abundant in some clinical sample types.
 
