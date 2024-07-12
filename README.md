@@ -2,8 +2,10 @@
 
 Metagenomic diagnostic pipelines and collaborative reporting for pathogen detection, species identification, and differential host genome analysis in clinical and public health production. 
 
-🩸 **Metagenomic diagnostic core functions** 
-
+<details>
+<summary>🩸 Metagenomic diagnostic core functions </summary>
+<br>
+ 
 Main
 
 - Multi-classifier taxonomic profiling, metagenome assembly and alignment in Nextflow pipelines
@@ -17,8 +19,12 @@ Support
 - MAG recovery from enriched culture and sample co-assembly, unclassified viral bin prediction ([`geNomad`, `RdRP`]())
 - Custom database and index construction, grafted taxonomies, genome cleaning and syndromic diversity injection with [`Cipher`]()
 
- 📰 **Collaborative clinical reporting (Bug Board)**
+</details>
 
+<details>
+<summary>📰 Collaborative clinical reporting (Bug Board) </summary>
+<br>
+ 
 - [Collaborative and auditable pathogen determination]() from metagenome sequencing results
 - Multi-tenant Svelte application and API with secure local or web-server deployment configs
 - Scalable application stack deployment integrated into the primary command-line interface ([Cerebro CLI]()) 
@@ -26,24 +32,47 @@ Support
 - Secure [`wasm` enabled report generation]() in-browser for sensitive reports, interactive data visualizations
 - Auditable team member comments and results discussion for expert panel reviews of data ([online "Bug Board"]())
 
-🏥 **Clinical and public health production operations** 
+</details>
 
+<details>
+<summary>🏥 Clinical and public health production operations </summary>
+<br>
+ 
 - Simulations using in silico syndromic-specific reference panels for ONT/Illumina signal-level and read-level data with [`Cipher`]()
 - Evaluation simulation and patient datasets for continous integration of quality assurance with [`Cerebro`]()
 - Background/sample site/kitome contamination issues in general clinical or public health environments
 - Distributed sequence and analysis storage, file system and data retention policies, cloud storage support etc. through [`SeaweedFS`]()
 - Experimental protocols for reference labs for optimisation of the [UMI-adapter DNA/RNA protocol]() for low abundance clinical sampel types
 
+</details>
+
 ## Getting started
 
-Let's step through some common tasks and core functions of `Cerebro` and its Docker stack. 
+Let's step through some common tasks and core functions of `Cerebro` and its Docker stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to operate the full stack application in production please see the [documentation](). 
 
-❗ You do not need the `Docker` stack for core functions - you can run the Nextflow pipelines separately or use the `Cerebro CLI` for data manipulation and processing of pipeline outputs. 
+> [!NOTE]
+You do not need the `Docker` stack for core metagenome diagnostic functions - you can run the Nextflow pipelines separately abd use the `Cerebro CLI` for data manipulation, processing of pipeline outputs and clinical report generation. Some examples are provided in the next two sections on [Nextflow pipelines](#nextflow-pipelines) and the [`Cerebro CLI`](#command-line-client).
+
+
+Requirements:
+
+* Linux OS
+* Nextflow v
+* Conda/Mamba/Docker
 
 ### Nextflow pipelines 
 
-Nextflow pipelines are purposefully decoupled from the API/DB/App so that data can be analysed and summarized into the database models within a secure network (i.e. where primary samples are sequenced). These models can then be transfered outside the secure network e.g. by uploading to a web-deployment of the Docker stack, as it does not contain potentially identifiable information like incidental host sequences which may be abundant in some clinical sample types.
+#### Quick start
 
+```
+
+```
+
+### Command-line client
+
+### Quick start
+
+### 
 
 ## Status
 
@@ -56,10 +85,12 @@ This is a preliminary public release of code for the viral enrichment branch of 
 # Table of contents
 
 1. Background
-2. Install
-3. CSF protocol 
+2. Installation
+3. Documentation and tutorials
 4. Nextflow pipelines and core functions
-5. The Rust command-line client and stack 
-6. Docker stack deployments with web application and Rust API
+5. Command-line client and clinical reports
+6. Docker stack for local or web deployments
 7. Svelte web application for collaborative reporting
+8. Cerebro API and command-line client request tasks
+9. Python package for validation experiments and plots
 
