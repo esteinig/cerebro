@@ -53,7 +53,7 @@ Support
 Let's step through some common tasks and core functions of `Cerebro` and its Docker stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to operate the full stack application in production please see the [documentation](). 
 
 > [!NOTE]
-You do not need the `Docker` stack for core metagenome diagnostic analysis and report generation - you can run the Nextflow pipelines separately with`conda/mamba` (or [configure the pipeline]() for your system as you need) and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
+You do not need the `Docker` stack for core metagenome diagnostic analysis and report generation - you can run the Nextflow pipelines separately and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
 
 Minimum requirements:
 
