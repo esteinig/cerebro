@@ -52,9 +52,6 @@ Support
 
 Let's step through some common tasks and core functions of `Cerebro` and its data application and reporting stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to operate the full application in production please see the [documentation](). 
 
-> [!NOTE]
-You do not need the `Docker` stack for core metagenome diagnostic pipelines and report generation - you can run the [Nextflow pipelines]() separately and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
-
 Minimum requirements:
 
 * Linux OS
@@ -63,24 +60,51 @@ Minimum requirements:
 
 Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application (if you were so inclined). This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models]() in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations. More on resource requirements and deploment models can be foudn in the [documentation]().
 
+> [!NOTE]
+You do not need the `Docker` stack for core metagenome diagnostic pipelines and report generation - you can run the [Nextflow pipelines]() separately and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
 
-### Nextflow pipeline 
+## Nextflow pipeline 
 
-#### Quick start
-
-```
-
-```
-
-### Command-line client
-
-#### Quick start
+### Quick start
 
 ```
 
 ```
 
-### 
+## Command-line client
+
+### Quick start
+
+```
+
+```
+
+
+## Clinical report
+
+### Quick start
+
+```
+
+```
+
+
+## Application stack
+
+### Quick start
+
+```
+
+```
+
+
+## API and file system
+
+### Quick start
+
+```
+
+```
 
 ## Status
 
