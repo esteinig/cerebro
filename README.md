@@ -1,6 +1,6 @@
 # Cerebro
 
-Metagenomic diagnostic pipelines and collaborative reporting for pathogen detection, species identification, and differential host genome analysis in clinical and public health production. 
+Metagenomic diagnostics pipeline and collaborative reporting stack for pathogen detection, species identification, host genome analysis, quality assurance and deployment in clinical and public health production environments.
 
 <details>
 <summary>🩸 Metagenomic diagnostic core functions </summary>
@@ -27,7 +27,8 @@ Support
  
 - [Collaborative and auditable pathogen determination]() from metagenome sequencing results
 - Multi-tenant Svelte application and API with secure local or web-server deployment configs
-- Scalable application stack deployment integrated into the primary command-line interface ([Cerebro CLI]()) 
+- Scalable application stack deployment with different data security and collaboration models
+- Stack configuration and deployment integrated into the primary command-line interface ([Cerebro CLI]()) 
 - Clinical reporting with [`Typst`]() formatted templates linked into the database of evidence from multi-classifier/databases
 - Secure [`wasm` enabled report generation]() in-browser for sensitive reports, interactive data visualizations
 - Auditable team member comments and results discussion for expert panel reviews of data ([online "Bug Board"]())
@@ -35,14 +36,15 @@ Support
 </details>
 
 <details>
-<summary>🏥 Clinical and public health production operations </summary>
+<summary>🏥 Clinical and public health production environments </summary>
 <br>
  
-- Simulations using in silico syndromic-specific reference panels for ONT/Illumina signal-level and read-level data with [`Cipher`]()
-- Evaluation simulation and patient datasets for continous integration of quality assurance with [`Cerebro`]()
-- Background/sample site/kitome contamination issues in general clinical or public health environments
-- Distributed sequence and analysis storage, file system and data retention policies, cloud storage support etc. through [`SeaweedFS`]()
-- Experimental protocols for reference labs for optimisation of the [UMI-adapter DNA/RNA protocol]() for low abundance clinical sampel types
+- Simulations using in silico syndromic reference panels for ONT/Illumina signal-level and read-level data with [`Cipher`]()
+- Evaluation of simulation and patient datasets for continous integration of quality assurance with [`Cipher`]() and [`Cerebro`]()
+- Background/sample site/kitome contamination issues in general clinical or public health environments via the Cerebro API
+- Distributed sequence and analysis storage, file system and data retention policies, cloud storage etc. through [`SeaweedFS`]() integration
+- [Standard operating procedures]() for continous operation of `Cerebro` as a service for clinical diagnostic reporting
+- Experimental protocols for reference labs for optimisation of the [UMI-adapter DNA/RNA protocol]() for low abundance clinical sample types
 
 </details>
 
@@ -51,7 +53,7 @@ Support
 Let's step through some common tasks and core functions of `Cerebro` and its Docker stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to operate the full stack application in production please see the [documentation](). 
 
 > [!NOTE]
-You do not need the `Docker` stack for core metagenome diagnostic analysis and report generation - you can run the Nextflow pipelines separately and use the `Cerebro CLI` for data manipulation, processing of pipeline outputs and clinical report generation. Some examples are provided in the next two sections on [Nextflow pipelines](#nextflow-pipelines) and the [`Cerebro CLI`](#command-line-client).
+You do not need the `Docker` stack for core metagenome diagnostic analysis and report generation - you can run the Nextflow pipelines separately with`conda/mamba` (or [configure the pipeline]() for your system as you need) and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
 
 Minimum requirements:
 
@@ -59,7 +61,10 @@ Minimum requirements:
 * Nextflow v2024.04
 * Conda/Mamba/Docker
 
-### Nextflow pipelines 
+Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application, if you were so inclined. This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models] in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations. More on resource requirements and deploment models can be foudn in the [documentation]().
+
+
+### Nextflow pipeline 
 
 #### Quick start
 
