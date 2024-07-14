@@ -98,7 +98,7 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 ```
 
 
-## API and file system
+## Cerebro API and FS
 
 ### Quick start
 
