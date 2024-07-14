@@ -106,6 +106,13 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 
 ```
 
+## Databases and taxonomy
+
+### Quick start
+
+```
+
+```
 ## Status
 
 Under active development for production release. Not recommended for deployment at this stage. 
