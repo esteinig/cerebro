@@ -50,7 +50,7 @@ Support
 
 ## Getting started
 
-Let's step through some common tasks and core functions of `Cerebro` and its data application and reporting stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to operate the full application in production please see the [documentation](). 
+Let's step through some common tasks and core functions of `Cerebro` and its data application and reporting stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to deploy and operate the full application in production please see the [documentation](). 
 
 Minimum requirements:
 
@@ -58,7 +58,7 @@ Minimum requirements:
 * Nextflow v2024.04
 * Conda/Mamba/Docker
 
-Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application (if you were so inclined). This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models]() in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations. More on resource requirements and deploment models can be foudn in the [documentation]().
+Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application (if you were so inclined). This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models]() in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations.
 
 > [!NOTE]
 You do not need the `Docker` stack for core metagenome diagnostic pipelines and report generation - you can run the [Nextflow pipelines]() separately and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
