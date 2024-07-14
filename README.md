@@ -71,7 +71,7 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 
 ```
 
-## Command-line client
+## Cerebro CLI
 
 ### Quick start
 
@@ -80,7 +80,7 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 ```
 
 
-## Clinical report
+## Clinical reporting
 
 ### Quick start
 
