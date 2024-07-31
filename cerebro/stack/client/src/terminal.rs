@@ -116,7 +116,7 @@ pub struct ApiUploadArgs {
     pub replace_sample_tags: Option<Vec<String>>,
     /// Output model as file (.json)
     #[clap(long, short = 'o')]
-    pub model_output: Option<PathBuf>,
+    pub model_dir: Option<PathBuf>,
 }
 
 

@@ -4,7 +4,7 @@
 	import { Tab, TabGroup } from "@skeletonlabs/skeleton";
     
     export let selectedQualityControlSummary: QualityControlSummary;
-    export let selectedStageParams: WorkflowParamsQcFastp;
+    export let selectedStageParams: WorkflowParamsQcFastp | undefined;
     export let selectedStage: string = "Read Quality";
 
     let tabSet: number = 0;
@@ -146,28 +146,28 @@
                                 </p>
                                 <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">min_read_length</span></div>
-                                    <div>{selectedStageParams.min_read_length}</div>
+                                    <div>{selectedStageParams?.min_read_length}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">cut_tail_quality</span></div>
-                                    <div>{selectedStageParams.cut_tail_quality}</div>
+                                    <div>{selectedStageParams?.cut_tail_quality}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">complexity_threshold</span></div>
-                                    <div>{selectedStageParams.complexity_threshold}</div>
+                                    <div>{selectedStageParams?.complexity_threshold}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_auto_detect</span></div>
-                                    <div>{selectedStageParams.adapter_auto_detect}</div>
+                                    <div>{selectedStageParams?.adapter_auto_detect}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_file</span></div>
-                                    <div>{selectedStageParams.adapter_file}</div>
+                                    <div>{selectedStageParams?.adapter_file}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_seq_1</span></div>
-                                    <div class="text-sm">{selectedStageParams.adapter_seq_1}</div>
+                                    <div class="text-sm">{selectedStageParams?.adapter_seq_1}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_seq_2</span></div>
-                                    <div class="text-sm">{selectedStageParams.adapter_seq_2}</div>
+                                    <div class="text-sm">{selectedStageParams?.adapter_seq_2}</div>
                                     
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">trim_poly_g</span></div>
-                                    <div class="text-base">{selectedStageParams.trim_poly_g}</div>
+                                    <div class="text-base">{selectedStageParams?.trim_poly_g}</div>
                                 </div>
                             </div>
                             <div class="p-1">

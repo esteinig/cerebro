@@ -4,7 +4,7 @@
 	import { Tab, TabGroup } from "@skeletonlabs/skeleton";
 
     export let selectedQualityControlSummary: QualityControlSummary;
-    export let selectedStageParams: WorkflowParamsQcDeduplication;
+    export let selectedStageParams: WorkflowParamsQcDeduplication | undefined;
     export let selectedStage: string = "Deduplication";
 
     let tabSet: number = 0;
@@ -126,11 +126,7 @@
                             </p>
                             <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
                                 <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">method</span></div>
-                                <div>{selectedStageParams.method}</div>
-                                <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">umi_tools.seed</span></div>
-                                <div>{selectedStageParams.umi_tools.seed}</div>
-                                <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">umi_tools.reference</span></div>
-                                <div>{selectedStageParams.umi_tools.reference}</div>
+                                <div>{selectedStageParams?.method}</div>
                             </div>
                         </div>
                         <div class="p-1">

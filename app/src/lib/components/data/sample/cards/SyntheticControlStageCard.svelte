@@ -8,7 +8,7 @@
 
     export let selectedModel: Cerebro;
     export let selectedQualityControlSummary: QualityControlSummary;
-    export let selectedStageParams: WorkflowParamsQcErcc;
+    export let selectedStageParams: WorkflowParamsQcErcc | undefined;
     export let selectedStage: string = "Synthetic controls";
     
     interface CorrelationData {
@@ -274,7 +274,7 @@
                                 </p>
                                 <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">fasta</span></div>
-                                    <div>{selectedStageParams.fasta}</div>
+                                    <div>{selectedStageParams?.fasta}</div>
                                 </div>
                             </div>
                             <div class="p-1">

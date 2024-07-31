@@ -20,6 +20,8 @@
 #![allow(unreachable_code)]
 #![allow(unreachable_patterns)]
 
+use std::fs::create_dir_all;
+
 use cerebro_workflow::taxon::TaxonThresholdConfig;
 use clap::Parser;
 use rayon::prelude::*;
@@ -250,14 +252,17 @@ fn main() -> anyhow::Result<()> {
                     }
                     
                     for cerebro_model in &cerebro_models {
-                        if let Some(output_file) = &args.model_output {
+                        if let Some(model_dir) = &args.model_dir {
+                            if !model_dir.exists() || !model_dir.is_dir() {
+                                create_dir_all(&model_dir)?
+                            }
+                            let output_file = model_dir.join(format!("{}.json", cerebro_model.name));
                             log::info!("Writing model to file: {}", output_file.display());
-                            cerebro_model.write_json(output_file)?;
+                            cerebro_model.write_json(&output_file)?;
                         }
                     }
 
                     client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
-                    
                     
                 },
                 cerebro_client::terminal::Commands::GetTaxa( args ) => {

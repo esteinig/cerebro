@@ -1,4 +1,6 @@
 
+use std::fs::create_dir_all;
+
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
@@ -61,14 +63,19 @@ fn main() -> anyhow::Result<()> {
             }
             
 
-            client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
-            
-            for cerebro_model in cerebro_models {
-                if let Some(output_file) = &args.model_output {
+            for cerebro_model in &cerebro_models {
+                if let Some(model_dir) = &args.model_dir {
+                    if !model_dir.exists() || !model_dir.is_dir() {
+                        create_dir_all(&model_dir)?
+                    }
+                    let output_file = model_dir.join(format!("{}.json", cerebro_model.name));
                     log::info!("Writing model to file: {}", output_file.display());
-                    cerebro_model.write_json(output_file)?;
+                    cerebro_model.write_json(&output_file)?;
                 }
             }
+
+            client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+            
             
         },
         // Query sample models for taxon summary
