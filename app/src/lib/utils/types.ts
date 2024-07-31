@@ -1384,7 +1384,7 @@ export type WorkflowConfig = {          // parsed from `config.json` nextflow ou
     started: string,                    // datetime of workflow run start 
     completed: string,                  // datetime of workflow run end 
     description: string,                // description of workflow
-    params: WorkflowParams              // workflow parameters from 
+    params: WorkflowParams | undefined  // workflow parameters from 
 }
 
 export type WorkflowParams = {

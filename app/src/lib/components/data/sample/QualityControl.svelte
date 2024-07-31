@@ -8,7 +8,7 @@
 	import HostDepletionStageCard from "./cards/HostDepletionStageCard.svelte";
 	import PhageControlStageCard from "./cards/PhageControlStageCard.svelte";
 
-    export let selectedWorkflowConfiguration: WorkflowConfig | undefined;
+    export let selectedWorkflowConfiguration: WorkflowConfig;
     export let selectedModels: Cerebro[] = [];
     export let selectedQualityControlSummaries: QualityControlSummary[] = [];
     
@@ -48,31 +48,31 @@
         <ol class="breadcrumb justify-center">
             <li class="crumb opacity-70">Input</li>
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params.qc.deduplication.enabled}
+            {#if selectedWorkflowConfiguration?.params?.qc.deduplication.enabled}
                 <li class="crumb">Deduplication</li>
             {:else}
                 <li class="crumb opacity-10">Deduplication</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params.qc.controls.ercc.enabled}
+            {#if selectedWorkflowConfiguration?.params?.qc.controls.ercc.enabled}
                 <li class="crumb">Synthetic Controls</li>
             {:else}
                 <li class="crumb opacity-10">Synthetic Controls</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params.qc.reads.fastp.enabled}
+            {#if selectedWorkflowConfiguration?.params?.qc.reads.fastp.enabled}
                 <li class="crumb">Read Quality</li>
             {:else}
                 <li class="crumb opacity-10">Read Quality</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params.qc.host.depletion.enabled}
+            {#if selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
                 <li class="crumb">Host Depletion</li>
             {:else}
                 <li class="crumb opacity-10">Host Depletion</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params.qc.host.depletion.enabled}
+            {#if selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
                 <li class="crumb">Phage Controls</li>
             {:else}
                 <li class="crumb opacity-10">Phage Controls</li>
@@ -152,15 +152,15 @@
                 {#if selectedStages[i] === "Input"}
                     <InputStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]}></InputStageCard>
                 {:else if selectedStages[i] === "Deduplication"}
-                    <DeduplicationStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params.qc.deduplication}></DeduplicationStageCard>
+                    <DeduplicationStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params?.qc.deduplication}></DeduplicationStageCard>
                 {:else if selectedStages[i] === "Synthetic Control"}
-                    <SyntheticControlStageCard selectedModel={selectedModels[i]} selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params.qc.controls.ercc}></SyntheticControlStageCard>
+                    <SyntheticControlStageCard selectedModel={selectedModels[i]} selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params?.qc.controls.ercc}></SyntheticControlStageCard>
                 {:else if selectedStages[i] === "Read Quality"}
-                    <ReadQualityStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params.qc.reads.fastp}></ReadQualityStageCard>
+                    <ReadQualityStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params?.qc.reads.fastp}></ReadQualityStageCard>
                 {:else if selectedStages[i] === "Host Depletion"}
-                    <HostDepletionStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params.qc.host.depletion}></HostDepletionStageCard>
+                    <HostDepletionStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params?.qc.host.depletion}></HostDepletionStageCard>
                 {:else if selectedStages[i] === "Phage Control"}
-                    <PhageControlStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params.qc.controls.phage}></PhageControlStageCard>
+                    <PhageControlStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]} selectedStageParams={selectedWorkflowConfiguration?.params?.qc.controls.phage}></PhageControlStageCard>
                 {/if}
             </div>
         {/each}
