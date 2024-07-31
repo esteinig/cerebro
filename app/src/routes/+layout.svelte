@@ -1,7 +1,6 @@
 <script lang="ts">
+
 	import '../app.postcss';
-	import '../carbon.css';
-	import '../carbonSvelte.css';
 	
 	// Highlight JS
 	import hljs from 'highlight.js';

@@ -3,9 +3,8 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [sveltekit(), purgeCss({
-		safelist: ["cds"]
-	})],
+	plugins: [sveltekit(), purgeCss()],
+	publicDir: 'static',
 	optimizeDeps: {
 		include: ['@carbon/charts'],
 	},
