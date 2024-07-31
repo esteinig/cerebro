@@ -286,7 +286,7 @@ pub struct WorkflowConfig {
     pub version: String,
     pub started: String,
     pub completed: String,
-    pub params: WorkflowParams
+    // pub params: WorkflowParams
 }
 impl WorkflowConfig {
     pub fn from(json: &PathBuf) -> Result<Self, ModelError> {
@@ -605,7 +605,7 @@ impl Cerebro {
     /// A model for the database represents a single sample processed through the pipeline
     /// associated with a specific biological sample, sequencing run and workflow run. 
     /// 
-    /// IMPLEMENT A SIZE GUARD WHEN PARSING THE WORKFLOW SAMPLE
+    /// TODO: IMPLEMENT A SIZE GUARD WHEN PARSING THE WORKFLOW SAMPLE
     /// 
     pub fn from_workflow_sample(
         workflow_sample: &WorkflowSample, 

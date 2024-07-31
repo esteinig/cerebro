@@ -177,8 +177,10 @@ pub struct ScrubbySummary {
 // Struct to hold the provided settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScrubbySettings {
-    pub kraken_taxa: Vec<String>,
-    pub kraken_taxa_direct: Vec<String>,
+    #[serde(alias = "kraken_taxa")]
+    pub taxa: Vec<String>,
+    #[serde(alias = "kraken_taxa_direct")]
+    pub taxa_direct: Vec<String>,
     pub min_len: u64,
     pub min_cov: f64,
     pub min_mapq: u8,

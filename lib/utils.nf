@@ -319,6 +319,33 @@ def parse_file_params(){
         }
     }
     
+    // Panviral background depletion and alignment analysis
+
+
+    panviral_background_depletion_reference = []; 
+    panviral_background_depletion_kraken2 = [];
+    if (params.panviral.enabled) {
+        if (params.databases.panviral.background.reference && params.databases.panviral.background.kraken2) {
+            panviral_background_depletion_reference = Channel.fromPath(check_file_string(params.databases.panviral.background.reference)).collect()
+            panviral_background_depletion_kraken2 = Channel.fromPath(check_file_string(params.databases.panviral.background.kraken2)).collect()
+        } else {
+            error "Panviral background depletion is activated, but no FASTA reference/alignment index or Kraken2 database files were provided (--databases.panviral.background.reference & --databases.panviral.background.kraken2)"
+        }
+    }
+
+    panviral_alignment_index = []; 
+    panviral_alignment_fasta = [];
+    if (params.panviral.enabled){
+        if (params.databases.alignment.index && params.databases.alignment.fasta) {
+            panviral_alignment_index = Channel.fromPath(check_file(params.databases.panviral.index)).first()
+            panviral_alignment_fasta = Channel.fromPath(check_file(params.databases.panviral.fasta)).first() 
+        } else {
+            error "Alignment pathogen detection is activated, but no reference index or sequence file were provided (--databases.panviral.index | --databases.panviral.fasta)."
+        }
+    }
+
+
+    panviral_blacklist = params.databases.panviral.blacklist ? Channel.fromPath(check_file(params.databases.panviral.blacklist)).first() : []   
 
     // Aneuploidy detection host analysis
 
@@ -373,7 +400,8 @@ def parse_file_params(){
         meta_diamond_nr: meta_diamond_nr, 
         aneuploidy_reference_index: aneuploidy_reference_index,
         aneuploidy_reference_fasta: aneuploidy_reference_fasta,
-        aneuploidy_controls: aneuploidy_controls
+        aneuploidy_controls: aneuploidy_controls,
+        panviral_blacklist: panviral_blacklist
     ]
 }
 

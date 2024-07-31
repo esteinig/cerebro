@@ -72,9 +72,10 @@ fn qc_config_from_model(sample_config: Option<&SampleConfig>, run_config: Option
 
     let (dna_phage_id, rna_phage_id, seq_phage_id) = match workflow_config {
         Some(config) => (
-            config.params.qc.controls.phage.identifiers.dna_extraction.clone(),
-            config.params.qc.controls.phage.identifiers.rna_extraction.clone(),
-            config.params.qc.controls.phage.identifiers.sequencing.clone(),
+            None, None, None
+            // config.params.qc.controls.phage.identifiers.dna_extraction.clone(),
+            // config.params.qc.controls.phage.identifiers.rna_extraction.clone(),
+            // config.params.qc.controls.phage.identifiers.sequencing.clone(),
         ),
         None => (None, None, None)
     };

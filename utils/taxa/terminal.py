@@ -319,6 +319,7 @@ class LibraryData:
     machine: Optional[str]
     extraction_machine: Optional[str]
     nucleic_acid: Optional[str]
+    panel: Optional[str]
 
 @dataclass
 class LibraryResult:
@@ -394,11 +395,13 @@ def extract_classifications(
     df: pandas.DataFrame, 
     group: str,
     label_targets: Dict[str, List[int]], 
+    panel: str = None
 ) -> List[LibraryResult]:
     
     classifications = []
     for grp, library in df.groupby(group):
         for label, taxa in label_targets.items():
+            print(grp, label)
 
             # Is this target in the library profile?
             
@@ -433,21 +436,69 @@ def extract_classifications(
             try :
                 extraction = library["extraction"].unique()[0]
             except KeyError:
-                extraction = None
+                if "ST" in sample_id:
+                    extraction = "sonication"
+                elif "BL" in sample_id:
+                    extraction = "baseline"
+                elif "BT" in sample_id:
+                    extraction = "beads"
+                else:
+                    extraction = None
+
             try :
                 machine = library["machine"].unique()[0]
             except KeyError:
-                machine = None
+                if "ST" in sample_id:
+                    machine = "tanbead"
+                elif "BL" in sample_id:
+                    machine = "tanbead"
+                elif "BT" in sample_id:
+                    machine = "tanbead"
+                else:
+                    machine = None
 
             try :
                 extraction_machine = library["extraction_machine"].unique()[0]
             except KeyError:
-                extraction_machine = None
+                if "ST" in sample_id:
+                    extraction_machine = "sonication_tanbead"
+                elif "BL" in sample_id:
+                    extraction_machine = "baseline_tanbead"
+                elif "BT" in sample_id:
+                    extraction_machine = "beads_tanbead"
+                else:
+                    extraction_machine = None
 
             try :
                 nucleic_acid = library["nucleic_acid"].unique()[0]
             except KeyError:
-                nucleic_acid = None
+                if "DNA" in sample_tag:
+                    nucleic_acid = "DNA"
+                elif "RNA" in sample_tag:
+                    nucleic_acid = "RNA"
+                else:
+                    nucleic_acid = None
+
+            try:
+                panel = library["panel"].unique()[0]
+                if isinstance(panel, float) and np.isnan(panel):
+                    panel = None 
+                    for s in ("-S500-", "-S501-", "-S504-", "-S505-", "-S508-", "-S509-"):
+                        if s in sample_id:
+                            panel = "ZM1"
+                    for s in ("-S502-", "-S503-", "-S506-", "-S507-", "-S510-", "-S511-"):
+                        if s in sample_id:
+                            panel = "ZM2"
+            except KeyError:
+                panel = None 
+                for s in ("-S500-", "-S501-", "-S504-", "-S505-", "-S508-", "-S509-"):
+                    if s in sample_id:
+                        panel = "ZM1"
+                for s in ("-S502-", "-S503-", "-S506-", "-S507-", "-S510-", "-S511-"):
+                    if s in sample_id:
+                        panel = "ZM2"
+
+            print(panel, sample_id, extraction, extraction_machine)
 
             if (
                 organism, 
@@ -469,7 +520,8 @@ def extract_classifications(
                     extraction=extraction,
                     machine=machine,
                     extraction_machine=extraction_machine,
-                    nucleic_acid=nucleic_acid
+                    nucleic_acid=nucleic_acid,
+                    panel=panel
                 )
 
             # Quantitative and qualitiative results

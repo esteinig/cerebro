@@ -185,11 +185,11 @@ process MashDatabaseSubset {
 
     if (params.subset_group_index) {
         """
-        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --group-index $params.subset_group_index --group-sep "$params.subset_group_sep" --output ${idx_name}_subset.fasta 
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.taxa.alignment.subset.min_shared_hashes --group-index $params.taxa.alignment.subset.group_index --group-sep "$params.taxa.alignment.subset.group_sep" --output ${idx_name}_subset.fasta 
         """
     } else {
         """
-        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --output ${idx_name}_subset.fasta
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0  --min-shared-hashes $params.taxa.alignment.subset.min_shared_hashes --output ${idx_name}_subset.fasta
         """
     }
 
@@ -213,35 +213,11 @@ process MashDatabaseSubsetOnt {
 
     if (params.subset_group_index) {
         """
-        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --group-index $params.subset_group_index --group-sep "$params.subset_group_sep" --output ${idx_name}_subset.fasta 
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.taxa.alignment.subset.min_shared_hashes --group-index $params.taxa.alignment.subset.group_index --group-sep "$params.taxa.alignment.subset.group_sep" --output ${idx_name}_subset.fasta 
         """
     } else {
         """
-        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.min_shared_hashes --output ${idx_name}_subset.fasta
+        cerebro workflow tools subset-fasta --fasta $fasta --mash $mash_screen --min-identity 0 --min-shared-hashes $params.taxa.alignment.subset.min_shared_hashes --output ${idx_name}_subset.fasta
         """
     }
-
-}
-
-process Anonymize {
-
-    label "cerebro"
-    tag { id }
-
-    publishDir "$params.outdir/workflow/$params.subdir/${id}", mode: "symlink", pattern: "*.fq.gz"
-
-    input:
-    tuple val(id), path(forward), path(reverse)
-    
-    output:
-    tuple val(id), path("${uuid}_R1.fq.gz"), path("${uuid}_R2.fq.gz")
-
-    script: 
-
-    uuid = UUID.randomUUID().toString().substring(0, 8)
-
-    """
-    cerebro workflow tools anonymize -i $forward -i $reverse -o ${uuid}_R1.fq.gz -o ${uuid}_R2.fq.gz --fake-illumina-header
-    """
-
 }

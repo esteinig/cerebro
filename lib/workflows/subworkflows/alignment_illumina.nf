@@ -93,8 +93,6 @@ workflow remap {
 workflow alignment_illumina {
     take:
         reads
-        references
-        kraken_dbs
         db_index
         db_fasta
         blacklist
@@ -104,15 +102,12 @@ workflow alignment_illumina {
         domain
     main:
 
-        // Background depletion
-        background(reads, references, kraken_dbs, domain)
-
         if (database_subset) {
-            subset(background.out.reads, mash_index, db_fasta)
+            subset(reads, mash_index, db_fasta)
             scan(subset.out.reads, subset.out.index, subset.out.fasta, blacklist, domain)
             remap(scan_ont.out.references, domain)
         } else {
-            scan(background.out.reads, db_index, db_fasta, blacklist, domain)
+            scan(reads, db_index, db_fasta, blacklist, domain)
             remap(scan.out.references, domain)
         }
         

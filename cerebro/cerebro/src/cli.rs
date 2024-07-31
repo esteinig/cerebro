@@ -249,15 +249,15 @@ fn main() -> anyhow::Result<()> {
                         cerebro_models.push(cerebro)
                     }
                     
-
-                    client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
-                    
-                    for cerebro_model in cerebro_models {
+                    for cerebro_model in &cerebro_models {
                         if let Some(output_file) = &args.model_output {
                             log::info!("Writing model to file: {}", output_file.display());
                             cerebro_model.write_json(output_file)?;
                         }
                     }
+
+                    client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+                    
                     
                 },
                 cerebro_client::terminal::Commands::GetTaxa( args ) => {

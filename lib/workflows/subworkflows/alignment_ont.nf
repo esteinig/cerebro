@@ -55,7 +55,7 @@ workflow scan {
     main: 
         // Align reads against viral database and select optimal references
         alignment = MinimapAlign(reads, db_index)   
-        reference_selection = VircovReferenceSelection(alignment, db_fasta, blacklist)
+        reference_selection = 4(alignment, db_fasta, blacklist)
         // For each sample, emit the selected references with their input reads individually for parallelisation
         // If there is just one output from the dynamic reference file outputs, it needs to be put into an
         // array - this does not automatically happen - see the additional mapping step
@@ -89,8 +89,6 @@ workflow remap {
 workflow alignment_ont {
     take:
         reads
-        references
-        kraken_dbs
         db_index
         db_fasta
         blacklist
@@ -101,11 +99,11 @@ workflow alignment_ont {
     main:
 
         if (database_subset) {
-            subset(background.out.reads, mash_index, db_fasta)
+            subset(reads, mash_index, db_fasta)
             scan(subset.out.reads, subset.out.index, subset.out.fasta, blacklist, domain)
             remap(scan_ont.out.references, domain)
         } else {
-            scan(background.out.reads, db_index, db_fasta, blacklist, domain)
+            scan(reads, db_index, db_fasta, blacklist, domain)
             remap(scan.out.references, domain)
         }
     emit:

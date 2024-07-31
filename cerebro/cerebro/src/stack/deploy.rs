@@ -285,7 +285,7 @@ impl<'de> Deserialize<'de> for TraefikDeployment {
         where D: Deserializer<'de>
     {
         let s = String::deserialize(deserializer)?;
-        Ok(match s.as_str() {
+        Ok(match s.to_lowercase().as_str() {
             "web" => TraefikDeployment::Web,
             "localhost" => TraefikDeployment::Localhost,
             _ => unimplemented!("Traefik deployment option `{}` is not implemented", s)
@@ -661,64 +661,6 @@ impl Stack {
         log::info!("Write modified stack configuration to: {}", &dir_tree.base.join("stack.toml").display()); 
         // Write the final stack configuration
         self.to_toml(&dir_tree.base.join("stack.toml"))
-
-    }
-    #[cfg(feature = "libgit")]
-    pub fn clone_and_checkout_repository_libgit(&self, url: &str, branch: Option<String>, revision: Option<String>, ssh_private_key: Option<PathBuf>, passphrase: Option<String>) -> Result<(), StackConfigError> {
-
-        let repo_subdir = self.outdir.join("cerebro");
-        std::fs::create_dir_all(&repo_subdir).map_err(|err| StackConfigError::StackTreeDirectoryNotCreated(err) )?;
-        log::info!("Cloning repository into deployment subdirectory: {}", &repo_subdir.display());
-
-        // Prepare builder.
-        let mut builder = git2::build::RepoBuilder::new();
-        if let Some(br) = branch { log::info!("Cloning repository at branch: {}", &br); builder.branch(&br); }
-
-        if let Some(key) = &ssh_private_key {
-            // Prepare callbacks.
-            let mut callbacks = RemoteCallbacks::new();
-            callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                Cred::ssh_key(
-                    username_from_url.unwrap(),
-                    None,
-                    key,
-                    passphrase.as_deref(),
-                )
-            });
-
-            // Prepare fetch options.
-            let mut fo = git2::FetchOptions::new();
-            fo.remote_callbacks(callbacks);
-            
-            builder.fetch_options(fo);
-
-        };
-
-        // Clone the project.
-        let repo = match builder.clone(
-            &url,
-            &repo_subdir,
-        ) {
-            Ok(repo) => repo,
-            Err(e) => return Err(StackConfigError::RemoteRepositoryNotCloned(e))
-        };
-
-        if let Some(rev) = revision {
-            
-            log::info!("Checking out revision for deployment: {}", &rev);
-
-            // Git2 > 0.13.18 - checkout a tag (0.1.1) or a commit (8e8128)
-            let (object, reference) = repo.revparse_ext(&rev).map_err(|e| StackConfigError::RemoteRepositoryNotCheckedOut(e))?;
-            
-            repo.checkout_tree(&object, None).map_err(|e| StackConfigError::RemoteRepositoryNotCheckedOut(e))?;
-
-            match reference {
-                // gref is an actual reference like branches or tags
-                Some(gref) => repo.set_head(gref.name().unwrap()),  // TODO: unwrap call will fail on non-UTF8
-                // this is a commit, not a reference
-                None => repo.set_head_detached(object.id()),
-            }.map_err(|e| StackConfigError::RemoteRepositoryNotCheckedOut(e))?
-        }
 
     }
     /// Clone the repository into the deployment folder and checkout the requested revision (can be done manually after deployment)

@@ -159,6 +159,143 @@ def plot_experiment(
         # plot_comparison(target_classifications=target_classifications, panel=f"ZM{i+1}", library_variable="extraction_machine_primer")
 
 
+@app.command()
+def plot_experiment_v1(
+    taxa: Path = typer.Option(
+        ..., help="Taxon table filtered"
+    ),
+    targets: str = typer.Option(
+         "me_control_1.txt,me_control_2.txt", help="Target files with list of taxonomic identifiers to extract (comma-delimited string if multiple files or taxids per line) "
+    ),
+    substrings: bool = typer.Option(
+        False, help="Target file specifies substrings in organism name to extract instead of taxonomic identifiers"
+    ),
+    plot_size: str = typer.Option(
+        "36,30", help="Plot size as comma-delimited string e.g. 36,30"
+    ),
+    title: str = typer.Option(
+        "Target Detection", help="Plot title"
+    ),
+    exclude_tag_substring: str = typer.Option(
+        "", help="Exclude these samples where substring is in the (joined) sample tag (comma-delimited list as string)"
+    ),
+    exclude_id_substring: str = typer.Option(
+        "", help="Exclude these samples where substring is in the sample identifier (comma-delimited list as string)"
+    ),
+    sep: str = typer.Option(
+        "\t", help="Taxa file delimiter"
+    ),
+):
+    
+    """
+    Plot the extraction validation experiment
+    """
+
+    group = "id"
+    
+    # Read the taxon profiles
+    df = pandas.read_csv(taxa, sep=sep, header=0)
+
+    # Filter if requested
+    if exclude_tag_substring:
+        for substring in exclude_tag_substring.split(','):
+            df = df[~df['sample_tag'].str.contains(substring.strip())]
+    
+    # Filter if requested
+    if exclude_id_substring:
+        for substring in exclude_id_substring.split(','):
+            df = df[~df['sample_id'].str.contains(substring.strip())]
+
+
+    # Check and get target/offtarget list file paths
+    target_paths = get_file_paths(targets=targets)
+    
+    for i, target_path in enumerate(target_paths):
+        
+        print(target_path)
+
+        # Read the files into dictionaries
+        label_targets = get_taxa_to_include(files=[target_path], substrings=substrings, df=df)
+
+        # Extract the data for targets
+        target_classifications = extract_classifications(
+            df=df, 
+            group=group, 
+            label_targets=label_targets,
+        )
+
+        plot_comparison_v1(target_classifications=target_classifications, panel=f"ZM{i+1}", library_variable="extraction")
+        plot_comparison_v1(target_classifications=target_classifications, panel=f"ZM{i+1}", library_variable="machine")
+        plot_comparison_v1(target_classifications=target_classifications, panel=f"ZM{i+1}", library_variable="extraction_machine")
+
+
+
+def plot_comparison_v1(target_classifications: List[LibraryResult], panel: str = "ZM1", library_variable: str | None = None):
+
+
+    if library_variable is not None:
+        results = [
+            r for r in target_classifications if r.library_data and r.library_data.panel == panel and r.library_data.__dict__[library_variable]
+        ]
+    else:
+        results = [
+            r for r in target_classifications if r.library_data and r.library_data.panel == panel
+        ]
+
+
+    lib = LibraryDataFrame(results=results, dataframe=None)
+    df =  lib.get_dataframe(qualitative=False)
+
+    fig1, axes = plt.subplots(nrows=4, ncols=2, figsize=(24,48))
+
+    axes = axes.flat
+    i = 0
+
+    print(panel, len(target_classifications), len(results), len(df))
+
+    for metric in ("total_rpm", "kmer_rpm", "alignment_rpm", "assembly_contigs_bases"):
+        for (nucleic_acid, nucleic_acid_data) in df.groupby("nucleic_acid"):
+
+            nucleic_acid_data = nucleic_acid_data.replace(0, np.nan)
+
+            if library_variable == "extraction_machine":
+                hue_order = [
+                    "sonication_tanbead",
+                    "beads_tanbead",
+                    "baseline_tanbead",
+                ]
+                palette = [
+                    "#444E7E",
+                    "#8087AA",
+                    "#B7ABBC",
+                    "#F9ECE8",
+                    "#D8511D",
+                    "#FD8700",
+                    "#FEB424",
+                    "#FCC893"
+                ]
+            else:
+                hue_order = None
+                palette = YESTERDAY_MEDIUM
+
+            p = sns.barplot(nucleic_acid_data, x="label", y=metric, hue=library_variable, hue_order=hue_order, ax=axes[i], palette=palette)
+            p1 = sns.stripplot(x="label", y=metric, hue=library_variable, hue_order=hue_order, data=nucleic_acid_data, ax=axes[i], palette=palette, dodge=True if library_variable else False, edgecolor="black", linewidth=2, legend=None)
+    
+            p.set_yscale('log')
+            p1.set_yscale('log')
+
+            p.set_title(f"{panel} {nucleic_acid} ({metric})")
+            p.set_ylabel(f"{metric}")
+            p.set_xlabel(None)
+            legend = p.get_legend()
+            legend.set_title(None) 
+            sns.move_legend(p, "upper right")
+
+
+            i += 1
+
+    df.replace(0, np.nan).to_csv(f"{panel}_{library_variable if library_variable else 'all'}.tsv", sep='\t', index=False, header=True)
+    fig1.savefig(f"{panel}_{library_variable if library_variable else 'all'}.pdf", dpi=300,  transparent=False)
 
 @app.command()
 def plot_qc(
