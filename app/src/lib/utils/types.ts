@@ -1326,6 +1326,18 @@ export type ClientFilterMinimum = {
 }
 
 
+// Contamination highlights
+
+export type TaxonHighlightConfig = {
+    contamination: HighlightConfig,
+    syndrome: HighlightConfig
+}
+
+export type HighlightConfig = {
+    species: Array<string>,
+    taxid: Array<string>,
+    color: string
+}
 
 /*
 ===========================

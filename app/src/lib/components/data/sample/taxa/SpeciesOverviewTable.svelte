@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { CerebroFilterConfig, ClientFilterConfig, TaxonOverview } from "$lib/utils/types";
+	import type { CerebroFilterConfig, ClientFilterConfig, TaxonHighlightConfig, TaxonOverview } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 
@@ -7,6 +7,7 @@
     export let modelNameTags: Map<string, string[]> = new Map();
     export let clientFilterConfig: ClientFilterConfig | null = null;
     export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
+    export let taxonHighlightConfig: TaxonHighlightConfig;
     export let selectedIdentifiers: string[];
     export let candidateButton: boolean = true;
     export let pagination: boolean = true;
@@ -31,6 +32,7 @@
             // Filter decision
             let taxonomy: boolean = true;
             let modules: boolean = true;
+            let contam: boolean = true;
 
             // Explicit taxonomy filters
             if (clientFilterConfig?.domains.length) {
@@ -43,7 +45,7 @@
                 taxonomy = clientFilterConfig?.species.includes(taxonOverview.name);
             }
 
-            // // Explicit minimum aggregate metric filters
+            // Explicit minimum aggregate metric filters
             let metrics = taxonOverview.rpm >= clientFilterConfig?.minimum.rpm && 
                 taxonOverview.contigs >= clientFilterConfig?.minimum.contigs &&
                 taxonOverview.contigs_bases >= clientFilterConfig?.minimum.bases;
@@ -67,8 +69,15 @@
             } else {
                 modules = true
             }
+
+            if (taxonHighlightConfig.contamination.species.some(species => taxonOverview.name.includes(species))) {
+                contam = false
+            } else  {
+                contam = true
+            }
+            
                 
-            return taxonomy && metrics && modules
+            return taxonomy && metrics && modules && contam
         })
     }
 
@@ -102,6 +111,26 @@
         return Array.isArray(serverFilterConfig) ? serverFilterConfig[i] : serverFilterConfig
     }
 
+    const getTaxonBackgroundColor = (overview: TaxonOverview): string =>  {
+        if (taxonHighlightConfig.contamination.species.some(species => overview.name.includes(species))) {
+            return 'variant-soft-secondary rounded-token py-1.5 px-2'
+        } else if (taxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))) {
+            return 'variant-soft-tertiary rounded-token py-1.5 px-2'
+        } else {
+            return 'rounded-token py-1.5 px-2'
+        }
+    }
+
+    const getTaxonHover = (overview: TaxonOverview): string =>  {
+        if (taxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))){
+            return 'hover:variant-soft-secondary'
+        } else if (taxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))) {
+            return 'hover:variant-soft-tertiary'
+        } else {
+            return 'hover:variant-soft'
+        }
+    }
+
 </script>
 
 <div>
@@ -121,7 +150,7 @@
                 </div>
             </ListBoxItem>
             {#each tableData as overview, i}
-                <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' rounded='rounded-token' on:click={() => taxonEvidence === null ? taxonEvidence = overview.taxid : taxonEvidence = null}>
+                <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => taxonEvidence === null ? taxonEvidence = overview.taxid : taxonEvidence = null}>
                     
                     <div class="grid grid-cols-11 sm:grid-cols-11 md:grid-cols-11 gap-x-1 gap-y-4 w-full text-sm">
                         <div class="col-span-1 opacity-70">{overview.domain}</div>

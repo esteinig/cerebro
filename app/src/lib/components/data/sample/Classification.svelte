@@ -1,8 +1,8 @@
 <script lang="ts">
     import { page } from "$app/stores";
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
-    import { getToastStore, ProgressRadial, type ToastSettings } from "@skeletonlabs/skeleton";
-	import type { Cerebro, CerebroFilterConfig, ClientFilterConfig, GenusOverview, TaxonOverview } from "$lib/utils/types";
+    import { getToastStore, ProgressRadial } from "@skeletonlabs/skeleton";
+	import type { Cerebro, CerebroFilterConfig, ClientFilterConfig, GenusOverview, TaxonOverview, TaxonHighlightConfig } from "$lib/utils/types";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import GenusOverviewTable from "./taxa/GenusOverviewTable.svelte";
@@ -11,6 +11,7 @@
     export let selectedModels: Cerebro[] = [];
     export let clientFilterConfig: ClientFilterConfig;
     export let serverFilterConfig: CerebroFilterConfig;
+    export let taxonHighlightConfig: TaxonHighlightConfig;
 
     let publicApi = new CerebroApi();
     let toastStore = getToastStore();
@@ -65,8 +66,6 @@
             genusOverview = Object.entries(genusGroups).map(([_, overview]) => overview);
         }
     }
-
-
     
 
     $: {
@@ -94,7 +93,7 @@
             {#if showGenusOverview}
                 <GenusOverviewTable genusOverview={genusOverview}></GenusOverviewTable>
             {:else}
-                <SpeciesOverviewTable selectedIdentifiers={selectedIdentifiers} taxonOverview={taxaOverview} modelNameTags={modelNameTags} clientFilterConfig={clientFilterConfig} serverFilterConfig={serverFilterConfig}></SpeciesOverviewTable>
+                <SpeciesOverviewTable selectedIdentifiers={selectedIdentifiers} taxonOverview={taxaOverview} modelNameTags={modelNameTags} clientFilterConfig={clientFilterConfig} serverFilterConfig={serverFilterConfig} taxonHighlightConfig={taxonHighlightConfig}> </SpeciesOverviewTable>
             {/if}
         {/if}
     {/if}
