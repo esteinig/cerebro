@@ -97,7 +97,7 @@
             assembly: false
         } satisfies ClientFilterModules,
         minimum: {
-            rpm: 0,
+            rpm: 10,
             rpm_kmer: 0,
             rpm_alignment: 0,
             contigs: 0,
@@ -118,11 +118,11 @@
         alignment_min_regions: 0,
         alignment_min_coverage: 0,
         // General alignment section of the pipeline
-        alignment_min_ref_length: 100,
+        alignment_min_ref_length: 2000,
         // LCA BLAST/Diamond on assembled contigs
         assembly_min_contig_length: 200,
-        assembly_min_contig_identity: 0.0,
-        assembly_min_contig_coverage: 0.0
+        assembly_min_contig_identity: 60.0,
+        assembly_min_contig_coverage: 60.0
     }
 
    $: serverFiltersActive = serverFilterConfig.domains.length > 0 ||
