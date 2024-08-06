@@ -190,13 +190,15 @@ services:
   
 
   # Cerebro file-system
+  
+  {{#if fs.enabled }}
   cerebro-fs-master:
     build:
-      context: /data/dev/meta-gp/dev/cerebro_dev/cerebro
-      dockerfile: /data/dev/meta-gp/dev/cerebro_dev/docker/Dockerfile.fs
+      context: {{{ outdir }}}/cerebro
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
     ports:
       - 19333:19333  # gRPC port required to be open for current `weed` file upload implementation
-    command: "weed master -mdir=/data -ip=cerebro-fs-master -ip.bind=0.0.0.0 -metricsPort=9324 -defaultReplication=100" # diff data center replication to replicate to backup
+    command: "weed master -mdir=/data -ip=cerebro-fs-master -ip.bind=0.0.0.0 -metricsPort=9324 -defaultReplication={{{ fs.default_replication }}}" # diff data center replication to replicate to backup
     restart: unless-stopped
     expose:
       - 9324
@@ -217,40 +219,43 @@ services:
       traefik.http.routers.cerebro-fs-test.tls: "false"
       traefik.http.routers.cerebro-fs-test.entrypoints: "http"
 
-
   cerebro-fs-sda:
     build:
-      context: /data/dev/meta-gp/dev/cerebro_dev/cerebro
-      dockerfile: /data/dev/meta-gp/dev/cerebro_dev/docker/Dockerfile.fs
+      context: {{{ outdir }}}/cerebro
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
     expose:
       - 8010
       - 18010
       - 9325
-    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8010 -metricsPort=9325 -dataCenter=dgx -rack=dev -dir /data'
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8010 -metricsPort=9325 -dataCenter={{{ fs.primary.center }}} -rack={{{ fs.primary.rack }}} -dir /data'
     volumes:
       # Host mounted disk
-      - /data/data/cerebro/data:/data
+      - {{{ fs.primary.path }}}:/data
     networks:
       - cerebro
     depends_on:
       - cerebro-fs-master
 
+  {{#if fs.secondary }}
   cerebro-fs-sdb:
     build:
-      context: /data/dev/meta-gp/dev/cerebro_dev/cerebro
-      dockerfile: /data/dev/meta-gp/dev/cerebro_dev/docker/Dockerfile.fs
+      context: {{{ outdir }}}/cerebro
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
     expose:
       - 8011
       - 18011
       - 9326
-    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8011 -metricsPort=9326 -dataCenter=gfs -rack=dev -dir /data'
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8011 -metricsPort=9326 -dataCenter={{{ fs.secondary.center }}} -rack={{{ fs.secondary.rack }}}  -dir /data'
     volumes:
       # Host mounted disk
-      - /data/data/cerebro/backup:/data
+      -{{{ fs.secondary.path }}}:/data
     networks:
       - cerebro
     depends_on:
       - cerebro-fs-master
+  {{/if}}
+  
+  {{/if}}
 
 volumes:
   cerebro_app:
@@ -265,6 +270,10 @@ volumes:
     driver: local
   cerebro_auth_onetime:
     driver: local
+  {{#if fs.enabled }}
+  cerebro_fs_master:
+    driver: local
+  {{/if}}
 
 networks:
   cerebro:

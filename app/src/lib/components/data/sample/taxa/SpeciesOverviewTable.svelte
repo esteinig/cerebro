@@ -33,6 +33,7 @@
             let taxonomy: boolean = true;
             let modules: boolean = true;
             let contam: boolean = true;
+            let syndrome: boolean = true;
 
             // Explicit taxonomy filters
             if (clientFilterConfig?.domains.length) {
@@ -75,9 +76,14 @@
             } else  {
                 contam = true
             }
-            
+
+            if (taxonHighlightConfig.syndrome.species.some(species => taxonOverview.name.includes(species))) {
+                syndrome = true
+            } else {
+                syndrome = false
+            }
                 
-            return taxonomy && metrics && modules && contam
+            return (taxonomy && metrics && modules && contam) || syndrome
         })
     }
 

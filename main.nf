@@ -95,8 +95,6 @@ workflow {
         exit 0
     }
 
-
-
     /*
     ==========================
     Input validation and reads
@@ -205,7 +203,7 @@ workflow {
 
             if (params.taxa.enabled) {
 
-                pathogen_detection(reads, inputs, params.ont.enabled)
+                pathogen_detection(reads, inputs, params.ont.enabled, params.taxa.enabled)
 
                 WriteConfig(
                     inputs.sample_sheet, 
@@ -230,6 +228,15 @@ workflow {
                         samples | map { it -> it[1] } | QualityControlTable
                     }
                 }
+            }
+
+
+            // ==============================
+            // Pathogen detection subworkflow
+            // ==============================
+
+            if (params.taxa.enabled) {
+
             }
 
             // ==================================================================

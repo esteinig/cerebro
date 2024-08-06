@@ -12,6 +12,7 @@ workflow pathogen_detection {
         reads
         inputs
         ont
+        pathogen
         panviral
     main:
 
@@ -56,7 +57,7 @@ workflow pathogen_detection {
         // Taxonomic classification modules
         // ================================
 
-        if (params.taxa.enabled) {
+        if (pathogen) {
 
             log.info "Pathogen identification worklow enabled"
 
@@ -69,7 +70,6 @@ workflow pathogen_detection {
                     params.taxa.assembly.consensus.enabled,
                     false,
                     null,
-                    "viruses",
                     ont
                 )
             } else {
@@ -94,8 +94,9 @@ workflow pathogen_detection {
                 kmer_profiling_results
             ) | groupTuple
 
-        } else if (params.panviral.enabled) {
-            log.info "Panviral enrichment subworkflow enabled, substitutes general taxonomic pathogen identification workflow"
+        } else if (panviral) {
+
+            log.info "Panviral enrichment subworkflow enabled"
 
             alignment_results = panviral_alignment(
                 qc_reads,
@@ -105,7 +106,6 @@ workflow pathogen_detection {
                 params.panviral.assembly.consensus.enabled,
                 false,
                 null,
-                "viruses",
                 ont
             )
         }

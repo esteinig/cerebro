@@ -54,7 +54,6 @@ workflow scan {
         db_index
         db_fasta
         blacklist   
-        domain
     main: 
         // Align reads against viral database and select optimal references
         alignment = MinimapAlign(reads, db_index)   
@@ -73,8 +72,7 @@ workflow scan {
 
 workflow remap {
     take: 
-        aligned_references      
-        domain           
+        aligned_references             
     main: 
         // For each selected reference, realign the input reads and filter by alignment and coverage metrics
         realignment = MinimapRealign(aligned_references) 
@@ -99,16 +97,15 @@ workflow alignment_illumina {
         consensus_assembly
         database_subset
         mash_index
-        domain
     main:
 
         if (database_subset) {
             subset(reads, mash_index, db_fasta)
-            scan(subset.out.reads, subset.out.index, subset.out.fasta, blacklist, domain)
-            remap(scan_ont.out.references, domain)
+            scan(subset.out.reads, subset.out.index, subset.out.fasta, blacklist)
+            remap(scan_ont.out.references)
         } else {
-            scan(reads, db_index, db_fasta, blacklist, domain)
-            remap(scan.out.references, domain)
+            scan(reads, db_index, db_fasta, blacklist)
+            remap(scan.out.references)
         }
         
     emit:

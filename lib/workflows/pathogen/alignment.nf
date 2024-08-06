@@ -1,5 +1,5 @@
-include { alignment_illumina } from '../subworkflows/alignment_illumina';
 include { alignment_ont } from '../subworkflows/alignment_ont';
+include { alignment_illumina } from '../subworkflows/alignment_illumina';
 
 include { IvarConsensus } from '../../processes/ivar' addParams(
     subdir: "pathogens/alignment/consensus_assembly"
@@ -20,7 +20,6 @@ workflow alignment {
         consensus_assembly
         database_subset
         mash_index
-        domain
         ont
     main:
 
@@ -34,8 +33,7 @@ workflow alignment {
                 blacklist,
                 consensus_assembly,
                 database_subset,
-                mash_index,
-                domain
+                mash_index
             )
         } else {
             alignment = alignment_illumina(
@@ -47,8 +45,7 @@ workflow alignment {
                 blacklist,
                 consensus_assembly,
                 database_subset,
-                mash_index,
-                domain
+                mash_index
             )
         }
         

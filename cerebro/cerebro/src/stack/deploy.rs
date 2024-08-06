@@ -2,6 +2,7 @@ use colored::Colorize;
 use thiserror::Error;
 use rust_embed::EmbeddedFile;
 use bcrypt::{DEFAULT_COST, hash};
+use std::fs::create_dir_all;
 use std::{path::PathBuf, io::Write};
 use rcgen::generate_simple_self_signed;
 use serde::{Deserialize, Serialize, Deserializer};
@@ -26,6 +27,10 @@ pub enum StackConfigError {
     ConfigFileInputInvalid,
     #[error("failed to create config file")]
     ConfigFileOutputInvalid,
+    #[error("failed to detect primary datacenter configuration")]
+    PrimaryDataCenterMissing,
+    #[error("failed to create data center directory: {0}")]
+    DataCenterDirectoryFailed(PathBuf),
     #[error("failed to deserialize config file")]
     ConfigFileNotDeserialized(#[from] toml::de::Error),
     #[error("failed to serialize config file")]
@@ -415,6 +420,33 @@ impl StackConfigTree {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataCenterConfig {
+    enabled: bool,
+    center: String,
+    rack: String,
+    path: PathBuf 
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileSystemConfig {
+    pub enabled: bool,
+    pub replication: String,
+    pub primary: Option<DataCenterConfig>,
+    pub secondary: Option<DataCenterConfig>,
+}
+impl Default for FileSystemConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            replication: String::from("100"),
+            primary: None,
+            secondary: None
+        }
+    }
+}
+
+
 pub fn write_cert(buf: &[u8], path: &PathBuf) -> Result<(), StackConfigError> {
     let mut file = std::fs::File::create(path)
         .map_err(|err| StackConfigError::CertificateFilePathInvalid(err) )?;
@@ -452,6 +484,7 @@ pub struct Stack {
     cerebro: CerebroConfig,
     mongodb: MongoDbConfig,
     traefik: TraefikConfig,
+    fs: FileSystemConfig
     
 }
 impl Stack {
@@ -562,6 +595,28 @@ impl Stack {
         self.trigger = trigger;
         log::info!("Trigger file for development deployment active: {}", self.trigger);
 
+        if self.fs.enabled {
+            match &self.fs.primary {
+                None => {
+                    log::error!("Cerebro FS is enabled, but primary data center is not configured!");
+                    return Err(StackConfigError::PrimaryDataCenterMissing)
+                },
+                Some(dc) => {
+                    log::info!("Primary datacenter configured (center: {}, rack: {})", dc.center, dc.rack);
+                    if !dc.path.exists() || !dc.path.is_dir() {
+                        log::info!("Creating primary datacenter path: {}", dc.path.display());
+                        create_dir_all(&dc.path).map_err(|_| StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned()))?;
+                    }
+                }
+            }
+            if let Some(dc) = &self.fs.secondary {
+                log::info!("Secondary datacenter configured (center: {}, rack: {})", dc.center, dc.rack);
+                if !dc.path.exists() || !dc.path.is_dir() {
+                    log::info!("Creating primary datacenter path: {}", dc.path.display());
+                    create_dir_all(&dc.path).map_err(|_| StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned()))?;
+                }
+            }
+        }
 
         let dir_tree = StackConfigTree::new(outdir);
         dir_tree.create_dir_all()?;
@@ -569,7 +624,6 @@ impl Stack {
         self.outdir = std::fs::canonicalize(outdir).map_err(|_| StackConfigError::OutdirAbsolutePathInvalid(outdir.display().to_string()))?;
         log::info!("Create deployment directory tree in: {}", outdir.display());
 
-        
         log::info!("Write stack asset files to deployment directory");
         let stack_assets = StackAssets::new(&dir_tree.assets)?;
         stack_assets.write_asset_files(self.traefik.deploy.clone())?;
