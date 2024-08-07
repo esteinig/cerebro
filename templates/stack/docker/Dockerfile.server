@@ -32,12 +32,11 @@ COPY ./Cargo.toml Cargo.toml
 # launching the container and using the reporting functions for the first time - otherwise
 # the first request for a report will take a long time to complete
 
-{{#unless dev}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
 RUN cargo build --release -p cerebro-server && \
     mkdir -p /opt/cerebro/bin && \
     cp target/release/cerebro-server /opt/cerebro/bin
+    
 WORKDIR /opt/cerebro
-{{/unless}}
 
 # USER cerebro-api

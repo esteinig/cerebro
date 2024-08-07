@@ -9,7 +9,7 @@
     function changeTeam() {
         console.log("Change team")
     }
-
+    console.log($page.data)
 </script>
 
 

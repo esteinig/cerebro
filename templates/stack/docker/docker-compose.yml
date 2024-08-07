@@ -219,7 +219,7 @@ services:
       traefik.http.routers.cerebro-fs-test.tls: "false"
       traefik.http.routers.cerebro-fs-test.entrypoints: "http"
 
-  cerebro-fs-sda:
+  cerebro-fs-primary:
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
@@ -237,7 +237,7 @@ services:
       - cerebro-fs-master
 
   {{#if fs.secondary }}
-  cerebro-fs-sdb:
+  cerebro-fs-secondary:
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
@@ -245,10 +245,10 @@ services:
       - 8011
       - 18011
       - 9326
-    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8011 -metricsPort=9326 -dataCenter={{{ fs.secondary.center }}} -rack={{{ fs.secondary.rack }}}  -dir /data'
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8011 -metricsPort=9326 -dataCenter={{{ fs.secondary.center }}} -rack={{{ fs.secondary.rack }}} -dir /data'
     volumes:
       # Host mounted disk
-      -{{{ fs.secondary.path }}}:/data
+      - {{{ fs.secondary.path }}}:/data
     networks:
       - cerebro
     depends_on:

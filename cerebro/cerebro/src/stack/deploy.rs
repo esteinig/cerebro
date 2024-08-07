@@ -95,6 +95,7 @@ impl TemplateFiles {
                 docker_compose_traefik: outdir.join(&names.docker_compose_traefik),
                 docker_server: outdir.join(&names.docker_server), 
                 docker_app: outdir.join(&names.docker_app), 
+                docker_fs: outdir.join(&names.docker_fs), 
                 mongodb_init_sh: outdir.join(&names.mongodb_init_sh), 
                 mongodb_init_env: outdir.join(&names.mongodb_init_env),
                 cerebro_server: outdir.join(&names.cerebro_server),
@@ -112,6 +113,7 @@ pub struct TemplateFilePaths {
     docker_compose_traefik: PathBuf,
     docker_server: PathBuf,
     docker_app: PathBuf,
+    docker_fs: PathBuf,
     mongodb_init_sh: PathBuf,
     mongodb_init_env: PathBuf,
     cerebro_server: PathBuf,
@@ -125,6 +127,7 @@ pub struct TemplateFileNames {
     docker_compose_traefik: String,
     docker_server: String,
     docker_app: String,
+    docker_fs: String,
     mongodb_init_sh: String,
     mongodb_init_env: String,
     cerebro_server: String,
@@ -140,6 +143,7 @@ impl TemplateFileNames {
             docker_compose_traefik: String::from("docker-compose.traefik.yml.hbs"),
             docker_server: String::from("Dockerfile.server.hbs"),
             docker_app: String::from("Dockerfile.app.hbs"),
+            docker_fs: String::from("Dockerfile.fs.hbs"),
             mongodb_init_sh: String::from("mongo-init.sh.hbs"),
             mongodb_init_env: String::from("database.env.hbs"),
             cerebro_server: String::from("server.toml"),
@@ -190,6 +194,7 @@ impl StackAssets {
         write_embedded_file(&self.docker.compose, &self.templates.paths.docker_compose)?;
         write_embedded_file(&self.docker.server, &self.templates.paths.docker_server)?;
         write_embedded_file(&self.docker.app, &self.templates.paths.docker_app)?;
+        write_embedded_file(&self.docker.fs, &self.templates.paths.docker_fs)?;
         write_embedded_file(&self.mongodb.init_sh, &self.templates.paths.mongodb_init_sh)?;
         write_embedded_file(&self.mongodb.init_env, &self.templates.paths.mongodb_init_env)?;
         write_embedded_file(&self.cerebro.server, &self.templates.paths.cerebro_server)?;
@@ -237,6 +242,7 @@ impl TraefikFiles {
 pub struct DockerFiles {
     server: EmbeddedFile,
     app: EmbeddedFile,
+    fs: EmbeddedFile,
     compose: EmbeddedFile,
     compose_traefik: EmbeddedFile
 }
@@ -245,6 +251,7 @@ impl DockerFiles {
         Ok(Self {
             server: match DockerTemplates::get("docker/Dockerfile.server") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.server"))) },
             app: match DockerTemplates::get("docker/Dockerfile.app") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.app"))) },
+            fs: match DockerTemplates::get("docker/Dockerfile.fs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.fs"))) },
             compose: match DockerTemplates::get("docker/docker-compose.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/docker-compose.yml"))) },
             compose_traefik: match DockerTemplates::get("docker/docker-compose.traefik.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/docker-compose.traefik.yml"))) },
         })
@@ -811,6 +818,10 @@ impl Stack {
         handlebars.register_template_file(&stack_assets.templates.names.docker_app, &stack_assets.templates.paths.docker_app).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
         let render = handlebars.render(&stack_assets.templates.names.docker_app, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.docker.join("Dockerfile.app"))?;
+
+        handlebars.register_template_file(&stack_assets.templates.names.docker_fs, &stack_assets.templates.paths.docker_fs).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars.render(&stack_assets.templates.names.docker_fs, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        write_rendered_template(render.as_bytes(), &dir_tree.docker.join("Dockerfile.fs"))?;
 
         handlebars.register_template_file(&stack_assets.templates.names.mongodb_init_sh, &stack_assets.templates.paths.mongodb_init_sh).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
         let render = handlebars.render(&stack_assets.templates.names.mongodb_init_sh, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;

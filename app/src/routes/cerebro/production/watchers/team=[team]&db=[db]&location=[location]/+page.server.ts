@@ -113,9 +113,11 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
 
     let files = await fetchFiles(fetch, fetchDataRequestInit, params.db);
 
+
     let filesWatcherLocation = groupSeaweedFiles(files, "watcher_location");
     let defaultWatcherLocation: string = "";
     let keys = Object.keys(filesWatcherLocation);
+    
     if (keys.length) {
         defaultWatcherLocation = keys[0];
     }
@@ -125,5 +127,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         defaultTeam: team,
         defaultDatabase: teamDatabase,
         defaultWatcherLocation: defaultWatcherLocation,
-     };
+    };
+
 }
