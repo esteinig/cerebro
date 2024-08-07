@@ -86,6 +86,11 @@ services:
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.server
+      {{#if dev}}
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+      {{/if}}
     restart: unless-stopped
     {{#if dev}}
     {{#if trigger}}

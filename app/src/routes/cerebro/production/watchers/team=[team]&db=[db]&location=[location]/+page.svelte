@@ -116,7 +116,7 @@
     <div class="col-span-1">
         <div class="border p-4 border-primary-500 gap-4 rounded-2xl">
             <div class="flex gap-4 mb-4">
-                <div class="w-1/2">
+                <div class="w-full">
                     <p class="mb-1"><span class="opacity-60">Team</span></p>
                     <select id="teamSelect" class="select" bind:value={selectedTeamId} on:change={changeTeam}>
                         {#each $page.data.userTeams as team}
@@ -124,12 +124,9 @@
                         {/each}
                     </select>
                 </div>
-                <div class="w-1/2 mt-6">
-                    <p class="opacity-40 text-xs">Change settings and configurations shared with your team</p>
-                </div>
             </div>
             <div class="flex gap-4 mb-6">
-                <div class="w-1/2">
+                <div class="w-full">
                     <p class="mb-1"><span class="opacity-60">Database</span></p>
                     <select id="projectSelect"  class="select" bind:value={selectedDatabaseId} on:change={changeDatabase}>
                         {#each databases as db}
@@ -137,12 +134,9 @@
                         {/each}
                     </select>
                 </div>
-                <div class="w-1/2 mt-6">
-                    <p class="opacity-40 text-xs">Change settings and configurations shared with your team</p>
-                </div>
             </div>
             <div class="flex gap-4 mb-4">
-                <div class="w-1/2">
+                <div class="w-full">
                     <p class="mb-1"><span class="opacity-60">Watcher Location</span></p>
                     <select id="projectSelect"  class="select" bind:value={selectedWatcherLocation} on:change={() => changeWatcherLocation(location)}>
                         {#each Object.keys(data.files) as location }
@@ -150,17 +144,11 @@
                         {/each}
                     </select>
                 </div>
-                <div class="w-1/2 mt-6">
-                    <p class="opacity-40 text-xs">Change settings and configurations shared with your team</p>
-                </div>
             </div>
             <div class="flex gap-4">
-                <div class="w-1/2">
+                <div class="">
                     <p class="mb-1"><span class="opacity-60">Date Range</span></p>
                     
-                </div>
-                <div class="w-1/2 mt-6">
-                    <p class="opacity-40 text-xs">Change settings and configurations shared with your team</p>
                 </div>
             </div>
         </div>

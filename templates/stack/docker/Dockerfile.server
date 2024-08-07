@@ -1,7 +1,5 @@
 FROM rust:1.76.0
 
-RUN groupadd -r cerebro-api && useradd -r -g cerebro-api cerebro-api
-
 # Dependencies for Tectonic LaTeX compiler library
 # TODO: add versions for all system packages
 RUN apt-get update && apt-get install -y \
@@ -14,33 +12,42 @@ RUN apt-get update && apt-get install -y \
     libfontconfig-dev \
     && apt-get clean all
 
-# Replace with `git clone` for the current release version and
-# enable features for Tectonic so the default version ships
-# without the Latex compiler (system-dependencies)
+# Define build arguments
+ARG UID=1000
+ARG GID=1000
 
+{{#if dev}}
+# Host user for development mode should have UID and GID set
+RUN groupadd -g ${GID} cerebro-api && useradd -u ${UID} -g cerebro-api -m cerebro-api
+{{else}}
+RUN groupadd -r cerebro-api && useradd -r -g cerebro-api cerebro-api
+{{/if}}
+
+# Dependencies and build
 WORKDIR /usr/src/cerebro
 
 COPY ./cerebro cerebro
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 
-
-# Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
-# launching the container and using the reporting functions for the first time - otherwise
-# the first request for a report will take a long time to complete
-
 {{#if dev}}
 # For cargo-watch mode...
 RUN cargo install cargo-watch 
-# Root user for mounted development directory and cargo-watch...
 {{else}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
 RUN cargo build --release -p cerebro-server && \
     mkdir -p /opt/cerebro/bin && \
     cp target/release/cerebro-server /opt/cerebro/bin
+{{/if}}
 
+# Change ownership of the relevant directories to the new user
+RUN chown -R cerebro-api:cerebro-api /usr/src/cerebro
+
+{{#unless dev}}
 RUN chown -R cerebro-api:cerebro-api /opt/cerebro
 WORKDIR /opt/cerebro
-# Non root user for compiled binary in production
-USER cerebro-api
 {{/if}}
+
+# Switch to non-root user
+USER cerebro-api
+
