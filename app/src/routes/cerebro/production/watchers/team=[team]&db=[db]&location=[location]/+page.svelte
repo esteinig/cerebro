@@ -11,7 +11,7 @@
     // let selectedView: string = "team";
 
     // let groupedFiles: Record<string, SeaweedFile[]> = groupSeaweedFiles(data.files, "watcher_location");
-
+    
     /**
      * Group SeaweedFile objects by a specified key (watcher_location, run_id, or date).
      * Adjusted to handle nullable run_id by excluding those files from run_id grouping
@@ -34,8 +34,13 @@
      * // Example usage for grouping by date with a specified range
      * const groupedByDateRange = groupSeaweedFiles(files, 'date', { start: '2022-01-01', end: '2022-01-31' });
      */
-    function groupSeaweedFiles(files: SeaweedFile[], groupByKey: 'watcher_location' | 'watcher_name' | 'run_id' | 'sample_id' | 'date', dateRange?: { start: string, end: string }): Record<string, SeaweedFile[]> {
+    function groupSeaweedFiles(files: SeaweedFile[] | undefined, groupByKey: 'watcher_location' | 'watcher_name' | 'run_id' | 'sample_id' | 'date', dateRange?: { start: string, end: string }): Record<string, SeaweedFile[]> {
+        
         const grouped: Record<string, SeaweedFile[]> = {};
+
+        if (files === undefined) {
+            return grouped 
+        }
 
         files.forEach(file => {
             let key: string | null = null;
