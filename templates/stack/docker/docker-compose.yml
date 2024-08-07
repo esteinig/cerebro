@@ -52,6 +52,7 @@ services:
       {{#if dev }}
       # Path mount for linked repository in development deployment (local dev)
       - {{{ outdir }}}/cerebro/app/:/home/node/app
+      - /home/node/app/node_modules
       {{/if}}
       - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
     networks:
