@@ -20,23 +20,27 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /usr/src/cerebro
 
-{{#if dev }}
-RUN cargo install cargo-watch 
-{{/if}}
-
 COPY ./cerebro cerebro
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
+
 
 # Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
 # launching the container and using the reporting functions for the first time - otherwise
 # the first request for a report will take a long time to complete
 
+{{#if dev}}
+# For cargo-watch mode...
+RUN cargo install cargo-watch 
+# Root user for mounted development directory and cargo-watch...
+{{else}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
 RUN cargo build --release -p cerebro-server && \
     mkdir -p /opt/cerebro/bin && \
     cp target/release/cerebro-server /opt/cerebro/bin
-    
-WORKDIR /opt/cerebro
 
-# USER cerebro-api
+RUN chown -R cerebro-api:cerebro-api /opt/cerebro
+WORKDIR /opt/cerebro
+# Non root user for compiled binary in production
+USER cerebro-api
+{{/if}}
