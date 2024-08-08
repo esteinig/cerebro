@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     let api_client = CerebroClient::new(
         &cli.url,
         &cli.token,
-        match &cli.command { Commands::Login(_) | Commands::PingApi(_) => true, _ => false },
+        match &cli.command { Commands::Login(_) | Commands::Ping(_) => true, _ => false },
         cli.danger_invalid_certificate,
         &cli.token_file
     )?;
@@ -32,8 +32,9 @@ fn main() -> Result<()> {
         Commands::Login( args ) => {
             api_client.login_user(&args.email, &args.password)?
         },
-        Commands::PingApi(_) => {
-            api_client.ping_status()?
+        Commands::Ping(_) => {
+            fs_client.ping_status()?;
+            api_client.ping_status()?;
         },           
         Commands::Upload( args ) => {
 

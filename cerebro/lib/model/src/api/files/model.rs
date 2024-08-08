@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Serialize, Deserialize};
 
 use super::schema::RegisterFileSchema;
@@ -10,6 +12,12 @@ File system and storage
 
 pub type SeaweedFileId = String;
 
+#[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
+pub enum WatcherFormat {
+    Fastq,
+    Iseq,
+    Nextseq
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WatcherConfig {
@@ -17,9 +25,12 @@ pub struct WatcherConfig {
     pub name: String,
     pub location: String,
     pub team_name: String,
-    pub db_name: String
+    pub db_name: String,
+    pub format: WatcherFormat,
+    pub interval: Duration, 
+    pub timeout: Duration, 
+    pub timeout_interval: Duration
 }
-
 impl Default for WatcherConfig {
     fn default() -> Self {
         Self {
@@ -28,10 +39,33 @@ impl Default for WatcherConfig {
             location: "Barad-dûr".to_string(),
             db_name: "CNS".to_string(),
             team_name: "CNS".to_string(),
+            format: WatcherFormat::Fastq,
+            interval: Duration::from_secs(3),
+            timeout: Duration::from_secs(10),
+            timeout_interval: Duration::from_secs(1)
         }
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SeaweedWatcherConfig {
+    pub id: String,
+    pub name: String,
+    pub location: String,
+    pub team_name: String,
+    pub db_name: String
+}
+impl SeaweedWatcherConfig {
+    pub fn from_watcher_config(watcher_config: &WatcherConfig) -> Self {
+        Self {
+            id: watcher_config.id.to_string(),
+            name: watcher_config.name.to_string(),
+            location: watcher_config.location.to_string(),
+            team_name: watcher_config.team_name.to_string(),
+            db_name: watcher_config.db_name.to_string(),
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeaweedFile {
     pub id: String,
@@ -42,7 +76,7 @@ pub struct SeaweedFile {
     pub hash: String,
     pub fid: SeaweedFileId,
     pub size: u64,
-    pub watcher: WatcherConfig,
+    pub watcher: SeaweedWatcherConfig,
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {

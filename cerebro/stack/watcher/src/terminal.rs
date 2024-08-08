@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use cerebro_model::api::files::model::WatcherFormat;
 use clap::{Args, Parser, Subcommand};
 
 /// Cerebro: production file system watcher 
@@ -12,7 +13,7 @@ pub struct App {
     #[clap(
         long, 
         short = 'u', 
-        default_value = "http://api.dev.cerebro.localhost", 
+        default_value = "http://api.cerebro.localhost", 
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
@@ -35,13 +36,14 @@ pub struct App {
     #[clap(
         long, 
         short = 's', 
-        default_value = "http://fs.dev.cerebro.localhost", 
+        default_value = "http://fs.cerebro.localhost", 
         env = "CEREBRO_FS_URL"
     )]
     pub fs_url: String,
     /// SeaweedFS master node port
     #[clap(
         long, 
+        short = 'p',
         env = "CEREBRO_FS_PORT",
         default_value = "9333", 
     )]
@@ -68,22 +70,46 @@ pub enum Commands {
 #[derive(Debug, Args)]
 pub struct WatchArgs {
     /// File path to watch recursively for input folders
-    #[clap(long, short = 'p', default_value=".")]
+    #[clap(long, short = 'p')]
     pub path: PathBuf,
+    /// Watcher name 
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Watcher location 
+    #[clap(long, short = 'l')]
+    pub location: String,
+    /// Watcher team name 
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Watcher team database 
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+    /// Watcher input format 
+    #[clap(long, short = 'f')]
+    pub format: WatcherFormat,
+    /// Fastq file glob if format is 'fastq' 
+    #[clap(long, short = 'g')]
+    pub glob: Option<String>,
+    /// Cerebro FS non-default data center 
+    #[clap(long)]
+    pub data_center: Option<String>,
+    /// Cerebro FS non-default replication strategy
+    #[clap(long)]
+    pub replication: Option<String>,
     /// Interval for polling file path recursively in seconds
-    #[clap(long, short = 'i', default_value="3")]
+    #[clap(long, default_value="3")]
     pub interval: u64,
     /// Timeout in seconds to proceed after no further events on input folder
-    #[clap(long, short = 't', default_value="10")]
+    #[clap(long, default_value="10")]
     pub timeout: u64,
     /// Timeout interval for polling input folder recursively in seconds
-    #[clap(long, short = 'm', default_value="1")]
+    #[clap(long, default_value="1")]
     pub timeout_interval: u64,
     /// Slack API token
-    #[clap(long, short = 't', env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
+    #[clap(long, env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
     pub slack_token: Option<String>,
     /// Slack channel
-    #[clap(long, short = 'c', env = "CEREBRO_SLACK_CHANNEL", hide_env_values = true)]
+    #[clap(long, env = "CEREBRO_SLACK_CHANNEL", hide_env_values = true)]
     pub slack_channel: Option<String>,
 }
 

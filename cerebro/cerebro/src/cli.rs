@@ -22,12 +22,16 @@
 
 use std::fs::create_dir_all;
 
+// Trait imports for watcher configs `from_args`
+use cerebro_watcher::utils::WatcherConfigArgs;
+use cerebro_watcher::utils::UploadConfigArgs;
+
 use cerebro_workflow::taxon::TaxonThresholdConfig;
 use clap::Parser;
 use rayon::prelude::*;
 
 use cerebro::tools::password::hash_password;
-use cerebro::utils::init_logger;
+use cerebro::utils::{FromAppArgs, init_logger};
 use cerebro::terminal::{App, Commands, StackCommands};
 
 
@@ -182,7 +186,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Watcher( subcommand ) => {
             match subcommand {
                 cerebro_watcher::terminal::Commands::Slack( args ) => {
-                    let messenger = cerebro_watcher::slack::SlackMessenger::new(&args.token);
+                    let messenger = cerebro_watcher::slack::SlackClient::new(&args.token);
                     messenger.send(
                         &cerebro_watcher::slack::SlackMessage::new(&args.channel, &args.message)
                     ).expect("Failed to send message");
@@ -190,22 +194,24 @@ fn main() -> anyhow::Result<()> {
                 cerebro_watcher::terminal::Commands::Watch( args ) => {
                     
 
+                    
                     let slack_config = match (&args.slack_channel, &args.slack_token) {
                         (Some(channel), Some(token)) => Some(
-                            cerebro_watcher::watcher::SlackConfig { channel: channel.to_string(), token: token.to_string() }
+                            cerebro_watcher::slack::SlackConfig { channel: channel.to_string(), token: token.to_string() }
                         ),
-                        _ => None
+                        _ => {
+                            log::info!("No slack configuration provided to watcher");
+                            None
+                        }
                     };
 
-                    if let Err(error) = cerebro_watcher::watcher::watch_production(
-                        &args.path, 
-                        std::time::Duration::from_secs(args.interval),
-                        std::time::Duration::from_secs(args.timeout),
-                        std::time::Duration::from_secs(args.timeout_interval),
-                        slack_config
-                    ) {
-                        log::error!("Error: {error:?}");
-                    }
+                    let client_config = cerebro_watcher::watcher::CerebroClientConfig::from_args(&cli);
+                    let watcher_config = cerebro_model::api::files::model::WatcherConfig::from_args(args);
+                    let upload_config = cerebro_fs::client::UploadConfig::from_args(args);
+
+                    let watcher = cerebro_watcher::watcher::CerebroWatcher::new(watcher_config, client_config, upload_config, slack_config)?;
+                    watcher.watch(&args.path, args.glob.clone())?;
+                    
                 },
             }
         },

@@ -4,22 +4,24 @@ use anyhow::Result;
 use reqwest::StatusCode;
 
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::files::model::WatcherConfig;
+use cerebro_model::api::files::model::{SeaweedWatcherConfig, WatcherConfig};
 use cerebro_model::api::files::schema::RegisterFileSchema;
 use crate::{error::FileSystemError, hash::fast_file_hash, weed::weed_upload};
 
 
+#[derive(Clone, Debug)]
 pub struct FileSystemClient {
-    api_client: CerebroClient,
-    fs_url: String,
-    fs_port: String
+    pub api_client: CerebroClient,
+    pub fs_url: String,
+    pub fs_port: String
 }
 
+#[derive(Clone, Debug)]
 pub struct UploadConfig {
-    data_center: Option<String>,
-    max_mb: Option<i32>,
-    replication: Option<String>,
-    ttl: Option<String>,
+    pub data_center: Option<String>,
+    pub max_mb: Option<i32>,
+    pub replication: Option<String>,
+    pub ttl: Option<String>,
 }
 impl Default for UploadConfig {
     fn default() -> Self {
@@ -86,7 +88,7 @@ impl FileSystemClient {
         for file in files { 
 
             if !file.exists() {
-                return Err(FileSystemError::FileNotExist(file.display().to_string()));
+                return Err(FileSystemError::FileDoesNotExist(file.to_owned()));
             }
 
             log::info!("Generating file hash with BLAKE3: {}", file.display());
@@ -115,7 +117,7 @@ impl FileSystemClient {
                 hash: file_hash,
                 fid: upload_response.fid,
                 size: upload_response.size,
-                watcher: watcher_config.clone()
+                watcher: SeaweedWatcherConfig::from_watcher_config(&watcher_config)
             };
 
             log::info!("Registering file with Cerebro API");
@@ -128,12 +130,10 @@ impl FileSystemClient {
 
         Ok(())
     }
-    pub fn upload_illumina_pe(
+    pub fn upload_samples(
         &self,
         files: &HashMap<String, Vec<PathBuf>>,
-        team_name: &str,
-        db_name: &str,
-        run_id: Option<String>,
+        run_id: String,
         upload_config: UploadConfig,
         watcher_config: WatcherConfig,
     ) -> Result<(), FileSystemError> {
@@ -142,7 +142,7 @@ impl FileSystemClient {
 
             for file in files {
                 if !file.exists() {
-                    return Err(FileSystemError::FileNotExist(file.display().to_string()));
+                    return Err(FileSystemError::FileDoesNotExist(file.to_owned()));
                 }
 
                 log::info!("Generating file hash with BLAKE3: {}", file.display());
@@ -164,22 +164,23 @@ impl FileSystemClient {
 
                 let file_schema = RegisterFileSchema {
                     id: uuid::Uuid::new_v4().to_string(),
-                    run_id: run_id.clone(),
+                    run_id: Some(run_id.clone()),
                     sample_id: Some(sample_id.clone()),
                     date: Utc::now().to_string(),
                     name: upload_response.file_name,
                     hash: file_hash,
                     fid: upload_response.fid,
                     size: upload_response.size,
-                    watcher: watcher_config.clone()
+                    watcher: SeaweedWatcherConfig::from_watcher_config(&watcher_config)
                 };
+
                 log::info!("{:#?}", file_schema);
 
                 log::info!("Registering file with Cerebro API");
                 self.api_client.register_file(
                     file_schema,
-                    team_name,
-                    db_name
+                    &watcher_config.team_name,
+                    &watcher_config.db_name
                 )?;
             }
             

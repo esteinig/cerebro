@@ -15,7 +15,7 @@ pub struct App {
     #[clap(
         long, 
         short = 'u', 
-        default_value = "http://api.dev.cerebro.localhost", 
+        default_value = "http://api.cerebro.localhost", 
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
@@ -38,13 +38,14 @@ pub struct App {
     #[clap(
         long, 
         short = 's', 
-        default_value = "http://fs.dev.cerebro.localhost", 
+        default_value = "http://fs.cerebro.localhost", 
         env = "CEREBRO_FS_URL"
     )]
     pub fs_url: String,
     /// SeaweedFS master node port
     #[clap(
         long, 
+        short = 'p',
         env = "CEREBRO_FS_PORT",
         default_value = "9333", 
     )]
@@ -63,7 +64,7 @@ pub struct App {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     // Status of Cerebro API
-    PingApi(ApiStatusArgs),
+    Ping(ApiStatusArgs),
     // Login to Cerebro API
     Login(ApiLoginArgs),
     /// Upload to SeaweedFS and registration of files with Cerebro

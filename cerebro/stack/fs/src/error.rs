@@ -1,6 +1,6 @@
 use cerebro_client::error::HttpClientError;
 use thiserror::Error;
-use std::io::Error as IoError;
+use std::{io::Error as IoError, path::PathBuf};
 use serde_json::Error as SerdeError;
 use reqwest::StatusCode;
 
@@ -43,7 +43,7 @@ pub enum FileSystemError {
     #[error("failed to extract file name")]
     FileNameExtraction,
     #[error("file does not exist: {0}")]
-    FileNotExist(String),
+    FileDoesNotExist(PathBuf),
     #[error("unexpected response status: {0}")]
     UnexpectedResponseStatus(StatusCode),
     #[error("I/O error occurred")]

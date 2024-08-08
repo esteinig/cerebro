@@ -32,6 +32,7 @@ name = "cerebro"
 [dependencies]
 
 cerebro-watcher = { path = "../stack/watcher" }
+cerebro-fs = { path = "../stack/fs" }
 cerebro-workflow = { path = "../stack/workflow" }
 cerebro-client = { path = "../stack/client" }
 cerebro-report = { path = "../stack/report" }

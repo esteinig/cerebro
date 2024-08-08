@@ -83,27 +83,17 @@
     let selectedWatcherLocation = data.defaultWatcherLocation;
     let watcherLocationFiles: Record<string, SeaweedFile[]> = groupSeaweedFiles(data.files[selectedWatcherLocation], "run_id");
 
-    function changeTeam() {
-        
-    }
-    async function changeDatabase() {
-        await goto(`team=${selectedTeamId}&db=${selectedDatabaseId}`)
-    }
-
-    async function changeWatcherLocation(location: string) {
-        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&location=${location}`)
+    async function changeWatcherSurface() {
+        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&location=${selectedLocation}`)
     }
 
 
     let selectedTeamId: string = $page.params.team;
     let selectedDatabaseId: string = $page.params.db;
+    let selectedLocation: string = $page.params.location;
 
-    let selectedTeam: Team = $page.data.defaultTeam;
-    let selectedDatabase: TeamDatabase = $page.data.defaultDatabase;
     
     let databases: Array<TeamDatabase> = $page.data.defaultTeam.databases;
-
-    export let selectedView: string;
 
 
     let mediums = ['movies'];
@@ -118,7 +108,7 @@
             <div class="flex gap-4 mb-4">
                 <div class="w-full">
                     <p class="mb-1"><span class="opacity-60">Team</span></p>
-                    <select id="teamSelect" class="select" bind:value={selectedTeamId} on:change={changeTeam}>
+                    <select id="teamSelect" class="select" bind:value={selectedTeamId} on:change={changeWatcherSurface}>
                         {#each $page.data.userTeams as team}
                             <option value={team.id}>{team.name}</option>
                         {/each}
@@ -128,7 +118,7 @@
             <div class="flex gap-4 mb-6">
                 <div class="w-full">
                     <p class="mb-1"><span class="opacity-60">Database</span></p>
-                    <select id="projectSelect"  class="select" bind:value={selectedDatabaseId} on:change={changeDatabase}>
+                    <select id="projectSelect"  class="select" bind:value={selectedDatabaseId} on:change={changeWatcherSurface}>
                         {#each databases as db}
                             <option value={db.id}>{db.name}</option>
                         {/each}
@@ -138,7 +128,7 @@
             <div class="flex gap-4 mb-4">
                 <div class="w-full">
                     <p class="mb-1"><span class="opacity-60">Watcher Location</span></p>
-                    <select id="projectSelect"  class="select" bind:value={selectedWatcherLocation} on:change={() => changeWatcherLocation(location)}>
+                    <select id="projectSelect"  class="select" bind:value={selectedLocation} on:change={changeWatcherSurface}>
                         {#each Object.keys(data.files) as location }
                             <option value={location}>{location}</option>
                         {/each}

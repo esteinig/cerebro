@@ -73,32 +73,6 @@ impl Default for FilerConfig {
 }
 
 
-pub struct SlackTools {
-    client: SlackMessenger,
-    message: SlackMessageGenerator
-}
-
-#[derive(Clone, Debug)]
-pub struct CerebroClientConfig {
-    api_url: String,
-    api_token: Option<String>,
-    api_token_file: Option<PathBuf>,
-    _danger_invalid_certificate: bool,
-    fs_url: String,
-    fs_port: String,
-}
-impl Default for CerebroClientConfig {
-    fn default() -> Self {
-        Self {
-            api_url: String::from("http://api.dev.cerebro.localhost"),
-            api_token: std::env::var("CEREBRO_API_TOKEN").ok(),
-            api_token_file: None,
-            _danger_invalid_certificate: false,
-            fs_url: String::from("http://fs.dev.cerebro.localhost"),
-            fs_port: String::from("9333"),
-        }
-    }
-}
 
 /// Input validation and workflow launcher for production
 pub struct WatchFiler {
@@ -285,32 +259,6 @@ impl WatchFiler {
     }
 }
 
-pub struct SlackMessageGenerator {
-    pub channel: String
-}
-impl SlackMessageGenerator {
-    pub fn new(channel: String) -> Self {
-        Self { channel }
-    }
-    pub fn input_detected(&self, run_id: &str, watcher_name: &str, watcher_loc: &str) -> SlackMessage {
-        SlackMessage::new(&self.channel, &format!("[{watcher_name}@{watcher_loc}::{run_id} New run input detected"))
-    }
-    pub fn input_validation(&self, validation: &InputValidation, run_id: &str, watcher_name: &str, watcher_loc: &str) -> SlackMessage {
-        match validation.pass() {
-            true => SlackMessage::new(
-                &self.channel, 
-                &format!("[{watcher_name}@{watcher_loc}::{run_id}] Input validation passed")
-            ),
-            false => {
-                let msg = &format!("[{watcher_name}@{watcher_loc}::{run_id}] *Input validation failed*");
-                SlackMessage::from(&self.channel, vec![
-                    vec![SlackMessageSectionBlock::new(TextObject::markdown(msg))],
-                    validation.get_message_blocks(&run_id)
-                ].concat())
-            }
-        }
-    }
-}
 
 pub struct InputValidationChecks {
     pub pass: bool,
@@ -359,47 +307,6 @@ impl InputValidation {
     }
 }
 
-
-// A helper function to get paired files from a suitable glob match
-pub fn get_paired_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool) -> Result<HashMap<String, Vec<PathBuf>>, WatchFilerError> {
-   
-    let glob = wax::Glob::new(paired_glob).map_err(|_| WatchFilerError::GlobCreate(paired_glob.to_string()))?;
-
-    // Get potentially paired file paths into a HashMap
-    let mut paired_files = HashMap::new();
-    for entry in glob.walk_with_behavior(directory, match symlinks { true => wax::LinkBehavior::ReadTarget, false => wax::LinkBehavior::ReadFile }) {
-        let entry = entry.map_err(|_| WatchFilerError::GlobWalk(format!("{:?}", &directory)))?;
-        let file_path = match symlinks {
-            true => entry.path().canonicalize()?,
-            false => to_lexical_absolute(&entry.path().to_path_buf())?
-        };
-        let sample_id = entry.matched().get(1).ok_or_else(||WatchFilerError::GlobMatchSampleIdentifier(format!("{:?}", file_path)))?;
-        log::debug!("Sample sheet utility - [{:?}] - detected paired-end file: {:?}", sample_id, file_path);
-        paired_files.entry(sample_id.to_owned()).or_insert_with(Vec::new).push(file_path.to_path_buf());
-    } 
-
-    // Check the entries of the HashMap if single files are not allowed:
-    let paired_files = match single {
-        false => {
-            let mut sorted = HashMap::new();
-            for (sample_id, mut file_paths) in paired_files.clone().into_iter() {
-                if file_paths.len() != 2 {
-                    return Err(WatchFilerError::GlobPairedFiles(sample_id.to_string()))
-                }
-                // For paired files the entries are unsorted! Sort them here by their names 
-                // this will only work for traditional reverse/forward names like R1 and R2
-                file_paths.sort();
-                sorted.insert(sample_id, file_paths);
-            }
-            sorted
-        },
-        true => paired_files
-    };
-    
-    log::info!("{:#?}", paired_files);
-
-    Ok(paired_files)
-}
 
 
 fn to_lexical_absolute(path: &PathBuf) -> std::io::Result<PathBuf> {

@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::ffi::OsStr;
 use std::path::Path;
+use cerebro_watcher::watcher::CerebroClientConfig;
 use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
@@ -83,3 +84,20 @@ pub fn init_logger() {
         .init();
 }
 
+
+pub trait FromAppArgs {
+    fn from_args(app_args: &crate::terminal::App) -> cerebro_watcher::watcher::CerebroClientConfig;
+}
+
+impl FromAppArgs for cerebro_watcher::watcher::CerebroClientConfig {
+    fn from_args(app_args: &crate::terminal::App) -> cerebro_watcher::watcher::CerebroClientConfig {
+        CerebroClientConfig { 
+            api_url: app_args.url.clone(),
+            api_token: app_args.token.clone(),
+            api_token_file: app_args.token_file.clone(),
+            _danger_invalid_certificate: app_args.danger_invalid_certificate,
+            fs_url: app_args.fs_url.clone(),
+            fs_port: app_args.fs_port.clone()
+        }
+    }
+}

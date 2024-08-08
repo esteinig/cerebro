@@ -2,10 +2,58 @@ use std::process;
 use actix_web_httpauth::headers::authorization::Bearer;
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, Deserialize};
-
 use crate::error::WatcherError;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackConfig {
+    pub channel: String,
+    pub token: String
+}
 
+#[derive(Debug, Clone)]
+pub struct SlackTools {
+    pub client: SlackClient,
+    pub message: MessageGenerator
+}
+impl SlackTools {
+    pub fn from_config(slack_config: &SlackConfig) -> Self {
+        Self {
+            client: SlackClient::new(&slack_config.token),
+            message: MessageGenerator::new(&slack_config.channel)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageGenerator {
+    pub channel: String
+}
+impl MessageGenerator {
+    pub fn new(channel: &str) -> Self {
+        Self { channel: channel.to_string() }
+    }
+    pub fn watcher_setup(&self, watcher_name: &str, watcher_loc: &str) -> SlackMessage {
+        SlackMessage::new(&self.channel, &format!("[{watcher_name}@{watcher_loc}] New watcher has been initialised"))
+    }
+    pub fn input_detected(&self, run_id: &str, watcher_name: &str, watcher_loc: &str) -> SlackMessage {
+        SlackMessage::new(&self.channel, &format!("[{watcher_name}@{watcher_loc}::{run_id}] New run input detected"))
+    }
+    // pub fn input_validation(&self, validation: &InputValidation, run_id: &str, watcher_name: &str, watcher_loc: &str) -> SlackMessage {
+    //     match validation.pass() {
+    //         true => SlackMessage::new(
+    //             &self.channel, 
+    //             &format!("[{watcher_name}@{watcher_loc}::{run_id}] Input validation passed")
+    //         ),
+    //         false => {
+    //             let msg = &format!("[{watcher_name}@{watcher_loc}::{run_id}] *Input validation failed*");
+    //             SlackMessage::from(&self.channel, vec![
+    //                 vec![SlackMessageSectionBlock::new(TextObject::markdown(msg))],
+    //                 validation.get_message_blocks(&run_id)
+    //             ].concat())
+    //         }
+    //     }
+    // }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlackMessage {
@@ -67,12 +115,12 @@ pub struct SlackMessengerResponse {
 }
 
 #[derive(Debug, Clone)]
-pub struct SlackMessenger {
+pub struct SlackClient {
     pub url: String,
     pub token: String,
     pub client: reqwest::blocking::Client
 }
-impl SlackMessenger {
+impl SlackClient {
     pub fn new(token: &str) -> Self {
         let client = reqwest::blocking::Client::builder().build().expect("Failed to initialize Reqwest blocking client!");
         Self { url: String::from("https://slack.com/api/chat.postMessage"), token: token.to_string(), client }

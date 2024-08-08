@@ -133,7 +133,9 @@ pub fn get_command(
     let master_arg = master.unwrap_or_else(|| "localhost".to_owned())
                             .replace("http://", "")
                             .replace("https://", "");
+
     let master_port = port.unwrap_or_else(|| "9333".to_owned());
+
     command_parts.push(format!("-master={}:{}", master_arg, master_port));
 
     if let Some(mb) = max_mb {
