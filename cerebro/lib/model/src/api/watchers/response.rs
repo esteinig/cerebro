@@ -1,25 +1,25 @@
 use serde::{Deserialize, Serialize};
 
-use super::model::ProductionPipeline;
+use super::model::ProductionWatcher;
 
 #[derive(Serialize, Deserialize)]
-pub struct RegisterPipelineResponse {
+pub struct RegisterWatcherResponse {
     pub status: String,
     pub message: String,
     pub data: Option<String>
 }
-impl RegisterPipelineResponse {
+impl RegisterWatcherResponse {
     pub fn success(id: &str) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registered successfully"),
+            message: String::from("Watcher registered successfully"),
             data: Some(id.to_string())
         }
     }
     pub fn conflict(id: &str, name: &str, location: &str) -> Self {
         Self {
             status: String::from("fail"),
-            message: format!("Pipeline with identifier '{id}' or name '{name}' and location '{location}' already exists in database"),
+            message: format!("Watcher with identifier '{id}' or name '{name}' and location '{location}' already exists in database"),
             data: Some(id.to_string())
         }
     }
@@ -33,23 +33,23 @@ impl RegisterPipelineResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ListPipelinesResponse {
+pub struct ListWatchersResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<ProductionPipeline>>
+    pub data: Option<Vec<ProductionWatcher>>
 }
-impl ListPipelinesResponse {
-    pub fn success(pipelines: Vec<ProductionPipeline>) -> Self {
+impl ListWatchersResponse {
+    pub fn success(watchers: Vec<ProductionWatcher>) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registrations found in database"),
-            data: Some(pipelines)
+            message: String::from("Watcher registrations found in database"),
+            data: Some(watchers)
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No pipeline registrations found in database"),
+            message: String::from("No watcher registrations found in database"),
             data: None
         }
     }
@@ -63,23 +63,23 @@ impl ListPipelinesResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeletePipelineResponse {
+pub struct DeleteWatcherResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<ProductionPipeline>
+    pub data: Option<ProductionWatcher>
 }
-impl DeletePipelineResponse {
-    pub fn success(pipeline: ProductionPipeline) -> Self {
+impl DeleteWatcherResponse {
+    pub fn success(watchers: ProductionWatcher) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registrations deleted from database"),
-            data: Some(pipeline)
+            message: String::from("Watcher registrations deleted from database"),
+            data: Some(watchers)
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No pipeline registrations found in database"),
+            message: String::from("No watcher registrations found in database"),
             data: None
         }
     }

@@ -48,6 +48,8 @@ pub enum HttpClientError {
     /// Represents failure to use a valid sample identifier
     #[error("sample identifier is an empty string")]
     ModelSampleIdentifierEmpty,
-    #[error("pipeline identifier could not be found")]
-    PipeineIdentifierNotFound
+    #[error("pipeline identifier could not be found (--id | --json)")]
+    PipeineIdentifierArgNotFound,
+    #[error("watcher identifier could not be found (--id | --json)")]
+    WatcherIdentifierArgNotFound
 }

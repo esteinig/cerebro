@@ -3,11 +3,12 @@ use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{ApiPipelineCommands, ApiProjectCommands, App, Commands};
+use cerebro_client::terminal::{ApiPipelineCommands, ApiProjectCommands, ApiWatcherCommands, App, Commands};
 
 use cerebro_workflow::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
@@ -109,10 +110,46 @@ fn main() -> anyhow::Result<()> {
                     let pipleine_id = match (args.json.clone(), args.id.clone()) {
                         (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
                         (None, Some(id)) => id.to_owned(),
-                        (None, None) => return Err(HttpClientError::PipeineIdentifierNotFound.into())
+                        _ => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
                     };
 
                     client.delete_pipeline(&pipleine_id, &args.team_name, &args.db_name)?;
+                },
+            }
+                        
+        },
+        Commands::Watcher(subcommand) => {
+            match subcommand {
+                ApiWatcherCommands::Register( args ) => {
+                    
+                    let register_watcher_schema = RegisterWatcherSchema::new(
+                        &args.name, 
+                        &args.location
+                    );
+
+                    client.register_watcher(
+                        &register_watcher_schema,
+                        &args.team_name, 
+                        &args.db_name,
+                    )?;
+
+                    if let Some(path) = &args.json {
+                        register_watcher_schema.to_json(path)?;
+                    }
+                },
+                ApiWatcherCommands::List( args ) => {
+                    
+                    client.get_watchers(&args.team_name, &args.db_name, true)?;
+                },
+                ApiWatcherCommands::Delete( args ) => {
+                    
+                    let watcher_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterWatcherSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id.to_owned(),
+                        (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
+                    };
+
+                    client.delete_watcher(&watcher_id, &args.team_name, &args.db_name)?;
                 },
             }
                         

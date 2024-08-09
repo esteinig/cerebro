@@ -25,7 +25,12 @@ export const getDateTimeStringUtc = (utcString: string, time: boolean = true, se
     }
 }
 
-export const isWithinTimeLimit = (datetimeStr: string, minutes: number): boolean => {
+export const isWithinTimeLimit = (datetimeStr: string | undefined, minutes: number): boolean => {
+
+    if (datetimeStr === undefined) {
+        return false
+    }
+
     // Parse the datetime string to a Date object
     const parsedDate = new Date(datetimeStr);
 

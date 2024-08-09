@@ -1659,7 +1659,12 @@ export type TimelineField = {
     
 }
 
-
+/**
+ * 
+ * Cerebro watcher configuration model
+ * 
+ * @file lib/utils/types
+ */
 export type WatcherConfig = {
     id: string,
     name: string,
@@ -1668,6 +1673,12 @@ export type WatcherConfig = {
     db_name: string
 }
 
+/**
+ * 
+ * Cerebro FS file model
+ * 
+ * @file lib/utils/types
+ */
 export type SeaweedFile = {
     id: string,
     run_id: string | null,
@@ -1679,7 +1690,6 @@ export type SeaweedFile = {
     size: number,
     watcher: WatcherConfig,
 }
-
 
 /**
  * 
@@ -1693,7 +1703,12 @@ export enum Pipeline {
     CultureIdentification = "Culture Identification"
 }
 
-
+/**
+ * 
+ * Cerebro production pipeline model
+ * 
+ * @file lib/utils/types
+ */
 export type ProductionPipeline = {
     id: string,
     date: string,
@@ -1704,22 +1719,46 @@ export type ProductionPipeline = {
 }
 
 /**
- * Status and data returned in successful user endpoint response (single user)
+ * 
+ * Cerebro production watcher model
  * 
  * @file lib/utils/types
- * @param {string} data - Response data with user
+ */
+export type ProductionWatcher = {
+    id: string,
+    date: string,
+    name: string,
+    location: string,
+    last_ping: string,
+}
+
+/**
+ * Status and data returned in successful files endpoint response
+ * 
+ * @file lib/utils/types
+ * @param {Array<SeaweedFile>} data - Response data with files
  */
 export type FileResponseData = {
     data: SeaweedFile[]
 } & ErrorResponseData
 
-
 /**
- * Status and data returned in successful user endpoint response (single user)
+ * Status and data returned in successful pipeline endpoint response 
  * 
  * @file lib/utils/types
- * @param {string} data - Response data with user
+ * @param {Array<ProductionPipeline>} data - Response data with pipelines
  */
 export type PipelineResponseData = {
     data: ProductionPipeline[]
 } & ErrorResponseData
+
+/**
+ * Status and data returned in successful watcher endpoint response 
+ * 
+ * @file lib/utils/types
+ * @param {Array<ProductionWatcher>} data - Response data with watchers
+ */
+export type WatcherResponseData = {
+    data: ProductionWatcher[]
+} & ErrorResponseData
+

@@ -1,19 +1,19 @@
-use cerebro_client::client::CerebroClient;
-use cerebro_fs::client::{FileSystemClient, UploadConfig};
-use cerebro_model::api::files::model::{WatcherFormat, WatcherConfig};
-use notify::EventKind;
-use notify::event::CreateKind;
+
+
+
 use notify::{Config, PollWatcher, RecursiveMode, Watcher};
-use std::collections::HashMap;
+use cerebro_fs::client::{FileSystemClient, UploadConfig};
+use cerebro_model::api::files::model::WatcherConfig;
+use cerebro_client::client::CerebroClient;
+use notify::event::CreateKind;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use notify::EventKind;
 use std::thread;
-use serde::{Serialize, Deserialize};
 
-use crate::error::WatcherError;
-use crate::slack::{SlackClient, SlackConfig, SlackTools};
-use crate::terminal::{App, WatchArgs};
 use crate::utils::FileGetter;
+use crate::error::WatcherError;
+use crate::slack::{SlackConfig, SlackTools};
 
 
 #[derive(Clone, Debug)]

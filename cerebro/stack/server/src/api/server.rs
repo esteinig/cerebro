@@ -17,6 +17,7 @@ use crate::api::files::handler::files_config;
 use crate::terminal::{App as Cli, Commands};
 
 use super::pipelines::handler::pipelines_config;
+use super::watchers::handler::watchers_config;
 
 /*
 =============================
@@ -160,11 +161,13 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(app_config)
                     // Email authentication configuration for global activation
                     .configure(|cfg| auth_config(cfg, &config))
+                    // Endpoint configurations
                     .configure(user_config)
                     .configure(team_config)
                     .configure(logs_config)
                     .configure(files_config)
                     .configure(pipelines_config)
+                    .configure(watchers_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
                     .wrap(Logger::default())

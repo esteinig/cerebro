@@ -58,6 +58,10 @@ pub enum Commands {
     GetTaxa(ApiTaxaArgs),
     /// Summary of quality control for requested models or samples
     GetQuality(ApiQualityArgs),
+    
+    /// CRUD operations for production watchers
+    #[clap(subcommand)]
+    Watcher(ApiWatcherCommands),
     /// CRUD operations for production pipelines
     #[clap(subcommand)]
     Pipeline(ApiPipelineCommands),
@@ -197,7 +201,7 @@ pub enum ApiPipelineCommands {
     Register(ApiPipelineRegisterArgs),
     /// List registered production pipelines
     List(ApiPipelineListArgs),
-    /// List registered production pipelines
+    /// Delete a registered production pipeline
     Delete(ApiPipelineDeleteArgs)
 }
 
@@ -225,6 +229,62 @@ pub struct ApiPipelineRegisterArgs {
 
 #[derive(Debug, Args)]
 pub struct ApiPipelineListArgs {
+    /// Team name for pipeline listing
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for pipeline listing
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct ApiWatcherDeleteArgs {
+    /// Pipeline identifier generated during registration
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Team name for pipeline deletion
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for watcher deletion
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ApiWatcherCommands {
+    /// Register a new production watcher
+    Register(ApiWatcherRegisterArgs),
+    /// List registered production watchers
+    List(ApiWatcherListArgs),
+    /// Delete a registered production watcher
+    Delete(ApiWatcherDeleteArgs)
+}
+#[derive(Debug, Args)]
+pub struct ApiWatcherRegisterArgs {
+    /// Pipeline name for registration
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Pipeline location for registration
+    #[clap(long, short = 'l')]
+    pub location: String,
+    /// Team name for pipeline registration
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for pipeline registration
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+    /// Output registration for future reference (.json)
+    #[clap(long, short = 'j')]
+    pub json: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct ApiWatcherListArgs {
     /// Team name for pipeline listing
     #[clap(long, short = 't')]
     pub team_name: String,

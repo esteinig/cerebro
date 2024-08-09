@@ -3,7 +3,7 @@ use futures::TryStreamExt;
 use mongodb::{bson::{doc, from_document}, Collection};
 use actix_web::{delete, get, post, web, HttpResponse};
 
-use cerebro_model::api::{pipelines::{model::ProductionPipeline, response::{DeletePipelineResponse, ListPipelinesResponse, RegisterPipelineResponse}, schema::RegisterPipelineSchema}, teams::model::DatabaseId};
+use cerebro_model::api::{auth::response::UserRoleResponse, pipelines::{model::ProductionPipeline, response::{DeletePipelineResponse, ListPipelinesResponse, RegisterPipelineResponse}, schema::RegisterPipelineSchema}, teams::model::DatabaseId, utils::HttpMethod};
 use cerebro_model::api::users::model::Role;
 
 use crate::api::{auth::jwt, utils::TeamDatabaseInternal};
@@ -23,27 +23,30 @@ struct PipelineRegisterQuery {
 async fn register_pipeline(data: web::Data<AppState>, schema: web::Json<RegisterPipelineSchema>, query: web::Query<PipelineRegisterQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
     
     if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(serde_json::json!({
-            "status": "fail", "message": "You do not have permission to access the file data", "data": serde_json::json!({})
-        }))
+        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/pipeline/register", HttpMethod::Post))
     }
 
     let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
         Ok(db) => db, Err(error_response) => return error_response
     };
 
-    let files_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Pipelines);
+    let pipeline_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Pipelines);
     
-    match files_collection
-        .find_one(doc! { "id": &schema.id }, None)
+    match pipeline_collection
+        .find_one(doc! {
+            "$or": [
+                { "id": &schema.id },
+                { "name": &schema.name, "location": &schema.location }
+            ]
+        }, None)
         .await
     {
         Ok(None) => {},
-        Ok(Some(_)) => return HttpResponse::Conflict().json(RegisterPipelineResponse::conflict(&schema.id)),
+        Ok(Some(_)) => return HttpResponse::Conflict().json(RegisterPipelineResponse::conflict(&schema.id, &schema.name, &schema.location)),
         Err(err) => return HttpResponse::InternalServerError().json(RegisterPipelineResponse::server_error(err.to_string())),
     }
 
-    let result = files_collection.insert_one(ProductionPipeline::from_schema(&schema), None).await;
+    let result = pipeline_collection.insert_one(ProductionPipeline::from_schema(&schema), None).await;
 
     match result {
         Ok(_) => HttpResponse::Ok().json(RegisterPipelineResponse::success(&schema.id)),
@@ -64,9 +67,7 @@ struct PipelineListQuery {
 async fn list_pipelines(data: web::Data<AppState>, query: web::Query<PipelineListQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
     
     if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(serde_json::json!({
-            "status": "fail", "message": "You do not have permission to access file data", "data": serde_json::json!({})
-        }))
+        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/pipeline", HttpMethod::Get))
     }
 
     let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
@@ -113,18 +114,17 @@ struct PipelineDeleteQuery {
 async fn delete_pipeline(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<PipelineDeleteQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
     
     if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(serde_json::json!({
-            "status": "fail", "message": "You do not have permission to access the file data", "data": serde_json::json!({})
-        }))
+        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/pipeline/{id}", HttpMethod::Delete))
     }
-
+    
     let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
         Ok(db) => db, Err(error_response) => return error_response
     };
 
-    let files_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Pipelines);
+    let pipeline_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Pipelines);
     
-    match files_collection
+
+    match pipeline_collection
         .find_one_and_delete(
             doc! { "id":  &id.into_inner()}, None)
         .await

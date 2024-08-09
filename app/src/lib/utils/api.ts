@@ -232,6 +232,9 @@ interface PipelineRoutes {
     getPipelines: string
 }
 
+interface WatcherRoutes {
+    getWatchers: string
+}
 
 
 /**
@@ -250,6 +253,7 @@ export class Routes {
     logs: LogsRoutes;
     files: FilesRoutes;
     pipelines: PipelineRoutes;
+    watchers: WatcherRoutes;
     cerebro: CerebroRoutes;
 
     constructor(apiUrl: string) {
@@ -260,6 +264,7 @@ export class Routes {
         let logsRoute = `${apiUrl}/logs`;
         let filesRoute = `${apiUrl}/files`;
         let pipelinesRoute = `${apiUrl}/pipeline`;
+        let watcherRoute = `${apiUrl}/watcher`;
         let cerebroRoute = `${apiUrl}/cerebro`;
 
         this.auth = {
@@ -312,12 +317,14 @@ export class Routes {
         this.logs = {
             admin: `${logsRoute}/admin`
         }
-
         this.files = {
             getFiles: `${filesRoute}`
         }
         this.pipelines = {
             getPipelines: `${pipelinesRoute}`
+        }
+        this.watchers = {
+            getWatchers: `${watcherRoute}`
         }
     }
 }

@@ -7,3 +7,4 @@ pub mod utils;
 pub mod config;
 pub mod files;
 pub mod pipelines;
+pub mod watchers;

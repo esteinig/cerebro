@@ -10,6 +10,11 @@ use cerebro_model::api::pipelines::response::DeletePipelineResponse;
 use cerebro_model::api::pipelines::response::ListPipelinesResponse;
 use cerebro_model::api::pipelines::response::RegisterPipelineResponse;
 use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::watchers::model::ProductionWatcher;
+use cerebro_model::api::watchers::response::DeleteWatcherResponse;
+use cerebro_model::api::watchers::response::ListWatchersResponse;
+use cerebro_model::api::watchers::response::RegisterWatcherResponse;
+use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use std::path::PathBuf;
 use itertools::Itertools;
 use reqwest::blocking::Client;
@@ -55,7 +60,13 @@ pub struct CerebroRoutes {
 
     pub team_pipelines_register: String,
     pub team_pipelines_list: String,
-    pub team_pipelines_delete: String
+    pub team_pipelines_delete: String,
+    pub team_pipelines_ping: String,
+
+    pub team_watchers_register: String,
+    pub team_watchers_list: String,
+    pub team_watchers_delete: String,
+    pub team_watchers_ping: String
 }
 impl CerebroRoutes {
     pub fn new(url: &str) -> Self  {
@@ -75,6 +86,11 @@ impl CerebroRoutes {
             team_pipelines_register: format!("{}/pipeline/register", url),
             team_pipelines_list: format!("{}/pipeline", url),
             team_pipelines_delete: format!("{}/pipeline", url),
+            team_pipelines_ping: format!("{}/pipeline", url),
+            team_watchers_register: format!("{}/watcher/register", url),
+            team_watchers_list: format!("{}/watcher", url),
+            team_watchers_delete: format!("{}/watcher", url),
+            team_watchers_ping: format!("{}/watcher", url),
         }
     }
 }
@@ -509,7 +525,7 @@ impl CerebroClient {
 
         match status.is_success() {
             true => {
-                log::info!("Pipeline registered successfully!");
+                println!("{}", register_pipeline_schema.id)
             },
             false => {
                 let error_response: RegisterPipelineResponse = response.json().map_err(|_| {
@@ -604,6 +620,124 @@ impl CerebroClient {
                     HttpClientError::ResponseFailure(
                         status, 
                         String::from("failed to extract pipeline response data"))
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
+            }
+        }
+    }
+    pub fn register_watcher(&self, register_watcher_schema: &RegisterWatcherSchema, team_name: &str, db_name: &str) -> Result<(), HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+    
+        let response = self.client.post(
+            format!("{}?db={}", self.routes.team_watchers_register, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .json(register_watcher_schema)
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                println!("{}", register_watcher_schema.id)
+            },
+            false => {
+                let error_response: RegisterWatcherResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract watcher response data")
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status,
+                    error_response.message
+                ))
+            }
+        }       
+        Ok(())
+    }
+    pub fn get_watchers(&self, team_name: &str, db_name: &str, print: bool) -> Result<Vec<ProductionWatcher>, HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+        
+        let response = self.client.get(
+            format!("{}?db={}", self.routes.team_watchers_list, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                let response: ListWatchersResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract response data")
+                    )
+                })?;
+                let data = response.data.ok_or(
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("obtained watcher registrations but no watcher data was returned"))
+                )?;
+                if print {
+                    for watcher in &data {
+                        println!("{}\t{}\t{}\t{}\t{}", watcher.id, watcher.date, watcher.name, watcher.location, watcher.last_ping)
+                    }
+                }
+                Ok(data)
+            },
+            false => {
+                let error_response: ListWatchersResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract watcher response data")
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
+            }
+        }       
+    }
+    pub fn delete_watcher(&self, pipeline_id: &str, team_name: &str, db_name: &str) -> Result<ProductionWatcher, HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+
+        let response = self.client.delete(
+            format!("{}/{}?db={}", self.routes.team_pipelines_delete, pipeline_id, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                log::info!("watcher registration deleted from Cerebro API ({pipeline_id})");
+                let response: DeleteWatcherResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract response data")
+                    )
+                })?;
+                response.data.ok_or(
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("deleted watcher registration but no watcher data was returned"))
+                )
+            },
+            false => {
+                let error_response: DeletePipelineResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract watcher response data"))
                 })?;
                 return Err(HttpClientError::ResponseFailure(
                     status, 

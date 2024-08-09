@@ -4,7 +4,7 @@
     import { onMount } from 'svelte';
     import { invalidate } from '$app/navigation';
 
-	import type { ProductionPipeline, ProjectCollection, SeaweedFile, TeamDatabase } from "$lib/utils/types";
+	import type { ProductionPipeline, ProductionWatcher, ProjectCollection, SeaweedFile, TeamDatabase } from "$lib/utils/types";
 	import { getDateTimeStringUtc, isWithinTimeLimit } from "$lib/utils/helpers";
     import { TreeView, TreeViewItem, type TreeViewNode } from '@skeletonlabs/skeleton';
 	import PipelineIndicator from "$lib/general/icons/PipelineIndicator.svelte";
@@ -93,7 +93,7 @@
     let selectedWatcherLocationFiles: Record<string, SeaweedFile[]> = groupSeaweedFiles(data.files[selectedWatcherLocation], "run_id");  // files can be undefined
 
     async function changeWatcherSurface() {
-        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&location=${selectedLocation}`)
+        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&location=${selectedWatcher}`)
     }
 
     let selectedTeamId: string = $page.params.team;
@@ -117,9 +117,13 @@
     let specimenTags: string[] = ["CSF", "BLD", "RES"]
     
     let pipelineSelection: ProductionPipeline[] = data.registeredPipelines;
-    let selectedPipeline: ProductionPipeline = pipelineSelection[0];
+    let selectedPipeline: ProductionPipeline | undefined = pipelineSelection[0];
+
+    let watcherSelection: ProductionWatcher[] = data.registeredWatchers;
+    let selectedWatcher: ProductionWatcher | undefined = watcherSelection[0];
     
-    $: pipelineIsActive = isWithinTimeLimit(selectedPipeline.last_ping, 30);
+    $: pipelineIsActive = isWithinTimeLimit(selectedPipeline?.last_ping, 30);
+    $: watcherIsActive = isWithinTimeLimit(selectedWatcher?.last_ping, 30);
 
 </script>
 
@@ -128,7 +132,7 @@
     <div class="col-span-1">
         <div class="grid grid-rows-2 md:grid-rows-2 gap-y-6">
             <div class="row-span-1">
-                <p class="opacity-60 mb-2">Sentinel selection</p>
+                <p class="opacity-60 mb-2">Watcher selection</p>
                 <div class="border p-4 border-primary-500 gap-4 rounded-2xl">
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
@@ -152,10 +156,10 @@
                     </div>
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
-                            <p class="mb-1"><span class="opacity-60">Sentinel</span></p>
-                            <select id="watcherSelect" class="select" bind:value={selectedLocation} on:change={changeWatcherSurface}>
-                                {#each Object.keys(data.files) as location }
-                                    <option value={location}>{location}</option>
+                            <p class="mb-1"><span class="opacity-60">Watcher</span></p>
+                            <select id="watcherSelect" class="select" bind:value={selectedWatcher} on:change={changeWatcherSurface}>
+                                {#each watcherSelection as watcher}
+                                    <option value={watcher}>{watcher.name} @ {watcher.location}</option>
                                 {/each}
                             </select>
                         </div>
@@ -163,7 +167,7 @@
                 </div>
             </div>
             <div class="row-span-1">
-                <p class="opacity-60 mb-2">Cerebro configuration</p>
+                <p class="opacity-60 mb-2">Pipeline selection</p>
                 <div class="border p-4 border-primary-500 gap-4 rounded-2xl">
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
@@ -175,9 +179,8 @@
                             </select>
                             <div class="my-2 ml-1 inline-flex items-center">
                                 <PipelineIndicator size=0.6 divClass="mt-0.5" active={pipelineIsActive}></PipelineIndicator>
-                                <span class="text-sm opacity-60 ml-1.5">{selectedPipeline.pipeline} Workflow</span>
+                                <span class="text-sm opacity-60 ml-1.5">{selectedPipeline ? selectedPipeline.pipeline : "No"} Workflow</span>
                             </div>
-                            
                         </div>
                     </div>
                     <div class="flex gap-4 mb-4">

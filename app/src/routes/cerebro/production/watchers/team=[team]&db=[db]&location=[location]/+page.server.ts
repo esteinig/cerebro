@@ -1,4 +1,4 @@
-import type { ErrorResponseData, Team, TeamDatabase, SeaweedFile, FileResponseData, ProjectCollection, PipelineResponseData, ProductionPipeline } from "$lib/utils/types";
+import type { ErrorResponseData, Team, TeamDatabase, SeaweedFile, FileResponseData, ProjectCollection, PipelineResponseData, ProductionPipeline, ProductionWatcher, WatcherResponseData } from "$lib/utils/types";
 import { env as private_env } from "$env/dynamic/private";
 import { error } from "@sveltejs/kit";
 import CerebroApi from "$lib/utils/api";
@@ -113,8 +113,28 @@ const fetchPipelines = async(fetch: Function, requestInit: RequestInit, db_param
             throw error(pipelinesResponse.status, errorResponse.message)
         }
     }
-    console.log(pipelines)
     return pipelines
+}
+
+const fetchWatchers = async(fetch: Function, requestInit: RequestInit, db_param: string): Promise<ProductionWatcher[]> => {
+    
+    let watchers: ProductionWatcher[] = [];
+
+    let watchersResponse: Response = await fetch(
+        `${api.routes.watchers.getWatchers}?db=${db_param}`, requestInit
+    );
+    if (watchersResponse.ok) {
+        let watchersResponseData: WatcherResponseData = await watchersResponse.json();
+        watchers = watchersResponseData.data;
+    } else {
+        if (watchersResponse.status == 404) {  // No watchers found returns empty for page to render
+            return watchers
+        } else {
+            let errorResponse: ErrorResponseData = await watchersResponse.json();
+            throw error(watchersResponse.status, errorResponse.message)
+        }
+    }
+    return watchers
 }
 
 
@@ -141,20 +161,20 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     let defaultTeam: Team = currentUserTeams[0];
 
     if (!defaultTeam.databases.length){
-        throw error(404, `No database has been created for this team (${defaultTeam.name})`)
+        throw error(404, `No database has been created for team (${defaultTeam.name})`)
     }
 
     let defaultDatabase: TeamDatabase = defaultTeam.databases[0];
 
-
     if (!defaultDatabase.projects.length){
-        throw error(404, `No database projects has been created for this team (${defaultTeam.name}) and database (${defaultDatabase.name})`)
+        throw error(404, `No database projects have been created for team (${defaultTeam.name}) and database (${defaultDatabase.name})`)
     }
 
     let defaultProject: ProjectCollection = defaultDatabase.projects[0];
 
     let files = await fetchFiles(fetch, fetchDataRequestInit, params.db);
-    let registeredPipelines = await fetchPipelines(fetch, fetchDataRequestInit, params.db)
+    let registeredPipelines = await fetchPipelines(fetch, fetchDataRequestInit, params.db);
+    let registeredWatchers = await fetchWatchers(fetch, fetchDataRequestInit, params.db);
 
     let filesWatcherLocation = groupSeaweedFiles(files, "watcher_location");
     let defaultWatcherLocation: string = "(no watchers available)";
@@ -167,6 +187,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     return { 
         files: filesWatcherLocation,
         registeredPipelines: registeredPipelines,
+        registeredWatchers: registeredWatchers,
         defaultTeam: defaultTeam,
         defaultDatabase: defaultDatabase,
         defaultProject: defaultProject,

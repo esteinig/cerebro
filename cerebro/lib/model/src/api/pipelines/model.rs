@@ -1,13 +1,5 @@
 use serde::{Serialize, Deserialize};
-
 use super::schema::RegisterPipelineSchema;
-
-/*
-========================
-File system and storage
-========================
-*/
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum Pipeline {
@@ -36,15 +28,15 @@ pub struct ProductionPipeline {
     pub pipeline: Pipeline
 }
 impl ProductionPipeline {
-    pub fn from_schema(register_production_pipeline_schema: &RegisterPipelineSchema) -> Self {
+    pub fn from_schema(schema: &RegisterPipelineSchema) -> Self {
+        
         Self {
-            id: register_production_pipeline_schema.id.clone(),
-            date: register_production_pipeline_schema.date.clone(),
-            name: register_production_pipeline_schema.name.clone(),
-            location: register_production_pipeline_schema.location.clone(),
-            last_ping: register_production_pipeline_schema.last_ping.clone(),
-            pipeline: register_production_pipeline_schema.pipeline.clone(),
-            
+            id: schema.id.clone(),
+            date: schema.date.clone(),
+            name: schema.name.clone(),
+            location: schema.location.clone(),
+            last_ping: schema.last_ping.clone(),
+            pipeline: schema.pipeline.clone(),
         }
     }
 }
