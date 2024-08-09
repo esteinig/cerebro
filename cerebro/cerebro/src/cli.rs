@@ -22,6 +22,8 @@
 
 use std::fs::create_dir_all;
 
+use cerebro_client::error::HttpClientError;
+use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
 // Trait imports for watcher configs `from_args`
 use cerebro_watcher::utils::WatcherConfigArgs;
 use cerebro_watcher::utils::UploadConfigArgs;
@@ -235,7 +237,43 @@ fn main() -> anyhow::Result<()> {
                 },
                 cerebro_client::terminal::Commands::PingStatus(_) => {
                     client.ping_status()?
-                },            
+                },     
+                cerebro_client::terminal::Commands::Pipeline( subcommand ) => {
+                    match subcommand {
+                        cerebro_client::terminal::ApiPipelineCommands::Register( args ) => {
+                            
+                            let register_pipeline_schema = RegisterPipelineSchema::new(
+                                &args.name, 
+                                &args.location, 
+                                args.pipeline.clone()
+                            );
+        
+                            client.register_pipeline(
+                                &register_pipeline_schema,
+                                &args.team_name, 
+                                &args.db_name,
+                            )?;
+        
+                            if let Some(path) = &args.json {
+                                register_pipeline_schema.to_json(path)?;
+                            }
+                        },
+                        cerebro_client::terminal::ApiPipelineCommands::List( args ) => {
+                    
+                            client.get_pipelines(&args.team_name, &args.db_name, true)?;
+                        },
+                        cerebro_client::terminal::ApiPipelineCommands::Delete( args ) => {
+                            
+                            let pipleine_id = match (args.json.clone(), args.id.clone()) {
+                                (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                                (None, Some(id)) => id.to_owned(),
+                                (None, None) => return Err(HttpClientError::PipeineIdentifierNotFound.into())
+                            };
+        
+                            client.delete_pipeline(&pipleine_id, &args.team_name, &args.db_name)?;
+                        },
+                    }
+                },               
                 cerebro_client::terminal::Commands::UploadSample( args ) => {
                     
                     let mut cerebro_models = Vec::new();

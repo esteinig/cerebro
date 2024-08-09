@@ -51,8 +51,8 @@ fn main() -> Result<()> {
                 &args.db_name,
                 &args.run_id,
                 &args.sample_id,
-                UploadConfig::default(),
-                WatcherConfig::default()
+                UploadConfig::default(),  // TODO
+                WatcherConfig::default()  // TODO
             )?;
         },
         Commands::Download( args ) => {
@@ -61,12 +61,22 @@ fn main() -> Result<()> {
         Commands::Stage( args ) => {
             
         },
-        Commands::List( args ) => {
-            api_client.list_files(
+        Commands::Delete( args ) => {
+            fs_client.delete_files(
+                &args.file_ids,  
                 &args.team_name,
                 &args.db_name,
+                args.run_id.clone()
+            )?;
+        },
+        Commands::List( args ) => {
+            api_client.get_files(
+                &args.team_name,
+                &args.db_name,
+                args.run_id.clone(),
                 args.page,
                 args.limit,
+                true
             )?;
         },
 

@@ -18,13 +18,14 @@ pub struct App {
 pub enum Commands {
     /// Parse and process pipeline results
     Process(PipelineProcessArgs),
+    
     /// Quality control table from processed results
     Quality(PipelineQualityArgs),
-
     /// Taxa table from processed results
     Taxa(PipelineTaxaArgs),
     /// Create a sample sheet from the input directory
     SampleSheet(PipelineSampleSheetArgs),
+
     #[clap(subcommand)]
     /// Utility tools for pipeline and stack
     Tools(ToolCommands),

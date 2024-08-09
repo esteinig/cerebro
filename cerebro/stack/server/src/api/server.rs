@@ -16,6 +16,8 @@ use crate::api::files::handler::files_config;
 
 use crate::terminal::{App as Cli, Commands};
 
+use super::pipelines::handler::pipelines_config;
+
 /*
 =============================
 MAIN ASYNC LAUNCH THROUCH CLI
@@ -162,6 +164,7 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(team_config)
                     .configure(logs_config)
                     .configure(files_config)
+                    .configure(pipelines_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
                     .wrap(Logger::default())

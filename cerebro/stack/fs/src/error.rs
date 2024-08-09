@@ -52,6 +52,6 @@ pub enum FileSystemError {
     WeedDownloadError(#[from] WeedDownloadError),
     #[error("error during file upload")]
     WeedUploadError(#[from] WeedUploadError),
-    #[error("error during file registration")]
+    #[error("error during file request")]
     HttpClientError(#[from] HttpClientError),
 }

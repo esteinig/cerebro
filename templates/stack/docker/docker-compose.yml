@@ -94,7 +94,7 @@ services:
     restart: unless-stopped
     {{#if dev}}
     {{#if trigger}}
-    command: bash -c 'touch /usr/src/cerebro/.trigger && cargo watch -w /usr/src/cerebro/.trigger -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"'
+    command: cargo watch -w /usr/src/cerebro/trigger -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"
     {{else}}
     command: cargo watch -w /usr/src/cerebro/cerebro/lib/model -w /usr/src/cerebro/cerebro/stack/server -w /usr/src/cerebro/Cargo.toml -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"
     {{/if}}

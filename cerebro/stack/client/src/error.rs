@@ -1,5 +1,6 @@
 
 use cerebro_workflow::error::WorkflowError;
+use reqwest::StatusCode;
 use thiserror::Error;
 use cerebro_model::api::cerebro::model::ModelError;
 
@@ -28,25 +29,10 @@ pub enum HttpClientError {
     IOFailure(#[source] std::io::Error),
     /// Represents failure to ping server status route
     #[error("{0} - {1}")]
-    PingServer(String, String),
-    /// Represents failure to upload model to database
-    #[error("{0} - {1}")]
-    InsertModelResponseFailure(String, String),
-    /// Represents failure to retrieve taxa summary data
-    #[error("{0} - {1}")]
-    TaxaSummaryDataResponseFailure(String, String),
-    /// Represents failure to retrieve file registration response
-    #[error("{0} - {1}")]
-    RegisterFileResponseFailure(String, String),
-    /// Represents failure to retrieve file listing response
-    #[error("{0} - {1}")]
-    ListFilesResponseFailure(String, String),
-    /// Represents failure to obtain user teams
-    #[error("{0} - {1}")]
-    UserTeamsResponseFailure(String, String),
-    /// Represents failure to upload model to database
-    #[error("{0} - {1}")]
-    LoginUserResponseFailure(String, String),
+    PingServer(StatusCode, String),
+    /// Represents failure to process the response of a request made with the client
+    #[error("{0} ({1})")]
+    ResponseFailure(StatusCode, String),
     /// Represents all other cases of `reqwest::Error`.
     #[error("failed to make request")]
     ReqwestFailure(#[from] reqwest::Error),
@@ -61,5 +47,7 @@ pub enum HttpClientError {
     DeserializeFilter(#[from] WorkflowError),
     /// Represents failure to use a valid sample identifier
     #[error("sample identifier is an empty string")]
-    ModelSampleIdentifierEmpty
+    ModelSampleIdentifierEmpty,
+    #[error("pipeline identifier could not be found")]
+    PipeineIdentifierNotFound
 }

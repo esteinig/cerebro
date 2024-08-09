@@ -1,24 +1,25 @@
 use serde::{Deserialize, Serialize};
-use crate::api::files::model::SeaweedFile;
+
+use super::model::ProductionPipeline;
 
 #[derive(Serialize, Deserialize)]
-pub struct RegisterFileResponse {
+pub struct RegisterPipelineResponse {
     pub status: String,
     pub message: String,
     pub data: Option<String>
 }
-impl RegisterFileResponse {
+impl RegisterPipelineResponse {
     pub fn success(id: &str) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("File registered successfully"),
+            message: String::from("Pipeline registered successfully"),
             data: Some(id.to_string())
         }
     }
     pub fn conflict(id: &str) -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("File with unique identifier already exists in database"),
+            message: String::from("Pipeline with unique identifier already exists in database"),
             data: Some(id.to_string())
         }
     }
@@ -32,23 +33,23 @@ impl RegisterFileResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ListFilesResponse {
+pub struct ListPipelinesResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<SeaweedFile>>
+    pub data: Option<Vec<ProductionPipeline>>
 }
-impl ListFilesResponse {
-    pub fn success(files: Vec<SeaweedFile>) -> Self {
+impl ListPipelinesResponse {
+    pub fn success(pipelines: Vec<ProductionPipeline>) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("File entries found in database"),
-            data: Some(files)
+            message: String::from("Pipeline registrations found in database"),
+            data: Some(pipelines)
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No file entries found in database"),
+            message: String::from("No pipeline registrations found in database"),
             data: None
         }
     }
@@ -61,35 +62,24 @@ impl ListFilesResponse {
     }
 }
 
-/// Represents the output of a successful `weed` command execution.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WeedUploadResponse {
-    pub file_name: String,
-    pub url: String,
-    pub fid: String,
-    pub size: u64,
-}
-
-
 #[derive(Serialize, Deserialize)]
-pub struct DeleteFileResponse {
+pub struct DeletePipelineResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<SeaweedFile>
+    pub data: Option<ProductionPipeline>
 }
-impl DeleteFileResponse {
-    pub fn success(file: SeaweedFile) -> Self {
+impl DeletePipelineResponse {
+    pub fn success(pipeline: ProductionPipeline) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("File entries deleted from database"),
-            data: Some(file)
+            message: String::from("Pipeline registrations deleted from database"),
+            data: Some(pipeline)
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No file entries found in database"),
+            message: String::from("No pipeline registrations found in database"),
             data: None
         }
     }

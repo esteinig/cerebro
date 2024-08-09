@@ -3,7 +3,7 @@ testing/
 .nextflow/
 
 # Triggered dev builds
-.trigger
+trigger
 
 # Excel spreadsheet locks
 .*xlsx

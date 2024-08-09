@@ -30,10 +30,6 @@ cerebro_admin_password          = "admin"
 deploy                          = "localhost"    # localhost | web
 launch                          = true      
 
-[traefik.subdomain]
-api                             = "api"          # api.cerebro.localhost or api.example.org or api.dev.example.org ...
-app                             = "app"          # app.cerebro.localhost or app.example.org ...
-
 [traefik.network]
 name                            = "proxy"
 external                        = true
@@ -41,6 +37,10 @@ external                        = true
 [traefik.localhost]
 tls                             = false
 domain                          = "cerebro.localhost"
+
+[traefik.subdomain]
+api                             = "api"          # api.cerebro.localhost
+app                             = "app"          # app.cerebro.localhost
 
 [traefik.web]
 email                           = "example@cerebro.io"

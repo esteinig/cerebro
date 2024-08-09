@@ -19,6 +19,8 @@ pub enum ConfigError {
     #[error("failed to serialize config file ({0})")]
     ConfigFileNotSerialized(#[source] toml::ser::Error),
 }
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub connections: DatabaseConnectionConfig,
@@ -42,9 +44,11 @@ pub struct DatabaseNameConfig {
     // Teams database logging collection
     pub team_database_logs_collection: String,
     pub team_database_reports_collection: String,
-    // Teams database files collection
+    // Teams database production collection
     pub team_database_files_collection: String,
-    pub team_database_stage_collection: String
+    pub team_database_stage_collection: String,
+    pub team_database_watchers_collection: String,
+    pub team_database_pipelines_collection: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

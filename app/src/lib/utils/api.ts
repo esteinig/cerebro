@@ -225,12 +225,12 @@ interface CerebroRoutes {
 interface LogsRoutes {
     admin: string
 }
-
-
 interface FilesRoutes {
     getFiles: string
 }
-
+interface PipelineRoutes {
+    getPipelines: string
+}
 
 
 
@@ -249,6 +249,7 @@ export class Routes {
     teams: TeamRoutes;
     logs: LogsRoutes;
     files: FilesRoutes;
+    pipelines: PipelineRoutes;
     cerebro: CerebroRoutes;
 
     constructor(apiUrl: string) {
@@ -258,6 +259,7 @@ export class Routes {
         let teamRoute = `${apiUrl}/teams`;
         let logsRoute = `${apiUrl}/logs`;
         let filesRoute = `${apiUrl}/files`;
+        let pipelinesRoute = `${apiUrl}/pipeline`;
         let cerebroRoute = `${apiUrl}/cerebro`;
 
         this.auth = {
@@ -313,6 +315,9 @@ export class Routes {
 
         this.files = {
             getFiles: `${filesRoute}`
+        }
+        this.pipelines = {
+            getPipelines: `${pipelinesRoute}`
         }
     }
 }

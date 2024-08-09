@@ -7,3 +7,4 @@ pub mod email;
 pub mod logs;
 pub mod utils;
 pub mod files;
+pub mod pipelines;

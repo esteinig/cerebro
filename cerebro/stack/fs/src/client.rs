@@ -74,6 +74,22 @@ impl FileSystemClient {
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
         }
     }
+    pub fn delete_file(&self, fid: &str) -> Result<(), FileSystemError> {
+        let url = format!("{}/{}", self.fs_url, fid);
+        
+        let response = reqwest::blocking::Client::new()
+            .delete(&url)
+            .send()?;
+
+        match response.status() {
+            StatusCode::OK | StatusCode::ACCEPTED => {
+                log::info!("File data deleted from Cerebro FS ({fid})");
+                Ok(())
+            },
+            StatusCode::SERVICE_UNAVAILABLE => Err(FileSystemError::UnhealthyCluster),
+            status => Err(FileSystemError::UnexpectedResponseStatus(status)),
+        }
+    }
     pub fn upload_files(
         &self,
         files: &Vec<PathBuf>,
@@ -127,6 +143,35 @@ impl FileSystemClient {
                 db_name
             )?;
         }
+
+        Ok(())
+    }
+    // Cerebro API file entry deletion followed by Cerebro FS file deletion
+    pub fn delete_files(
+        &self,
+        file_ids: &Vec<String>,
+        team_name: &str,
+        db_name: &str,
+        run_id: Option<String>
+    ) -> Result<(), FileSystemError> {
+
+        let file_ids = match run_id {
+            Some(_) => {
+                self.api_client.get_files(team_name, db_name, run_id, 0, 1000, false)?
+                    .iter()
+                    .map(|file| file.id.to_owned())
+                    .collect()
+
+            },
+            None => file_ids.clone()
+        };
+           
+
+        for file_id in file_ids {
+            let deleted_file = self.api_client.delete_file(&file_id, team_name, db_name)?;
+            self.delete_file(&deleted_file.fid)?;
+        } 
+        
 
         Ok(())
     }

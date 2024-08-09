@@ -13,7 +13,7 @@ use crate::api::auth::jwt;
 use cerebro_model::api::config::Config;
 use cerebro_report::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
 use cerebro_model::api::users::model::Role;
-use crate::api::utils::{as_csv_string, get_teams_db_collection};
+use crate::api::utils::{as_csv_string, get_teams_db_collection, TeamDatabaseInternal};
 use crate::api::server::AppState;
 use crate::api::cerebro::mongo::*;
 use crate::api::logs::utils::log_database_change;
@@ -271,7 +271,7 @@ async fn get_report_from_storage_handler(data: web::Data<AppState>, id: web::Pat
         Err(error_response) => return error_response
     };
 
-    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, "reports");
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, TeamDatabaseInternal::Reports);
     match reports_collection
         .find_one(
             doc! { "id":  &id.into_inner() }, None)
@@ -375,7 +375,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
     };
 
     // Delete stored report in database but also the entry in the Cerebro models under the shared identifier
-    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, "reports");
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name,  TeamDatabaseInternal::Reports);
 
     match reports_collection
         .find_one_and_delete(
@@ -1689,7 +1689,7 @@ async fn store_and_log_report(
 ) -> HttpResponse {
 
     // Create a report entry for team database storage that includes the compiled report
-    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, "reports");
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, TeamDatabaseInternal::Reports);
     let mut report_entry = ReportEntry::from_schema(report_id.to_string(), &report_schema, Some(report_text.clone()), Some(is_pdf));
 
     match reports_collection.insert_one(

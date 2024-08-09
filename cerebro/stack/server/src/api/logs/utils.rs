@@ -1,7 +1,7 @@
 use actix_web::{web, HttpResponse, HttpRequest};
 use mongodb::Collection;
 
-use crate::api::utils::get_teams_db_collection;
+use crate::api::utils::{get_teams_db_collection, TeamDatabaseInternal};
 use crate::api::{server::AppState, utils::get_cerebro_db_collection};
 use cerebro_model::api::logs::model::{RequestLog, LogModule, Action, AccessDetails};
 
@@ -9,7 +9,7 @@ use cerebro_model::api::logs::model::{RequestLog, LogModule, Action, AccessDetai
 pub async fn log_database_change(data: &web::Data<AppState>, team_db: &String, request_log: RequestLog) -> Result<(), HttpResponse> {
 
     let admin_logs_collection: Collection<RequestLog> = get_cerebro_db_collection(data, "logs");
-    let teams_logs_collection: Collection<RequestLog> = get_teams_db_collection(data, team_db, "logs");
+    let teams_logs_collection: Collection<RequestLog> = get_teams_db_collection(data, team_db, TeamDatabaseInternal::Logs);
 
     let admin_result = admin_logs_collection.insert_one(request_log.clone(), None).await;
     match admin_result {

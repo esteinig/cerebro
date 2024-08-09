@@ -25,6 +25,23 @@ export const getDateTimeStringUtc = (utcString: string, time: boolean = true, se
     }
 }
 
+export const isWithinTimeLimit = (datetimeStr: string, minutes: number): boolean => {
+    // Parse the datetime string to a Date object
+    const parsedDate = new Date(datetimeStr);
+
+    // Get the current UTC time
+    const currentTime = new Date();
+
+    // Calculate the difference in milliseconds
+    const timeDifference = currentTime.getTime() - parsedDate.getTime();
+
+    // Convert the time difference from milliseconds to minutes
+    const differenceInMinutes = timeDifference / (1000 * 60);
+
+    // Check if the difference is within the given limit
+    return differenceInMinutes <= minutes;
+}
+
 
 export const getUuidShort = (uuid: string): string => {
     return uuid.substring(0, 8)

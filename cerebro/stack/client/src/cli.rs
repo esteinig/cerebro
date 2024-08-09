@@ -1,11 +1,13 @@
 
 use std::fs::create_dir_all;
 
+use cerebro_client::error::HttpClientError;
+use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{App, Commands, ApiProjectCommands};
+use cerebro_client::terminal::{ApiPipelineCommands, ApiProjectCommands, App, Commands};
 
 use cerebro_workflow::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
@@ -77,6 +79,43 @@ fn main() -> anyhow::Result<()> {
             client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
             
             
+        },
+        Commands::Pipeline(subcommand) => {
+            match subcommand {
+                ApiPipelineCommands::Register( args ) => {
+                    
+                    let register_pipeline_schema = RegisterPipelineSchema::new(
+                        &args.name, 
+                        &args.location, 
+                        args.pipeline.clone()
+                    );
+
+                    client.register_pipeline(
+                        &register_pipeline_schema,
+                        &args.team_name, 
+                        &args.db_name,
+                    )?;
+
+                    if let Some(path) = &args.json {
+                        register_pipeline_schema.to_json(path)?;
+                    }
+                },
+                ApiPipelineCommands::List( args ) => {
+                    
+                    client.get_pipelines(&args.team_name, &args.db_name, true)?;
+                },
+                ApiPipelineCommands::Delete( args ) => {
+                    
+                    let pipleine_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id.to_owned(),
+                        (None, None) => return Err(HttpClientError::PipeineIdentifierNotFound.into())
+                    };
+
+                    client.delete_pipeline(&pipleine_id, &args.team_name, &args.db_name)?;
+                },
+            }
+                        
         },
         // Query sample models for taxon summary
         Commands::GetTaxa( args ) => {

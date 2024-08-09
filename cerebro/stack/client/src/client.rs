@@ -1,8 +1,15 @@
 use std::fs::File;
 use std::io::Write;
 use anyhow::Result;
+use cerebro_model::api::files::model::SeaweedFile;
+use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
 use cerebro_model::api::files::response::RegisterFileResponse;
+use cerebro_model::api::pipelines::model::ProductionPipeline;
+use cerebro_model::api::pipelines::response::DeletePipelineResponse;
+use cerebro_model::api::pipelines::response::ListPipelinesResponse;
+use cerebro_model::api::pipelines::response::RegisterPipelineResponse;
+use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
 use std::path::PathBuf;
 use itertools::Itertools;
 use reqwest::blocking::Client;
@@ -43,7 +50,12 @@ pub struct CerebroRoutes {
     pub team_project_create: String,
 
     pub team_files_register: String,
-    pub team_files_list: String
+    pub team_files_list: String,
+    pub team_files_delete: String,
+
+    pub team_pipelines_register: String,
+    pub team_pipelines_list: String,
+    pub team_pipelines_delete: String
 }
 impl CerebroRoutes {
     pub fn new(url: &str) -> Self  {
@@ -57,9 +69,12 @@ impl CerebroRoutes {
             data_cerebro_insert_model: format!("{}/cerebro", url),
             data_cerebro_taxa_summary: format!("{}/cerebro/taxa/summary", url),
             team_project_create: format!("{}/teams/project", url),
-
             team_files_register: format!("{}/files/register", url),
             team_files_list: format!("{}/files", url),
+            team_files_delete: format!("{}/files", url),
+            team_pipelines_register: format!("{}/pipeline/register", url),
+            team_pipelines_list: format!("{}/pipeline", url),
+            team_pipelines_delete: format!("{}/pipeline", url),
         }
     }
 }
@@ -161,9 +176,15 @@ impl CerebroClient {
         if response.status().is_success() {
            log::info!("Cerebro API status: ok");
         } else if response.status().is_server_error() {
-            return Err(HttpClientError::PingServer(format!("{:?}", response.status()), "server error".to_string()))
+            return Err(HttpClientError::PingServer(
+                response.status(), 
+                String::from("server error")
+            ))
         } else {
-            return Err(HttpClientError::PingServer(format!("{:?}", response.status()), "failed to ping server".to_string()))
+            return Err(HttpClientError::PingServer(
+                response.status(), 
+                String::from("failed to ping server")
+            ))
         }
         
     
@@ -180,7 +201,10 @@ impl CerebroClient {
             .send()?;
     
         if !response.status().is_success() {
-            return Err(HttpClientError::PingServer(format!("{:?}", response.status()), "failed to ping server - are you logged in?".to_string()))
+            return Err(HttpClientError::PingServer(
+                response.status(), 
+                String::from("failed to ping server - are you logged in?")
+            ))
         };
 
         log::info!("Cerebro API status: ok");
@@ -222,11 +246,15 @@ impl CerebroClient {
                 } else {
                     log::error!("Login successful, but could not get user data");
                     let user_error_response: ErrorResponse = response.json().map_err(|_| {
-                        HttpClientError::LoginUserResponseFailure(format!("{}", status), String::from("failed to make request"))
+                        HttpClientError::ResponseFailure(
+                            status, 
+                            String::from("failed to make request")
+                        )
                     })?;
 
-                    return Err(HttpClientError::LoginUserResponseFailure(
-                        format!("{}", status), format!("{}", user_error_response.message)
+                    return Err(HttpClientError::ResponseFailure(
+                        status, 
+                        user_error_response.message
                     ))
                 }
 
@@ -251,8 +279,9 @@ impl CerebroClient {
                 let error_response: ErrorResponse = response.json()?;
                 log::error!("Login failed: {} ({})", &error_response.message, &status);
 
-                return Err(HttpClientError::LoginUserResponseFailure(
-                    format!("{}", status),  error_response.message
+                return Err(HttpClientError::ResponseFailure(
+                    status,  
+                    error_response.message
                 ))
             }
         };
@@ -293,11 +322,14 @@ impl CerebroClient {
                     true => log::info!("Cerebro model uploaded successfully to project `{}` ({})", &project_name, &team_name),
                     false => {
                         let error_response: ErrorResponse = response.json().map_err(|_| {
-                            HttpClientError::InsertModelResponseFailure(format!("{}", status), String::from("failed to make request"))
+                            HttpClientError::ResponseFailure(
+                                status, 
+                                String::from("failed to make request")
+                            )
                         })?;
 
                         log::error!("Upload failed: {}", & error_response.message);
-                        continue; // return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                        continue; // return Err(HttpClientError::InsertModelResponseFailure(status, error_response.message))
                         
                     }
                 };
@@ -325,85 +357,260 @@ impl CerebroClient {
             true => log::info!("Team project created: {} - {} - {}", &team_name, &db_name, &project_name),
             false => {
                 let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::InsertModelResponseFailure(format!("{}", status), String::from("failed to make request"))
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to make request")
+                    )
                 })?;
-                log::error!("Project creation failed: {}", &status);
-                return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
             }
         };
         Ok(())
     }
     pub fn register_file(&self, register_file_schema: RegisterFileSchema, team_name: &str, db_name: &str) -> Result<(), HttpClientError> {
 
-        let urls = self.get_database_and_project_queries(
-            &self.routes.team_files_register, team_name, None, Some(&db_name.to_owned())
-        )?;
+        let db = self.get_database(team_name, &db_name.to_owned())?;
 
-        for url in &urls {
-            log::info!(
-                "Registering file {} in database {} for team {}", &register_file_schema.name, &db_name, &team_name
-            );
 
-            let response = self.client.post(url)
-                .header(AUTHORIZATION, self.get_token_bearer(None))
-                .json(&register_file_schema)
-                .send()?;
+        let response = self.client.post(
+            format!("{}?db={}", self.routes.team_files_register, db.id)
 
-            let status = response.status();
-    
-            match status.is_success() {
-                true => {
-                    log::info!("File registered successfully!");
-                },
-                false => {
-                    let error_response: RegisterFileResponse = response.json().map_err(|_| {
-                        HttpClientError::RegisterFileResponseFailure(format!("{}", status), String::from("failed to extract response data"))
-                    })?;
-                    log::error!("Data retrieval failed: {}", &status);
-                    return Err(HttpClientError::RegisterFileResponseFailure(format!("{}", status), error_response.message))
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .json(&register_file_schema)
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                log::info!("File registered successfully!");
+            },
+            false => {
+                let error_response: RegisterFileResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract file response data")
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status,
+                    error_response.message
+                ))
+            }
+        }  
+
+        Ok(())
+    }
+    pub fn delete_file(&self, file_id: &str, team_name: &str, db_name: &str) -> Result<SeaweedFile, HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+
+        let response = self.client.delete(
+            format!("{}/{}?db={}", self.routes.team_files_delete, file_id, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                log::info!("File entry deleted from Cerebro API ({file_id})");
+                let response: DeleteFileResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract response data")
+                    )
+                })?;
+                response.data.ok_or(
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("deleted file entry but no file data was returned"))
+                )
+            },
+            false => {
+                let error_response: DeleteFileResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract file response data"))
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
+            }
+        }
+    }
+    pub fn get_files(&self, team_name: &str, db_name: &str, run_id: Option<String>, page: u32, limit: u32, print: bool) -> Result<Vec<SeaweedFile>, HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+        
+        let response = self.client.get(
+            match run_id {
+                Some(run_id) => format!("{}?db={}&run_id={run_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
+                None => format!("{}?db={}&page={page}&limit={limit}", self.routes.team_files_list, db.id)
+            }
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                let response: ListFilesResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract response data")
+                    )
+                })?;
+                let data = response.data.ok_or(
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("Successfully obtained files but no file data was returned"))
+                )?;
+                if print {
+                    for file in &data {
+                        println!("{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}", file.id, file.date, file.watcher.name, file.watcher.location, file.fid, file.size_mb(), file.name)
+                    }
                 }
+                Ok(data)
+            },
+            false => {
+                let error_response: ListFilesResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract file response data")
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
+            }
+        }       
+    } 
+    pub fn register_pipeline(&self, register_pipeline_schema: &RegisterPipelineSchema, team_name: &str, db_name: &str) -> Result<(), HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+    
+        let response = self.client.post(
+            format!("{}?db={}", self.routes.team_pipelines_register, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .json(register_pipeline_schema)
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                log::info!("Pipeline registered successfully!");
+            },
+            false => {
+                let error_response: RegisterPipelineResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract pipeline response data")
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status,
+                    error_response.message
+                ))
             }
         }       
         Ok(())
     }
-    pub fn list_files(&self, team_name: &str, db_name: &str, page: u32, limit: u32) -> Result<(), HttpClientError> {
+    pub fn get_pipelines(&self, team_name: &str, db_name: &str, print: bool) -> Result<Vec<ProductionPipeline>, HttpClientError> {
 
-        let urls = self.get_database_and_project_queries(
-            &self.routes.team_files_list, team_name, None, Some(&db_name.to_owned())
-        )?;
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+        
+        let response = self.client.get(
+            format!("{}?db={}", self.routes.team_pipelines_list, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .send()?;
 
-        for url in &urls {
-            log::info!(
-                "Listing {limit} files on page {page} in database {} for team {}", &db_name, &team_name, 
-            );
+        let status = response.status();
 
-            let response = self.client.get(
-                format!("{url}&page={page}&limit={limit}")
-            )
-                .header(AUTHORIZATION, self.get_token_bearer(None))
-                .send()?;
-
-            let status = response.status();
-    
-            match status.is_success() {
-                true => {
-                    let response: ListFilesResponse = response.json().map_err(|_| {
-                        HttpClientError::ListFilesResponseFailure(format!("{}", status), String::from("failed to extract response data"))
-                    })?;
-                    for file in response.data {
-                        println!("{}\t{}\t{}\t{}\t{:.0} MB\t{}", file.date, file.watcher.name, file.watcher.location, file.fid, file.size_mb(), file.name)
+        match status.is_success() {
+            true => {
+                let response: ListPipelinesResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract response data")
+                    )
+                })?;
+                let data = response.data.ok_or(
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("obtained pipeline registrations but no pipeline data was returned"))
+                )?;
+                if print {
+                    for pipeline in &data {
+                        println!("{}\t{}\t{}\t{}\t{}\t{}", pipeline.pipeline, pipeline.id, pipeline.date, pipeline.name, pipeline.location, pipeline.last_ping)
                     }
-                },
-                false => {
-                    let error_response: ListFilesResponse = response.json().map_err(|_| {
-                        HttpClientError::ListFilesResponseFailure(format!("{}", status), String::from("failed to extract response data"))
-                    })?;
-                    log::error!("Data retrieval failed: {}", &status);
-                    return Err(HttpClientError::ListFilesResponseFailure(format!("{}", status), error_response.message))
                 }
+                Ok(data)
+            },
+            false => {
+                let error_response: ListPipelinesResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract pipeline response data")
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
             }
         }       
-        Ok(())
+    }
+    pub fn delete_pipeline(&self, pipeline_id: &str, team_name: &str, db_name: &str) -> Result<ProductionPipeline, HttpClientError> {
+
+        let db = self.get_database(team_name, &db_name.to_owned())?;
+
+        let response = self.client.delete(
+            format!("{}/{}?db={}", self.routes.team_pipelines_delete, pipeline_id, db.id)
+        )
+            .header(AUTHORIZATION, self.get_token_bearer(None))
+            .send()?;
+
+        let status = response.status();
+
+        match status.is_success() {
+            true => {
+                log::info!("pipeline registration deleted from Cerebro API ({pipeline_id})");
+                let response: DeletePipelineResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract response data")
+                    )
+                })?;
+                response.data.ok_or(
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("deleted pipeline registration but no pipeline data was returned"))
+                )
+            },
+            false => {
+                let error_response: DeletePipelineResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to extract pipeline response data"))
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
+            }
+        }
     }
     pub fn taxa_summary(
         &self, 
@@ -462,7 +669,10 @@ impl CerebroClient {
                     log::info!("Taxa summary retrieved for project {} of team {}", &project_name, &team_name);
 
                     let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::TaxaSummaryDataResponseFailure(format!("{}", status), String::from("failed to obtain data for taxa summary"))
+                        HttpClientError::ResponseFailure(
+                            status, 
+                            String::from("failed to obtain data for taxa summary")
+                        )
                     })?;
                     
                     let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
@@ -472,10 +682,15 @@ impl CerebroClient {
                 },
                 false => {
                     let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::TaxaSummaryDataResponseFailure(format!("{}", status), String::from("failed to make request for taxa summary"))
+                        HttpClientError::ResponseFailure(
+                            status, 
+                            String::from("failed to make request for taxa summary")
+                        )
                     })?;
-                    log::error!("Data retrieval failed: {}", &status);
-                    return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                    return Err(HttpClientError::ResponseFailure(
+                        status, 
+                        error_response.message
+                    ))
                 }
             };
         }
@@ -529,7 +744,10 @@ impl CerebroClient {
                     log::info!("QC summary retrieved for project `{}` of team `{}`", &project_name, &team_name);
 
                     let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::TaxaSummaryDataResponseFailure(format!("{}", status), String::from("failed to obtain data for QC summary"))
+                        HttpClientError::ResponseFailure(
+                            status, 
+                            String::from("failed to obtain data for quality summary")
+                        )
                     })?;
                     
                     let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
@@ -539,10 +757,12 @@ impl CerebroClient {
                 },
                 false => {
                     let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::TaxaSummaryDataResponseFailure(format!("{}", status), String::from("failed to make request for QC summary"))
+                        HttpClientError::ResponseFailure(
+                            status, 
+                            String::from("failed to make request for quality summary")
+                        )
                     })?;
-                    log::error!("Data retrieval failed: {}", &status);
-                    return Err(HttpClientError::InsertModelResponseFailure(format!("{}", status), error_response.message))
+                    return Err(HttpClientError::ResponseFailure(status, error_response.message))
                 }
             };
         }
@@ -554,7 +774,7 @@ impl CerebroClient {
         let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
         
         // Request data on a team project for insertion of new data
-        log::info!("Getting user team for database ({})", &url);
+        // log::info!("Getting user team for database ({})", &url);
 
         let response = self.client.get(url)
             .header(AUTHORIZATION, self.get_token_bearer(None))
@@ -569,10 +789,15 @@ impl CerebroClient {
             }
             false => {
                 let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::UserTeamsResponseFailure(format!("{}", status), String::from("failed to make request"))
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to make request")
+                    )
                 })?;
-                log::error!("Failed to get team data ({})", &status);
-                return Err(HttpClientError::UserTeamsResponseFailure(format!("{}", status), error_response.message))
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
             }
         };
 
@@ -583,7 +808,7 @@ impl CerebroClient {
         let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
         
         // Request data on a team project for insertion of new data
-        log::info!("Getting user team for database verification ({})", &url);
+        // log::info!("Getting user team for database verification ({})", &url);
 
         let response = self.client.get(url)
             .header(AUTHORIZATION, self.get_token_bearer(None))
@@ -598,10 +823,15 @@ impl CerebroClient {
             }
             false => {
                 let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::UserTeamsResponseFailure(format!("{}", status), String::from("failed to make request"))
+                    HttpClientError::ResponseFailure(
+                        status, 
+                        String::from("failed to make request")
+                    )
                 })?;
-                log::error!("Failed to get team data ({})", &status);
-                return Err(HttpClientError::UserTeamsResponseFailure(format!("{}", status), error_response.message))
+                return Err(HttpClientError::ResponseFailure(
+                    status, 
+                    error_response.message
+                ))
             }
         };
 

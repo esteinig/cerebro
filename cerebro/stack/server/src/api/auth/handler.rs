@@ -111,8 +111,8 @@ async fn login_handler(
         Ok(_) => { }, Err(_) => return HttpResponse::InternalServerError().json(serde_json::json!({"status": "fail", "message": "Not authorized"}))
     };
 
-    // Bot role should only be used to getan access token for backend pipeline automation 
-    // and not continuous refresh token access. Not implemented on refresh token route.
+    // Bot role should only be used to ge tan access token for backend pipeline automation 
+    // and not continuous refresh token access. Not implemented on refresh token route!
     
     let (access_token_max_age, refresh_token_max_age) = match query.role {
         Some(Role::Bot) => {

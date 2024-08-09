@@ -2,20 +2,34 @@
 
 use mongodb::bson::{doc, Document};
 
-pub fn get_latest_files_paginated_pipeline(page: i64, limit: i64) -> Vec<Document> {
+pub fn get_latest_files_paginated_pipeline(run_id: Option<String>, page: i64, limit: i64) -> Vec<Document> {
     
-    vec![
-        doc! {
-            "$sort": {
-                "date": -1
-            }
+    match run_id {
+        Some(run_id) => {
+            vec![
+                doc! {
+                    "$match": {
+                        "run_id": &run_id
+                    }  
+                },
+            ]
         },
-        doc! {
-            // page
-            "$skip": page*limit
-        },
-        doc! {
-            "$limit": limit
+        None => {
+            vec![
+                doc! {
+                    "$sort": {
+                        "date": -1
+                    }
+                },
+                doc! {
+                    // page
+                    "$skip": page*limit
+                },
+                doc! {
+                    "$limit": limit
+                }
+            ]
         }
-    ]
+    }
+    
 }

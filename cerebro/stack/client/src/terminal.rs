@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use clap::{Args, Parser, Subcommand};
+use cerebro_model::api::pipelines::model::Pipeline;
+use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]
@@ -57,7 +58,9 @@ pub enum Commands {
     GetTaxa(ApiTaxaArgs),
     /// Summary of quality control for requested models or samples
     GetQuality(ApiQualityArgs),
-
+    /// CRUD operations for production pipelines
+    #[clap(subcommand)]
+    Pipeline(ApiPipelineCommands),
     /// CRUD operations for teams
     #[clap(subcommand)]
     Team(ApiTeamCommands),
@@ -187,6 +190,67 @@ pub struct ApiTeamArgs {
     #[clap(long, short = 'p')]
     pub team_descriptions: String,
 }
+
+#[derive(Debug, Subcommand)]
+pub enum ApiPipelineCommands {
+    /// Register a new production pipeline
+    Register(ApiPipelineRegisterArgs),
+    /// List registered production pipelines
+    List(ApiPipelineListArgs),
+    /// List registered production pipelines
+    Delete(ApiPipelineDeleteArgs)
+}
+
+#[derive(Debug, Args)]
+pub struct ApiPipelineRegisterArgs {
+    /// Cerebro pipeline for registration
+    #[clap(long, short = 'p')]
+    pub pipeline: Pipeline,
+    /// Pipeline name for registration
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Pipeline location for registration
+    #[clap(long, short = 'l')]
+    pub location: String,
+    /// Team name for pipeline registration
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for pipeline registration
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+    /// Output registration for future reference (.json)
+    #[clap(long, short = 'j')]
+    pub json: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct ApiPipelineListArgs {
+    /// Team name for pipeline listing
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for pipeline listing
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct ApiPipelineDeleteArgs {
+    /// Pipeline identifier generated during registration
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Team name for pipeline deletion
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for pipeline deletion
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
 
 #[derive(Debug, Subcommand)]
 pub enum ApiTeamCommands {

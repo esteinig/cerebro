@@ -664,7 +664,6 @@ export type ProjectCollection = {
     name: string,
     collection: string,
     description: string,
-    projects: Array<ProjectCollection>
 }
 
 
@@ -1683,6 +1682,28 @@ export type SeaweedFile = {
 
 
 /**
+ * 
+ * Cerebro pipeline enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum Pipeline {
+    PathogenDetection = "Pathogen Detection",
+    PanviralEnrichment = "Panviral Enrichment",
+    CultureIdentification = "Culture Identification"
+}
+
+
+export type ProductionPipeline = {
+    id: string,
+    date: string,
+    name: string,
+    location: string,
+    last_ping: string,
+    pipeline: Pipeline,
+}
+
+/**
  * Status and data returned in successful user endpoint response (single user)
  * 
  * @file lib/utils/types
@@ -1690,4 +1711,15 @@ export type SeaweedFile = {
  */
 export type FileResponseData = {
     data: SeaweedFile[]
+} & ErrorResponseData
+
+
+/**
+ * Status and data returned in successful user endpoint response (single user)
+ * 
+ * @file lib/utils/types
+ * @param {string} data - Response data with user
+ */
+export type PipelineResponseData = {
+    data: ProductionPipeline[]
 } & ErrorResponseData

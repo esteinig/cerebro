@@ -1,4 +1,4 @@
-import type { ErrorResponseData, Team, TeamDatabase, SeaweedFile, FileResponseData } from "$lib/utils/types";
+import type { ErrorResponseData, Team, TeamDatabase, SeaweedFile, FileResponseData, ProjectCollection, PipelineResponseData, ProductionPipeline } from "$lib/utils/types";
 import { env as private_env } from "$env/dynamic/private";
 import { error } from "@sveltejs/kit";
 import CerebroApi from "$lib/utils/api";
@@ -28,8 +28,17 @@ import type { PageServerLoad } from "./$types";
  * // Example usage for grouping by date with a specified range
  * const groupedByDateRange = groupSeaweedFiles(files, 'date', { start: '2022-01-01', end: '2022-01-31' });
  */
-function groupSeaweedFiles(files: SeaweedFile[], groupByKey: 'watcher_location' | 'run_id' | 'date', dateRange?: { start: string, end: string }): Record<string, SeaweedFile[]> {
+function groupSeaweedFiles(files: SeaweedFile[] | undefined, groupByKey: 'watcher_location' | 'run_id' | 'date', dateRange?: { start: string, end: string }): Record<string, SeaweedFile[]> {
+    
     const grouped: Record<string, SeaweedFile[]> = {};
+
+    if (files === undefined) {
+        return grouped
+    }
+
+    if (!files.length) {
+        return grouped
+    }
 
     files.forEach(file => {
         let key: string | null = null;
@@ -75,10 +84,37 @@ const fetchFiles = async(fetch: Function, requestInit: RequestInit, db_param: st
         let filesResponseData: FileResponseData = await filesResponse.json();
         files = filesResponseData.data;
     } else {
-        let errorResponse: ErrorResponseData = await filesResponse.json();
-        throw error(filesResponse.status, errorResponse.message)
+        if (filesResponse.status == 404) {  // No files found returns empty for page to render
+            return files
+        } else {
+            let errorResponse: ErrorResponseData = await filesResponse.json();
+            throw error(filesResponse.status, errorResponse.message)
+        }
     }
     return files
+}
+
+
+const fetchPipelines = async(fetch: Function, requestInit: RequestInit, db_param: string): Promise<ProductionPipeline[]> => {
+    
+    let pipelines: ProductionPipeline[] = [];
+
+    let pipelinesResponse: Response = await fetch(
+        `${api.routes.pipelines.getPipelines}?db=${db_param}`, requestInit
+    );
+    if (pipelinesResponse.ok) {
+        let pipelinesResponseData: PipelineResponseData = await pipelinesResponse.json();
+        pipelines = pipelinesResponseData.data;
+    } else {
+        if (pipelinesResponse.status == 404) {  // No pipelines found returns empty for page to render
+            return pipelines
+        } else {
+            let errorResponse: ErrorResponseData = await pipelinesResponse.json();
+            throw error(pipelinesResponse.status, errorResponse.message)
+        }
+    }
+    console.log(pipelines)
+    return pipelines
 }
 
 
@@ -92,7 +128,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         credentials: 'include'
     };
 
-
     let currentUserTeams: Team[] = locals.teams;
 
     // Pick the first team and database from the user 
@@ -103,19 +138,26 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         throw error(404, `You are not a member of any teams - ${locals.admin ? "create a team for data upload first." : "please contact your administrator."}`)
     }
 
-    let team: Team = currentUserTeams[0];
+    let defaultTeam: Team = currentUserTeams[0];
 
-    if (!team.databases.length){
-        throw error(404, `No database has been created for this team (${team.name})`)
+    if (!defaultTeam.databases.length){
+        throw error(404, `No database has been created for this team (${defaultTeam.name})`)
     }
 
-    let teamDatabase: TeamDatabase = team.databases[0];
+    let defaultDatabase: TeamDatabase = defaultTeam.databases[0];
+
+
+    if (!defaultDatabase.projects.length){
+        throw error(404, `No database projects has been created for this team (${defaultTeam.name}) and database (${defaultDatabase.name})`)
+    }
+
+    let defaultProject: ProjectCollection = defaultDatabase.projects[0];
 
     let files = await fetchFiles(fetch, fetchDataRequestInit, params.db);
-
+    let registeredPipelines = await fetchPipelines(fetch, fetchDataRequestInit, params.db)
 
     let filesWatcherLocation = groupSeaweedFiles(files, "watcher_location");
-    let defaultWatcherLocation: string = "";
+    let defaultWatcherLocation: string = "(no watchers available)";
     let keys = Object.keys(filesWatcherLocation);
     
     if (keys.length) {
@@ -124,8 +166,10 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
 
     return { 
         files: filesWatcherLocation,
-        defaultTeam: team,
-        defaultDatabase: teamDatabase,
+        registeredPipelines: registeredPipelines,
+        defaultTeam: defaultTeam,
+        defaultDatabase: defaultDatabase,
+        defaultProject: defaultProject,
         defaultWatcherLocation: defaultWatcherLocation,
     };
 

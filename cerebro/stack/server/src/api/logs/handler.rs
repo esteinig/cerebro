@@ -1,6 +1,6 @@
 use crate::api::{
     logs::mongo::{get_latest_logs_all_pipeline, get_latest_logs_limit_pipeline}, 
-    utils::{get_cerebro_db_collection, get_teams_db_collection}
+    utils::{get_cerebro_db_collection, get_teams_db_collection, TeamDatabaseInternal}
 };
 use serde::Deserialize;
 use mongodb::{bson::doc, Collection};
@@ -64,7 +64,7 @@ async fn get_team_logs(data: web::Data<AppState>, query: web::Query<TeamLogsQuer
         None => get_latest_logs_all_pipeline(match query.critical { Some(v) => v, None => false})
     };
 
-    let logs_collection: Collection<RequestLog> = get_teams_db_collection(&data, &db.name().to_string(), "logs");
+    let logs_collection: Collection<RequestLog> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Logs);
     
     match logs_collection
     .aggregate(pipeline, None)

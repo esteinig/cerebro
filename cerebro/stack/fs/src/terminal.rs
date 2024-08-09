@@ -71,6 +71,8 @@ pub enum Commands {
     Upload(UploadFileArgs),
     /// Download of files from SeaweedFS
     Download(DownloadFileArgs),
+    /// Delete a file from SeaweedFS
+    Delete(DeleteFileArgs),
     /// List accessible files from SeaweedFS registered with Cerebro
     List(ListFileArgs),
     /// Stage files fromn SeaweedFS periodically from stage databases registered with Cerebro
@@ -82,6 +84,23 @@ pub struct StageFileArgs {
     /// Stage file directory
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
+}
+
+
+#[derive(Debug, Args)]
+pub struct DeleteFileArgs {
+    /// Files identifiers to delete (CerebroFS)
+    #[clap(long, short = 'f', num_args(0..))]
+    pub file_ids: Vec<String>,
+    /// Team name for file query (CerebroAPI)
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for file query (CerebroAPI)
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+    /// Sequence run identifier
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
 }
 
 
@@ -108,6 +127,7 @@ pub struct UploadFileArgs {
 
 #[derive(Debug, Args)]
 pub struct DownloadFileArgs {   
+
 }
 
 #[derive(Debug, Args)]
@@ -118,6 +138,9 @@ pub struct ListFileArgs {
     /// Database name for model query
     #[clap(long, short = 'd')]
     pub db_name: String,
+    /// Sequence run identifier
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
     /// Return page of files
     #[clap(long, short = 'p', default_value="0")]
     pub page: u32,
