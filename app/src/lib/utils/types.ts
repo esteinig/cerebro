@@ -1724,8 +1724,8 @@ export const parsePipeline = (pipeline: string): Pipeline => {
  * @file lib/utils/types
  */
 export enum WatcherFormat {
-    Fastq = "Fastq (single-end)",
-    FastqPe = "Fastq (paired-end)",
+    Fastq = "Reads (single-end)",
+    FastqPe = "Reads (paired-end)",
     Iseq = "Illumina iSeq",
     Nextseq = "Illumina NextSeq"
 }

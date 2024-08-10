@@ -12,9 +12,7 @@
     export let data;
 
     // Invalidates page data every five minutes to update 
-    // the pipeline activity status and indicator...
-    //
-    // DOES NOT WORK CURRENTLY
+    // the watcher/pipeline activity status indicators
     onMount(() => {
         const interval = setInterval(() => {
             invalidate('watchers:data');
@@ -23,6 +21,9 @@
         return () => clearInterval(interval);
     });
     
+    async function changeWatcherSurface() {
+        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&watcher=${selectedWatcher?.id}`)
+    }
     /**
      * Group SeaweedFile objects by a specified key (watcher_location, run_id, or date).
      * Adjusted to handle nullable run_id by excluding those files from run_id grouping
@@ -91,13 +92,7 @@
         return grouped;
     }
 
-    let groupedFiles: Record<string, SeaweedFile[]> = {};
-
     $: groupedFiles = groupSeaweedFiles(data.files, "run_id"); 
-
-    async function changeWatcherSurface() {
-        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&watcher=${selectedWatcher?.id}`)
-    }
 
     let selectedTeamId: string = $page.params.team;
     let selectedDatabaseId: string = $page.params.db;
@@ -124,13 +119,12 @@
 
     let watcherSelection: ProductionWatcher[] = data.registeredWatchers;
     let selectedWatcher: ProductionWatcher | undefined = data.defaultWatcher;
-    
 
     $: pipelineIsActive = isWithinTimeLimit(
-        data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 30
+        data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 5
     );
     $: watcherIsActive = isWithinTimeLimit(
-        data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 30
+        data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 5
     );
 
 </script>

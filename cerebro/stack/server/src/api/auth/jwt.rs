@@ -176,8 +176,8 @@ impl FromRequest for JwtUserMiddleware {
             }
         };
 
-          // Parse the access token Uuid string as Uuid
-          let access_token_uuid = match uuid::Uuid::parse_str(&access_token_details.token_uuid.to_string()) {
+        // Parse the access token Uuid string as Uuid
+        let access_token_uuid = match uuid::Uuid::parse_str(&access_token_details.token_uuid.to_string()) {
             Ok(token_uuid) => token_uuid,
             Err(_) => {
                 return ready(Err(ErrorInternalServerError(ErrorResponse {
@@ -355,7 +355,7 @@ impl FromRequest for JwtUserMiddleware {
                         user,
                         team: None
                     }))
-                }  // if we didn't receive a team query then just go ahead - all data access endpoints should have a team query parameter
+                }  // TODO: if we didn't receive a team query then just go ahead - all data access endpoints should have a team query parameter
 
             },
             Err(error) => ready(Err(error)),
