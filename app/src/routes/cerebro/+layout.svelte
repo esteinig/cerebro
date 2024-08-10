@@ -18,9 +18,9 @@ initializeStores();
 <AppShell>
 	<svelte:fragment slot="header">
         <Header />
-		{#if $navigating}
-			<ProgressBar height="h-1"/>
-		{/if}
+		<div class="h-1 { $navigating ? 'opacity-100' : 'opacity-0' } transition-opacity ease-in duration-300 delay-300">
+			<ProgressBar height="h-full"/>
+		</div>
 	</svelte:fragment>
     
 	<svelte:fragment slot="footer">

@@ -13,6 +13,8 @@ pub enum WatcherError {
     #[error(transparent)]
     CerebroClientError(#[from] cerebro_client::error::HttpClientError),
     #[error(transparent)]
+    CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
+    #[error(transparent)]
     FileSystemClientError(#[from] cerebro_fs::error::FileSystemError),
     #[error(transparent)]
     NotifyError(#[from] notify::Error),
@@ -34,4 +36,10 @@ pub enum WatcherError {
     InvalidLatestAnalysisDirectory(PathBuf),
     #[error("failed to detect latest 'Alignment' directory in: {0}")]
     InvalidLatestAlignmentDirectory(PathBuf),
+
+
+    #[error("failed to create a watcher configuration - were all required arguments provided? (--name & --location & --format)")]
+    InvalidWatcherConfigArgs,
+    #[error("failed to create a watcher configuration - were all required arguments provided? (--id | --json)")]
+    WatcherIdentifierArgNotFound
 }

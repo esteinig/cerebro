@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use cerebro_model::api::pipelines::model::Pipeline;
+use cerebro_model::api::{watchers::model::WatcherFormat, pipelines::model::Pipeline};
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production stack server
@@ -254,6 +254,9 @@ pub struct ApiPipelineListArgs {
     /// Database name for pipeline listing
     #[clap(long, short = 'd')]
     pub db_name: String,
+    /// Pipeline identifier generated during registration
+    #[clap(long, short = 'i')]
+    pub id: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -300,6 +303,12 @@ pub struct ApiWatcherRegisterArgs {
     /// Database name for watcher registration
     #[clap(long, short = 'd')]
     pub db_name: String,
+    /// Watcher input format 
+    #[clap(long, short = 'f')]
+    pub format: WatcherFormat,
+    /// Fastq file glob when format is 'fastq' 
+    #[clap(long, short = 'g')]
+    pub glob: Option<String>,
     /// Output registration for future reference (.json)
     #[clap(long, short = 'j')]
     pub json: Option<PathBuf>,
@@ -313,6 +322,9 @@ pub struct ApiWatcherListArgs {
     /// Database name for watcher listing
     #[clap(long, short = 'd')]
     pub db_name: String,
+    /// Watcher identifier generated during registration
+    #[clap(long, short = 'i')]
+    pub id: Option<String>,
 }
 
 

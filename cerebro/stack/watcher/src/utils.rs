@@ -1,18 +1,17 @@
 use std::collections::HashMap;
-use std::{io::Write, time::Duration};
+use std::io::Write;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use cerebro_client::client::CerebroClient;
 use cerebro_fs::client::UploadConfig;
-use cerebro_model::api::files::model::{WatcherFormat, WatcherConfig};
+use cerebro_model::api::watchers::model::{WatcherFormat, ProductionWatcher};
+use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
-use uuid::Uuid;
 
 use crate::error::WatcherError;
 use crate::terminal::WatchArgs;
-
-pub const _CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION", "Failed to get the crate version at compile time - this is not good!");
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
@@ -91,22 +90,63 @@ pub fn init_logger() {
 }
 
 pub trait WatcherConfigArgs {
-    fn from_args(watch_args: &WatchArgs) -> WatcherConfig;
+    fn from_args(watch_args: &WatchArgs, api_client: &CerebroClient) -> Result<ProductionWatcher, WatcherError>;
 }
 
-impl WatcherConfigArgs for WatcherConfig {
-    fn from_args(watch_args: &WatchArgs) -> WatcherConfig {
-        WatcherConfig { 
-            id: Uuid::new_v4().to_string(), 
-            name: watch_args.name.clone(), 
-            location: watch_args.location.clone(), 
-            team_name: watch_args.team_name.clone(), 
-            db_name: watch_args.db_name.clone(), 
-            format: watch_args.format.clone(),
-            interval: Duration::from_secs(watch_args.interval), 
-            timeout: Duration::from_secs(watch_args.timeout), 
-            timeout_interval: Duration::from_secs(watch_args.timeout_interval)
+impl WatcherConfigArgs for ProductionWatcher {
+    fn from_args(watch_args: &WatchArgs, api_client: &CerebroClient) -> Result<ProductionWatcher, WatcherError> {
+
+        let registered_provided = watch_args.id.is_some() || watch_args.json.is_some();
+
+        let new_provided = watch_args.name.is_some()
+            && watch_args.location.is_some()
+            && watch_args.format.is_some();
+
+        match (registered_provided, new_provided) {
+            (true, false) => {
+                log::info!("Registered watcher arguments provided, getting production watcher...");
+
+                let watcher_id = match (watch_args.json.clone(), watch_args.id.clone()) {
+                    (Some(path), _) => RegisterWatcherSchema::from_json(&path)?.id,
+                    (None, Some(id)) => id.to_owned(),
+                    (None, None) => return Err(WatcherError::WatcherIdentifierArgNotFound)
+                };
+
+                let watchers = api_client.get_watchers(
+                    &watch_args.team_name,
+                     &watch_args.db_name, 
+                     Some(watcher_id), 
+                     false
+                )?;
+
+                // With the optional identifier, the call returns a single item
+                Ok(watchers[0].clone())
+
+            },
+            (false, true) => {
+                log::info!("New watcher arguments provided, registering watcher...");
+
+                let schema = RegisterWatcherSchema::new(
+                    &watch_args.name.clone().unwrap(),
+                    &watch_args.location.clone().unwrap(),
+                    watch_args.format.clone().unwrap(),
+                    watch_args.glob.clone()
+                );
+
+                api_client.register_watcher(
+                    &schema, 
+                    &watch_args.team_name, 
+                    &watch_args.db_name, 
+                    false
+                )?;
+                
+                Ok(ProductionWatcher::from_schema(&schema))
+                
+            },
+            _ => return Err(WatcherError::InvalidWatcherConfigArgs)
         }
+
+        
     }
 }
 
@@ -120,27 +160,12 @@ impl UploadConfigArgs for UploadConfig {
         Self {
             data_center: watch_args.data_center.clone(),
             replication: watch_args.replication.clone(),
+            ttl: watch_args.ttl.clone(),
             ..Default::default()
         }
     }
 }
 
-pub trait CerebroClientConfigArgs {
-    fn from_args(app_args: &crate::terminal::App) -> crate::watcher::CerebroClientConfig;
-}
-
-impl CerebroClientConfigArgs for crate::watcher::CerebroClientConfig {
-    fn from_args(app_args: &crate::terminal::App) -> crate::watcher::CerebroClientConfig {
-        crate::watcher::CerebroClientConfig { 
-            api_url: app_args.url.clone(),
-            api_token: app_args.token.clone(),
-            api_token_file: app_args.token_file.clone(),
-            _danger_invalid_certificate: app_args.danger_invalid_certificate,
-            fs_url: app_args.fs_url.clone(),
-            fs_port: app_args.fs_port.clone()
-        }
-    }
-}
 
 pub trait FileGetter {
     fn get_fastq_dir(&self, input_path: &PathBuf) -> Result<PathBuf, WatcherError>;
@@ -150,7 +175,7 @@ pub trait FileGetter {
 impl FileGetter for WatcherFormat {
     fn get_fastq_dir(&self, input_path: &PathBuf) -> Result<PathBuf, WatcherError> {
         match self {
-            WatcherFormat::Fastq => Ok(input_path.to_path_buf()),
+            WatcherFormat::Fastq | WatcherFormat::FastqPe => Ok(input_path.to_path_buf()),
             WatcherFormat::Iseq => {
                 let alignment_path = input_path.join("Alignment_1");
                 let latest = find_latest_alignment_directory(&alignment_path)?;
@@ -176,21 +201,7 @@ impl FileGetter for WatcherFormat {
         }
     }
     fn get_fastq_files(&self, input_path: &PathBuf, glob: Option<String>) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError> {
-        
-        let fastq_dir = self.get_fastq_dir(input_path)?;
-
-        match self {
-            WatcherFormat::Fastq => {
-                get_read_files(&fastq_dir, &glob.unwrap_or("*.fastq.gz".to_string()), false)
-            },
-            WatcherFormat::Iseq => {
-                get_read_files(&fastq_dir, "*_{L001_R1_001,L001_R2_001}.fastq.gz", false)
-            },
-            WatcherFormat::Nextseq => {
-                get_read_files(&fastq_dir, "*_{R1_001,R2_001}.fastq.gz", false)
-            }
-        }
-
+        get_read_files(&self.get_fastq_dir(input_path)?, &glob.unwrap_or(self.default_glob()), false)
     }
 }
 

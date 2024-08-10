@@ -64,6 +64,8 @@ struct FileListQuery {
     db: DatabaseId,
     // Optional run identifier
     run_id: Option<String>,
+    // Optional watcher identifier
+    watcher_id: Option<String>,
     // Paginated files
     page: u32,
     // Limit files returned
@@ -86,7 +88,7 @@ async fn list_files(data: web::Data<AppState>, query: web::Query<FileListQuery>,
 
     let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Files);
     
-    let pipeline = get_latest_files_paginated_pipeline(query.run_id.clone(), query.page as i64, query.limit as i64);
+    let pipeline = get_latest_files_paginated_pipeline(query.run_id.clone(), query.watcher_id.clone(), query.page as i64, query.limit as i64);
     
     match files_collection
         .aggregate(pipeline, None)

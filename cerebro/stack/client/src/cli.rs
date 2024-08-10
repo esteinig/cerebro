@@ -103,7 +103,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ApiPipelineCommands::List( args ) => {
-                    client.get_pipelines(&args.team_name, &args.db_name, true)?;
+                    client.get_pipelines(&args.team_name, &args.db_name, args.id.clone(), true)?;
                 },
                 ApiPipelineCommands::Ping( args ) => {
 
@@ -134,7 +134,9 @@ fn main() -> anyhow::Result<()> {
                     
                     let register_watcher_schema = RegisterWatcherSchema::new(
                         &args.name, 
-                        &args.location
+                        &args.location,
+                        args.format.clone(),
+                        args.glob.clone()
                     );
 
                     client.register_watcher(
@@ -149,7 +151,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ApiWatcherCommands::List( args ) => {
-                    client.get_watchers(&args.team_name, &args.db_name, true)?;
+                    client.get_watchers(&args.team_name, &args.db_name, args.id.clone(), true)?;
                 },
 
                 ApiWatcherCommands::Ping( args ) => {

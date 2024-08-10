@@ -67,16 +67,18 @@ pub enum Commands {
     Ping(ApiStatusArgs),
     // Login to Cerebro API
     Login(ApiLoginArgs),
-    /// Upload to SeaweedFS and registration of files with Cerebro
+    /// Upload files to CerebroFS and register files with CerebroAPI
     Upload(UploadFileArgs),
-    /// Download of files from SeaweedFS
+    /// Download of files from CerebroFS
     Download(DownloadFileArgs),
-    /// Delete a file from SeaweedFS
+    /// Delete a file from CerebroFS
     Delete(DeleteFileArgs),
-    /// List accessible files from SeaweedFS registered with Cerebro
+    /// List accessible files from CerebroFS registered with Cerebro
     List(ListFileArgs),
-    /// Stage files fromn SeaweedFS periodically from stage databases registered with Cerebro
+    /// Stage files fromn CerebroFS periodically from stage databases registered with Cerebro
     Stage(StageFileArgs),
+    /// Get the SeaweedFS executable
+    Weed(GetWeedArgs),
 }
 
 #[derive(Debug, Args)]
@@ -86,6 +88,16 @@ pub struct StageFileArgs {
     pub outdir: PathBuf,
 }
 
+
+#[derive(Debug, Args)]
+pub struct GetWeedArgs {
+    /// Executable output directory
+    #[clap(long, short = 'o', default_value=".")]
+    pub outdir: PathBuf,
+    /// Executable output directory
+    #[clap(long, short = 'v', default_value="latest")]
+    pub version: String,
+}
 
 #[derive(Debug, Args)]
 pub struct DeleteFileArgs {
@@ -101,6 +113,9 @@ pub struct DeleteFileArgs {
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,
+    /// Watcher identifier
+    #[clap(long, short = 'w')]
+    pub watcher_id: Option<String>,
 }
 
 
@@ -141,6 +156,9 @@ pub struct ListFileArgs {
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,
+    /// Watcher identifier
+    #[clap(long, short = 'w')]
+    pub watcher_id: Option<String>,
     /// Return page of files
     #[clap(long, short = 'p', default_value="0")]
     pub page: u32,

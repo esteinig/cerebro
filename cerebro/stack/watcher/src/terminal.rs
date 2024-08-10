@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use cerebro_model::api::files::model::WatcherFormat;
-use clap::{Args, Parser, Subcommand};
+use cerebro_model::api::watchers::model::WatcherFormat;
+use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
@@ -68,34 +68,60 @@ pub enum Commands {
 }
 
 #[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("registered")
+    .required(false)
+    .args(&["id", "json"])
+)]
+#[clap(group = ArgGroup::new("new")
+    .required(false)
+    .multiple(true)
+    .args(&["name", "location", "format"])
+)]
 pub struct WatchArgs {
     /// File path to watch recursively for input folders
     #[clap(long, short = 'p')]
     pub path: PathBuf,
-    /// Watcher name 
-    #[clap(long, short = 'n')]
-    pub name: String,
-    /// Watcher location 
-    #[clap(long, short = 'l')]
-    pub location: String,
     /// Watcher team name 
     #[clap(long, short = 't')]
     pub team_name: String,
     /// Watcher team database 
     #[clap(long, short = 'd')]
     pub db_name: String,
-    /// Watcher input format 
-    #[clap(long, short = 'f')]
-    pub format: WatcherFormat,
-    /// Fastq file glob if format is 'fastq' 
-    #[clap(long, short = 'g')]
+
+    /// Watcher identifier generated during registration
+    #[clap(long, short = 'i', group = "registered", help_heading = "Registered Watcher")]
+    pub id: Option<String>,
+    /// Watcher registration record (.json)
+    #[clap(long, short = 'j', group = "registered", help_heading = "Registered Watcher")]
+    pub json: Option<PathBuf>,
+
+    /// Watcher name to register new watcher
+    #[clap(long, short = 'n', group = "new", help_heading = "New Watcher")]
+    pub name: Option<String>,
+    /// Watcher location to register new watcher
+    #[clap(long, short = 'l', group = "new", help_heading = "New Watcher")]
+    pub location: Option<String>,
+    /// Watcher input format to register new watcher
+    #[clap(long, short = 'f', group = "new", help_heading = "New Watcher")]
+    pub format: Option<WatcherFormat>,
+
+    /// Optional file glob, overwrites defaults based on format (see long --help)
+    /// 
+    /// 'fastq' = "*.fastq.gz", 
+    /// 'fastq-pe' = "*_{R1,R2}.fastq.gz", 
+    /// 'iseq' = "*_{L001_R1_001,L001_R2_001}.fastq.gz", 
+    /// 'nextseq' = "*_{R1_001,R2_001}.fastq.gz"
+    #[clap(long)]
     pub glob: Option<String>,
-    /// Cerebro FS non-default data center 
+    /// Cerebro FS non-default data center for file upload
     #[clap(long)]
     pub data_center: Option<String>,
-    /// Cerebro FS non-default replication strategy
+    /// Cerebro FS non-default replication strategy for file upload
     #[clap(long)]
     pub replication: Option<String>,
+    /// Cerebro FS non-default TTL strategy for file upload
+    #[clap(long)]
+    pub ttl: Option<String>,
     /// Interval for polling file path recursively in seconds
     #[clap(long, default_value="3")]
     pub interval: u64,

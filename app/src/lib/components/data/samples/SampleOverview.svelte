@@ -280,7 +280,7 @@
         <div class="mb-4">
             <SampleViewSelection selectedView={"samples"}></SampleViewSelection>
         </div>
-        <div class="mb-4 p-4 pl-6 border border-primary-500 rounded-2xl">
+        <div class="mb-4 p-4 pl-6 border-token border-primary-500">
             <div class="mb-4">
                 <ol class="breadcrumb justify-lstart">
                     <li class="crumb opacity-70">Team {selectedTeam.name}</li>

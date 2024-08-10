@@ -2,8 +2,7 @@
 use clap::Parser;
 use anyhow::Result;
 
-use cerebro_fs::{client::UploadConfig, utils::init_logger};
-use cerebro_model::api::files::model::WatcherConfig;
+use cerebro_fs::{client::UploadConfig, utils::init_logger, weed::download_and_install_weed};
 use cerebro_fs::client::FileSystemClient;
 use cerebro_client::client::CerebroClient;
 use cerebro_fs::terminal::{App, Commands};
@@ -51,8 +50,9 @@ fn main() -> Result<()> {
                 &args.db_name,
                 &args.run_id,
                 &args.sample_id,
-                UploadConfig::default(),  // TODO
-                WatcherConfig::default()  // TODO
+                UploadConfig::default(),
+                None,
+                None
             )?;
         },
         Commands::Download( args ) => {
@@ -66,7 +66,8 @@ fn main() -> Result<()> {
                 &args.file_ids,  
                 &args.team_name,
                 &args.db_name,
-                args.run_id.clone()
+                args.run_id.clone(),
+                args.watcher_id.clone()
             )?;
         },
         Commands::List( args ) => {
@@ -74,10 +75,17 @@ fn main() -> Result<()> {
                 &args.team_name,
                 &args.db_name,
                 args.run_id.clone(),
+                args.watcher_id.clone(),
                 args.page,
                 args.limit,
                 true
             )?;
+        },
+        Commands::Weed( args ) => {
+            download_and_install_weed(
+                &args.version, 
+                &args.outdir.join("weed")
+            )?
         },
 
     }

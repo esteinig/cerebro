@@ -183,7 +183,7 @@ pub fn get_command(
 /// # Examples
 ///
 /// ```
-/// let bin_path = std::path::PathBuf::from("/usr/local/bin");
+/// let bin_path = std::path::PathBuf::from("/usr/local/bin/weed");
 /// download_and_install_weed("latest", &bin_path).expect("Failed to download and install `weed`");
 /// ```
 pub fn download_and_install_weed(version: &str, bin_path: &PathBuf) -> Result<(), WeedDownloadError> {
@@ -214,7 +214,7 @@ pub fn download_and_install_weed(version: &str, bin_path: &PathBuf) -> Result<()
     log::info!("Moving binary to: {}", bin_path.display());
     fs::rename(PathBuf::from("./weed"), bin_path).map_err(|_| WeedDownloadError::MoveError)?;
 
-    log::info!("SeaweedFS `weed` has been installed successfully.");
+    log::info!("SeaweedFS executable `weed` has been installed successfully at {}", bin_path.display());
 
     Ok(())
 }

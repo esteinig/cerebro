@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::api::files::model::{SeaweedFileId, SeaweedWatcherConfig};
+use crate::api::{files::model::SeaweedFileId, pipelines::model::ProductionPipeline, watchers::model::ProductionWatcher};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterFileSchema {
@@ -11,5 +11,6 @@ pub struct RegisterFileSchema {
     pub hash: String,
     pub fid: SeaweedFileId,
     pub size: u64,
-    pub watcher: SeaweedWatcherConfig
+    pub watcher: Option<ProductionWatcher>,
+    pub pipeline: Option<ProductionPipeline>
 }

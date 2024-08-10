@@ -71,7 +71,9 @@ async fn register_pipeline(data: web::Data<AppState>, schema: web::Json<Register
 #[derive(Deserialize)]
 struct PipelineListQuery {  
     // Required for access authorization in user guard middleware
-    db: DatabaseId
+    db: DatabaseId,
+    // Get a single pipeline by identifier for the response
+    id: Option<String>
 }
 
 
@@ -90,7 +92,7 @@ async fn list_pipelines(data: web::Data<AppState>, query: web::Query<PipelineLis
 
     let pipeline_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Pipelines);
     
-    let pipeline = get_registered_pipelines_pipeline();
+    let pipeline = get_registered_pipelines_pipeline(&query.id);
     
     match pipeline_collection
         .aggregate(pipeline, None)

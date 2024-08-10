@@ -9,7 +9,7 @@ export const momaDali: CustomThemeConfig = {
 		"--theme-font-color-base": "0 0 0",
 		"--theme-font-color-dark": "255 255 255",
 		"--theme-rounded-base": "24px",
-		"--theme-rounded-container": "12px",
+		"--theme-rounded-container": "16px",
 		"--theme-border-base": "1px",
 		// =~= Theme On-X Colors =~=
 		"--on-primary": "0 0 0",

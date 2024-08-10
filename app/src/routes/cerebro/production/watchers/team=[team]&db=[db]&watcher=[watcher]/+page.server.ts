@@ -1,4 +1,4 @@
-import type { ErrorResponseData, Team, TeamDatabase, SeaweedFile, FileResponseData, ProjectCollection, PipelineResponseData, ProductionPipeline, ProductionWatcher, WatcherResponseData } from "$lib/utils/types";
+import { type ErrorResponseData, type Team, type TeamDatabase, type SeaweedFile, type FileResponseData, type ProjectCollection, type PipelineResponseData, type ProductionPipeline, type ProductionWatcher, type WatcherResponseData, parseWatcherFormat, parsePipeline } from "$lib/utils/types";
 import { env as private_env } from "$env/dynamic/private";
 import { error } from "@sveltejs/kit";
 import CerebroApi from "$lib/utils/api";
@@ -73,12 +73,16 @@ function groupSeaweedFiles(files: SeaweedFile[] | undefined, groupByKey: 'watche
 
 let api = new CerebroApi(private_env.PRIVATE_CEREBRO_API_URL_DOCKER);
 
-const fetchFiles = async(fetch: Function, requestInit: RequestInit, db_param: string): Promise<SeaweedFile[]> => {
+const fetchFiles = async(fetch: Function, requestInit: RequestInit, db_param: string, watcher_param: string | undefined): Promise<SeaweedFile[]> => {
     
     let files: SeaweedFile[] = [];
 
+    if (watcher_param === undefined) {
+        return files
+    }
+
     let filesResponse: Response = await fetch(
-        `${api.routes.files.getFiles}?db=${db_param}&page=0&limit=1000`, requestInit
+        `${api.routes.files.getFiles}?db=${db_param}&watcher_id=${watcher_param}&page=0&limit=1000`, requestInit
     );
     if (filesResponse.ok) {
         let filesResponseData: FileResponseData = await filesResponse.json();
@@ -104,7 +108,11 @@ const fetchPipelines = async(fetch: Function, requestInit: RequestInit, db_param
     );
     if (pipelinesResponse.ok) {
         let pipelinesResponseData: PipelineResponseData = await pipelinesResponse.json();
-        pipelines = pipelinesResponseData.data;
+
+        pipelines = pipelinesResponseData.data.map(pipeline => ({
+            ...pipeline,
+            format: parsePipeline(pipeline.pipeline)
+        }));
     } else {
         if (pipelinesResponse.status == 404) {  // No pipelines found returns empty for page to render
             return pipelines
@@ -125,7 +133,11 @@ const fetchWatchers = async(fetch: Function, requestInit: RequestInit, db_param:
     );
     if (watchersResponse.ok) {
         let watchersResponseData: WatcherResponseData = await watchersResponse.json();
-        watchers = watchersResponseData.data;
+
+        watchers = watchersResponseData.data.map(watcher => ({
+            ...watcher,
+            format: parseWatcherFormat(watcher.format)
+        }));
     } else {
         if (watchersResponse.status == 404) {  // No watchers found returns empty for page to render
             return watchers
@@ -159,7 +171,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     }
 
     let defaultTeam: Team = currentUserTeams[0];
-
+    
     if (!defaultTeam.databases.length){
         throw error(404, `No database has been created for team (${defaultTeam.name})`)
     }
@@ -169,29 +181,33 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     if (!defaultDatabase.projects.length){
         throw error(404, `No database projects have been created for team (${defaultTeam.name}) and database (${defaultDatabase.name})`)
     }
-
     let defaultProject: ProjectCollection = defaultDatabase.projects[0];
+        
+    const [registeredPipelines, registeredWatchers] = await Promise.all([
+        fetchPipelines(fetch, fetchDataRequestInit, params.db),
+        fetchWatchers(fetch, fetchDataRequestInit, params.db),
+    ]);
 
-    let files = await fetchFiles(fetch, fetchDataRequestInit, params.db);
-    let registeredPipelines = await fetchPipelines(fetch, fetchDataRequestInit, params.db);
-    let registeredWatchers = await fetchWatchers(fetch, fetchDataRequestInit, params.db);
+    let defaultWatcher: ProductionWatcher | undefined = params.watcher === "0" ? registeredWatchers[0] : registeredWatchers.find(watcher => watcher.id === params.watcher);
 
-    let filesWatcherLocation = groupSeaweedFiles(files, "watcher_location");
-    let defaultWatcherLocation: string = "(no watchers available)";
-    let keys = Object.keys(filesWatcherLocation);
-    
-    if (keys.length) {
-        defaultWatcherLocation = keys[0];
-    }
+    // Page initialisation without a selected watcher identifier since
+    // we are getting them in this function - use the default watcher
+
+    let files: SeaweedFile[] = await fetchFiles(
+        fetch, 
+        fetchDataRequestInit, 
+        params.db, 
+        params.watcher === "0" ? defaultWatcher?.id : params.watcher
+    );
 
     return { 
-        files: filesWatcherLocation,
+        files: files,
         registeredPipelines: registeredPipelines,
         registeredWatchers: registeredWatchers,
         defaultTeam: defaultTeam,
         defaultDatabase: defaultDatabase,
         defaultProject: defaultProject,
-        defaultWatcherLocation: defaultWatcherLocation,
+        defaultWatcher: defaultWatcher
     };
 
 }

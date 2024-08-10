@@ -12,7 +12,9 @@
     export let data;
 
     // Invalidates page data every five minutes to update 
-    // the pipeline activity status and indicator
+    // the pipeline activity status and indicator...
+    //
+    // DOES NOT WORK CURRENTLY
     onMount(() => {
         const interval = setInterval(() => {
             invalidate('watchers:data');
@@ -89,17 +91,17 @@
         return grouped;
     }
 
-    let selectedWatcherLocation = data.defaultWatcherLocation;
-    let selectedWatcherLocationFiles: Record<string, SeaweedFile[]> = groupSeaweedFiles(data.files[selectedWatcherLocation], "run_id");  // files can be undefined
+    let groupedFiles: Record<string, SeaweedFile[]> = {};
+
+    $: groupedFiles = groupSeaweedFiles(data.files, "run_id"); 
 
     async function changeWatcherSurface() {
-        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&location=${selectedWatcher}`)
+        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&watcher=${selectedWatcher?.id}`)
     }
 
     let selectedTeamId: string = $page.params.team;
     let selectedDatabaseId: string = $page.params.db;
     let selectedProjectId: string = data.defaultProject.id;
-    let selectedLocation: string = data.defaultWatcherLocation;
 
     let databases: Array<TeamDatabase> = data.defaultTeam.databases;
     let projects: Array<ProjectCollection> = data.defaultDatabase.projects;
@@ -116,24 +118,30 @@
     let specimenTag: string = "";
     let specimenTags: string[] = ["CSF", "BLD", "RES"]
     
+
     let pipelineSelection: ProductionPipeline[] = data.registeredPipelines;
     let selectedPipeline: ProductionPipeline | undefined = pipelineSelection[0];
 
     let watcherSelection: ProductionWatcher[] = data.registeredWatchers;
-    let selectedWatcher: ProductionWatcher | undefined = watcherSelection[0];
+    let selectedWatcher: ProductionWatcher | undefined = data.defaultWatcher;
     
-    $: pipelineIsActive = isWithinTimeLimit(selectedPipeline?.last_ping, 30);
-    $: watcherIsActive = isWithinTimeLimit(selectedWatcher?.last_ping, 30);
+
+    $: pipelineIsActive = isWithinTimeLimit(
+        data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 30
+    );
+    $: watcherIsActive = isWithinTimeLimit(
+        data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 30
+    );
 
 </script>
 
 
-<div class="grid sm:grid-cols-1 md:grid-cols-5 gap-16 pt-10">
+<div class="grid sm:grid-cols-1 md:grid-cols-4 gap-16 pt-10">
     <div class="col-span-1">
         <div class="grid grid-rows-2 md:grid-rows-2 gap-y-6">
             <div class="row-span-1">
                 <p class="opacity-60 mb-2">Watcher selection</p>
-                <div class="border p-4 border-primary-500 gap-4 rounded-2xl">
+                <div class="card border border-primary-500 !bg-transparent p-6 gap-4">
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Team</span></p>
@@ -172,7 +180,7 @@
             </div>
             <div class="row-span-1">
                 <p class="opacity-60 mb-2">Pipeline selection</p>
-                <div class="border p-4 border-primary-500 gap-4 rounded-2xl">
+                <div class="card border border-primary-500 !bg-transparent p-6 gap-4">
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Pipeline</span></p>
@@ -214,9 +222,9 @@
     </div>
     <div class="col-span-1 md:col-span-3">
 
-        <p class="opacity-60 mb-2">Sequence runs @ {selectedLocation}</p>
-        <TreeView class="border p-4 border-primary-500 rounded-2xl" selection multiple>
-            {#each Object.entries(selectedWatcherLocationFiles) as [run_id, files] }
+        <p class="opacity-60 mb-2">{selectedWatcher?.name} @ {selectedWatcher?.location}</p>
+        <TreeView class="card border border-primary-500 !bg-transparent p-6" selection multiple>
+            {#each Object.entries(groupedFiles) as [run_id, files] }
                 <TreeViewItem bind:group={runTree} name="runs" value="runs">
                         <div class="grid grid-cols-7 sm:grid-cols-7 md:grid-cols-7 gap-4">
                             <div class="opacity-60 col-span-2">{run_id}</div> 

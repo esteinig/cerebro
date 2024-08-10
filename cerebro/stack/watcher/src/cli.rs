@@ -1,12 +1,15 @@
 
-use cerebro_fs::client::UploadConfig;
-use cerebro_model::api::files::model::WatcherConfig;
-use cerebro_watcher::watcher::{CerebroClientConfig, CerebroWatcher};
+use std::time::Duration;
+
+use cerebro_client::client::CerebroClient;
+use cerebro_fs::client::{FileSystemClient, UploadConfig};
+use cerebro_model::api::watchers::model::ProductionWatcher;
+use cerebro_watcher::utils::WatcherConfigArgs;
+use cerebro_watcher::watcher::CerebroWatcher;
 use cerebro_watcher::utils::{init_logger, UploadConfigArgs};
 use cerebro_watcher::terminal::{App, Commands};
 use cerebro_watcher::slack::{SlackMessage, SlackClient};
 use cerebro_watcher::slack::SlackConfig;
-use cerebro_watcher::utils::{WatcherConfigArgs, CerebroClientConfigArgs};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -24,22 +27,43 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Watch( args ) => {
 
-            let slack_config = match (&args.slack_channel, &args.slack_token) {
-                (Some(channel), Some(token)) => Some(
-                    SlackConfig { channel: channel.to_string(), token: token.to_string() }
-                ),
-                _ => {
-                    log::info!("No slack configuration provided to watcher");
-                    None
-                }
-            };
 
-            let client_config = CerebroClientConfig::from_args(&cli);
-            let watcher_config = WatcherConfig::from_args(args);
-            let upload_config = UploadConfig::from_args(args);
+            let api_client = CerebroClient::new(
+                &cli.url,
+                &cli.token,
+                false,
+                cli.danger_invalid_certificate,
+                &cli.token_file
+            )?;
 
-            let watcher = CerebroWatcher::new(watcher_config, client_config, upload_config, slack_config)?;
-            watcher.watch(&args.path, args.glob.clone())?;
+            let fs_client = FileSystemClient::new(
+                &api_client, 
+                &cli.fs_url, 
+                &cli.fs_port
+            );
+
+            log::info!("Checking status of Cerebro API at {}",  &api_client.url);
+            api_client.ping_servers()?;
+    
+            log::info!("Checking status of SeaweedFS master at {}",  &fs_client.fs_url);
+            fs_client.ping_status()?;
+
+            let watcher = CerebroWatcher::new(
+                ProductionWatcher::from_args(args, &api_client)?, 
+                &args.team_name,
+                &args.db_name,
+                api_client, 
+                fs_client, 
+                UploadConfig::from_args(args), 
+                SlackConfig::from_args(args)
+            )?;
+
+            watcher.watch(
+                &args.path, 
+                Duration::from_secs(args.interval),
+                Duration::from_secs(args.timeout),
+                Duration::from_secs(args.timeout_interval),
+            )?;
 
         },
     }

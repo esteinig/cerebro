@@ -9,7 +9,6 @@ import {
     type AuthRefreshErrorResponseData,
     type AuthRefreshResponseData,
     type UserTeamsResponseData,
-    type ErrorResponseData 
 } from '$lib/utils/types';
 
 import { CerebroApi } from '$lib/utils/api';

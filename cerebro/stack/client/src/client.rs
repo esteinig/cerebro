@@ -463,16 +463,18 @@ impl CerebroClient {
             }
         }
     }
-    pub fn get_files(&self, team_name: &str, db_name: &str, run_id: Option<String>, page: u32, limit: u32, print: bool) -> Result<Vec<SeaweedFile>, HttpClientError> {
+    pub fn get_files(&self, team_name: &str, db_name: &str, run_id: Option<String>, watcher_id: Option<String>, page: u32, limit: u32, print: bool) -> Result<Vec<SeaweedFile>, HttpClientError> {
 
         let db = self.get_database(team_name, &db_name.to_owned())?;
         
-        let response = self.client.get(
-            match run_id {
-                Some(run_id) => format!("{}?db={}&run_id={run_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
-                None => format!("{}?db={}&page={page}&limit={limit}", self.routes.team_files_list, db.id)
-            }
-        )
+        let url = match (run_id, watcher_id) {
+            (Some(run_id), None) => format!("{}?db={}&run_id={run_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
+            (None, Some(watcher_id)) => format!("{}?db={}&watcher_id={watcher_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
+            (Some(run_id), Some(watcher_id)) => format!("{}?db={}&run_id={run_id}&watcher_id={watcher_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
+            _ => format!("{}?db={}&page={page}&limit={limit}", self.routes.team_files_list, db.id)
+        };
+
+        let response = self.client.get(url)
             .header(AUTHORIZATION, self.get_token_bearer(None))
             .send()?;
 
@@ -493,7 +495,13 @@ impl CerebroClient {
                 )?;
                 if print {
                     for file in &data {
-                        println!("{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}", file.id, file.date, file.watcher.name, file.watcher.location, file.fid, file.size_mb(), file.name)
+
+                        let (watcher_name, watcher_location) = match &file.watcher {
+                            Some(watcher) => (watcher.name.as_str(), watcher.location.as_str()),
+                            None => ("none", "none")
+                        };
+
+                        println!("{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}", file.id, file.date, watcher_name, watcher_location, file.fid, file.size_mb(), file.name)
                     }
                 }
                 Ok(data)
@@ -546,12 +554,15 @@ impl CerebroClient {
             }
         }
     }
-    pub fn get_pipelines(&self, team_name: &str, db_name: &str, print: bool) -> Result<Vec<ProductionPipeline>, HttpClientError> {
+    pub fn get_pipelines(&self, team_name: &str, db_name: &str, id: Option<String>, print: bool) -> Result<Vec<ProductionPipeline>, HttpClientError> {
 
         let db = self.get_database(team_name, &db_name.to_owned())?;
         
         let response = self.client.get(
-            format!("{}?db={}", self.routes.team_pipelines_list, db.id)
+            match id {
+                Some(id) => format!("{}?db={}&id={id}", self.routes.team_pipelines_list, db.id),
+                None => format!("{}?db={}", self.routes.team_pipelines_list, db.id)
+            }
         )
             .header(AUTHORIZATION, self.get_token_bearer(None))
             .send()?;
@@ -709,12 +720,16 @@ impl CerebroClient {
             }
         }       
     }
-    pub fn get_watchers(&self, team_name: &str, db_name: &str, print: bool) -> Result<Vec<ProductionWatcher>, HttpClientError> {
+    pub fn get_watchers(&self, team_name: &str, db_name: &str, id: Option<String>, print: bool) -> Result<Vec<ProductionWatcher>, HttpClientError> {
 
         let db = self.get_database(team_name, &db_name.to_owned())?;
         
         let response = self.client.get(
-            format!("{}?db={}", self.routes.team_watchers_list, db.id)
+            match id {
+                Some(id) => format!("{}?db={}&id={id}", self.routes.team_watchers_list, db.id),
+                None => format!("{}?db={}", self.routes.team_watchers_list, db.id)
+            }
+            
         )
             .header(AUTHORIZATION, self.get_token_bearer(None))
             .send()?;
@@ -736,7 +751,7 @@ impl CerebroClient {
                 )?;
                 if print {
                     for watcher in &data {
-                        println!("{}\t{}\t{}\t{}\t{}", watcher.id, watcher.date, watcher.name, watcher.location, watcher.last_ping)
+                        println!("{}\t{} @ {}\t{}\t'{}'\t{}", watcher.id, watcher.name, watcher.location, watcher.format, watcher.glob, watcher.last_ping)
                     }
                 }
                 Ok(data)

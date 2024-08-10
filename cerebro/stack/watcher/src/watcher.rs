@@ -3,10 +3,10 @@
 
 use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use cerebro_fs::client::{FileSystemClient, UploadConfig};
-use cerebro_model::api::files::model::WatcherConfig;
+use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_client::client::CerebroClient;
 use notify::event::CreateKind;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 use notify::EventKind;
 use std::thread;
@@ -15,32 +15,11 @@ use crate::utils::FileGetter;
 use crate::error::WatcherError;
 use crate::slack::{SlackConfig, SlackTools};
 
-
-#[derive(Clone, Debug)]
-pub struct CerebroClientConfig {
-    pub api_url: String,
-    pub api_token: Option<String>,
-    pub api_token_file: Option<PathBuf>,
-    pub _danger_invalid_certificate: bool,
-    pub fs_url: String,
-    pub fs_port: String,
-}
-impl Default for CerebroClientConfig {
-    fn default() -> Self {
-        Self {
-            api_url: String::from("http://api.cerebro.localhost"),
-            api_token: std::env::var("CEREBRO_API_TOKEN").ok(),
-            api_token_file: None,
-            _danger_invalid_certificate: false,
-            fs_url: String::from("http://fs.cerebro.localhost"),
-            fs_port: String::from("9333"),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct CerebroWatcher {
-    pub watcher_config: WatcherConfig,
+    pub config: ProductionWatcher,
+    pub team_name: String,
+    pub db_name: String,
     pub upload_config: UploadConfig,
     pub api_client: CerebroClient,
     pub fs_client: FileSystemClient,
@@ -48,41 +27,21 @@ pub struct CerebroWatcher {
 }
 impl CerebroWatcher {
     pub fn new(
-        watcher_config: WatcherConfig, 
-        client_config: CerebroClientConfig, 
+        config: ProductionWatcher, 
+        team_name: &str,
+        db_name: &str,
+        api_client: CerebroClient, 
+        fs_client: FileSystemClient,
         upload_config: UploadConfig,
         slack_config: Option<SlackConfig>
     ) -> Result<Self, WatcherError> {
         
-
-        // Setup the Cerebro API and FS clients and ping status
-
-        let api_client = CerebroClient::new(
-            &client_config.api_url,
-            &client_config.api_token,
-            false,
-            false,
-            &client_config.api_token_file
-        )?;
-
-        let fs_client = FileSystemClient::new(
-            &api_client, 
-            &client_config.fs_url, 
-            &client_config.fs_port
-        );
-
-        log::info!("Checking status of Cerebro API at {}",  &api_client.url);
-        api_client.ping_servers()?;
-
-        log::info!("Checking status of SeaweedFS master at {}",  &fs_client.fs_url);
-        fs_client.ping_status()?;
-
         let slack_tools = match slack_config {
             Some(slack_config) => {
                 let slack_tools = SlackTools::from_config(&slack_config);
                 log::info!("Sending watcher initialisation message to Slack channel: {}", slack_config.channel);
                 slack_tools.client.send(
-                    &slack_tools.message.watcher_setup(&watcher_config.name, &watcher_config.location)
+                    &slack_tools.message.watcher_setup(&config.name, &config.location)
                 )?;
                 Some(slack_tools)
             },
@@ -90,14 +49,16 @@ impl CerebroWatcher {
         };
 
         Ok(Self {
-            watcher_config,
+            config,
+            team_name: team_name.to_string(),
+            db_name: db_name.to_string(),
             upload_config,
             api_client,
             fs_client,
             slack_tools,
         })
     }
-    pub fn watch<P: AsRef<Path>>(&self, path: P, fastq_glob: Option<String>) -> Result<(), WatcherError> {
+    pub fn watch<P: AsRef<Path>>(&self, path: P, interval: Duration, timeout: Duration, timeout_interval: Duration) -> Result<(), WatcherError> {
 
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_c = tx.clone();
@@ -108,10 +69,25 @@ impl CerebroWatcher {
             move |watch_event| {
                 tx_c.send(watch_event).unwrap();
             },
-            Config::default().with_poll_interval(self.watcher_config.interval)
+            Config::default().with_poll_interval(interval)
         )?;
 
-        log::info!("Starting watcher {} @ {} ...", self.watcher_config.name, self.watcher_config.location);
+        let ping_clone = self.clone();
+        thread::spawn(move || {
+            loop {
+                if let Err(err) = ping_clone.api_client.ping_watcher(
+                    &ping_clone.config.id, 
+                    &ping_clone.team_name, 
+                    &ping_clone.db_name, 
+                    false
+                ) {
+                    log::error!("Error in updating watcher activity: {}", err.to_string())
+                };
+                thread::sleep(std::time::Duration::from_secs(60));
+            }
+        });
+
+        log::info!("Starting watcher {} @ {} ...", self.config.name, self.config.location);
 
         watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
 
@@ -131,7 +107,7 @@ impl CerebroWatcher {
                                     (path.to_owned(), path.is_dir())
                                 },
                                 None => {
-                                    log::error!("[{}] Could not extract input path from event", self.watcher_config.name);
+                                    log::error!("[{}] Could not extract input path from event", self.config.name);
                                     continue 'event;
                                 }
                             };
@@ -146,13 +122,13 @@ impl CerebroWatcher {
                                         }
                                     },
                                     None => {
-                                        log::error!("[{}@{}] Could not extract parent directory from event", self.watcher_config.name, self.watcher_config.location);
+                                        log::error!("[{}@{}] Could not extract parent directory from event", self.config.name, self.config.location);
                                         continue 'event;
                                     }
                                 }
 
                                 let watcher = self.clone();
-                                let glob = fastq_glob.clone();
+                                let watcher_config = watcher.config.clone();
 
                                 thread::spawn(move || {
 
@@ -161,53 +137,57 @@ impl CerebroWatcher {
                                         None => "unknown"
                                     };    
 
-                                    log::info!("[{}@{}::{}] Run directory detected: {}", watcher.watcher_config.name, watcher.watcher_config.location, run_id, new_dir.display());
+                                    log::info!("[{}@{}::{}] Run directory detected: {}", watcher.config.name, watcher.config.location, run_id, new_dir.display());
 
                                     // We watch the input directory for any changes in the given timeout period with the given timeout interval...
                                     match watch_event_timeout(
                                         new_dir.clone(), 
-                                        watcher.watcher_config.timeout_interval, 
-                                        watcher.watcher_config.timeout, 
-                                        &watcher.watcher_config.name, 
-                                        &watcher.watcher_config.location
+                                        timeout_interval, 
+                                        timeout, 
+                                        &watcher.config.name, 
+                                        &watcher.config.location
                                     ) {
                                         Ok(_) => {
                                             // ... if there are no changes to the input directory, we start the file registration and upload 
 
-                                            match watcher.watcher_config.format.get_fastq_files(&new_dir, glob) {
+                                            match watcher.config.format.get_fastq_files(&new_dir, Some(watcher.config.glob)) {
                                                 Err(err) => log::error!("Error getting read files: {}", err.to_string()),
                                                 Ok(fastq_files) => {
 
-                                                    match watcher.fs_client.upload_samples(&fastq_files, run_id.to_string(), watcher.upload_config, watcher.watcher_config) {
+                                                    match watcher.fs_client.upload_files_from_watcher(
+                                                        &fastq_files, 
+                                                        run_id.to_string(), 
+                                                        &watcher.team_name,
+                                                        &watcher.db_name,
+                                                        watcher.upload_config, 
+                                                        watcher_config
+                                                    ) {
                                                         Err(err) => log::error!("Error uploading read files to Cerebro FS: {}", err.to_string()),
                                                         Ok(()) => log::info!("Uploaded files for run: {run_id}")
                                                     }
-
                                                 }
                                             }
-
                                         }, 
                                         Err(err) => {
-                                            log::warn!("[{}@{}] Failed to watch input directory for completion (error: {})", watcher.watcher_config.name, watcher.watcher_config.location, err.to_string());
+                                            log::warn!("[{}@{}] Failed to watch input directory for completion (error: {})", watcher.config.name, watcher.config.location, err.to_string());
                                         }
                                     };
                                 });
                             }
-                            // Not joining thread - if the main watch process fails, threads will exit!
+                            // Not joining timeout threads - if the main watch process fails, threads will exit
                         },
-                        _ => {}
+                        _ => {} // Nothing happens if other events are registered
                     }
                 },
-                Err(_) => {}
+                Err(_) => {} // Nothing happens if we get an error in the event channel
             }
         }
-
         Ok(())
     }
 
 }
 
-pub fn watch_event_timeout<P: AsRef<Path>>(path: P, interval: Duration, timeout: Duration, watcher_name: &str, watcher_loc: &str) -> notify::Result<()> {
+pub fn watch_event_timeout<P: AsRef<Path>>(path: P, timeout_interval: Duration, timeout: Duration, watcher_name: &str, watcher_loc: &str) -> notify::Result<()> {
 
     let run_id = match path.as_ref().file_name() {
         Some(name) => name.to_str().unwrap_or("unknown"), 
@@ -224,7 +204,7 @@ pub fn watch_event_timeout<P: AsRef<Path>>(path: P, interval: Duration, timeout:
         move |watch_event| {
             tx_c.send(watch_event).unwrap();
         },
-        Config::default().with_poll_interval(interval)
+        Config::default().with_poll_interval(timeout_interval)
     )?;
 
     watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;

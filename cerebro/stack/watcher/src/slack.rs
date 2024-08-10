@@ -2,12 +2,25 @@ use std::process;
 use actix_web_httpauth::headers::authorization::Bearer;
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, Deserialize};
-use crate::error::WatcherError;
+use crate::{error::WatcherError, terminal::WatchArgs};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlackConfig {
     pub channel: String,
     pub token: String
+}
+impl SlackConfig {
+    pub fn from_args(watch_args: &WatchArgs) -> Option<Self> {
+        match (&watch_args.slack_channel, &watch_args.slack_token) {
+            (Some(channel), Some(token)) => Some(
+                SlackConfig { channel: channel.to_string(), token: token.to_string() }
+            ),
+            _ => {
+                log::info!("Slack channel and token configuration not provided for this watcher");
+                None
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

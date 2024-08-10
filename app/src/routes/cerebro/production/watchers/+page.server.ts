@@ -22,6 +22,6 @@ export const load: PageServerLoad = async ({ locals, url, }) => {
 
     let teamDatabase: TeamDatabase = team.databases[0];
 
-    throw redirect(302, `${url}/team=${team.id}&db=${teamDatabase.id}&location=0`)
+    throw redirect(302, `${url}/team=${team.id}&db=${teamDatabase.id}&watcher=0`)
 
 }

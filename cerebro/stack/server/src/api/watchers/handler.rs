@@ -68,7 +68,9 @@ async fn register_watcher(data: web::Data<AppState>, schema: web::Json<RegisterW
 #[derive(Deserialize)]
 struct WatcherListQuery {  
     // Required for access authorization in user guard middleware
-    db: DatabaseId
+    db: DatabaseId,
+    // Get a single watcher by identifier for the response
+    id: Option<String>
 }
 
 
@@ -85,7 +87,7 @@ async fn list_watchers(data: web::Data<AppState>, query: web::Query<WatcherListQ
 
     let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Watchers);
     
-    let watcher = get_registered_watchers_pipeline();
+    let watcher = get_registered_watchers_pipeline(&query.id);
     
     match watcher_collection
         .aggregate(watcher, None)

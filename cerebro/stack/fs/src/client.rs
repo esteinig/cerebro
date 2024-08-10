@@ -4,7 +4,7 @@ use anyhow::Result;
 use reqwest::StatusCode;
 
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::files::model::{SeaweedWatcherConfig, WatcherConfig};
+use cerebro_model::api::{pipelines::model::ProductionPipeline, watchers::model::ProductionWatcher};
 use cerebro_model::api::files::schema::RegisterFileSchema;
 use crate::{error::FileSystemError, hash::fast_file_hash, weed::weed_upload};
 
@@ -98,7 +98,8 @@ impl FileSystemClient {
         run_id: &Option<String>,
         sample_id: &Option<String>,
         upload_config: UploadConfig,
-        watcher_config: WatcherConfig,
+        watcher: Option<ProductionWatcher>,
+        pipeline: Option<ProductionPipeline>,
     ) -> Result<(), FileSystemError> {
 
         for file in files { 
@@ -133,7 +134,8 @@ impl FileSystemClient {
                 hash: file_hash,
                 fid: upload_response.fid,
                 size: upload_response.size,
-                watcher: SeaweedWatcherConfig::from_watcher_config(&watcher_config)
+                watcher: watcher.clone(),
+                pipeline: pipeline.clone(),
             };
 
             log::info!("Registering file with Cerebro API");
@@ -152,18 +154,19 @@ impl FileSystemClient {
         file_ids: &Vec<String>,
         team_name: &str,
         db_name: &str,
-        run_id: Option<String>
+        run_id: Option<String>,
+        watcher_id: Option<String>
     ) -> Result<(), FileSystemError> {
 
-        let file_ids = match run_id {
-            Some(_) => {
-                self.api_client.get_files(team_name, db_name, run_id, 0, 1000, false)?
+        let file_ids = match (&run_id, &watcher_id) {
+            (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
+                self.api_client.get_files(team_name, db_name, run_id, watcher_id, 0, 1000, false)?
                     .iter()
                     .map(|file| file.id.to_owned())
                     .collect()
 
             },
-            None => file_ids.clone()
+            _ => file_ids.clone()
         };
            
 
@@ -175,12 +178,14 @@ impl FileSystemClient {
 
         Ok(())
     }
-    pub fn upload_samples(
+    pub fn upload_files_from_watcher(
         &self,
         files: &HashMap<String, Vec<PathBuf>>,
         run_id: String,
+        team_name: &str,
+        db_name: &str,
         upload_config: UploadConfig,
-        watcher_config: WatcherConfig,
+        watcher: ProductionWatcher,
     ) -> Result<(), FileSystemError> {
 
         for (sample_id, files) in files { 
@@ -216,7 +221,8 @@ impl FileSystemClient {
                     hash: file_hash,
                     fid: upload_response.fid,
                     size: upload_response.size,
-                    watcher: SeaweedWatcherConfig::from_watcher_config(&watcher_config)
+                    watcher: Some(watcher.clone()),
+                    pipeline: None
                 };
 
                 log::info!("{:#?}", file_schema);
@@ -224,8 +230,8 @@ impl FileSystemClient {
                 log::info!("Registering file with Cerebro API");
                 self.api_client.register_file(
                     file_schema,
-                    &watcher_config.team_name,
-                    &watcher_config.db_name
+                    &team_name,
+                    &db_name
                 )?;
             }
             

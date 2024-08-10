@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { navigating, page } from '$app/stores';
     import { env } from '$env/dynamic/public';
 	import { storeTheme } from '$lib/stores/stores';
 
-    import { AppBar, popup } from '@skeletonlabs/skeleton';
+    import { AppBar, popup, ProgressBar } from '@skeletonlabs/skeleton';
     import { LightSwitch } from '@skeletonlabs/skeleton';
     import { getToastStore } from '@skeletonlabs/skeleton';
     import type { ToastSettings } from '@skeletonlabs/skeleton';

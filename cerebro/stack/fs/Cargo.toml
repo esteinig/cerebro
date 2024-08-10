@@ -30,7 +30,6 @@ path = "src/cli.rs"
 cerebro-model = { path = "../../lib/model" }
 cerebro-client = { path = "../client" }
 
-
 anyhow = "1.0"
 thiserror = "1.0"
 itertools = "0.10.3"

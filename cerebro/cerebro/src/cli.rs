@@ -21,11 +21,12 @@
 #![allow(unreachable_patterns)]
 
 use std::fs::create_dir_all;
+use std::time::Duration;
 
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
-// Trait imports for watcher configs `from_args`
+
 use cerebro_watcher::utils::WatcherConfigArgs;
 use cerebro_watcher::utils::UploadConfigArgs;
 
@@ -34,7 +35,8 @@ use clap::Parser;
 use rayon::prelude::*;
 
 use cerebro::tools::password::hash_password;
-use cerebro::utils::{FromAppArgs, init_logger};
+use cerebro::utils::init_logger;
+
 use cerebro::terminal::{App, Commands, StackCommands};
 
 
@@ -195,25 +197,43 @@ fn main() -> anyhow::Result<()> {
                     ).expect("Failed to send message");
                 },
                 cerebro_watcher::terminal::Commands::Watch( args ) => {
-                    
-
-                    
-                    let slack_config = match (&args.slack_channel, &args.slack_token) {
-                        (Some(channel), Some(token)) => Some(
-                            cerebro_watcher::slack::SlackConfig { channel: channel.to_string(), token: token.to_string() }
-                        ),
-                        _ => {
-                            log::info!("No slack configuration provided to watcher");
-                            None
-                        }
-                    };
-
-                    let client_config = cerebro_watcher::watcher::CerebroClientConfig::from_args(&cli);
-                    let watcher_config = cerebro_model::api::files::model::WatcherConfig::from_args(args);
-                    let upload_config = cerebro_fs::client::UploadConfig::from_args(args);
-
-                    let watcher = cerebro_watcher::watcher::CerebroWatcher::new(watcher_config, client_config, upload_config, slack_config)?;
-                    watcher.watch(&args.path, args.glob.clone())?;
+                            
+                    let api_client = cerebro_client::client::CerebroClient::new(
+                        &cli.url,
+                        &cli.token,
+                        false,
+                        cli.danger_invalid_certificate,
+                        &cli.token_file
+                    )?;
+        
+                    let fs_client = cerebro_fs::client::FileSystemClient::new(
+                        &api_client, 
+                        &cli.fs_url, 
+                        &cli.fs_port
+                    );
+        
+                    log::info!("Checking status of Cerebro API at {}",  &api_client.url);
+                    api_client.ping_servers()?;
+            
+                    log::info!("Checking status of SeaweedFS master at {}",  &fs_client.fs_url);
+                    fs_client.ping_status()?;
+        
+                    let watcher = cerebro_watcher::watcher::CerebroWatcher::new(
+                        cerebro_model::api::watchers::model::ProductionWatcher::from_args(args, &api_client)?, 
+                        &args.team_name,
+                        &args.db_name,
+                        api_client, 
+                        fs_client, 
+                        cerebro_fs::client::UploadConfig::from_args(args), 
+                        cerebro_watcher::slack::SlackConfig::from_args(args)
+                    )?;
+        
+                    watcher.watch(
+                        &args.path, 
+                        Duration::from_secs(args.interval),
+                        Duration::from_secs(args.timeout),
+                        Duration::from_secs(args.timeout_interval),
+                    )?;
                     
                 },
             }
@@ -261,7 +281,7 @@ fn main() -> anyhow::Result<()> {
                             }
                         },
                         cerebro_client::terminal::ApiPipelineCommands::List( args ) => {
-                            client.get_pipelines(&args.team_name, &args.db_name, true)?;
+                            client.get_pipelines(&args.team_name, &args.db_name, args.id.clone(), true)?;
                         },
                         cerebro_client::terminal::ApiPipelineCommands::Ping( args ) => {
 
@@ -291,7 +311,9 @@ fn main() -> anyhow::Result<()> {
                             
                             let register_watcher_schema = RegisterWatcherSchema::new(
                                 &args.name, 
-                                &args.location
+                                &args.location,
+                                args.format.clone(),
+                                args.glob.clone()
                             );
         
                             client.register_watcher(
@@ -306,7 +328,7 @@ fn main() -> anyhow::Result<()> {
                             }
                         },
                         cerebro_client::terminal::ApiWatcherCommands::List( args ) => {
-                            client.get_watchers(&args.team_name, &args.db_name, true)?;
+                            client.get_watchers(&args.team_name, &args.db_name, args.id.clone(), true)?;
                         },
                         cerebro_client::terminal::ApiWatcherCommands::Ping( args ) => {
 

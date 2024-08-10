@@ -1698,24 +1698,52 @@ export type SeaweedFile = {
  * @file lib/utils/types
  */
 export enum Pipeline {
-    PathogenDetection = "Pathogen Detection",
-    PanviralEnrichment = "Panviral Enrichment",
-    CultureIdentification = "Culture Identification"
+    PathogenDetection = "Metagenomics: Pathogen Detection",
+    PanviralEnrichment = "Metagenomics: Panviral Enrichment",
+    CultureIdentification = "Metagenomics: Culture Identification"
 }
 
 
+export const parsePipeline = (pipeline: string): Pipeline => {
+    switch (pipeline) {
+        case "PathogenDetection":
+            return Pipeline.PathogenDetection;
+        case "PanviralEnrichment":
+            return Pipeline.PanviralEnrichment;
+        case "CultureIdentification":
+            return Pipeline.CultureIdentification;
+        default:
+            throw new Error(`Unknown Pipeline enumeration: ${pipeline}`);
+    }
+};
+
 /**
  * 
- * Watcher input format enuemration
+ * Watcher input format enumeration
  * 
  * @file lib/utils/types
  */
 export enum WatcherFormat {
-    Fastq = "Reads",
+    Fastq = "Fastq (single-end)",
+    FastqPe = "Fastq (paired-end)",
     Iseq = "Illumina iSeq",
     Nextseq = "Illumina NextSeq"
 }
 
+export const parseWatcherFormat = (format: string): WatcherFormat => {
+    switch (format) {
+        case "Fastq":
+            return WatcherFormat.Fastq;
+        case "FastqPe":
+            return WatcherFormat.FastqPe;
+        case "Iseq":
+            return WatcherFormat.Iseq;
+        case "Nextseq":
+            return WatcherFormat.Nextseq;
+        default:
+            throw new Error(`Unknown WatcherFormat enumeration: ${format}`);
+    }
+};
 
 /**
  * 
@@ -1744,7 +1772,8 @@ export type ProductionWatcher = {
     name: string,
     location: string,
     last_ping: string,
-    format: WatcherFormat
+    format: WatcherFormat,
+    glob: string
 }
 
 /**
