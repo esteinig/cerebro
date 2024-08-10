@@ -29,7 +29,6 @@ pub struct ProductionPipeline {
 }
 impl ProductionPipeline {
     pub fn from_schema(schema: &RegisterPipelineSchema) -> Self {
-        
         Self {
             id: schema.id.clone(),
             date: schema.date.clone(),

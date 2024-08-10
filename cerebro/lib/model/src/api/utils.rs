@@ -12,6 +12,7 @@ pub enum HttpMethod {
     Post,
     Delete,
     Put,
+    Patch,
 }
 impl std::fmt::Display for HttpMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -20,6 +21,7 @@ impl std::fmt::Display for HttpMethod {
             Self::Post => write!(f, "POST"),
             Self::Delete => write!(f, "DELETE"),
             Self::Put => write!(f, "PUT"),
+            Self::Patch => write!(f, "PATCH"),
 
         }
     }

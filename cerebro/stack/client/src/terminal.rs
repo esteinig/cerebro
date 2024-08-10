@@ -202,7 +202,9 @@ pub enum ApiPipelineCommands {
     /// List registered production pipelines
     List(ApiPipelineListArgs),
     /// Delete a registered production pipeline
-    Delete(ApiPipelineDeleteArgs)
+    Delete(ApiPipelineDeleteArgs),
+    /// Ping a registered pipeline to update active status
+    Ping(ApiPipelinePingArgs),
 }
 
 #[derive(Debug, Args)]
@@ -228,6 +230,23 @@ pub struct ApiPipelineRegisterArgs {
 }
 
 #[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct ApiPipelinePingArgs {
+    /// Pipeline identifier generated during registration
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Team name for pipeline ping
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for pipeline ping
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+#[derive(Debug, Args)]
 pub struct ApiPipelineListArgs {
     /// Team name for pipeline listing
     #[clap(long, short = 't')]
@@ -236,63 +255,6 @@ pub struct ApiPipelineListArgs {
     #[clap(long, short = 'd')]
     pub db_name: String,
 }
-
-
-#[derive(Debug, Args)]
-#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
-pub struct ApiWatcherDeleteArgs {
-    /// Pipeline identifier generated during registration
-    #[clap(long, short = 'i', group = "input")]
-    pub id: Option<String>,
-    /// Pipeline registration record (.json)
-    #[clap(long, short = 'j', group = "input")]
-    pub json: Option<PathBuf>,
-    /// Team name for pipeline deletion
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for watcher deletion
-    #[clap(long, short = 'd')]
-    pub db_name: String,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum ApiWatcherCommands {
-    /// Register a new production watcher
-    Register(ApiWatcherRegisterArgs),
-    /// List registered production watchers
-    List(ApiWatcherListArgs),
-    /// Delete a registered production watcher
-    Delete(ApiWatcherDeleteArgs)
-}
-#[derive(Debug, Args)]
-pub struct ApiWatcherRegisterArgs {
-    /// Pipeline name for registration
-    #[clap(long, short = 'n')]
-    pub name: String,
-    /// Pipeline location for registration
-    #[clap(long, short = 'l')]
-    pub location: String,
-    /// Team name for pipeline registration
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for pipeline registration
-    #[clap(long, short = 'd')]
-    pub db_name: String,
-    /// Output registration for future reference (.json)
-    #[clap(long, short = 'j')]
-    pub json: Option<PathBuf>,
-}
-
-#[derive(Debug, Args)]
-pub struct ApiWatcherListArgs {
-    /// Team name for pipeline listing
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for pipeline listing
-    #[clap(long, short = 'd')]
-    pub db_name: String,
-}
-
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
@@ -307,6 +269,83 @@ pub struct ApiPipelineDeleteArgs {
     #[clap(long, short = 't')]
     pub team_name: String,
     /// Database name for pipeline deletion
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+
+
+#[derive(Debug, Subcommand)]
+pub enum ApiWatcherCommands {
+    /// Register a new production watcher
+    Register(ApiWatcherRegisterArgs),
+    /// List registered production watchers
+    List(ApiWatcherListArgs),
+    /// Delete a registered production watcher
+    Delete(ApiWatcherDeleteArgs),
+    /// Ping a registered watcher to update active status
+    Ping(ApiWatcherPingArgs),
+}
+#[derive(Debug, Args)]
+pub struct ApiWatcherRegisterArgs {
+    /// Watcher name for registration
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Watcher location for registration
+    #[clap(long, short = 'l')]
+    pub location: String,
+    /// Team name for watcher registration
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for watcher registration
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+    /// Output registration for future reference (.json)
+    #[clap(long, short = 'j')]
+    pub json: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct ApiWatcherListArgs {
+    /// Team name for watcher listing
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for watcher listing
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct ApiWatcherPingArgs {
+    /// Watcher identifier generated during registration
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Watcher registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Team name for watcher ping
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for watcher ping
+    #[clap(long, short = 'd')]
+    pub db_name: String,
+}
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct ApiWatcherDeleteArgs {
+    /// Watcher identifier generated during registration
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Watcher registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Team name for watcher deletion
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Database name for watcher deletion
     #[clap(long, short = 'd')]
     pub db_name: String,
 }

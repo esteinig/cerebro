@@ -95,6 +95,7 @@ fn main() -> anyhow::Result<()> {
                         &register_pipeline_schema,
                         &args.team_name, 
                         &args.db_name,
+                        true
                     )?;
 
                     if let Some(path) = &args.json {
@@ -102,8 +103,17 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ApiPipelineCommands::List( args ) => {
-                    
                     client.get_pipelines(&args.team_name, &args.db_name, true)?;
+                },
+                ApiPipelineCommands::Ping( args ) => {
+
+                    let pipleine_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id.to_owned(),
+                        _ => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
+                    };
+
+                    client.ping_pipeline(&&pipleine_id, &args.team_name, &args.db_name, true)?;
                 },
                 ApiPipelineCommands::Delete( args ) => {
                     
@@ -131,6 +141,7 @@ fn main() -> anyhow::Result<()> {
                         &register_watcher_schema,
                         &args.team_name, 
                         &args.db_name,
+                        true
                     )?;
 
                     if let Some(path) = &args.json {
@@ -138,8 +149,18 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ApiWatcherCommands::List( args ) => {
-                    
                     client.get_watchers(&args.team_name, &args.db_name, true)?;
+                },
+
+                ApiWatcherCommands::Ping( args ) => {
+
+                    let watcher_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterWatcherSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id.to_owned(),
+                        (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
+                    };
+
+                    client.ping_watcher(&watcher_id, &args.team_name, &args.db_name, true)?;
                 },
                 ApiWatcherCommands::Delete( args ) => {
                     

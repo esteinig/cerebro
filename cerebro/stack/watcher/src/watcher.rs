@@ -115,7 +115,6 @@ impl CerebroWatcher {
 
         watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
 
-
         // Main event loop for watcher
         'event: for e in rx {
 

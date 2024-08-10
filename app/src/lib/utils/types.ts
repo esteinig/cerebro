@@ -1703,6 +1703,20 @@ export enum Pipeline {
     CultureIdentification = "Culture Identification"
 }
 
+
+/**
+ * 
+ * Watcher input format enuemration
+ * 
+ * @file lib/utils/types
+ */
+export enum WatcherFormat {
+    Fastq = "Reads",
+    Iseq = "Illumina iSeq",
+    Nextseq = "Illumina NextSeq"
+}
+
+
 /**
  * 
  * Cerebro production pipeline model
@@ -1730,6 +1744,7 @@ export type ProductionWatcher = {
     name: string,
     location: string,
     last_ping: string,
+    format: WatcherFormat
 }
 
 /**

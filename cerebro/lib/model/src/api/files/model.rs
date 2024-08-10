@@ -53,7 +53,8 @@ pub struct SeaweedWatcherConfig {
     pub name: String,
     pub location: String,
     pub team_name: String,
-    pub db_name: String
+    pub db_name: String,
+    pub format: WatcherFormat
 }
 impl SeaweedWatcherConfig {
     pub fn from_watcher_config(watcher_config: &WatcherConfig) -> Self {
@@ -63,6 +64,7 @@ impl SeaweedWatcherConfig {
             location: watcher_config.location.to_string(),
             team_name: watcher_config.team_name.to_string(),
             db_name: watcher_config.db_name.to_string(),
+            format: watcher_config.format.clone()
         }
     }
 }

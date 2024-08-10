@@ -91,3 +91,34 @@ impl DeleteWatcherResponse {
         }
     }
 }
+
+
+#[derive(Serialize, Deserialize)]
+pub struct PingWatcherResponse {
+    pub status: String,
+    pub message: String,
+    pub data: Option<String>
+}
+impl PingWatcherResponse {
+    pub fn success(last_ping: String) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Watcher registrations deleted from database"),
+            data: Some(last_ping)
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("No watcher registrations found in database"),
+            data: None
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None
+        }
+    }
+}

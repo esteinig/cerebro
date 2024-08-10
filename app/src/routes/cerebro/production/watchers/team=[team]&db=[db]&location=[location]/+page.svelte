@@ -7,7 +7,7 @@
 	import type { ProductionPipeline, ProductionWatcher, ProjectCollection, SeaweedFile, TeamDatabase } from "$lib/utils/types";
 	import { getDateTimeStringUtc, isWithinTimeLimit } from "$lib/utils/helpers";
     import { TreeView, TreeViewItem, type TreeViewNode } from '@skeletonlabs/skeleton';
-	import PipelineIndicator from "$lib/general/icons/PipelineIndicator.svelte";
+	import ActiveIndicator from "$lib/general/icons/ActiveIndicator.svelte";
 
     export let data;
 
@@ -162,6 +162,10 @@
                                     <option value={watcher}>{watcher.name} @ {watcher.location}</option>
                                 {/each}
                             </select>
+                            <div class="my-2 ml-1 inline-flex items-center">
+                                <ActiveIndicator size=0.6 divClass="mt-0.5" active={watcherIsActive}></ActiveIndicator>
+                                <span class="text-sm opacity-60 ml-1.5">{selectedWatcher ? selectedWatcher.format : "No watcher selected"}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -178,8 +182,8 @@
                                 {/each}
                             </select>
                             <div class="my-2 ml-1 inline-flex items-center">
-                                <PipelineIndicator size=0.6 divClass="mt-0.5" active={pipelineIsActive}></PipelineIndicator>
-                                <span class="text-sm opacity-60 ml-1.5">{selectedPipeline ? selectedPipeline.pipeline : "No"} Workflow</span>
+                                <ActiveIndicator size=0.6 divClass="mt-0.5" active={pipelineIsActive}></ActiveIndicator>
+                                <span class="text-sm opacity-60 ml-1.5">{selectedPipeline ? selectedPipeline.pipeline : "No pipeline selected"}</span>
                             </div>
                         </div>
                     </div>
