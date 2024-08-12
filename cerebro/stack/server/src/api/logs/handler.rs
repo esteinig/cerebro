@@ -1,15 +1,13 @@
 use crate::api::{
-    logs::mongo::{get_latest_logs_all_pipeline, get_latest_logs_limit_pipeline}, 
-    utils::{get_cerebro_db_collection, get_teams_db_collection, TeamDatabaseInternal}
+    auth::jwt::TeamAccessQuery, logs::mongo::{get_latest_logs_all_pipeline, get_latest_logs_limit_pipeline}, utils::{get_cerebro_db_collection, get_teams_db_collection}
 };
 use serde::Deserialize;
 use mongodb::{bson::doc, Collection};
-use cerebro_model::api::logs::model::RequestLog;
+use cerebro_model::api::{logs::model::RequestLog, teams::model::TeamAdminCollection, utils::AdminCollection};
 use crate::api::auth::jwt;
 use crate::api::server::AppState;
 use actix_web::{get, web, HttpResponse};
 use futures::TryStreamExt;
-use crate::api::cerebro::handler::get_authorized_database;
 
 #[derive(Deserialize)]
 struct AdminLogsQuery {
@@ -25,7 +23,7 @@ async fn get_admin_logs(data: web::Data<AppState>, query: web::Query<AdminLogsQu
         None => get_latest_logs_all_pipeline(match query.critical { Some(v) => v, None => false})
     };
 
-    let logs_collection: Collection<RequestLog> = get_cerebro_db_collection(&data, "logs");
+    let logs_collection: Collection<RequestLog> = get_cerebro_db_collection(&data, AdminCollection::Logs);
 
     
     match logs_collection
@@ -45,26 +43,21 @@ async fn get_admin_logs(data: web::Data<AppState>, query: web::Query<AdminLogsQu
 
 #[derive(Deserialize)]
 struct TeamLogsQuery {  
-    db_id: String,
     limit: Option<i64>,
     critical: Option<bool>
 }
 
 #[get("/logs/team")]
-async fn get_team_logs(data: web::Data<AppState>, query: web::Query<TeamLogsQuery>, auth_user: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn get_team_logs(data: web::Data<AppState>, query: web::Query<TeamLogsQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     // Check if user belongs to team with requested name and database identifier to get database name for logs collection
-
-    let db: mongodb::Database = match get_authorized_database(&data, &query.db_id, &auth_user) {
-        Ok(db) => db, Err(error_response) => return error_response
-    };
 
     let pipeline = match query.limit {
         Some(limit) => get_latest_logs_limit_pipeline(limit, match query.critical { Some(v) => v, None => false}),
         None => get_latest_logs_all_pipeline(match query.critical { Some(v) => v, None => false})
     };
 
-    let logs_collection: Collection<RequestLog> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Logs);
+    let logs_collection: Collection<RequestLog> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Logs);
     
     match logs_collection
     .aggregate(pipeline, None)
@@ -82,5 +75,6 @@ async fn get_team_logs(data: web::Data<AppState>, query: web::Query<TeamLogsQuer
 
 // Handler configuration
 pub fn logs_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_admin_logs).service(get_team_logs);
+    cfg.service(get_admin_logs)
+        .service(get_team_logs);
 }

@@ -17,6 +17,9 @@ use cerebro_model::api::watchers::response::ListWatchersResponse;
 use cerebro_model::api::watchers::response::PingWatcherResponse;
 use cerebro_model::api::watchers::response::RegisterWatcherResponse;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
+use reqwest::blocking::RequestBuilder;
+use reqwest::blocking::Response;
+use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use itertools::Itertools;
 use reqwest::blocking::Client;
@@ -40,72 +43,97 @@ use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 
 use crate::error::HttpClientError;
+use std::fmt;
+
+
 
 #[derive(Debug, Clone)]
-pub struct CerebroRoutes {
-    pub server_status: String,
-    pub auth_server_status: String,
-    pub auth_login_user: String,
-    pub auth_refresh_token: String,
-
-    pub data_user_self: String,
-    pub data_user_self_teams: String,
-
-    pub data_cerebro_insert_model: String,
-    pub data_cerebro_taxa_summary: String,
-
-    pub team_project_create: String,
-
-    pub team_files_register: String,
-    pub team_files_list: String,
-    pub team_files_delete: String,
-
-    pub team_pipelines_register: String,
-    pub team_pipelines_list: String,
-    pub team_pipelines_delete: String,
-    pub team_pipelines_ping: String,
-
-    pub team_watchers_register: String,
-    pub team_watchers_list: String,
-    pub team_watchers_delete: String,
-    pub team_watchers_ping: String
+pub enum Route {
+    ServerStatus,
+    AuthServerStatus,
+    AuthLoginUser,
+    AuthRefreshToken,
+    DataUserSelf,
+    DataUserSelfTeams,
+    DataCerebroInsertModel,
+    DataCerebroTaxaSummary,
+    TeamProjectCreate,
+    TeamFilesRegister,
+    TeamFilesList,
+    TeamFilesDelete,
+    TeamPipelinesRegister,
+    TeamPipelinesList,
+    TeamPipelinesDelete,
+    TeamPipelinesPing,
+    TeamWatchersRegister,
+    TeamWatchersList,
+    TeamWatchersDelete,
+    TeamWatchersPing,
 }
-impl CerebroRoutes {
-    pub fn new(url: &str) -> Self  {
-        Self {
-            server_status: format!("{}/status", url),  // unauthenticated
-            auth_server_status: format!("{}/auth/status", url),
-            auth_login_user: format!("{}/auth/login", url),
-            auth_refresh_token: format!("{}/auth/refresh", url),
-            data_user_self: format!("{}/users/self", url),
-            data_user_self_teams: format!("{}/users/self/teams", url),
-            data_cerebro_insert_model: format!("{}/cerebro", url),
-            data_cerebro_taxa_summary: format!("{}/cerebro/taxa/summary", url),
-            team_project_create: format!("{}/teams/project", url),
-            team_files_register: format!("{}/files/register", url),
-            team_files_list: format!("{}/files", url),
-            team_files_delete: format!("{}/files", url),
-            team_pipelines_register: format!("{}/pipeline/register", url),
-            team_pipelines_list: format!("{}/pipeline", url),
-            team_pipelines_delete: format!("{}/pipeline", url),
-            team_pipelines_ping: format!("{}/pipeline", url),
-            team_watchers_register: format!("{}/watcher/register", url),
-            team_watchers_list: format!("{}/watcher", url),
-            team_watchers_delete: format!("{}/watcher", url),
-            team_watchers_ping: format!("{}/watcher", url),
+
+impl Route {
+    fn path(&self) -> &str {
+        match self {
+            Route::ServerStatus => "status",
+            Route::AuthServerStatus => "auth/status",
+            Route::AuthLoginUser => "auth/login",
+            Route::AuthRefreshToken => "auth/refresh",
+            Route::DataUserSelf => "users/self",
+            Route::DataUserSelfTeams => "users/self/teams",
+            Route::DataCerebroInsertModel => "cerebro",
+            Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
+            Route::TeamProjectCreate => "teams/project",
+            Route::TeamFilesRegister => "files/register",
+            Route::TeamFilesList => "files",
+            Route::TeamFilesDelete => "files",
+            Route::TeamPipelinesRegister => "pipeline/register",
+            Route::TeamPipelinesList => "pipeline",
+            Route::TeamPipelinesDelete => "pipeline",
+            Route::TeamPipelinesPing => "pipeline",
+            Route::TeamWatchersRegister => "watcher/register",
+            Route::TeamWatchersList => "watcher",
+            Route::TeamWatchersDelete => "watcher",
+            Route::TeamWatchersPing => "watcher",
         }
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CerebroRoutes {
+    base_url: String,
+}
+
+impl CerebroRoutes {
+    pub fn new(base_url: &str) -> Self {
+        Self {
+            base_url: base_url.trim_end_matches('/').to_string(),
+        }
+    }
+
+    pub fn url(&self, route: Route) -> String {
+        format!("{}/{}", self.base_url, route.path())
+    }
+}
+
+// Example usage:
+impl fmt::Display for Route {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.path())
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthLoginTokenFile {
     pub access_token: String,
-    pub refresh_token: String
+    pub refresh_token: String,
 }
-impl AuthLoginTokenFile {
-    pub fn from(response_success: &AuthLoginResponseSuccess) -> Self {
-        Self { access_token: response_success.access_token.to_owned(), refresh_token: response_success.refresh_token.to_owned() }
+
+impl From<&AuthLoginResponseSuccess> for AuthLoginTokenFile {
+    fn from(response: &AuthLoginResponseSuccess) -> Self {
+        Self {
+            access_token: response.access_token.clone(),
+            refresh_token: response.refresh_token.clone(),
+        }
     }
 }
 
@@ -113,67 +141,79 @@ impl AuthLoginTokenFile {
 pub struct CerebroClient {
     pub url: String,
     pub client: Client,
+    pub team: Option<String>,
     pub routes: CerebroRoutes,
-    pub token_file: Option<PathBuf>,
     pub token_data: Option<AuthLoginTokenFile>,
+    pub token_file: Option<PathBuf>
 }
-impl CerebroClient {
-    pub fn new(url: &str, token: &Option<String>, login: bool, danger_accept_invalid_certs: bool, token_file: &Option<PathBuf>) -> Result<Self, HttpClientError> {
-        let url_clean = url.trim_end_matches("/");
 
-        let token_data = match login {
-            true => None,
-            false => {
-                match token_file {
-                    Some(token_path) => {
-                        let token_data = match token_path.exists() {
-                            true => {
-                                let token_str = std::fs::read_to_string(&token_path)
-                                    .map_err(|err| HttpClientError::IOFailure(err))?;
-                                let token_data: AuthLoginTokenFile = serde_json::from_str(&token_str)?;
-                                Some(token_data)
-                            },
-                            false => {
-                                log::error!("Token file path does not exist");
-                                std::process::exit(1);
-                            }
-                        };
-                        token_data
-                    },
-                    None => {
-                        let token_data = match token {
-                            Some(token) => {
-                                Some(AuthLoginTokenFile {
-                                    access_token: token.to_string(),
-                                    refresh_token: "".to_string()
-                                })
-                            },
-                            None => {
-                                log::error!("Failed to obtain token from input (cerebro --token) or environmental variable (CEREBRO_API_TOKEN)");
-                                std::process::exit(1);
-                            }
-                        };
-                        token_data
-                    }
-                } 
-            }
+impl CerebroClient {
+    pub fn new(
+        url: &str,
+        token: Option<String>,
+        login: bool,
+        danger_accept_invalid_certs: bool,
+        token_file: Option<PathBuf>,
+        team: Option<String>,
+    ) -> Result<Self, HttpClientError> {
+        let url_clean = url.trim_end_matches('/').to_string();
+
+        let token_data = if login {
+            None
+        } else {
+            Self::load_token(token, token_file.clone())?
         };
 
+        let client = Client::builder()
+            .danger_accept_invalid_certs(danger_accept_invalid_certs)
+            .build()?;
 
-        let client = reqwest::blocking::Client::builder().danger_accept_invalid_certs(danger_accept_invalid_certs).build()?;
-        
-        Ok(Self { 
-            url: url_clean.to_owned(), 
-            routes: CerebroRoutes::new(url_clean), 
-            token_file: token_file.to_owned(),
+        if let None = team {
+            log::warn!("No team access configured - you may need this for data access");
+            log::warn!("Use global argument '--team' or environment variable '$CEREBRO_USER_TEAM'")
+        }
+
+        Ok(Self {
+            url: url_clean.clone(),
+            routes: CerebroRoutes::new(&url_clean),
             token_data,
-            client
+            token_file,
+            client,
+            team,
         })
     }
+
+    fn load_token(
+        token: Option<String>,
+        token_file: Option<PathBuf>,
+    ) -> Result<Option<AuthLoginTokenFile>, HttpClientError> {
+        if let Some(token) = token {
+            return Ok(Some(AuthLoginTokenFile {
+                access_token: token,
+                refresh_token: String::new(),
+            }));
+        }
+
+        if let Some(token_path) = token_file {
+            if token_path.exists() {
+                let token_str = std::fs::read_to_string(&token_path)
+                    .map_err(HttpClientError::IOFailure)?;
+                let token_data: AuthLoginTokenFile = serde_json::from_str(&token_str)?;
+                return Ok(Some(token_data));
+            } else {
+                log::error!("Token file path does not exist");
+                std::process::exit(1);
+            }
+        }
+
+        log::error!("Failed to obtain token from input or environmental variable");
+        std::process::exit(1);
+    }
+
     // We use authorization headers for the client instead of cookies
     // as we set strict cookie policies that force same-site origin
     // requests that cannot be fulfilled by the client
-    pub fn get_token_bearer(&self, token: Option<String>) -> String {
+    pub fn get_bearer_token(&self, token: Option<String>) -> String {
         match token {
             Some(token) => Bearer::new(token).to_string(),
             None => {
@@ -184,927 +224,852 @@ impl CerebroClient {
             }
         }
     }
-    // Ping server status
-    pub fn ping_status(&self) -> Result<(), HttpClientError> {
 
-        let response = self.client
-            .get(&self.routes.server_status)
-            .send()?;
+    fn send_request(&self, route: Route, auth: bool) -> Result<Response, HttpClientError> {
+        let mut request = self.client.get(self.routes.url(route));
+        if auth {
+            request = request.header(AUTHORIZATION, self.get_bearer_token(None));
+        }
+        request.send().map_err(|e| HttpClientError::ReqwestFailure(e))
+    }
 
+    fn check_response_status(&self, response: &Response) -> Result<(), HttpClientError> {
         if response.status().is_success() {
-           log::info!("Cerebro API status: ok");
-        } else if response.status().is_server_error() {
-            return Err(HttpClientError::PingServer(
-                response.status(), 
-                String::from("server error")
-            ))
+            Ok(())
         } else {
-            return Err(HttpClientError::PingServer(
-                response.status(), 
-                String::from("failed to ping server")
+            Err(HttpClientError::PingServer(
+                response.status(),
+                format!("Server error: {}", response.status()),
             ))
         }
-        
-    
+    }
+
+    // Ping server status
+    pub fn ping_status(&self) -> Result<(), HttpClientError> {
+        let response = self.send_request(Route::ServerStatus, false)?;
+        self.check_response_status(&response)?;
+        log::info!("Cerebro API status: ok");
         Ok(())
     }
-    // Ping server status routes - currently running a single
-    // server. Will separate into distinct authentication
-    // and database services
+
+    // Ping server status routes - currently running a single server.
     pub fn ping_servers(&self) -> Result<(), HttpClientError> {
-
-        let response = self.client
-            .get(&self.routes.auth_server_status)
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-    
-        if !response.status().is_success() {
-            return Err(HttpClientError::PingServer(
-                response.status(), 
-                String::from("failed to ping server - are you logged in?")
-            ))
-        };
-
+        let response = self.send_request(Route::AuthServerStatus, true)?;
+        self.check_response_status(&response)?;
         log::info!("Cerebro API status: ok");
-        
         Ok(())
     }
     // Login user and save tokens
-    pub fn login_user(&self, email: &str, password: &Option<String>) -> Result<(), HttpClientError> {
-
-        let password = match password {
-            None => prompt_password(format!("Password [{}]: ", &email)).map_err(|_| HttpClientError::PasswordInput)?,
-            Some(pwd) => pwd .to_string()
-        };
+    pub fn login_user(&self, email: &str, password: Option<String>) -> Result<(), HttpClientError> {
+        let password = password.unwrap_or_else(|| {
+            prompt_password(format!("Password [{}]: ", email)).expect("Password input failed")
+        });
 
         let login_schema = AuthLoginSchema {
             email: email.to_owned(),
-            password
+            password,
         };
 
-        let response = self.client.post(&self.routes.auth_login_user)
+        let response = self.client
+            .post(self.routes.url(Route::AuthLoginUser))
             .json(&login_schema)
             .send()?;
-        
+
         let status = response.status();
 
-        match status.is_success() {
-            true => {
-                let login_response: AuthLoginResponseSuccess = response.json()?;
-                let access_token = Some(login_response.access_token.clone());
-                let response = self.client.get(&self.routes.data_user_self)
-                    .header(AUTHORIZATION, self.get_token_bearer(access_token))
-                    .send()?;
-
-                let status = response.status();
-
-                if status.is_success() {
-                    let user_response: UserSelfResponse = response.json()?;
-                    log::info!("Login successful. Welcome back, {}!", &user_response.data.user.name)
-                } else {
-                    log::error!("Login successful, but could not get user data");
-                    let user_error_response: ErrorResponse = response.json().map_err(|_| {
-                        HttpClientError::ResponseFailure(
-                            status, 
-                            String::from("failed to make request")
-                        )
-                    })?;
-
-                    return Err(HttpClientError::ResponseFailure(
-                        status, 
-                        user_error_response.message
-                    ))
-                }
-
-                match &self.token_file {
-                    Some(path) => {
-                        log::info!("Token will be written to file: {}", path.display());
-
-                        std::fs::write(
-                            path,
-                            serde_json::to_string_pretty(
-                                &AuthLoginTokenFile::from(&login_response)
-                            ).expect("Failed to convert token data to string"),
-                        ).map_err(|err| HttpClientError::IOFailure(err))?;
-
-                    },
-                    None => {
-                        print!("{}", &login_response.access_token);
-                    }
-                }
-            },
-            false => {
-                let error_response: ErrorResponse = response.json()?;
-                log::error!("Login failed: {} ({})", &error_response.message, &status);
-
-                return Err(HttpClientError::ResponseFailure(
-                    status,  
-                    error_response.message
-                ))
-            }
-        };
-        Ok(())
-    }
-    pub fn upload_models(&self, models: &Vec<Cerebro>, team_name: &str, project_name: &str, db_name: Option<&String>) -> Result<(), HttpClientError> {
-
-        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_insert_model, team_name, Some(project_name), db_name)?;
-
-        log::info!("Cerebro model upload to project `{}` for team `{}`", &project_name, &team_name);
-
-        if urls.len() > 1 {
-            log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-            log::warn!("Inserting data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
-            for (i, url) in urls.iter().enumerate() {
-                log::warn!("Index: {i} @ {url}");
-            }
+        if status.is_success() {
+            let login_response: AuthLoginResponseSuccess = response.json()?;
+            self.handle_login_success(&login_response)?;
+        } else {
+            let error_response: ErrorResponse = response.json()?;
+            log::error!("{}", error_response.message);
+            return Err(HttpClientError::ResponseFailure(status));
         }
-
-        for url in &urls {
-
-            for model in models {
-                if model.sample.id.is_empty() {
-                    log::error!("Model sample identifier is an empty string - this is not allowed");
-                    return Err(HttpClientError::ModelSampleIdentifierEmpty)
-                }
-    
-                log::info!("Requesting upload of model for sample library {} (tags: {}, workflow: {})", model.sample.id, model.sample.tags.join(" "), model.workflow.id);
-    
-                let response = self.client.post(url)
-                    .header(AUTHORIZATION, self.get_token_bearer(None))
-                    .json(model)
-                    .send()?;
-    
-                let status = response.status();
-        
-                match status.is_success() {
-                    true => log::info!("Cerebro model uploaded successfully to project `{}` ({})", &project_name, &team_name),
-                    false => {
-                        let error_response: ErrorResponse = response.json().map_err(|_| {
-                            HttpClientError::ResponseFailure(
-                                status, 
-                                String::from("failed to make request")
-                            )
-                        })?;
-
-                        log::error!("Upload failed: {}", & error_response.message);
-                        continue; // return Err(HttpClientError::InsertModelResponseFailure(status, error_response.message))
-                        
-                    }
-                };
-            }
-            
-        }
-        Ok(())
-    }
-    pub fn create_project(&self, team_name: &str, db_name: &str, project_name: &str, project_description: &str) -> Result<(), HttpClientError> {
-
-        let register_project_schema = RegisterProjectSchema {
-            project_name: project_name.to_string(),
-            project_description: project_description.to_string(),
-            project_mongo_name: project_name.split_whitespace().join("_").to_lowercase()
-        };
-
-        let response = self.client.post(format!("{}?team_name={}&db_name={}", self.routes.team_project_create, team_name, db_name))
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .json(&register_project_schema)
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => log::info!("Team project created: {} - {} - {}", &team_name, &db_name, &project_name),
-            false => {
-                let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to make request")
-                    )
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        };
-        Ok(())
-    }
-    pub fn register_file(&self, register_file_schema: RegisterFileSchema, team_name: &str, db_name: &str) -> Result<(), HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-
-
-        let response = self.client.post(
-            format!("{}?db={}", self.routes.team_files_register, db.id)
-
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .json(&register_file_schema)
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                log::info!("File registered successfully!");
-            },
-            false => {
-                let error_response: RegisterFileResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract file response data")
-                    )
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status,
-                    error_response.message
-                ))
-            }
-        }  
 
         Ok(())
     }
-    pub fn delete_file(&self, file_id: &str, team_name: &str, db_name: &str) -> Result<SeaweedFile, HttpClientError> {
 
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-
-        let response = self.client.delete(
-            format!("{}/{}?db={}", self.routes.team_files_delete, file_id, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                log::info!("File entry deleted from Cerebro API ({file_id})");
-                let response: DeleteFileResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("deleted file entry but no file data was returned"))
-                )
-            },
-            false => {
-                let error_response: DeleteFileResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract file response data"))
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }
-    }
-    pub fn get_files(&self, team_name: &str, db_name: &str, run_id: Option<String>, watcher_id: Option<String>, page: u32, limit: u32, print: bool) -> Result<Vec<SeaweedFile>, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-        
-        let url = match (run_id, watcher_id) {
-            (Some(run_id), None) => format!("{}?db={}&run_id={run_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
-            (None, Some(watcher_id)) => format!("{}?db={}&watcher_id={watcher_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
-            (Some(run_id), Some(watcher_id)) => format!("{}?db={}&run_id={run_id}&watcher_id={watcher_id}&page={page}&limit={limit}", self.routes.team_files_list, db.id),
-            _ => format!("{}?db={}&page={page}&limit={limit}", self.routes.team_files_list, db.id)
-        };
-
-        let response = self.client.get(url)
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                let response: ListFilesResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                let data = response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("Successfully obtained files but no file data was returned"))
-                )?;
-                if print {
-                    for file in &data {
-
-                        let (watcher_name, watcher_location) = match &file.watcher {
-                            Some(watcher) => (watcher.name.as_str(), watcher.location.as_str()),
-                            None => ("none", "none")
-                        };
-
-                        println!("{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}", file.id, file.date, watcher_name, watcher_location, file.fid, file.size_mb(), file.name)
-                    }
-                }
-                Ok(data)
-            },
-            false => {
-                let error_response: ListFilesResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract file response data")
-                    )
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }       
-    } 
-    pub fn register_pipeline(&self, register_pipeline_schema: &RegisterPipelineSchema, team_name: &str, db_name: &str, print: bool) -> Result<String, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-    
-        let response = self.client.post(
-            format!("{}?db={}", self.routes.team_pipelines_register, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .json(register_pipeline_schema)
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                if print {
-                    println!("{}", register_pipeline_schema.id)
-                }
-                Ok(register_pipeline_schema.id.clone())
-            },
-            false => {
-                let error_response: RegisterPipelineResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract pipeline response data")
-                    )
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status,
-                    error_response.message
-                ))
-            }
-        }
-    }
-    pub fn get_pipelines(&self, team_name: &str, db_name: &str, id: Option<String>, print: bool) -> Result<Vec<ProductionPipeline>, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-        
-        let response = self.client.get(
-            match id {
-                Some(id) => format!("{}?db={}&id={id}", self.routes.team_pipelines_list, db.id),
-                None => format!("{}?db={}", self.routes.team_pipelines_list, db.id)
-            }
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                let response: ListPipelinesResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                let data = response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("obtained pipeline registrations but no pipeline data was returned"))
-                )?;
-                if print {
-                    for pipeline in &data {
-                        println!("{}\t{}\t{}\t{}\t{}\t{}", pipeline.pipeline, pipeline.id, pipeline.date, pipeline.name, pipeline.location, pipeline.last_ping)
-                    }
-                }
-                Ok(data)
-            },
-            false => {
-                let error_response: ListPipelinesResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract pipeline response data")
-                    )
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }       
-    }
-    pub fn delete_pipeline(&self, pipeline_id: &str, team_name: &str, db_name: &str) -> Result<ProductionPipeline, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-
-        let response = self.client.delete(
-            format!("{}/{}?db={}", self.routes.team_pipelines_delete, pipeline_id, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                log::info!("Pipeline registration deleted ({pipeline_id})");
-                let response: DeletePipelineResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("deleted pipeline registration but no pipeline data was returned"))
-                )
-            },
-            false => {
-                let error_response: DeletePipelineResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract pipeline response data"))
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }
-    }
-    pub fn ping_pipeline(&self, pipeline_id: &str, team_name: &str, db_name: &str, print: bool) -> Result<String, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-
-        let response = self.client.patch(
-            format!("{}/{}?db={}", self.routes.team_pipelines_ping, pipeline_id, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                let response: PingPipelineResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                let data = response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("pinged pipeline but no pipeline data was returned"))
-                )?;
-                if print {
-                    println!("{data}")
-                }
-                Ok(data)
-            },
-            false => {
-                let error_response: PingPipelineResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract pipeline response data"))
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }
-    }
-    pub fn register_watcher(&self, register_watcher_schema: &RegisterWatcherSchema, team_name: &str, db_name: &str, print: bool) -> Result<String, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-    
-        let response = self.client.post(
-            format!("{}?db={}", self.routes.team_watchers_register, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .json(register_watcher_schema)
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                if print {
-                    println!("{}", register_watcher_schema.id)
-                }
-                Ok(register_watcher_schema.id.clone())
-            },
-            false => {
-                let error_response: RegisterWatcherResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract watcher response data")
-                    )
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status,
-                    error_response.message
-                ))
-            }
-        }       
-    }
-    pub fn get_watchers(&self, team_name: &str, db_name: &str, id: Option<String>, print: bool) -> Result<Vec<ProductionWatcher>, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-        
-        let response = self.client.get(
-            match id {
-                Some(id) => format!("{}?db={}&id={id}", self.routes.team_watchers_list, db.id),
-                None => format!("{}?db={}", self.routes.team_watchers_list, db.id)
-            }
-            
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                let response: ListWatchersResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                let data = response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("obtained watcher registrations but no watcher data was returned"))
-                )?;
-                if print {
-                    for watcher in &data {
-                        println!("{}\t{} @ {}\t{}\t'{}'\t{}", watcher.id, watcher.name, watcher.location, watcher.format, watcher.glob, watcher.last_ping)
-                    }
-                }
-                Ok(data)
-            },
-            false => {
-                let error_response: ListWatchersResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract watcher response data")
-                    )
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }       
-    }
-    pub fn delete_watcher(&self, watcher_id: &str, team_name: &str, db_name: &str) -> Result<ProductionWatcher, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-
-        let response = self.client.delete(
-            format!("{}/{}?db={}", self.routes.team_watchers_delete, watcher_id, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                log::info!("Watcher registration deleted ({watcher_id})");
-                let response: DeleteWatcherResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("deleted watcher registration but no watcher data was returned"))
-                )
-            },
-            false => {
-                let error_response: DeletePipelineResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract watcher response data"))
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }
-    }
-    pub fn ping_watcher(&self, watcher_id: &str, team_name: &str, db_name: &str, print: bool) -> Result<String, HttpClientError> {
-
-        let db = self.get_database(team_name, &db_name.to_owned())?;
-
-        let response = self.client.patch(
-            format!("{}/{}?db={}", self.routes.team_watchers_ping, watcher_id, db.id)
-        )
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-
-        let status = response.status();
-
-        match status.is_success() {
-            true => {
-                let response: PingWatcherResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract response data")
-                    )
-                })?;
-                let data = response.data.ok_or(
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("pinged watcher but no watcher data was returned"))
-                )?;
-                if print {
-                    println!("{data}")
-                }
-                Ok(data)
-            },
-            false => {
-                let error_response: PingWatcherResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to extract watcher response data"))
-                })?;
-                Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        }
-    }
-    pub fn taxa_summary(
-        &self, 
-        team_name: &str, 
-        project_name: &str, 
-        db_name: Option<&String>, 
-        filter_config: Option<&PathBuf>,
-        run_ids: Option<Vec<String>>, 
-        sample_ids: Option<Vec<String>>, 
-        workflow_ids: Option<Vec<String>>, 
-        workflow_names: Option<Vec<String>>,
-        output: &PathBuf
+    fn handle_login_success(
+        &self,
+        login_response: &AuthLoginResponseSuccess,
     ) -> Result<(), HttpClientError> {
+        let access_token = Some(login_response.access_token.clone());
+        let response = self.client
+            .get(self.routes.url(Route::DataUserSelf))
+            .header(AUTHORIZATION, self.get_bearer_token(access_token))
+            .send()?;
 
-        let run_ids = run_ids.unwrap_or(Vec::new());
-        let sample_ids = sample_ids.unwrap_or(Vec::new());
-        let workflow_ids = workflow_ids.unwrap_or(Vec::new());
-        let workflow_names = workflow_names.unwrap_or(Vec::new());
+        let status = response.status();
 
-        let taxa_summary_schema = TaxaSummarySchema {
-            run_ids: run_ids.clone(),
-            sample_ids: sample_ids.clone(),
-            workflow_ids: workflow_ids.clone(),
-            workflow_names: workflow_names.clone(),
-            filter_config: match filter_config { 
-                Some(path) => TaxonFilterConfig::from_path(&path).map_err(|err| HttpClientError::DeserializeFilter(err))?, 
-                None => TaxonFilterConfig::default() 
-            }
-        };
+        let user_response: Result<UserSelfResponse, HttpClientError> = response.json().map_err(|_| {
+            HttpClientError::ResponseFailure(status)
+        });
 
-        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
-
-        if urls.len() > 1 {
-            log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-            log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
-            for (i, url) in urls.iter().enumerate() {
-                log::warn!("Index: {i} @ {url}");
-            }
+        if status.is_success() {
+            let user_response = user_response?;
+            log::info!("Login successful. Welcome back, {}!", user_response.data.user.name);
+        } else {
+            let user_error_response = user_response.map_err(|_| {
+                HttpClientError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse error response"),
+                )
+            })?;
+            log::error!("{}", user_error_response.message);
+            return Err(HttpClientError::ResponseFailure(status));
         }
 
-        for (i, url) in urls.iter().enumerate() {
-            log::info!(
-                "Taxa summary query: project={} team={} run_ids={:?} sample_ids={:?} workflow_ids={:?} workflow_names={:?}", 
-                &project_name, &team_name, &run_ids, &sample_ids, &workflow_ids, &workflow_names
-            );
-
-            let response = self.client.post(format!("{}&csv=true", url))
-                .header(AUTHORIZATION, self.get_token_bearer(None))
-                .json(&taxa_summary_schema)
-                .send()?;
-
-            let status = response.status();
-    
-            match status.is_success() {
-                true => {
-                    log::info!("Taxa summary retrieved for project {} of team {}", &project_name, &team_name);
-
-                    let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::ResponseFailure(
-                            status, 
-                            String::from("failed to obtain data for taxa summary")
-                        )
-                    })?;
-                    
-                    let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
-
-                    let mut file = File::create(&output_name).unwrap();
-                    write!(file, "{}", data_response.data.csv).unwrap();
-                },
-                false => {
-                    let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::ResponseFailure(
-                            status, 
-                            String::from("failed to make request for taxa summary")
-                        )
-                    })?;
-                    return Err(HttpClientError::ResponseFailure(
-                        status, 
-                        error_response.message
-                    ))
-                }
-            };
-        }
-        
+        self.save_token_to_file(login_response)?;
         Ok(())
     }
-    pub fn qc_summary(
-        &self, 
-        team_name: &str, 
-        project_name: &str, 
-        db_name: Option<&String>, 
-        cerebro_ids: Option<Vec<String>>, 
-        sample_ids: Option<Vec<String>>, 
-        ercc_pg: Option<f64>,
-        output: &PathBuf
+
+    fn save_token_to_file(&self, login_response: &AuthLoginResponseSuccess) -> Result<(), HttpClientError> {
+        if let Some(path) = &self.token_file {
+            log::info!("Token will be written to file: {}", path.display());
+            std::fs::write(
+                path,
+                serde_json::to_string_pretty(&AuthLoginTokenFile::from(login_response))
+                    .expect("Failed to convert token data to string"),
+            )
+            .map_err(HttpClientError::IOFailure)?;
+        } else {
+            println!("{}", login_response.access_token);
+        }
+        Ok(())
+    }
+    fn send_request_with_team(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+        let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
+
+        let response = request
+            .query(&[("team", team)])
+            .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
+        
+        Ok(response)
+    }
+
+    fn handle_response<T: DeserializeOwned>(
+        &self,
+        response: Response,
+        success_msg: &str,
+        failure_msg: &str,
+    ) -> Result<T, HttpClientError> {
+        let status = response.status();
+        if status.is_success() {
+            log::info!("{}", success_msg);
+            response.json().map_err(|_| {
+                HttpClientError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse response data"),
+                )
+            })
+        } else {
+            let error_response: ErrorResponse = response.json().map_err(|_| {
+                HttpClientError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse error response"),
+                )
+            })?;
+            log::error!("{}: {}", failure_msg, error_response.message);
+            Err(HttpClientError::ResponseFailure(status))
+        }
+    }
+
+    fn build_request_url<T>(&self, route: Route, params: &[(&str, T)]) -> String
+    where
+        T: Into<Option<String>> + Clone,
+    {
+        let mut url = self.routes.url(route);
+        let query_string: Vec<String> = params
+            .iter()
+            .filter_map(|(key, value)| {
+                value.clone().into().map(|v| format!("{}={}", key, v))
+            })
+            .collect();
+
+        if !query_string.is_empty() {
+            url.push_str("?");
+            url.push_str(&query_string.join("&"));
+        }
+
+        url
+    }
+
+
+    pub fn create_project(
+        &self,
+        team_name: &str,
+        db_name: &str,
+        project_name: &str,
+        project_description: &str,
     ) -> Result<(), HttpClientError> {
+        let url = self.build_request_url(
+            Route::TeamProjectCreate,
+            &[("team_name", Some(team_name.to_string())), ("db_name", Some(db_name.to_string()))],
+        );
 
-        let cerebro_ids = cerebro_ids.unwrap_or(Vec::new());
-        let sample_ids = sample_ids.unwrap_or(Vec::new());
-
-        let qc_summary_schema = SampleSummaryQcSchema {
-            cerebro_ids: cerebro_ids.clone(),
-            sample_ids: sample_ids.clone()
+        let project_schema = RegisterProjectSchema {
+            project_name: project_name.to_owned(),
+            project_description: project_description.to_owned(),
+            project_mongo_name: project_name.split_whitespace().join("_").to_lowercase(),
         };
 
-        let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
+        let response = self
+            .client
+            .post(&url)
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .json(&project_schema)
+            .send()?;
 
-        if urls.len() > 1 {
-            log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-            log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
-            for (i, url) in urls.iter().enumerate() {
-                log::warn!("Index: {i} @ {url}");
-            }
-        }
-
-        for (i, url) in urls.iter().enumerate() {
-            log::info!(
-                "Quality summary query: project={} team={} cerebro_ids={:?} sample_ids={:?} ercc_pg={:?}", 
-                &project_name, &team_name, &cerebro_ids, &sample_ids, &ercc_pg
-            );
-
-            let response = self.client.post(format!("{}&csv=true{}", url, match ercc_pg { Some(pg) => format!("&ercc={:.2}", pg), None => String::new() } ))
-                .header(AUTHORIZATION, self.get_token_bearer(None))
-                .json(&qc_summary_schema)
-                .send()?;
-
-            let status = response.status();
-    
-            match status.is_success() {
-                true => {
-                    log::info!("QC summary retrieved for project `{}` of team `{}`", &project_name, &team_name);
-
-                    let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::ResponseFailure(
-                            status, 
-                            String::from("failed to obtain data for quality summary")
-                        )
-                    })?;
-                    
-                    let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
-
-                    let mut file = File::create(&output_name).unwrap();
-                    write!(file, "{}", data_response.data.csv).unwrap();
-                },
-                false => {
-                    let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-                        HttpClientError::ResponseFailure(
-                            status, 
-                            String::from("failed to make request for quality summary")
-                        )
-                    })?;
-                    return Err(HttpClientError::ResponseFailure(status, error_response.message))
-                }
-            };
-        }
-        
+        self.handle_response::<serde_json::Value>(
+            response,
+            &format!("Project `{}` created successfully", project_name),
+            "Project creation failed",
+        )?;
         Ok(())
     }
-    pub fn get_database(&self, team_name: &str, db_name: &str) -> Result<TeamDatabase, HttpClientError> {
 
-        let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
-        
-        // Request data on a team project for insertion of new data
-        // log::info!("Getting user team for database ({})", &url);
+    pub fn register_file(
+        &self,
+        register_file_schema: RegisterFileSchema,
+    ) -> Result<(), HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .post(self.routes.url(Route::TeamFilesRegister))
+                .json(&register_file_schema),
+        )?;
 
-        let response = self.client.get(url)
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-        
-        let status = response.status();
-
-        let team = match status.is_success() {
-            true => {
-                let team_response: UserSelfTeamResponse = response.json()?;
-                team_response.data.team
-            }
-            false => {
-                let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to make request")
-                    )
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
-                ))
-            }
-        };
-
-        get_database_by_name(&team.databases, db_name)
+        self.handle_response::<serde_json::Value>(
+            response,
+            "File registered successfully",
+            "File registration failed",
+        )?;
+        Ok(())
     }
-    pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: Option<&str>, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
 
-        let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
-        
-        // Request data on a team project for insertion of new data
-        // log::info!("Getting user team for database verification ({})", &url);
-
-        let response = self.client.get(url)
-            .header(AUTHORIZATION, self.get_token_bearer(None))
-            .send()?;
-        
-        let status = response.status();
-
-        let team = match status.is_success() {
-            true => {
-                let team_response: UserSelfTeamResponse = response.json()?;
-                team_response.data.team
-            }
-            false => {
-                let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status, 
-                        String::from("failed to make request")
-                    )
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status, 
-                    error_response.message
+    pub fn delete_file(&self, file_id: &str) -> Result<SeaweedFile, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .delete(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamFilesDelete),
+                    file_id
                 ))
-            }
-        };
+        )?;
 
-        if team.databases.is_empty() {
-            log::error!("No team databases exist - this is unusual, please contact system administrator");
-            return Err(HttpClientError::TeamDatabasesNotFound)
+        self.handle_response::<DeleteFileResponse>(
+            response,
+            &format!("File `{}` deleted successfully", file_id),
+            "File deletion failed",
+        )?
+        .data
+        .ok_or_else(|| {
+            HttpClientError::DataResponseFailure(
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from("File data not returned after deletion"),
+            )
+        })
+    }
+
+    pub fn get_files(
+        &self,
+        run_id: Option<String>,
+        watcher_id: Option<String>,
+        page: u32,
+        limit: u32,
+        print: bool,
+    ) -> Result<Vec<SeaweedFile>, HttpClientError> {
+        let url = self.build_request_url(
+            Route::TeamFilesList,
+            &[
+                ("run_id", run_id),
+                ("watcher_id", watcher_id),
+                ("page", Some(page.to_string())),
+                ("limit", Some(limit.to_string())),
+            ],
+        );
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(&url)
+        )?;
+
+        let files = self
+            .handle_response::<ListFilesResponse>(
+                response,
+                "Files retrieved successfully",
+                "Failed to retrieve files",
+            )?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No file data returned"),
+                )
+            })?;
+
+        if print {
+            for file in &files {
+                let (watcher_name, watcher_location) = file
+                    .watcher
+                    .as_ref()
+                    .map(|w| (w.name.as_str(), w.location.as_str()))
+                    .unwrap_or(("none", "none"));
+
+                println!(
+                    "{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}",
+                    file.id,
+                    file.date,
+                    watcher_name,
+                    watcher_location,
+                    file.fid,
+                    file.size_mb(),
+                    file.name
+                );
+            }
         }
 
-        let mut urls = Vec::new();
-        for database in &team.databases {
-
-            // If specific database name requested, check if this is it,
-            // otherwise use all databases for this team for data insertion
-            if let Some(name) = db_name {
-                if &database.name != name {
-                    log::info!("Requested database ({}) - skipping team database ({})", &name, &database.name);
-                    continue
-                }
-            }
-            match project_name {
-                Some(name) => {
-                    let project = get_project_by_name(&database.projects, name)?;
-                    urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
-                },
-                None => {
-                    urls.push(format!("{}?db={}", &route, database.id))
-                }
-            }
-        }    
-
-        Ok(urls)
+        Ok(files)
     }
+
+    pub fn register_pipeline(
+        &self,
+        register_pipeline_schema: &RegisterPipelineSchema,
+        print: bool,
+    ) -> Result<String, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .post(self.routes.url(Route::TeamPipelinesRegister))
+                .json(register_pipeline_schema),
+        )?;
+
+        let pipeline_id = self.handle_response::<RegisterPipelineResponse>(
+            response,
+            "Pipeline registered successfully",
+            "Pipeline registration failed",
+        )?
+        .data
+        .unwrap_or(register_pipeline_schema.id.clone());
+
+        if print {
+            println!("{}", pipeline_id);
+        }
+
+        Ok(pipeline_id)
+    }
+
+    pub fn get_pipelines(
+        &self,
+        id: Option<String>,
+        print: bool,
+    ) -> Result<Vec<ProductionPipeline>, HttpClientError> {
+        let url = self.build_request_url(Route::TeamPipelinesList, &[("id", id)]);
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(&url)
+        )?;
+
+        let pipelines = self
+            .handle_response::<ListPipelinesResponse>(
+                response,
+                "Pipelines retrieved successfully",
+                "Failed to retrieve pipelines",
+            )?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No pipeline data returned"),
+                )
+            })?;
+
+        if print {
+            for pipeline in &pipelines {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    pipeline.pipeline,
+                    pipeline.id,
+                    pipeline.date,
+                    pipeline.name,
+                    pipeline.location,
+                    pipeline.last_ping
+                );
+            }
+        }
+
+        Ok(pipelines)
+    }
+
+    pub fn delete_pipeline(&self, pipeline_id: &str) -> Result<ProductionPipeline, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .delete(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamPipelinesDelete),
+                    pipeline_id
+                ))
+        )?;
+
+        self.handle_response::<DeletePipelineResponse>(
+            response,
+            &format!("Pipeline `{}` deleted successfully", pipeline_id),
+            "Pipeline deletion failed",
+        )?
+        .data
+        .ok_or_else(|| {
+            HttpClientError::DataResponseFailure(
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from("Pipeline data not returned after deletion"),
+            )
+        })
+    }
+
+    pub fn ping_pipeline(&self, pipeline_id: &str, print: bool) -> Result<String, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .patch(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamPipelinesPing),
+                    pipeline_id
+                ))
+        )?;
+
+        let data = self
+            .handle_response::<PingPipelineResponse>(
+                response,
+                &format!("Pipeline `{}` pinged successfully", pipeline_id),
+                "Pipeline ping failed",
+            )?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No data returned after pipeline ping"),
+                )
+            })?;
+
+        if print {
+            println!("{}", data);
+        }
+
+        Ok(data)
+    }
+
+    pub fn register_watcher(
+        &self,
+        register_watcher_schema: &RegisterWatcherSchema,
+        print: bool,
+    ) -> Result<String, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .post(self.routes.url(Route::TeamWatchersRegister))
+                .json(register_watcher_schema),
+        )?;
+
+        let watcher_id = self.handle_response::<RegisterWatcherResponse>(
+            response,
+            "Watcher registered successfully",
+            "Watcher registration failed",
+        )?
+        .data
+        .unwrap_or(register_watcher_schema.id.clone());
+
+        if print {
+            println!("{}", watcher_id);
+        }
+
+        Ok(watcher_id)
+    }
+
+    pub fn get_watchers(
+        &self,
+        id: Option<String>,
+        print: bool,
+    ) -> Result<Vec<ProductionWatcher>, HttpClientError> {
+        let url = self.build_request_url(Route::TeamWatchersList, &[("id", id)]);
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(&url)
+        )?;
+
+        let watchers = self
+            .handle_response::<ListWatchersResponse>(
+                response,
+                "Watchers retrieved successfully",
+                "Failed to retrieve watchers",
+            )?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No watcher data returned"),
+                )
+            })?;
+
+        if print {
+            for watcher in &watchers {
+                println!(
+                    "{}\t{} @ {}\t{}\t'{}'\t{}",
+                    watcher.id,
+                    watcher.name,
+                    watcher.location,
+                    watcher.format,
+                    watcher.glob,
+                    watcher.last_ping
+                );
+            }
+        }
+
+        Ok(watchers)
+    }
+
+    pub fn delete_watcher(&self, watcher_id: &str) -> Result<ProductionWatcher, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .delete(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamWatchersDelete),
+                    watcher_id
+                ))
+        )?;
+
+        self.handle_response::<DeleteWatcherResponse>(
+            response,
+            &format!("Watcher `{}` deleted successfully", watcher_id),
+            "Watcher deletion failed",
+        )?
+        .data
+        .ok_or_else(|| {
+            HttpClientError::DataResponseFailure(
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from("Watcher data not returned after deletion"),
+            )
+        })
+    }
+
+    pub fn ping_watcher(&self, watcher_id: &str, print: bool) -> Result<String, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .patch(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamWatchersPing),
+                    watcher_id
+                ))
+        )?;
+
+        let data = self
+            .handle_response::<PingWatcherResponse>(
+                response,
+                &format!("Watcher `{}` pinged successfully", watcher_id),
+                "Watcher ping failed",
+            )?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No data returned after watcher ping"),
+                )
+            })?;
+
+        if print {
+            println!("{}", data);
+        }
+
+        Ok(data)
+    }
+
+    // pub fn upload_models(
+    //     &self,
+    //     models: &[Cerebro],
+    //     team_name: &str,
+    //     project_name: &str,
+    //     db_name: Option<&String>,
+    // ) -> Result<(), HttpClientError> {
+    //     let urls = self.get_database_and_project_queries(
+    //         &self.routes.url(Route::DataCerebroInsertModel),
+    //         team_name,
+    //         Some(project_name),
+    //         db_name,
+    //     )?;
+
+    //     for url in &urls {
+    //         for model in models {
+    //             if model.sample.id.is_empty() {
+    //                 return Err(HttpClientError::ModelSampleIdentifierEmpty);
+    //             }
+
+    //             let response = self
+    //                 .client
+    //                 .post(url)
+    //                 .header(AUTHORIZATION, self.get_bearer_token(None))
+    //                 .json(model)
+    //                 .send()?;
+
+    //             self.handle_response::<serde_json::Value>(
+    //                 response,
+    //                 &format!(
+    //                     "Model for sample library {} uploaded successfully",
+    //                     model.sample.id
+    //                 ),
+    //                 "Upload failed",
+    //             )?;
+    //         }
+    //     }
+    //     Ok(())
+    // }
+    // pub fn taxa_summary(
+    //     &self, 
+    //     team_name: &str, 
+    //     project_name: &str, 
+    //     db_name: Option<&String>, 
+    //     filter_config: Option<&PathBuf>,
+    //     run_ids: Option<Vec<String>>, 
+    //     sample_ids: Option<Vec<String>>, 
+    //     workflow_ids: Option<Vec<String>>, 
+    //     workflow_names: Option<Vec<String>>,
+    //     output: &PathBuf
+    // ) -> Result<(), HttpClientError> {
+
+    //     let run_ids = run_ids.unwrap_or(Vec::new());
+    //     let sample_ids = sample_ids.unwrap_or(Vec::new());
+    //     let workflow_ids = workflow_ids.unwrap_or(Vec::new());
+    //     let workflow_names = workflow_names.unwrap_or(Vec::new());
+
+    //     let taxa_summary_schema = TaxaSummarySchema {
+    //         run_ids: run_ids.clone(),
+    //         sample_ids: sample_ids.clone(),
+    //         workflow_ids: workflow_ids.clone(),
+    //         workflow_names: workflow_names.clone(),
+    //         filter_config: match filter_config { 
+    //             Some(path) => TaxonFilterConfig::from_path(&path).map_err(|err| HttpClientError::DeserializeFilter(err))?, 
+    //             None => TaxonFilterConfig::default() 
+    //         }
+    //     };
+
+    //     let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
+
+    //     if urls.len() > 1 {
+    //         log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
+    //         log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
+    //         for (i, url) in urls.iter().enumerate() {
+    //             log::warn!("Index: {i} @ {url}");
+    //         }
+    //     }
+
+    //     for (i, url) in urls.iter().enumerate() {
+    //         log::info!(
+    //             "Taxa summary query: project={} team={} run_ids={:?} sample_ids={:?} workflow_ids={:?} workflow_names={:?}", 
+    //             &project_name, &team_name, &run_ids, &sample_ids, &workflow_ids, &workflow_names
+    //         );
+
+    //         let response = self.client.post(format!("{}&csv=true", url))
+    //             .header(AUTHORIZATION, self.get_token_bearer(None))
+    //             .json(&taxa_summary_schema)
+    //             .send()?;
+
+    //         let status = response.status();
+    
+    //         match status.is_success() {
+    //             true => {
+    //                 log::info!("Taxa summary retrieved for project {} of team {}", &project_name, &team_name);
+
+    //                 let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
+    //                     HttpClientError::ResponseFailure(
+    //                         status, 
+    //                         String::from("failed to obtain data for taxa summary")
+    //                     )
+    //                 })?;
+                    
+    //                 let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
+
+    //                 let mut file = File::create(&output_name).unwrap();
+    //                 write!(file, "{}", data_response.data.csv).unwrap();
+    //             },
+    //             false => {
+    //                 let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
+    //                     HttpClientError::ResponseFailure(
+    //                         status, 
+    //                         String::from("failed to make request for taxa summary")
+    //                     )
+    //                 })?;
+    //                 return Err(HttpClientError::ResponseFailure(
+    //                     status, 
+    //                     error_response.message
+    //                 ))
+    //             }
+    //         };
+    //     }
+        
+    //     Ok(())
+    // }
+    // pub fn qc_summary(
+    //     &self, 
+    //     team_name: &str, 
+    //     project_name: &str, 
+    //     db_name: Option<&String>, 
+    //     cerebro_ids: Option<Vec<String>>, 
+    //     sample_ids: Option<Vec<String>>, 
+    //     ercc_pg: Option<f64>,
+    //     output: &PathBuf
+    // ) -> Result<(), HttpClientError> {
+
+    //     let cerebro_ids = cerebro_ids.unwrap_or(Vec::new());
+    //     let sample_ids = sample_ids.unwrap_or(Vec::new());
+
+    //     let qc_summary_schema = SampleSummaryQcSchema {
+    //         cerebro_ids: cerebro_ids.clone(),
+    //         sample_ids: sample_ids.clone()
+    //     };
+
+    //     let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
+
+    //     if urls.len() > 1 {
+    //         log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
+    //         log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
+    //         for (i, url) in urls.iter().enumerate() {
+    //             log::warn!("Index: {i} @ {url}");
+    //         }
+    //     }
+
+    //     for (i, url) in urls.iter().enumerate() {
+    //         log::info!(
+    //             "Quality summary query: project={} team={} cerebro_ids={:?} sample_ids={:?} ercc_pg={:?}", 
+    //             &project_name, &team_name, &cerebro_ids, &sample_ids, &ercc_pg
+    //         );
+
+    //         let response = self.client.post(format!("{}&csv=true{}", url, match ercc_pg { Some(pg) => format!("&ercc={:.2}", pg), None => String::new() } ))
+    //             .header(AUTHORIZATION, self.get_token_bearer(None))
+    //             .json(&qc_summary_schema)
+    //             .send()?;
+
+    //         let status = response.status();
+    
+    //         match status.is_success() {
+    //             true => {
+    //                 log::info!("QC summary retrieved for project `{}` of team `{}`", &project_name, &team_name);
+
+    //                 let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
+    //                     HttpClientError::ResponseFailure(
+    //                         status, 
+    //                         String::from("failed to obtain data for quality summary")
+    //                     )
+    //                 })?;
+                    
+    //                 let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
+
+    //                 let mut file = File::create(&output_name).unwrap();
+    //                 write!(file, "{}", data_response.data.csv).unwrap();
+    //             },
+    //             false => {
+    //                 let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
+    //                     HttpClientError::ResponseFailure(
+    //                         status, 
+    //                         String::from("failed to make request for quality summary")
+    //                     )
+    //                 })?;
+    //                 return Err(HttpClientError::ResponseFailure(status, error_response.message))
+    //             }
+    //         };
+    //     }
+        
+    //     Ok(())
+    // }
+    // pub fn get_database(&self, team_name: &str, db_name: &str) -> Result<TeamDatabase, HttpClientError> {
+
+    //     let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
+        
+    //     // Request data on a team project for insertion of new data
+    //     // log::info!("Getting user team for database ({})", &url);
+
+    //     let response = self.client.get(url)
+    //         .header(AUTHORIZATION, self.get_token_bearer(None))
+    //         .send()?;
+        
+    //     let status = response.status();
+
+    //     let team = match status.is_success() {
+    //         true => {
+    //             let team_response: UserSelfTeamResponse = response.json()?;
+    //             team_response.data.team
+    //         }
+    //         false => {
+    //             let error_response: ErrorResponse = response.json().map_err(|_| {
+    //                 HttpClientError::ResponseFailure(
+    //                     status, 
+    //                     String::from("failed to make request")
+    //                 )
+    //             })?;
+    //             return Err(HttpClientError::ResponseFailure(
+    //                 status, 
+    //                 error_response.message
+    //             ))
+    //         }
+    //     };
+
+    //     get_database_by_name(&team.databases, db_name)
+    // }
+    // pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: Option<&str>, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
+
+    //     let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
+        
+    //     // Request data on a team project for insertion of new data
+    //     // log::info!("Getting user team for database verification ({})", &url);
+
+    //     let response = self.client.get(url)
+    //         .header(AUTHORIZATION, self.get_token_bearer(None))
+    //         .send()?;
+        
+    //     let status = response.status();
+
+    //     let team = match status.is_success() {
+    //         true => {
+    //             let team_response: UserSelfTeamResponse = response.json()?;
+    //             team_response.data.team
+    //         }
+    //         false => {
+    //             let error_response: ErrorResponse = response.json().map_err(|_| {
+    //                 HttpClientError::ResponseFailure(
+    //                     status, 
+    //                     String::from("failed to make request")
+    //                 )
+    //             })?;
+    //             return Err(HttpClientError::ResponseFailure(
+    //                 status, 
+    //                 error_response.message
+    //             ))
+    //         }
+    //     };
+
+    //     if team.databases.is_empty() {
+    //         log::error!("No team databases exist - this is unusual, please contact system administrator");
+    //         return Err(HttpClientError::TeamDatabasesNotFound)
+    //     }
+
+    //     let mut urls = Vec::new();
+    //     for database in &team.databases {
+
+    //         // If specific database name requested, check if this is it,
+    //         // otherwise use all databases for this team for data insertion
+    //         if let Some(name) = db_name {
+    //             if &database.name != name {
+    //                 log::info!("Requested database ({}) - skipping team database ({})", &name, &database.name);
+    //                 continue
+    //             }
+    //         }
+    //         match project_name {
+    //             Some(name) => {
+    //                 let project = get_project_by_name(&database.projects, name)?;
+    //                 urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
+    //             },
+    //             None => {
+    //                 urls.push(format!("{}?db={}", &route, database.id))
+    //             }
+    //         }
+    //     }    
+
+    //     Ok(urls)
+    // }
 }
 
 

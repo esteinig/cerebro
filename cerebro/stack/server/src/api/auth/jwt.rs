@@ -4,6 +4,7 @@
 use core::fmt;
 use std::collections::HashMap;
 use std::future::{ready, Ready};
+use cerebro_model::api::utils::AdminCollection;
 use futures::executor::block_on;
 
 use actix_web::error::{ErrorInternalServerError, ErrorUnauthorized, ErrorForbidden, ErrorBadRequest};
@@ -16,7 +17,7 @@ use redis::Commands;
 
 use crate::api::auth::token;
 use cerebro_model::api::logs::model::Action;
-use cerebro_model::api::teams::model::{Team, DatabaseId, ProjectId};
+use cerebro_model::api::teams::model::{DatabaseId, ProjectId, Team, TeamId};
 use cerebro_model::api::users::model::{User, Role};
 use crate::api::logs::utils::log_admin_auth;
 use crate::api::server::AppState;
@@ -24,7 +25,7 @@ use crate::api::utils::get_cerebro_db_collection;
 
 
 #[derive(Debug, Serialize)]
-struct ErrorResponse {
+pub struct ErrorResponse {
     status: String,
     message: String,
 }
@@ -46,31 +47,65 @@ impl fmt::Display for ErrorRefreshResponse {
     }
 }
 
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+pub struct TeamAccessQuery {  
+    // Required team query params for JwtDataAuth
+    team: String,
+}
+
+
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+pub struct TeamDatabaseAccessQuery {  
+    // Required team query params for JwtDataAuth
+    team: String,
+    // Database query params for JwtDataAuth
+    db: String,
+}
+
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+pub struct TeamProjectAccessQuery {  
+    // Required team query params for JwtDataAuth
+    team: String,
+    // Database query params for JwtDataAuth
+    db: String,
+    // Project query params for JwtDataAuth
+    project: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct DataAccessQuery {
+    team: TeamId,
     db: Option<DatabaseId>,
     project: Option<ProjectId>
 }
 impl DataAccessQuery {
-    pub fn from_request(req: &HttpRequest) -> Self {
+    pub fn from_request(req: &HttpRequest) -> Result<Self, ErrorResponse> {
         let query_str = req.query_string();
         match web::Query::<HashMap<String, String>>::from_query(query_str) {
             Ok(query_map) => {
-                match (query_map.get("db"), query_map.get("project")) {
-                    (Some(db), Some(project)) => {
-                        Self { db: Some(db.to_owned()), project: Some(project.to_owned())  }
-                    },
-                    (Some(db), None) => {
-                        Self { db: Some(db.to_owned()), project: None  }  // TODO: check security
-                    },
-                    _ => Self { db: None, project: None }
-                }
+                    Ok(Self { 
+                        team: match query_map.get("team") {
+                            Some(team) => team.to_string(),
+                            None => return Err(ErrorResponse {
+                                status: String::from("error"),
+                                message: String::from("Failed to provide team query parameter for data access")
+                            }) 
+                        },
+                        db: query_map.get("db").cloned(),
+                        project: query_map.get("project").cloned(),
+                    })
             },
-            Err(_) => Self { db: None, project: None }  // in case of failure do not return a valid data query struct
+            Err(_) => Err(ErrorResponse {
+                status: String::from("error"),
+                message: String::from("Failed to extract query parameters for data access")
+            })
         }
-    }
-    pub fn is_valid(&self) -> bool {
-        self.db.is_some()
     }
 }
 
@@ -111,7 +146,6 @@ fn get_token_from_auth_header(value: &http::header::HeaderValue) -> Option<Strin
 pub struct JwtUserMiddleware {
     pub user: User,
     pub access_token_uuid: uuid::Uuid,
-    pub team: Option<Team>
 }
 impl FromRequest for JwtUserMiddleware {
     type Error = ActixWebError;
@@ -228,7 +262,7 @@ impl FromRequest for JwtUserMiddleware {
             };
 
             // Database connection and user id query
-            let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+            let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
                         
             let query_result = user_collection
                 .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) }, None)
@@ -268,95 +302,295 @@ impl FromRequest for JwtUserMiddleware {
                     };
                     return ready(Err(ErrorForbidden(json_error)));
                 };
+                ready(Ok(JwtUserMiddleware {
+                    access_token_uuid,
+                    user,
+                }))
+            },
+            Err(error) => ready(Err(error)),
+        }
+    }
+}
+
+pub struct JwtDataMiddleware {
+    pub user: User,
+    pub team: Team,
+    pub access_token_uuid: uuid::Uuid,
+}
+impl FromRequest for JwtDataMiddleware {
+    type Error = ActixWebError;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+
+        // Get the application state data for access to database clients
+        let data = match req.app_data::<web::Data<AppState>>() {
+            Some(data) => data,
+            None => {
+                let json_error = ErrorResponse {
+                    status: "error".to_string(),
+                    message: "Failed to get application state".to_string(), 
+                };
+                return ready(Err(ErrorInternalServerError(json_error)));
+            }
+        };
+
+        // Parse the access token from cookie or authorization header of request
+        let access_token = req
+            .cookie("access_token")
+            .map(|c| c.value().to_string())
+            .or_else(|| {
+
+                let token = req.headers()
+                    .get(http::header::AUTHORIZATION)
+                    .map(|h| get_token_from_auth_header(h));  
+                
+                match token {
+                    Some(header_token) => header_token,
+                    None => None
+                }
+
+            });
+
+        let access_token = match access_token {
+            Some(token) => token,
+            None => {
+                let json_error = ErrorRefreshResponse {  // this may happen if client-side fetch is called after cookie expiration (and no server-side refresh initiated)
+                    status: "fail".to_string(),
+                    refresh: true,
+                    message: "Not authorized".to_string(),
+                };
+                return ready(Err(ErrorUnauthorized(json_error)));
+            }
+        };
+
+        // Verify the access token and provide the extracted payload as TokenDetails
+        let access_token_details = match token::verify_jwt_token(
+            data.env.security.token.encryption.access_public_key.to_owned(),
+            &access_token,
+        ) {
+            Ok(token_details) => token_details,
+            Err(_) => {
+                let json_error = ErrorRefreshResponse {  // token may be expired (max_age)
+                    status: "fail".to_string(),
+                    refresh: true,
+                    message: "Not authorized".to_string(),
+                };
+                return ready(Err(ErrorUnauthorized(json_error)));
+            }
+        };
+
+        // Parse the access token Uuid string as Uuid
+        let access_token_uuid = match uuid::Uuid::parse_str(&access_token_details.token_uuid.to_string()) {
+            Ok(token_uuid) => token_uuid,
+            Err(_) => {
+                return ready(Err(ErrorInternalServerError(ErrorResponse {
+                    status: "error".to_string(),
+                    message: format!("Not authorized"),
+                })));
+            }
+        };
+
+        // Check if the access token id returns a user id result from the Redis database (session persistence)
+        let user_id_redis_result = async move {
+            let mut redis_client = match data.auth_session.get_connection() {
+                Ok(redis_client) => redis_client,
+                Err(_) => {
+                    return Err(ErrorInternalServerError(ErrorResponse {
+                        status: "error".to_string(),
+                        message: format!("Not authorized"),
+                    }));
+                }
+            };
+
+            let redis_result = redis_client.get::<_, String>(access_token_uuid.clone().to_string());
+
+            match redis_result {
+                Ok(value) => Ok(value),
+                Err(_) => Err(ErrorUnauthorized(ErrorRefreshResponse {   // user session may be expired (max_age)
+                    status: "fail".to_string(),
+                    refresh: true,
+                    message: "Not authorized".to_string(),
+                })),
+            }
+        };
+
+        // Check that the User exists in the Mongo database and return their data
+        let user_exists_result = async move {
+
+            // Await and parse the user Uuid from the Redis database result
+            let user_id = user_id_redis_result.await?;
+            
+            let user_id_uuid = match uuid::Uuid::parse_str(user_id.as_str()) {
+                Ok(user_uuid) => user_uuid,
+                Err(_) => {
+                    return Err(ErrorInternalServerError(ErrorResponse {
+                        status: "error".to_string(),
+                        message: format!("Not authorized"),
+                    }));
+                }
+            };
+
+            // Database connection and user id query
+            let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
+                        
+            let query_result = user_collection
+                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) }, None)
+                .await;
+            
+            match query_result {
+                Ok(Some(user)) => Ok(user),
+                Ok(None) => {
+                    let json_error: ErrorResponse = ErrorResponse {
+                        status: "fail".to_string(),
+                        message: "Not authorized".to_string(),
+                    };
+                    Err(ErrorUnauthorized(json_error))
+                }
+                Err(_) => {
+                    let json_error = ErrorResponse {
+                        status: "error".to_string(),
+                        message: "Not authorized".to_string(),
+                    };
+                    Err(ErrorInternalServerError(json_error))
+                }
+            }
+        };
+
+        // Run user exists block future to completion 
+        // and return the User and access token UUID
+        match block_on(user_exists_result) {
+            Ok(user) => {
+
+                // USER ROLE AUTHORIZATION
+                // This is always enabled for the user-accessible endpoints
+
+                if !user.roles.contains(&Role::User) || !user.roles.contains(&Role::Data) {
+                    let json_error = ErrorResponse {
+                        status: "fail".to_string(),
+                        message: "You do not have enough permissions".to_string(),
+                    };
+                    return ready(Err(ErrorForbidden(json_error)));
+                };
 
                 // If the database and project query parameters are in the header,
                 // place an additional guard on the user access to team database(s)
                 // and projects that contain sample data
 
-                let data_access_query = DataAccessQuery::from_request(&req);
+                // Team query param must always be specified
+
+                let data_access_query = match DataAccessQuery::from_request(&req) {
+                    Ok(query) => query, 
+                    Err(err) => return ready(Err(ErrorBadRequest(err)))
+                };
+
                 let user_id = user.id.clone();
 
-                // If we received valid data query parameters for a data access endpoint, check 
-                // access of authorized user to the requested team database and/or project
-                if data_access_query.is_valid() {
 
-                    let team_result = async move {
+                let team_result = async move {
 
+                    // Database connection and user id query
+                    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
-                        let database_query = match &data_access_query.db {
-                            Some(query) => query,
-                            None => {
-                                let json_error = ErrorResponse {
-                                    status: "fail".to_string(),
-                                    message: "No database query specified".to_string(),
-                                };
-                                return Err(ErrorBadRequest(json_error));
-                            }
-                        };
-
-                        // Database connection and user id query
-                        let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
-
-                        let query_result = match &data_access_query.project {
-                            Some(project) => {
-                                team_collection.find_one(mongodb::bson::doc! {
-                                    "$and": [
-                                        { "users": &user_id },
-                                        { "databases.id": &database_query }, 
-                                        { "databases.projects.id": &project } 
-                                    ]
-                                }, None)
-                                .await
-                            },
-                            None => {
-                                team_collection.find_one(mongodb::bson::doc! {
-                                    "$and": [
-                                        { "users": &user_id },
-                                        { "databases.id": &database_query }, 
-                                    ]
-                                }, None)
-                                .await
-                            }
-                        };
-                        
-                        match query_result {
-                            Ok(Some(team)) => Ok(team),
-                            Ok(None) => {
-                                let json_error: ErrorResponse = ErrorResponse {
-                                    status: "fail".to_string(),
-                                    message: "You do not have access to the requested data".to_string(),
-                                };
-                                Err(ErrorForbidden(json_error))
-                            }
-                            Err(_) => {
-                                let json_error = ErrorResponse {
-                                    status: "error".to_string(),
-                                    message: "Failed to check user permissions for data access".to_string(),
-                                };
-                                Err(ErrorInternalServerError(json_error))
-                            }
+                    let query_result = match (&data_access_query.db, &data_access_query.project) {
+                        (Some(database), Some(project)) => {
+                            team_collection.find_one(mongodb::bson::doc! {
+                                "$and": [
+                                    {
+                                        "$or": [
+                                            { "id": &data_access_query.team },
+                                            { "name": &data_access_query.team }
+                                        ]
+                                    },
+                                    { "users": &user_id },
+                                    {
+                                        "$or": [
+                                            { "databases.id": &database },
+                                            { "databases.name": &database }
+                                        ]
+                                    },
+                                    {
+                                        "$or": [
+                                            { "databases.projects.id": &project },
+                                            { "databases.projects.name": &project }
+                                        ]
+                                    }
+                                ]
+                            }, None)
+                            .await
+                        },
+                        (Some(database), None) => {
+                            team_collection.find_one(mongodb::bson::doc! {
+                                "$and": [
+                                    {
+                                        "$or": [
+                                            { "id": &data_access_query.team },
+                                            { "name": &data_access_query.team }
+                                        ]
+                                    },
+                                    { "users": &user_id },
+                                    {
+                                        "$or": [
+                                            { "databases.id": &database },
+                                            { "databases.name": &database }
+                                        ]
+                                    }
+                                ]
+                            }, None)
+                            .await
+                        },
+                        (None, Some(_)) => {
+                            let json_error = ErrorResponse {
+                                status: "fail".to_string(),
+                                message: "You must specify a database query with a project query".to_string(),
+                            };
+                            return Err(ErrorBadRequest(json_error))
+                        }
+                        (None, None) => {
+                            team_collection.find_one(mongodb::bson::doc! {
+                                "$and": [
+                                    {
+                                        "$or": [
+                                            { "id": &data_access_query.team },
+                                            { "name": &data_access_query.team }
+                                        ]
+                                    },
+                                    { "users": &user_id }
+                                ]
+                            }, None)
+                            .await
                         }
                     };
-
-                    match block_on(team_result) {
-                        Ok(team) => {
-                            ready(Ok(JwtUserMiddleware {
-                                access_token_uuid,
-                                user,
-                                team: Some(team)
-                            }))
-                        },
-                        Err(error) => return ready(Err(error))
+                    
+                    match query_result {
+                        Ok(Some(team)) => Ok(team),
+                        Ok(None) => {
+                            let json_error: ErrorResponse = ErrorResponse {
+                                status: "fail".to_string(),
+                                message: "You do not have access to the requested team data".to_string(),
+                            };
+                            Err(ErrorForbidden(json_error))
+                        }
+                        Err(_) => {
+                            let json_error = ErrorResponse {
+                                status: "error".to_string(),
+                                message: "Failed to check team permissions for data access".to_string(),
+                            };
+                            Err(ErrorInternalServerError(json_error))
+                        }
                     }
-    
-                } else {
-                    ready(Ok(JwtUserMiddleware {
-                        access_token_uuid,
-                        user,
-                        team: None
-                    }))
-                }  // TODO: if we didn't receive a team query then just go ahead - all data access endpoints should have a team query parameter
+                };
 
+                match block_on(team_result) {
+                    Ok(team) => {
+                        ready(Ok(JwtDataMiddleware {
+                            access_token_uuid,
+                            user,
+                            team
+                        }))
+                    },
+                    Err(error) => return ready(Err(error))
+                }
             },
             Err(error) => ready(Err(error)),
         }
@@ -367,7 +601,7 @@ impl FromRequest for JwtUserMiddleware {
 // not the ideal solution but works for role-based guards now
 pub struct JwtAdminMiddleware {
     pub user: User,
-    pub access_token_uuid: uuid::Uuid,
+    pub access_token_uuid: uuid::Uuid
 }
 impl FromRequest for JwtAdminMiddleware {
     type Error = ActixWebError;
@@ -482,7 +716,7 @@ impl FromRequest for JwtAdminMiddleware {
             };
 
             // Database connection and user id query
-            let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+            let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
             
             let query_result = user_collection
                 .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) }, None)

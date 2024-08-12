@@ -4,6 +4,7 @@ use cerebro_model::api::logs::model::Action;
 use cerebro_model::api::users::model::{User, UserId, Role};
 
 use cerebro_model::api::config::Config;
+use cerebro_model::api::utils::AdminCollection;
 
 use crate::api::utils::get_cerebro_db_collection;
 use crate::api::email::Email;
@@ -65,7 +66,7 @@ async fn login_handler(
     // Unprotected route - critical to review policies! 
 ) -> impl Responder {
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");  
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);  
 
     // Find the user in the database
     let user = match user_collection
@@ -277,7 +278,7 @@ async fn refresh_access_token_handler(
 
     // Check that the user still exists in user collection
     let user_id_uuid = Uuid::parse_str(&user_id).unwrap();
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     // Find the user in the database
     let user = match user_collection
@@ -343,7 +344,7 @@ async fn refresh_access_token_handler(
 async fn logout_handler(
     req: HttpRequest,
     data: web::Data<AppState>,
-    auth_guard: jwt::JwtUserMiddleware,
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> impl Responder {
 
     let message = "Token is invalid or session has expired";
@@ -452,7 +453,7 @@ async fn verification_email_handler(
 
     let user_id = &id.into_inner();
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     // Find the user in the database
     let user = match user_collection
@@ -510,7 +511,7 @@ async fn verification_check_handler(
         serde_json::json!({"status": "error", "message": "Token is invalid or session has expired"})
     );
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
      // Check the access token, user in database from access token, delete the access token and return its details and type
      let (token_type, access_token_details, _user) = match check_one_time_token_and_user(
@@ -558,7 +559,7 @@ async fn password_email_handler(
 ) -> impl Responder {
 
     let user_id = &id.into_inner();
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     // Find the user in the database
     let user = match user_collection
@@ -616,7 +617,7 @@ async fn reset_password_email_handler(
         serde_json::json!({"status": "error", "message": "Token is invalid or session has expired"})
     );
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
      // Check the access token, user in database from access token, delete the access token and return its details and type
      let (token_type, access_token_details, user) = match check_one_time_token_and_user(
@@ -679,7 +680,7 @@ async fn reset_password_check_handler(
         serde_json::json!({"status": "error", "message": "Token is invalid or session has expired"})
     );
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
      // Check the access token, user in database from access token, delete the access token and return its details and type
      let (token_type, access_token_details, _) = match check_one_time_token_and_user(
@@ -731,7 +732,7 @@ async fn reset_password_handler(
     );
 
     // Database connections
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     // Check the access token, user in database from access token, delete the access token and return its details and type
     let (token_type, _, user) = match check_one_time_token_and_user(

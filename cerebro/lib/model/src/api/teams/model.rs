@@ -4,6 +4,28 @@ use crate::api::{teams::schema::{RegisterDatabaseSchema, RegisterTeamSchema, Reg
 // A type alias to better track user identifier
 pub type TeamId = String;
 
+
+pub enum TeamAdminCollection {
+    Logs,
+    Reports,
+    Files,
+    Stage,
+    Watchers,
+    Pipelines
+}
+impl TeamAdminCollection {
+    pub fn name(&self) -> String {
+        match self {
+            TeamAdminCollection::Logs => String::from("logs"),
+            TeamAdminCollection::Reports => String::from("reports"),
+            TeamAdminCollection::Files => String::from("files"),
+            TeamAdminCollection::Stage => String::from("stage"),
+            TeamAdminCollection::Watchers => String::from("watchers"),
+            TeamAdminCollection::Pipelines => String::from("pipelines")
+        }
+    }
+}
+
 // A team that users can belong to - teams 
 // have access to specific MongoDB databases
 // A user can belong to multiple teams and 
@@ -14,7 +36,11 @@ pub struct Team {
     pub name: String,
     pub description: String,
     pub users: Vec<UserId>,
-    pub databases: Vec<TeamDatabase>
+    pub databases: Vec<TeamDatabase>,
+    // Administrative database for this team
+    // stores collections of files, watchers,
+    // pipelines etc.
+    pub admin: TeamDatabase
 }
 impl Team {
     pub fn from(schema: &RegisterTeamSchema) -> Team {
@@ -24,6 +50,7 @@ impl Team {
             description: schema.team_description.to_owned(),
             users: vec![schema.team_lead.to_owned()],
             databases: vec![TeamDatabase::from(&schema)],
+            admin: TeamDatabase::admin()
         }
     }
 }
@@ -53,26 +80,45 @@ pub struct TeamDatabase {
 }
 impl TeamDatabase {
     pub fn from(schema: &RegisterTeamSchema) -> TeamDatabase {
+        let uuid = uuid::Uuid::new_v4().to_string();
         TeamDatabase {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: uuid.clone(),
             name: schema.database_name.to_owned(),
             description: schema.database_description.to_owned(),
-            database: schema.database_mongo_name.to_owned(),
+            database: uuid,
             projects: vec![ProjectCollection::default(&schema)]
         }
     }
     pub fn from_database_schema(schema: &RegisterDatabaseSchema) -> TeamDatabase {
+        let uuid = uuid::Uuid::new_v4().to_string();
         TeamDatabase {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: uuid.clone(),
             name: schema.database_name.to_owned(),
             description: schema.database_description.to_owned(),
-            database: schema.database_mongo_name.to_owned(),
+            database: uuid,
             projects: vec![ProjectCollection {
                 id: uuid::Uuid::new_v4().to_string(),
                 name: String::from("Data"),
                 description: String::from("Default data collection"),
                 collection: String::from("data")
             }]
+        }
+    }
+    pub fn admin() -> TeamDatabase {
+        let uuid = uuid::Uuid::new_v4().to_string();
+        TeamDatabase {
+            id: uuid.clone(),
+            name: String::from("Admin"),
+            description: String::from("Team administrative database"),
+            database: uuid,
+            projects: vec![
+                ProjectCollection::team_files(),
+                ProjectCollection::team_watchers(),
+                ProjectCollection::team_pipelines(),
+                ProjectCollection::team_stage(),
+                ProjectCollection::team_logs(),
+                ProjectCollection::team_reports(),
+            ]
         }
     }
 }
@@ -106,6 +152,54 @@ impl ProjectCollection {
             name: schema.project_name.to_owned(),
             description: schema.project_description.to_owned(),
             collection: schema.project_mongo_name.to_owned()
+        }
+    }
+    pub fn team_files() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Files"),
+            description: String::from("File registrations for CerebroFS"),
+            collection: TeamAdminCollection::Files.name()
+        }
+    }
+    pub fn team_watchers() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Watchers"),
+            description: String::from("Production watcher registrations for file uploads to CerebroFS"),
+            collection: TeamAdminCollection::Watchers.name()
+        }
+    }
+    pub fn team_pipelines() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Pipelines"),
+            description: String::from("Production pipeline registrations for Cerebro"),
+            collection: TeamAdminCollection::Pipelines.name()
+        }
+    }
+    pub fn team_stage() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Stage"),
+            description: String::from("File stage for production pipelines"),
+            collection: TeamAdminCollection::Stage.name()
+        }
+    }
+    pub fn team_logs() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Logs"),
+            description: String::from("Log entries for the team"),
+            collection: TeamAdminCollection::Logs.name()
+        }
+    }
+    pub fn team_reports() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Reports"),
+            description: String::from("Report storage for team independent of database"),
+            collection: TeamAdminCollection::Reports.name()
         }
     }
 }

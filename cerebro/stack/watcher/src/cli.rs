@@ -30,10 +30,11 @@ fn main() -> anyhow::Result<()> {
 
             let api_client = CerebroClient::new(
                 &cli.url,
-                &cli.token,
+                cli.token,
                 false,
                 cli.danger_invalid_certificate,
-                &cli.token_file
+                cli.token_file,
+                cli.team.clone()
             )?;
 
             let fs_client = FileSystemClient::new(
@@ -50,8 +51,6 @@ fn main() -> anyhow::Result<()> {
 
             let watcher = CerebroWatcher::new(
                 ProductionWatcher::from_args(args, &api_client)?, 
-                &args.team_name,
-                &args.db_name,
                 api_client, 
                 fs_client, 
                 UploadConfig::from_args(args), 

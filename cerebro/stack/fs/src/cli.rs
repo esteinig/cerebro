@@ -16,10 +16,11 @@ fn main() -> Result<()> {
 
     let api_client = CerebroClient::new(
         &cli.url,
-        &cli.token,
+        cli.token,
         match &cli.command { Commands::Login(_) | Commands::Ping(_) => true, _ => false },
         cli.danger_invalid_certificate,
-        &cli.token_file
+        cli.token_file,
+        cli.team.clone()
     )?;
     let fs_client = FileSystemClient::new(
         &api_client, 
@@ -29,7 +30,7 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Commands::Login( args ) => {
-            api_client.login_user(&args.email, &args.password)?
+            api_client.login_user(&args.email, args.password.clone())?
         },
         Commands::Ping(_) => {
             fs_client.ping_status()?;
@@ -46,8 +47,6 @@ fn main() -> Result<()> {
             log::info!("Starting file processing and upload");
             fs_client.upload_files(
                 &args.files,  
-                &args.team_name,
-                &args.db_name,
                 &args.run_id,
                 &args.sample_id,
                 UploadConfig::default(),
@@ -64,16 +63,12 @@ fn main() -> Result<()> {
         Commands::Delete( args ) => {
             fs_client.delete_files(
                 &args.file_ids,  
-                &args.team_name,
-                &args.db_name,
                 args.run_id.clone(),
                 args.watcher_id.clone()
             )?;
         },
         Commands::List( args ) => {
             api_client.get_files(
-                &args.team_name,
-                &args.db_name,
                 args.run_id.clone(),
                 args.watcher_id.clone(),
                 args.page,

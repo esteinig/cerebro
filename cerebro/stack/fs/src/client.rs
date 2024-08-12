@@ -93,8 +93,6 @@ impl FileSystemClient {
     pub fn upload_files(
         &self,
         files: &Vec<PathBuf>,
-        team_name: &str,
-        db_name: &str,
         run_id: &Option<String>,
         sample_id: &Option<String>,
         upload_config: UploadConfig,
@@ -140,9 +138,7 @@ impl FileSystemClient {
 
             log::info!("Registering file with Cerebro API");
             self.api_client.register_file(
-                file_schema,
-                team_name,
-                db_name
+                file_schema
             )?;
         }
 
@@ -152,15 +148,13 @@ impl FileSystemClient {
     pub fn delete_files(
         &self,
         file_ids: &Vec<String>,
-        team_name: &str,
-        db_name: &str,
         run_id: Option<String>,
         watcher_id: Option<String>
     ) -> Result<(), FileSystemError> {
 
         let file_ids = match (&run_id, &watcher_id) {
             (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
-                self.api_client.get_files(team_name, db_name, run_id, watcher_id, 0, 1000, false)?
+                self.api_client.get_files(run_id, watcher_id, 0, 1000, false)?
                     .iter()
                     .map(|file| file.id.to_owned())
                     .collect()
@@ -171,7 +165,7 @@ impl FileSystemClient {
            
 
         for file_id in file_ids {
-            let deleted_file = self.api_client.delete_file(&file_id, team_name, db_name)?;
+            let deleted_file = self.api_client.delete_file(&file_id)?;
             self.delete_file(&deleted_file.fid)?;
         } 
         
@@ -182,8 +176,6 @@ impl FileSystemClient {
         &self,
         files: &HashMap<String, Vec<PathBuf>>,
         run_id: String,
-        team_name: &str,
-        db_name: &str,
         upload_config: UploadConfig,
         watcher: ProductionWatcher,
     ) -> Result<(), FileSystemError> {
@@ -229,9 +221,7 @@ impl FileSystemClient {
 
                 log::info!("Registering file with Cerebro API");
                 self.api_client.register_file(
-                    file_schema,
-                    &team_name,
-                    &db_name
+                    file_schema
                 )?;
             }
             

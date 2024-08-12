@@ -1,4 +1,4 @@
-use cerebro_model::api::{users::response::{FilteredUser, UserSelfResponse, UserData}, teams::model::{Team, TeamId}};
+use cerebro_model::api::{teams::model::{Team, TeamId}, users::response::{FilteredUser, UserData, UserSelfResponse}, utils::AdminCollection};
 use cerebro_model::api::users::model::{User, UserId, Role};
 use cerebro_model::api::users::schema::{UpdateUserSchema, RegisterUserSchema};
 
@@ -41,7 +41,7 @@ pub struct TeamQuery {
 #[get("/users/self/teams")]
 async fn get_user_self_teams_handler(data: web::Data<AppState>, query: web::Query<TeamQuery>, jwt_guard: jwt::JwtUserMiddleware) -> impl Responder {
     
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // A bit wordy ...
 
@@ -138,7 +138,7 @@ async fn register_user_handler(
     _: jwt::JwtAdminMiddleware 
 ) -> impl Responder {
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     // Check if user exists by email
     let exists = match user_collection
@@ -198,7 +198,7 @@ async fn get_user_handler(data: web::Data<AppState>, query: web::Query<UserQuery
     
     let query = query.into_inner();
     
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     if let Some(id) = &query.id  {
         
@@ -249,8 +249,8 @@ async fn delete_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, _
 
     let user_id =  &id.into_inner();
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // First remove from teams - easier fix than the other way around
     match team_collection.update_many(doc! {}, doc! { "$pull": { "users": &user_id } }, None).await 
@@ -284,7 +284,7 @@ async fn delete_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, _
 
 // Update a user (as admin access to all users is provided) [USER/ADMIN]
 #[patch("/users/{id}")]
-async fn patch_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, body: web::Json<UpdateUserSchema>, auth_guard: jwt::JwtUserMiddleware) -> impl Responder {
+async fn patch_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, body: web::Json<UpdateUserSchema>, auth_guard: jwt::JwtDataMiddleware) -> impl Responder {
 
     let user_id: UserId = id.into_inner();
 
@@ -302,7 +302,7 @@ async fn patch_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, bo
         // priviliges and can update another user
     }
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     // Name, email and roles must always be provided - password update is optional (admin-side, deactivated in frontend for now)
     let update = match &body.password {

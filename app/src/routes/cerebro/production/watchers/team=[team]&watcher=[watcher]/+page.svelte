@@ -11,6 +11,8 @@
 
     export let data;
 
+    
+
     // Invalidates page data every five minutes to update 
     // the watcher/pipeline activity status indicators
     onMount(() => {
@@ -21,9 +23,14 @@
         return () => clearInterval(interval);
     });
     
-    async function changeWatcherSurface() {
-        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&db=${selectedDatabaseId}&watcher=${selectedWatcher?.id}`)
+    async function changeTeam() {
+        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&watcher=0`)
     }
+
+    async function changeWatcher() {
+        await goto(`/cerebro/production/watchers/team=${selectedTeamId}&watcher=${selectedWatcher?.id}`)
+    }
+
     /**
      * Group SeaweedFile objects by a specified key (watcher_location, run_id, or date).
      * Adjusted to handle nullable run_id by excluding those files from run_id grouping
@@ -113,12 +120,15 @@
     let specimenTag: string = "";
     let specimenTags: string[] = ["CSF", "BLD", "RES"]
     
-
-    let pipelineSelection: ProductionPipeline[] = data.registeredPipelines;
-    let selectedPipeline: ProductionPipeline | undefined = pipelineSelection[0];
-
-    let watcherSelection: ProductionWatcher[] = data.registeredWatchers;
     let selectedWatcher: ProductionWatcher | undefined = data.defaultWatcher;
+
+    $: watcherSelection = data.registeredWatchers;
+    $: selectedWatcher = watcherSelection.find(watcher => watcher.id === selectedWatcher?.id) || watcherSelection[0];
+
+    let selectedPipeline: ProductionPipeline | undefined = data.registeredPipelines[0];
+
+    $: pipelineSelection = data.registeredPipelines;
+    $: selectedPipeline = pipelineSelection.find(pipeline => pipeline.id === selectedPipeline?.id) || pipelineSelection[0];
 
     $: pipelineIsActive = isWithinTimeLimit(
         data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 5
@@ -126,6 +136,8 @@
     $: watcherIsActive = isWithinTimeLimit(
         data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 5
     );
+
+
 
 </script>
 
@@ -139,7 +151,7 @@
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Team</span></p>
-                            <select id="teamSelect" class="select" bind:value={selectedTeamId} on:change={changeWatcherSurface}>
+                            <select id="teamSelect" class="select" bind:value={selectedTeamId} on:change={changeTeam}>
                                 {#each $page.data.userTeams as team}
                                     <option value={team.id}>{team.name}</option>
                                 {/each}
@@ -148,18 +160,8 @@
                     </div>
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
-                            <p class="mb-1"><span class="opacity-60">Database</span></p>
-                            <select id="databaseSelect" class="select" bind:value={selectedDatabaseId} on:change={changeWatcherSurface}>
-                                {#each databases as db}
-                                    <option value={db.id}>{db.name}</option>
-                                {/each}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flex gap-4 mb-4">
-                        <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Watcher</span></p>
-                            <select id="watcherSelect" class="select" bind:value={selectedWatcher} on:change={changeWatcherSurface}>
+                            <select id="watcherSelect" class="select" bind:value={selectedWatcher} on:change={changeWatcher}>
                                 {#each watcherSelection as watcher}
                                     <option value={watcher}>{watcher.name} @ {watcher.location}</option>
                                 {/each}
@@ -191,7 +193,17 @@
                     </div>
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
-                            <p class="mb-1"><span class="opacity-60">Database Project</span></p>
+                            <p class="mb-1"><span class="opacity-60">Database</span></p>
+                            <select id="databaseSelect" class="select" bind:value={selectedDatabaseId}>
+                                {#each databases as db}
+                                    <option value={db.id}>{db.name}</option>
+                                {/each}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-full">
+                            <p class="mb-1"><span class="opacity-60">Project</span></p>
                             <select id="locationSelect" class="select" bind:value={selectedProjectId}>
                                 {#each projects as project}
                                     <option value={project.id}>{project.name}</option>

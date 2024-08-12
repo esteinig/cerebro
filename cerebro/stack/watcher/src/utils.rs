@@ -113,8 +113,6 @@ impl WatcherConfigArgs for ProductionWatcher {
                 };
 
                 let watchers = api_client.get_watchers(
-                    &watch_args.team_name,
-                     &watch_args.db_name, 
                      Some(watcher_id), 
                      false
                 )?;
@@ -135,8 +133,6 @@ impl WatcherConfigArgs for ProductionWatcher {
 
                 api_client.register_watcher(
                     &schema, 
-                    &watch_args.team_name, 
-                    &watch_args.db_name, 
                     false
                 )?;
                 

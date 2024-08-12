@@ -11,13 +11,15 @@ use crate::api::logs::handler::logs_config;
 use crate::api::auth::handler::auth_config;
 use crate::api::users::handler::user_config;
 use crate::api::teams::handler::team_config;
-use crate::api::cerebro::handler::cerebro_config;
 use crate::api::files::handler::files_config;
+use crate::api::cerebro::handler::cerebro_config;
+use crate::api::watchers::handler::watchers_config;
+use crate::api::pipelines::handler::pipelines_config;
+
 
 use crate::terminal::{App as Cli, Commands};
 
-use super::pipelines::handler::pipelines_config;
-use super::watchers::handler::watchers_config;
+
 
 /*
 =============================

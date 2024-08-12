@@ -34,6 +34,14 @@ pub struct App {
         env = "CEREBRO_API_TOKEN_FILE"
     )]
     pub token_file: Option<PathBuf>,
+    /// User team name or identifier for requests that require team specification 
+    #[clap(
+        long, 
+        short = 't', 
+        env = "CEREBRO_USER_TEAM",
+        hide_env_values = true
+    )]
+    pub team: Option<String>,
     /// SeaweedFS master node address
     #[clap(
         long, 
@@ -104,12 +112,6 @@ pub struct DeleteFileArgs {
     /// Files identifiers to delete (CerebroFS)
     #[clap(long, short = 'f', num_args(0..))]
     pub file_ids: Vec<String>,
-    /// Team name for file query (CerebroAPI)
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for file query (CerebroAPI)
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,
@@ -124,12 +126,6 @@ pub struct UploadFileArgs {
     /// Files to register
     #[clap(long, short = 'f', num_args(0..))]
     pub files: Vec<PathBuf>,
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for model query
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,
@@ -147,12 +143,6 @@ pub struct DownloadFileArgs {
 
 #[derive(Debug, Args)]
 pub struct ListFileArgs {   
-    // Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for model query
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,

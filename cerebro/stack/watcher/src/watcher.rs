@@ -18,8 +18,6 @@ use crate::slack::{SlackConfig, SlackTools};
 #[derive(Clone, Debug)]
 pub struct CerebroWatcher {
     pub config: ProductionWatcher,
-    pub team_name: String,
-    pub db_name: String,
     pub upload_config: UploadConfig,
     pub api_client: CerebroClient,
     pub fs_client: FileSystemClient,
@@ -28,8 +26,6 @@ pub struct CerebroWatcher {
 impl CerebroWatcher {
     pub fn new(
         config: ProductionWatcher, 
-        team_name: &str,
-        db_name: &str,
         api_client: CerebroClient, 
         fs_client: FileSystemClient,
         upload_config: UploadConfig,
@@ -50,8 +46,6 @@ impl CerebroWatcher {
 
         Ok(Self {
             config,
-            team_name: team_name.to_string(),
-            db_name: db_name.to_string(),
             upload_config,
             api_client,
             fs_client,
@@ -77,8 +71,6 @@ impl CerebroWatcher {
             loop {
                 if let Err(err) = ping_clone.api_client.ping_watcher(
                     &ping_clone.config.id, 
-                    &ping_clone.team_name, 
-                    &ping_clone.db_name, 
                     false
                 ) {
                     log::error!("Error in updating watcher activity: {}", err.to_string())
@@ -156,9 +148,7 @@ impl CerebroWatcher {
 
                                                     match watcher.fs_client.upload_files_from_watcher(
                                                         &fastq_files, 
-                                                        run_id.to_string(), 
-                                                        &watcher.team_name,
-                                                        &watcher.db_name,
+                                                        run_id.to_string(),
                                                         watcher.upload_config, 
                                                         watcher_config
                                                     ) {

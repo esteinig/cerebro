@@ -36,6 +36,14 @@ pub struct App {
         env = "CEREBRO_API_TOKEN_FILE"
     )]
     pub token_file: Option<PathBuf>,
+    /// User team name or identifier for requests that require team specification 
+    #[clap(
+        long, 
+        short = 't', 
+        env = "CEREBRO_USER_TEAM",
+        hide_env_values = true
+    )]
+    pub team: Option<String>,
     /// SSL certificate verification is ignored [DANGER]
     #[clap(
         long, 

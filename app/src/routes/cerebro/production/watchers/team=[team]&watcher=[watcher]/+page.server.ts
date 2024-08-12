@@ -6,7 +6,7 @@ import type { PageServerLoad } from "./$types";
 
 let api = new CerebroApi(private_env.PRIVATE_CEREBRO_API_URL_DOCKER);
 
-const fetchFiles = async(fetch: Function, requestInit: RequestInit, db_param: string, watcher_param: string | undefined): Promise<SeaweedFile[]> => {
+const fetchFiles = async(fetch: Function, requestInit: RequestInit, team_param: string, watcher_param: string | undefined): Promise<SeaweedFile[]> => {
     
     let files: SeaweedFile[] = [];
 
@@ -15,7 +15,7 @@ const fetchFiles = async(fetch: Function, requestInit: RequestInit, db_param: st
     }
 
     let filesResponse: Response = await fetch(
-        `${api.routes.files.getFiles}?db=${db_param}&watcher_id=${watcher_param}&page=0&limit=1000`, requestInit
+        `${api.routes.files.getFiles}?team=${team_param}&watcher_id=${watcher_param}&page=0&limit=1000`, requestInit
     );
     if (filesResponse.ok) {
         let filesResponseData: FileResponseData = await filesResponse.json();
@@ -32,12 +32,12 @@ const fetchFiles = async(fetch: Function, requestInit: RequestInit, db_param: st
 }
 
 
-const fetchPipelines = async(fetch: Function, requestInit: RequestInit, db_param: string): Promise<ProductionPipeline[]> => {
+const fetchPipelines = async(fetch: Function, requestInit: RequestInit, team_param: string): Promise<ProductionPipeline[]> => {
     
     let pipelines: ProductionPipeline[] = [];
 
     let pipelinesResponse: Response = await fetch(
-        `${api.routes.pipelines.getPipelines}?db=${db_param}`, requestInit
+        `${api.routes.pipelines.getPipelines}?team=${team_param}`, requestInit
     );
     if (pipelinesResponse.ok) {
         let pipelinesResponseData: PipelineResponseData = await pipelinesResponse.json();
@@ -57,12 +57,12 @@ const fetchPipelines = async(fetch: Function, requestInit: RequestInit, db_param
     return pipelines
 }
 
-const fetchWatchers = async(fetch: Function, requestInit: RequestInit, db_param: string): Promise<ProductionWatcher[]> => {
+const fetchWatchers = async(fetch: Function, requestInit: RequestInit, team_param: string): Promise<ProductionWatcher[]> => {
     
     let watchers: ProductionWatcher[] = [];
 
     let watchersResponse: Response = await fetch(
-        `${api.routes.watchers.getWatchers}?db=${db_param}`, requestInit
+        `${api.routes.watchers.getWatchers}?team=${team_param}`, requestInit
     );
     if (watchersResponse.ok) {
         let watchersResponseData: WatcherResponseData = await watchersResponse.json();
@@ -117,8 +117,8 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     let defaultProject: ProjectCollection = defaultDatabase.projects[0];
         
     const [registeredPipelines, registeredWatchers] = await Promise.all([
-        fetchPipelines(fetch, fetchDataRequestInit, params.db),
-        fetchWatchers(fetch, fetchDataRequestInit, params.db),
+        fetchPipelines(fetch, fetchDataRequestInit, params.team),
+        fetchWatchers(fetch, fetchDataRequestInit, params.team),
     ]);
 
     let defaultWatcher: ProductionWatcher | undefined = params.watcher === "0" ? registeredWatchers[0] : registeredWatchers.find(watcher => watcher.id === params.watcher);
@@ -129,18 +129,20 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     let files: SeaweedFile[] = await fetchFiles(
         fetch, 
         fetchDataRequestInit, 
-        params.db, 
+        params.team,
         params.watcher === "0" ? defaultWatcher?.id : params.watcher
     );
 
+    console.log(registeredPipelines)
+
     return { 
-        files: files,
-        registeredPipelines: registeredPipelines,
-        registeredWatchers: registeredWatchers,
-        defaultTeam: defaultTeam,
-        defaultDatabase: defaultDatabase,
-        defaultProject: defaultProject,
-        defaultWatcher: defaultWatcher
+        files,
+        registeredPipelines,
+        registeredWatchers,
+        defaultTeam,
+        defaultDatabase,
+        defaultProject,
+        defaultWatcher
     };
 
 }

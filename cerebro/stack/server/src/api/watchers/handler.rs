@@ -3,34 +3,19 @@ use futures::TryStreamExt;
 use mongodb::{bson::{doc, from_document}, Collection};
 use actix_web::{delete, get, post, patch, web, HttpResponse};
 
-use cerebro_model::api::{auth::response::UserRoleResponse, teams::model::DatabaseId, utils::HttpMethod, watchers::{model::ProductionWatcher, response::{DeleteWatcherResponse, ListWatchersResponse, PingWatcherResponse, RegisterWatcherResponse}, schema::RegisterWatcherSchema}};
-use cerebro_model::api::users::model::Role;
+use cerebro_model::api::{teams::model::TeamAdminCollection, watchers::{model::ProductionWatcher, response::{DeleteWatcherResponse, ListWatchersResponse, PingWatcherResponse, RegisterWatcherResponse}, schema::RegisterWatcherSchema}};
 
-use crate::api::{auth::jwt, utils::TeamDatabaseInternal};
+use crate::api::auth::jwt::{self, JwtDataMiddleware, TeamAccessQuery};
 use crate::api::server::AppState;
 
 use crate::api::utils::get_teams_db_collection;
-use crate::api::cerebro::handler::get_authorized_database;
 use crate::api::watchers::mongo::get_registered_watchers_pipeline;
 
-#[derive(Deserialize)]
-struct WatcherRegisterQuery {  
-   // Required for access authorization in user guard middleware
-   db: DatabaseId,
-}
 
 #[post("/watcher/register")]
-async fn register_watcher(data: web::Data<AppState>, schema: web::Json<RegisterWatcherSchema>, query: web::Query<WatcherRegisterQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn register_watcher(data: web::Data<AppState>, schema: web::Json<RegisterWatcherSchema>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/watcher/register", HttpMethod::Post))
-    }
-
-    let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
-        Ok(db) => db, Err(error_response) => return error_response
-    };
-
-    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Watchers);
+    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Watchers);
     
     match watcher_collection
         .find_one(doc! {
@@ -64,28 +49,17 @@ async fn register_watcher(data: web::Data<AppState>, schema: web::Json<RegisterW
 
 }
 
-
 #[derive(Deserialize)]
 struct WatcherListQuery {  
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
     // Get a single watcher by identifier for the response
     id: Option<String>
 }
 
 
 #[get("/watcher")]
-async fn list_watchers(data: web::Data<AppState>, query: web::Query<WatcherListQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn list_watchers(data: web::Data<AppState>, query: web::Query<WatcherListQuery>, _: web::Query<TeamAccessQuery>, auth_guard: JwtDataMiddleware) -> HttpResponse {
     
-    if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/watcher", HttpMethod::Get))
-    }
-
-    let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
-        Ok(db) => db, Err(error_response) => return error_response
-    };
-
-    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Watchers);
+    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Watchers);
     
     let watcher = get_registered_watchers_pipeline(&query.id);
     
@@ -119,26 +93,10 @@ async fn list_watchers(data: web::Data<AppState>, query: web::Query<WatcherListQ
 
 }
 
-
-
-#[derive(Deserialize)]
-struct WatcherDeleteQuery {  
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-}
-
 #[delete("/watcher/{id}")]
-async fn delete_watcher(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<WatcherDeleteQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
-    
-    if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/watcher", HttpMethod::Delete))
-    }
-    
-    let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
-        Ok(db) => db, Err(error_response) => return error_response
-    };
-
-    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Watchers);
+async fn delete_watcher(data: web::Data<AppState>, id: web::Path<String>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+        
+    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Watchers);
     
     match watcher_collection
         .find_one_and_delete(
@@ -164,24 +122,10 @@ async fn delete_watcher(data: web::Data<AppState>, id: web::Path<String>, query:
 }
 
 
-#[derive(Deserialize)]
-struct WatcherPingQuery {  
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-}
-
 #[patch("/watcher/{id}")]
-async fn ping_watcher(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<WatcherPingQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn ping_watcher(data: web::Data<AppState>, id: web::Path<String>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    if !auth_guard.user.roles.contains(&Role::Data) {
-        return HttpResponse::Unauthorized().json(UserRoleResponse::unauthorized("/watcher", HttpMethod::Patch))
-    }
-    
-    let db: mongodb::Database = match get_authorized_database(&data, &query.db, &auth_guard) {
-        Ok(db) => db, Err(error_response) => return error_response
-    };
-
-    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, &db.name().to_string(), TeamDatabaseInternal::Watchers);
+    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Watchers);
     
     let new_ping = chrono::Utc::now().to_string();
 
@@ -212,8 +156,9 @@ async fn ping_watcher(data: web::Data<AppState>, id: web::Path<String>, query: w
 
 // Handler configuration
 pub fn watchers_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(register_watcher)
-       .service(delete_watcher)
-       .service(ping_watcher)
-       .service(list_watchers);
+    cfg
+        .service(register_watcher)
+        .service(delete_watcher)
+        .service(ping_watcher)
+        .service(list_watchers);
 }

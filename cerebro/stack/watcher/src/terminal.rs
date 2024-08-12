@@ -32,6 +32,14 @@ pub struct App {
         env = "CEREBRO_API_TOKEN_FILE"
     )]
     pub token_file: Option<PathBuf>,
+    /// User team name or identifier for requests that require team specification 
+    #[clap(
+        long, 
+        short = 't', 
+        env = "CEREBRO_USER_TEAM",
+        hide_env_values = true
+    )]
+    pub team: Option<String>,
     /// SeaweedFS master node address
     #[clap(
         long, 
@@ -81,12 +89,6 @@ pub struct WatchArgs {
     /// File path to watch recursively for input folders
     #[clap(long, short = 'p')]
     pub path: PathBuf,
-    /// Watcher team name 
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Watcher team database 
-    #[clap(long, short = 'd')]
-    pub db_name: String,
 
     /// Watcher identifier generated during registration
     #[clap(long, short = 'i', group = "registered", help_heading = "Registered Watcher")]

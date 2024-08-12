@@ -1,5 +1,4 @@
 use actix_web::body::MessageBody;
-use mongodb::Database;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -13,12 +12,12 @@ use crate::api::auth::jwt;
 use cerebro_model::api::config::Config;
 use cerebro_report::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
 use cerebro_model::api::users::model::Role;
-use crate::api::utils::{as_csv_string, get_teams_db_collection, TeamDatabaseInternal};
+use crate::api::utils::{as_csv_string, get_teams_db_collection};
 use crate::api::server::AppState;
 use crate::api::cerebro::mongo::*;
 use crate::api::logs::utils::log_database_change;
 use cerebro_model::api::logs::model::{LogModule, Action, RequestLog, AccessDetails};
-use cerebro_model::api::teams::model::{DatabaseId, ProjectId, TeamDatabase, ProjectCollection};
+use cerebro_model::api::teams::model::{DatabaseId, ProjectCollection, ProjectId, Team, TeamAdminCollection, TeamDatabase};
 use cerebro_model::api::cerebro::model::{
     Cerebro, 
     PriorityTaxon, 
@@ -71,7 +70,7 @@ fn qc_config_from_model(sample_config: Option<&SampleConfig>, run_config: Option
     };
 
     let (dna_phage_id, rna_phage_id, seq_phage_id) = match workflow_config {
-        Some(config) => (
+        Some(_) => (
             None, None, None
             // config.params.qc.controls.phage.identifiers.dna_extraction.clone(),
             // config.params.qc.controls.phage.identifiers.rna_extraction.clone(),
@@ -105,7 +104,7 @@ pub struct CerebroInsertSampleQuery {
 
 
 #[post("/cerebro")]
-async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, query: web::Query<CerebroInsertSampleQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, query: web::Query<CerebroInsertSampleQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -155,7 +154,7 @@ struct CerebroGetQuery {
 }
 
 #[get("/cerebro/{id}")]
-async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, query: web::Query<CerebroGetQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, query: web::Query<CerebroGetQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -193,9 +192,9 @@ struct CerebroAddPriorityTaxonQuery {
 }
 
 #[post("/cerebro/priority-taxa")]
-async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppState>, priority_taxon: web::Json<PriorityTaxonSchema>, query: web::Query<CerebroAddPriorityTaxonQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppState>, priority_taxon: web::Json<PriorityTaxonSchema>, query: web::Query<CerebroAddPriorityTaxonQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -228,7 +227,7 @@ async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppSta
             // Log the action in admin and team databases
             match log_database_change(
                 &data, 
-                &mongo_db_name, 
+                auth_guard.team, 
                 RequestLog::new(
                     LogModule::UserAction,
                     Action::PriorityTaxonAdded,
@@ -256,6 +255,9 @@ async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppSta
     }
 }
 
+// Keep query for DB/Project authorized reports from team collection
+
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct CerebroGetStoredReportQuery {
     // Required for access authorization in user guard middleware
@@ -264,14 +266,9 @@ struct CerebroGetStoredReportQuery {
 }
 
 #[get("/cerebro/reports/{id}")]
-async fn get_report_from_storage_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroGetStoredReportQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn get_report_from_storage_handler(data: web::Data<AppState>, id: web::Path<String>, _: web::Query<CerebroGetStoredReportQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, _) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
-        Ok(authorized) => authorized,
-        Err(error_response) => return error_response
-    };
-
-    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, TeamDatabaseInternal::Reports);
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Reports);
     match reports_collection
         .find_one(
             doc! { "id":  &id.into_inner() }, None)
@@ -314,18 +311,13 @@ struct CerebroDeleteStoredReportQuery {
 }
 
 #[delete("/cerebro/reports/{id}")]
-async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroDeleteStoredReportQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroDeleteStoredReportQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
             "status": "fail", "message": "You do not have permission to delete a report", "data": serde_json::json!({})
         }))
     }
-
-    let (mongo_db_name, _) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
-        Ok(authorized) => authorized,
-        Err(error_response) => return error_response
-    };
 
     // TODO: Delete from DB models
 
@@ -375,7 +367,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
     };
 
     // Delete stored report in database but also the entry in the Cerebro models under the shared identifier
-    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name,  TeamDatabaseInternal::Reports);
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Reports);
 
     match reports_collection
         .find_one_and_delete(
@@ -388,7 +380,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
                     // Log the action in admin and team databases
                     match log_database_change(
                         &data, 
-                        &mongo_db_name, 
+                        auth_guard.team, 
                         RequestLog::new(
                             LogModule::UserAction,
                             Action::ReportEntryRemoved,
@@ -443,7 +435,7 @@ struct CerebroAddReportPdfQuery {
 }
 
 #[post("/cerebro/reports/pdf")]
-async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportPdfQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportPdfQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
 
     if !auth_guard.user.roles.contains(&Role::Report) {
@@ -452,7 +444,7 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         }))
     }
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -490,7 +482,7 @@ async fn create_pdf_report_handler(request: HttpRequest, data: web::Data<AppStat
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report_id, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, auth_guard.team, &project_collection, &report_schema, report_id, report_text, is_pdf, &access_details).await
 
     
 }
@@ -504,7 +496,7 @@ struct CerebroAddReportTexQuery {
 }
 
 #[post("/cerebro/reports/tex")]
-async fn create_typst_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportTexQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn create_typst_report_handler(request: HttpRequest, data: web::Data<AppState>, report_schema: web::Json<ReportSchema>, query: web::Query<CerebroAddReportTexQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     if !auth_guard.user.roles.contains(&Role::Report) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -512,7 +504,7 @@ async fn create_typst_report_handler(request: HttpRequest, data: web::Data<AppSt
         }))
     }
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -537,7 +529,7 @@ async fn create_typst_report_handler(request: HttpRequest, data: web::Data<AppSt
         Some(&query.project)
     );
     
-    store_and_log_report(&data, &project_collection, &report_schema, &mongo_db_name, report.id, report_text, is_pdf, &access_details).await
+    store_and_log_report(&data, auth_guard.team, &project_collection, &report_schema, report.id, report_text, is_pdf, &access_details).await
 }
 
 
@@ -551,9 +543,9 @@ struct CerebroDeletePriorityTaxonQuery {
 }
 
 #[delete("/cerebro/priority-taxa/{id}")]
-async fn delete_priority_taxon_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroDeletePriorityTaxonQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn delete_priority_taxon_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroDeletePriorityTaxonQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -572,7 +564,7 @@ async fn delete_priority_taxon_handler(request: HttpRequest, data: web::Data<App
             // Log the action in admin and team databases
             match log_database_change(
                 &data, 
-                &mongo_db_name, 
+                auth_guard.team, 
                 RequestLog::new(
                     LogModule::UserAction,
                     Action::PriorityTaxonRemoved,
@@ -612,9 +604,9 @@ struct CerebroPatchPriorityTaxonDecisionQuery {
 }
 
 #[patch("/cerebro/priority-taxa/decision")]
-async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::Data<AppState>, decision_schema: web::Json<PriorityTaxonDecisionSchema>, query: web::Query<CerebroPatchPriorityTaxonDecisionQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::Data<AppState>, decision_schema: web::Json<PriorityTaxonDecisionSchema>, query: web::Query<CerebroPatchPriorityTaxonDecisionQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -700,7 +692,7 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
             // Log the action in admin and team databases
             match log_database_change(
                 &data, 
-                &mongo_db_name, 
+                auth_guard.team, 
                 RequestLog::new(
                     LogModule::UserDecision,
                     match decision.decision { DecisionType::Accept => Action::PriorityTaxonAccepted, DecisionType::Reject => Action::PriorityTaxonRejected },
@@ -743,7 +735,7 @@ struct TaxaQuery {
 
 
 #[post("/cerebro/taxa")]
-async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -830,7 +822,7 @@ struct TaxaSummaryQuery {
 use futures::{future::ok, stream::once};
 
 #[post("/cerebro/taxa/summary")]
-async fn filtered_taxa_summary_handler(data: web::Data<AppState>, schema: web::Json<TaxaSummarySchema>, query: web::Query<TaxaSummaryQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn filtered_taxa_summary_handler(data: web::Data<AppState>, schema: web::Json<TaxaSummarySchema>, query: web::Query<TaxaSummaryQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -927,7 +919,7 @@ struct CerebroSamplesOverviewPaginatedQuery {
 }
 
 #[get("/cerebro/samples/overview")]
-async fn samples_overview_handler(data: web::Data<AppState>, query: web::Query<CerebroSamplesOverviewPaginatedQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn samples_overview_handler(data: web::Data<AppState>, query: web::Query<CerebroSamplesOverviewPaginatedQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -978,7 +970,7 @@ struct CerebroSampleOverviewIdQuery {
 }
 
 #[get("/cerebro/samples/overview/{id}")]
-async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleOverviewIdQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleOverviewIdQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1013,7 +1005,7 @@ struct CerebroSampleIdQuery {
 }
 
 #[get("/cerebro/samples/{id}")]
-async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleIdQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleIdQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1068,7 +1060,7 @@ struct SummaryAggregateResult {
 }
 
 #[post("/cerebro/samples/summary/qc")]
-async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json<SampleSummaryQcSchema>, query: web::Query<CerebroSampleSummaryQcQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json<SampleSummaryQcSchema>, query: web::Query<CerebroSampleSummaryQcQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1168,7 +1160,7 @@ struct DeleteAggregateResult {
 }
 
 #[delete("/cerebro/samples")]
-async fn delete_sample_handler(data: web::Data<AppState>, samples: web::Json<SampleDeleteSchema>, query: web::Query<CerebroSampleDeleteQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn delete_sample_handler(data: web::Data<AppState>, samples: web::Json<SampleDeleteSchema>, query: web::Query<CerebroSampleDeleteQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -1232,7 +1224,7 @@ struct CerebroSampleDescriptionUpdateQuery {
 }
 
 #[patch("/cerebro/samples/description")]
-async fn sample_description_handler(data: web::Data<AppState>, update: web::Json<SampleDescriptionSchema>, query: web::Query<CerebroSampleDescriptionUpdateQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn sample_description_handler(data: web::Data<AppState>, update: web::Json<SampleDescriptionSchema>, query: web::Query<CerebroSampleDescriptionUpdateQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
@@ -1268,9 +1260,9 @@ struct CerebroSampleCommentAddQuery {
 }
 
 #[post("/cerebro/samples/comment")]
-async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>, comment: web::Json<SampleCommentSchema>, query: web::Query<CerebroSampleCommentAddQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>, comment: web::Json<SampleCommentSchema>, query: web::Query<CerebroSampleCommentAddQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -1285,7 +1277,7 @@ async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>,
             // Log the action in admin and team databases
             match log_database_change(
                 &data, 
-                &mongo_db_name, 
+                auth_guard.team, 
                 RequestLog::new(
                     LogModule::UserComment,
                     Action::SampleCommentAdded,
@@ -1324,9 +1316,9 @@ struct CerebroSampleCommentDeleteQuery {
 }
 
 #[delete("/cerebro/samples/comment")]
-async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<AppState>, query: web::Query<CerebroSampleCommentDeleteQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<AppState>, query: web::Query<CerebroSampleCommentDeleteQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (mongo_db_name, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -1339,7 +1331,7 @@ async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<App
             // Log the action in admin and team databases
             match log_database_change(
                 &data, 
-                &mongo_db_name, 
+                auth_guard.team, 
                 RequestLog::new(
                     LogModule::UserComment,
                     Action::SampleCommentRemoved,
@@ -1374,7 +1366,7 @@ struct CerebroSampleQuery {
 }
 
 #[get("/cerebro/samples")]
-async fn sample_handler(data: web::Data<AppState>, query: web::Query<CerebroSampleQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn sample_handler(data: web::Data<AppState>, query: web::Query<CerebroSampleQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1406,7 +1398,7 @@ struct CerebroWorkflowQuery {
 }
 
 #[get("/cerebro/workflows")]
-async fn workflow_handler(data: web::Data<AppState>,query: web::Query<CerebroWorkflowQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn workflow_handler(data: web::Data<AppState>,query: web::Query<CerebroWorkflowQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1437,7 +1429,7 @@ struct CerebroRunQuery {
 }
 
 #[get("/cerebro/runs")]
-async fn run_handler(data: web::Data<AppState>, query: web::Query<CerebroRunQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn run_handler(data: web::Data<AppState>, query: web::Query<CerebroRunQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1472,7 +1464,7 @@ struct CerebroWorkflowIdQuery {
 }
 
 #[get("/cerebro/workflows/{id}")]
-async fn workflow_id_handler(data: web::Data<AppState>, id: web::Path<WorkflowId>, query: web::Query<CerebroWorkflowIdQuery>, auth_guard: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn workflow_id_handler(data: web::Data<AppState>, id: web::Path<WorkflowId>, query: web::Query<CerebroWorkflowIdQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,
@@ -1503,7 +1495,7 @@ async fn workflow_id_handler(data: web::Data<AppState>, id: web::Path<WorkflowId
 }
 
 #[get("/cerebro/status")]
-async fn status_handler(_: web::Data<AppState>, _: jwt::JwtUserMiddleware) -> HttpResponse {
+async fn status_handler(_: web::Data<AppState>, _: jwt::JwtDataMiddleware) -> HttpResponse {
     HttpResponse::Ok().into()
 }
 
@@ -1513,11 +1505,10 @@ async fn status_handler(_: web::Data<AppState>, _: jwt::JwtUserMiddleware) -> Ht
 
 type MongoDatabaseName = String;
 
-pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db: &DatabaseId, project: &ProjectId, user_guard: &jwt::JwtUserMiddleware) -> Result<(MongoDatabaseName, Collection<Cerebro>), HttpResponse> {
+pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db: &DatabaseId, project: &ProjectId, user_guard: &jwt::JwtDataMiddleware) -> Result<(MongoDatabaseName, Collection<Cerebro>), HttpResponse> {
     
-    let (database, project) = match &user_guard.team {
-        Some(team) => {
-            let database_matches: Vec<&TeamDatabase> = team.databases.iter().filter(|x| &x.id == db).collect();
+    let (database, project) = {
+            let database_matches: Vec<&TeamDatabase> = user_guard.team.databases.iter().filter(|x| &x.id == db).collect();
 
             if database_matches.len() != 1 {
                 return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested database"})))
@@ -1533,29 +1524,10 @@ pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>
             let project_match = project_matches[0];
 
             (database_match.to_owned(), project_match.to_owned())
-        },
-        None => return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested team"})))
     };
 
     let mongo_db = data.db.database(&database.database);
     Ok((database.database, mongo_db.collection(&project.collection)))
-}
-
-pub fn get_authorized_database(data: &web::Data<AppState>, db: &DatabaseId, user_guard: &jwt::JwtUserMiddleware) -> Result<Database, HttpResponse> {
-    
-    let database = match &user_guard.team {
-        Some(team) => {
-            let database_matches: Vec<&TeamDatabase> = team.databases.iter().filter(|x| &x.id == db).collect();
-
-            if database_matches.len() != 1 {
-                return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested database"})))
-            }
-            database_matches[0].to_owned()
-            
-        },
-        None => return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested team"})))
-    };
-    Ok(data.db.database(&database.database))
 }
 
 
@@ -1679,9 +1651,9 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
 
 async fn store_and_log_report(
     data: &web::Data<AppState>,
+    team: Team,
     project_collection: &Collection<Cerebro>,  
     report_schema: &web::Json<ReportSchema>,
-    mongo_db_name: &String,
     report_id: uuid::Uuid,
     report_text: String,
     is_pdf: bool,
@@ -1689,7 +1661,7 @@ async fn store_and_log_report(
 ) -> HttpResponse {
 
     // Create a report entry for team database storage that includes the compiled report
-    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, &mongo_db_name, TeamDatabaseInternal::Reports);
+    let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, team.clone(), TeamAdminCollection::Reports);
     let mut report_entry = ReportEntry::from_schema(report_id.to_string(), &report_schema, Some(report_text.clone()), Some(is_pdf));
 
     match reports_collection.insert_one(
@@ -1717,7 +1689,7 @@ async fn store_and_log_report(
             // Log the action in admin and team databases
             match log_database_change(
                 &data, 
-                &mongo_db_name, 
+                team, 
                 RequestLog::new(
                     LogModule::UserAction,
                     Action::ReportEntryAdded,

@@ -4,6 +4,7 @@
 use cerebro_model::api::users::model::{UserId, User, Role};
 use cerebro_model::api::teams::model::{TeamId, Team, TeamDatabase, ProjectCollection};
 use cerebro_model::api::teams::schema::{RegisterTeamSchema, RegisterDatabaseSchema, RegisterProjectSchema, UpdateTeamSchema};
+use cerebro_model::api::utils::AdminCollection;
 
 use crate::api::auth::jwt;
 use crate::api::server::AppState;
@@ -25,8 +26,8 @@ async fn register_team_handler(
     _: jwt::JwtAdminMiddleware 
 ) -> impl Responder {
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");  
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);  
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if team exists already using its team name OR
     // its database field (must be unique) arguably the 
@@ -73,14 +74,6 @@ async fn register_team_handler(
     // Create the new team from schema and insert, verify that the 
     let team_registration = body.into_inner();
 
-    if !(
-        team_registration.project_mongo_name != data.env.database.names.team_database_logs_collection &&
-        team_registration.project_mongo_name != data.env.database.names.team_database_reports_collection
-    ) {
-        let json_response = serde_json::json!({"status": "error", "message": "Proposed team registration is not valid"});  // not informative
-        return HttpResponse::BadRequest().json(json_response)
-    }
-
     let new_team = Team::from(&team_registration);
     match team_collection.insert_one(&new_team, None).await {
         Ok(_) => {
@@ -113,7 +106,7 @@ async fn register_team_database_handler(
         }))
     }
 
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if team exists already using its team name OR
     // its database field (must be unique)
@@ -168,18 +161,7 @@ async fn register_team_database_project_handler(
         }))
     }
 
-    if [
-        data.env.database.names.team_database_logs_collection.clone(),
-        data.env.database.names.team_database_reports_collection.clone(),
-        data.env.database.names.team_database_files_collection.clone(),
-        data.env.database.names.team_database_stage_collection.clone(),
-    ].contains(&body.project_mongo_name) {
-        return HttpResponse::Forbidden().json(serde_json::json!({
-            "status": "fail", "message": format!("Project collection name not allowed: {}",  body.project_mongo_name), "data": serde_json::json!({})
-        }))
-    }
-
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if team exists already using its team name OR
     // its database name field (must be unique)
@@ -238,7 +220,7 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
     
     let query = query.into_inner();
 
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     match (&query.team_id, &query.user_id)  {
         (Some(team_id), None) => {
@@ -325,7 +307,7 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
 async fn delete_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, _: jwt::JwtAdminMiddleware) -> impl Responder {
 
     let team_id = id.into_inner();
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if the team exists at all
     let team = match team_collection
@@ -374,7 +356,7 @@ async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, b
 
     let team_id = id.into_inner();
 
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if the team exists
     let exists = match team_collection
@@ -462,8 +444,8 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
 
     let query = query.into_inner();
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, "user");  
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, "team");
+    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);  
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if the user exists
     let user_exists = match user_collection

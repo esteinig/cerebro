@@ -25,6 +25,14 @@ pub struct App {
         hide_env_values = true
     )]
     pub token: Option<String>,
+    /// User team name or identifier for requests that require team specification 
+    #[clap(
+        long, 
+        short = 't', 
+        env = "CEREBRO_USER_TEAM",
+        hide_env_values = true
+    )]
+    pub team: Option<String>,
     /// API token file - can be set from environment variable
     #[clap(
         long, 
@@ -218,12 +226,6 @@ pub struct ApiPipelineRegisterArgs {
     /// Pipeline location for registration
     #[clap(long, short = 'l')]
     pub location: String,
-    /// Team name for pipeline registration
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for pipeline registration
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Output registration for future reference (.json)
     #[clap(long, short = 'j')]
     pub json: Option<PathBuf>,
@@ -237,23 +239,11 @@ pub struct ApiPipelinePingArgs {
     pub id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
-    pub json: Option<PathBuf>,
-    /// Team name for pipeline ping
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for pipeline ping
-    #[clap(long, short = 'd')]
-    pub db_name: String,
+    pub json: Option<PathBuf>
 }
 
 #[derive(Debug, Args)]
 pub struct ApiPipelineListArgs {
-    /// Team name for pipeline listing
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for pipeline listing
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Pipeline identifier generated during registration
     #[clap(long, short = 'i')]
     pub id: Option<String>,
@@ -267,13 +257,7 @@ pub struct ApiPipelineDeleteArgs {
     pub id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
-    pub json: Option<PathBuf>,
-    /// Team name for pipeline deletion
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for pipeline deletion
-    #[clap(long, short = 'd')]
-    pub db_name: String,
+    pub json: Option<PathBuf>
 }
 
 
@@ -297,12 +281,6 @@ pub struct ApiWatcherRegisterArgs {
     /// Watcher location for registration
     #[clap(long, short = 'l')]
     pub location: String,
-    /// Team name for watcher registration
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for watcher registration
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Watcher input format 
     #[clap(long, short = 'f')]
     pub format: WatcherFormat,
@@ -316,12 +294,6 @@ pub struct ApiWatcherRegisterArgs {
 
 #[derive(Debug, Args)]
 pub struct ApiWatcherListArgs {
-    /// Team name for watcher listing
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for watcher listing
-    #[clap(long, short = 'd')]
-    pub db_name: String,
     /// Watcher identifier generated during registration
     #[clap(long, short = 'i')]
     pub id: Option<String>,
@@ -337,12 +309,6 @@ pub struct ApiWatcherPingArgs {
     /// Watcher registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
-    /// Team name for watcher ping
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for watcher ping
-    #[clap(long, short = 'd')]
-    pub db_name: String,
 }
 
 #[derive(Debug, Args)]
@@ -354,12 +320,6 @@ pub struct ApiWatcherDeleteArgs {
     /// Watcher registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
-    /// Team name for watcher deletion
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for watcher deletion
-    #[clap(long, short = 'd')]
-    pub db_name: String,
 }
 
 

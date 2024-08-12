@@ -21,10 +21,11 @@ fn main() -> anyhow::Result<()> {
 
     let client = CerebroClient::new(
         &cli.url,
-        &cli.token,
+        cli.token,
         match &cli.command { Commands::Login(_) | Commands::PingStatus(_) => true, _ => false },
         cli.danger_invalid_certificate,
-        &cli.token_file
+        cli.token_file,
+        cli.team.clone()
     )?;
 
     match &cli.command {
@@ -33,7 +34,7 @@ fn main() -> anyhow::Result<()> {
 
         // Login user for access token
         Commands::Login( args ) => {
-            client.login_user(&args.email, &args.password)?
+            client.login_user(&args.email, args.password.clone())?
         },
         // Ping servers with token
         Commands::PingServer(_) => {
@@ -77,7 +78,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-            client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+            // client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
             
             
         },
@@ -93,8 +94,6 @@ fn main() -> anyhow::Result<()> {
 
                     client.register_pipeline(
                         &register_pipeline_schema,
-                        &args.team_name, 
-                        &args.db_name,
                         true
                     )?;
 
@@ -103,7 +102,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ApiPipelineCommands::List( args ) => {
-                    client.get_pipelines(&args.team_name, &args.db_name, args.id.clone(), true)?;
+                    client.get_pipelines(args.id.clone(), true)?;
                 },
                 ApiPipelineCommands::Ping( args ) => {
 
@@ -113,7 +112,7 @@ fn main() -> anyhow::Result<()> {
                         _ => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
                     };
 
-                    client.ping_pipeline(&&pipleine_id, &args.team_name, &args.db_name, true)?;
+                    client.ping_pipeline(&pipleine_id,  true)?;
                 },
                 ApiPipelineCommands::Delete( args ) => {
                     
@@ -123,7 +122,7 @@ fn main() -> anyhow::Result<()> {
                         _ => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
                     };
 
-                    client.delete_pipeline(&pipleine_id, &args.team_name, &args.db_name)?;
+                    client.delete_pipeline(&pipleine_id)?;
                 },
             }
                         
@@ -141,8 +140,6 @@ fn main() -> anyhow::Result<()> {
 
                     client.register_watcher(
                         &register_watcher_schema,
-                        &args.team_name, 
-                        &args.db_name,
                         true
                     )?;
 
@@ -151,7 +148,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ApiWatcherCommands::List( args ) => {
-                    client.get_watchers(&args.team_name, &args.db_name, args.id.clone(), true)?;
+                    client.get_watchers(args.id.clone(), true)?;
                 },
 
                 ApiWatcherCommands::Ping( args ) => {
@@ -162,7 +159,7 @@ fn main() -> anyhow::Result<()> {
                         (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
                     };
 
-                    client.ping_watcher(&watcher_id, &args.team_name, &args.db_name, true)?;
+                    client.ping_watcher(&watcher_id, true)?;
                 },
                 ApiWatcherCommands::Delete( args ) => {
                     
@@ -172,7 +169,7 @@ fn main() -> anyhow::Result<()> {
                         (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
                     };
 
-                    client.delete_watcher(&watcher_id, &args.team_name, &args.db_name)?;
+                    client.delete_watcher(&watcher_id)?;
                 },
             }
                         
@@ -180,31 +177,31 @@ fn main() -> anyhow::Result<()> {
         // Query sample models for taxon summary
         Commands::GetTaxa( args ) => {
 
-            client.taxa_summary(
-                &args.team_name, 
-                &args.project_name, 
-                args.db_name.as_ref(),
-                args.filter_config.as_ref(),
-                args.run_ids.clone(),
-                args.sample_ids.clone(),
-                args.workflow_ids.clone(),
-                args.workflow_names.clone(),
-                &args.output
-            )?;
+            // client.taxa_summary(
+            //     &args.team_name, 
+            //     &args.project_name, 
+            //     args.db_name.as_ref(),
+            //     args.filter_config.as_ref(),
+            //     args.run_ids.clone(),
+            //     args.sample_ids.clone(),
+            //     args.workflow_ids.clone(),
+            //     args.workflow_names.clone(),
+            //     &args.output
+            // )?;
 
         },
         // Query sample models for quality control summary
         Commands::GetQuality( args ) => {
 
-            client.qc_summary(
-                &args.team_name, 
-                &args.project_name, 
-                args.db_name.as_ref(),
-                args.cerebro_ids.clone(),
-                args.sample_ids.clone(),
-                args.ercc_pg.clone(),
-                &args.output
-            )?;
+            // client.qc_summary(
+            //     &args.team_name, 
+            //     &args.project_name, 
+            //     args.db_name.as_ref(),
+            //     args.cerebro_ids.clone(),
+            //     args.sample_ids.clone(),
+            //     args.ercc_pg.clone(),
+            //     &args.output
+            // )?;
 
         },
         // Modify (create-delete-update) a project

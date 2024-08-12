@@ -200,10 +200,11 @@ fn main() -> anyhow::Result<()> {
                             
                     let api_client = cerebro_client::client::CerebroClient::new(
                         &cli.url,
-                        &cli.token,
+                        cli.token,
                         false,
                         cli.danger_invalid_certificate,
-                        &cli.token_file
+                        cli.token_file,
+                        cli.team.clone()
                     )?;
         
                     let fs_client = cerebro_fs::client::FileSystemClient::new(
@@ -220,8 +221,6 @@ fn main() -> anyhow::Result<()> {
         
                     let watcher = cerebro_watcher::watcher::CerebroWatcher::new(
                         cerebro_model::api::watchers::model::ProductionWatcher::from_args(args, &api_client)?, 
-                        &args.team_name,
-                        &args.db_name,
                         api_client, 
                         fs_client, 
                         cerebro_fs::client::UploadConfig::from_args(args), 
@@ -243,15 +242,16 @@ fn main() -> anyhow::Result<()> {
 
             let client = cerebro_client::client::CerebroClient::new(
                 &cli.url,
-                &cli.token,
+                cli.token,
                 match &subcommand { cerebro_client::terminal::Commands::Login(_) | cerebro_client::terminal::Commands::PingStatus(_) => true, _ => false },
                 cli.danger_invalid_certificate,
-                &cli.token_file
+                cli.token_file,
+                cli.team.clone()
             )?;
 
             match subcommand {
                 cerebro_client::terminal::Commands::Login( args ) => {
-                    client.login_user(&args.email, &args.password)?
+                    client.login_user(&args.email, args.password.clone())?
                 },
                 cerebro_client::terminal::Commands::PingServer(_) => {
                     client.ping_servers()?
@@ -271,8 +271,6 @@ fn main() -> anyhow::Result<()> {
         
                             client.register_pipeline(
                                 &register_pipeline_schema,
-                                &args.team_name, 
-                                &args.db_name,
                                 true
                             )?;
         
@@ -281,7 +279,7 @@ fn main() -> anyhow::Result<()> {
                             }
                         },
                         cerebro_client::terminal::ApiPipelineCommands::List( args ) => {
-                            client.get_pipelines(&args.team_name, &args.db_name, args.id.clone(), true)?;
+                            client.get_pipelines(args.id.clone(), true)?;
                         },
                         cerebro_client::terminal::ApiPipelineCommands::Ping( args ) => {
 
@@ -291,7 +289,7 @@ fn main() -> anyhow::Result<()> {
                                 (None, None) => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
                             };
 
-                            client.ping_pipeline(&pipleine_id, &args.team_name, &args.db_name, true)?;
+                            client.ping_pipeline(&pipleine_id, true)?;
                         },
                         cerebro_client::terminal::ApiPipelineCommands::Delete( args ) => {
                             
@@ -301,7 +299,7 @@ fn main() -> anyhow::Result<()> {
                                 (None, None) => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
                             };
         
-                            client.delete_pipeline(&pipleine_id, &args.team_name, &args.db_name)?;
+                            client.delete_pipeline(&pipleine_id)?;
                         },
                     }
                 },        
@@ -318,8 +316,6 @@ fn main() -> anyhow::Result<()> {
         
                             client.register_watcher(
                                 &register_watcher_schema,
-                                &args.team_name, 
-                                &args.db_name,
                                 true
                             )?;
         
@@ -328,7 +324,7 @@ fn main() -> anyhow::Result<()> {
                             }
                         },
                         cerebro_client::terminal::ApiWatcherCommands::List( args ) => {
-                            client.get_watchers(&args.team_name, &args.db_name, args.id.clone(), true)?;
+                            client.get_watchers(args.id.clone(), true)?;
                         },
                         cerebro_client::terminal::ApiWatcherCommands::Ping( args ) => {
 
@@ -338,7 +334,7 @@ fn main() -> anyhow::Result<()> {
                                 (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
                             };
 
-                            client.ping_watcher(&watcher_id, &args.team_name, &args.db_name, true)?;
+                            client.ping_watcher(&watcher_id, true)?;
                         },
                         cerebro_client::terminal::ApiWatcherCommands::Delete( args ) => {
                             
@@ -348,7 +344,7 @@ fn main() -> anyhow::Result<()> {
                                 (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
                             };
         
-                            client.delete_watcher(&watcher_id, &args.team_name, &args.db_name)?;
+                            client.delete_watcher(&watcher_id)?;
                         },
                     }
                                 
@@ -385,35 +381,35 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
 
-                    client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+                    // client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
                     
                 },
                 cerebro_client::terminal::Commands::GetTaxa( args ) => {
 
-                    client.taxa_summary(
-                        &args.team_name, 
-                        &args.project_name, 
-                        args.db_name.as_ref(),
-                        args.filter_config.as_ref(),
-                        args.run_ids.clone(),
-                        args.sample_ids.clone(),
-                        args.workflow_ids.clone(),
-                        args.workflow_names.clone(),
-                        &args.output
-                    )?;
+                    // client.taxa_summary(
+                    //     &args.team_name, 
+                    //     &args.project_name, 
+                    //     args.db_name.as_ref(),
+                    //     args.filter_config.as_ref(),
+                    //     args.run_ids.clone(),
+                    //     args.sample_ids.clone(),
+                    //     args.workflow_ids.clone(),
+                    //     args.workflow_names.clone(),
+                    //     &args.output
+                    // )?;
 
                 },
                 cerebro_client::terminal::Commands::GetQuality( args ) => {
 
-                    client.qc_summary(
-                        &args.team_name, 
-                        &args.project_name, 
-                        args.db_name.as_ref(),
-                        args.cerebro_ids.clone(),
-                        args.sample_ids.clone(),
-                        args.ercc_pg.clone(),
-                        &args.output
-                    )?;
+                    // client.qc_summary(
+                    //     &args.team_name, 
+                    //     &args.project_name, 
+                    //     args.db_name.as_ref(),
+                    //     args.cerebro_ids.clone(),
+                    //     args.sample_ids.clone(),
+                    //     args.ercc_pg.clone(),
+                    //     &args.output
+                    // )?;
 
                 },
                 cerebro_client::terminal::Commands::Project( subcommand ) => {

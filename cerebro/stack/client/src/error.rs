@@ -31,8 +31,11 @@ pub enum HttpClientError {
     #[error("{0} - {1}")]
     PingServer(StatusCode, String),
     /// Represents failure to process the response of a request made with the client
+    #[error("{0}")]
+    ResponseFailure(StatusCode),
+    /// Represents failure to process the response data of a request made with the client
     #[error("{0} ({1})")]
-    ResponseFailure(StatusCode, String),
+    DataResponseFailure(StatusCode, String),
     /// Represents all other cases of `reqwest::Error`.
     #[error("failed to make request")]
     ReqwestFailure(#[from] reqwest::Error),
@@ -51,5 +54,7 @@ pub enum HttpClientError {
     #[error("pipeline identifier could not be found (--id | --json)")]
     PipeineIdentifierArgNotFound,
     #[error("watcher identifier could not be found (--id | --json)")]
-    WatcherIdentifierArgNotFound
+    WatcherIdentifierArgNotFound,
+    #[error("failed to send request with team parameter - did you provide team name or identifier?")]
+    RequireTeamNotConfigured
 }
