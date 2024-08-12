@@ -133,8 +133,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         params.watcher === "0" ? defaultWatcher?.id : params.watcher
     );
 
-    console.log(registeredPipelines)
-
     return { 
         files,
         registeredPipelines,

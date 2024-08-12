@@ -30,8 +30,6 @@ fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         
-
-
         // Login user for access token
         Commands::Login( args ) => {
             client.login_user(&args.email, args.password.clone())?

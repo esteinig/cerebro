@@ -350,12 +350,14 @@ impl CerebroClient {
     fn handle_response<T: DeserializeOwned>(
         &self,
         response: Response,
-        success_msg: &str,
+        success_msg: Option<&str>,
         failure_msg: &str,
     ) -> Result<T, HttpClientError> {
         let status = response.status();
         if status.is_success() {
-            log::info!("{}", success_msg);
+            if let Some(msg) = success_msg {
+                log::info!("{}", msg);
+            }
             response.json().map_err(|_| {
                 HttpClientError::DataResponseFailure(
                     status,
@@ -422,7 +424,7 @@ impl CerebroClient {
 
         self.handle_response::<serde_json::Value>(
             response,
-            &format!("Project `{}` created successfully", project_name),
+            Some(&format!("Project `{}` created successfully", project_name)),
             "Project creation failed",
         )?;
         Ok(())
@@ -440,7 +442,7 @@ impl CerebroClient {
 
         self.handle_response::<serde_json::Value>(
             response,
-            "File registered successfully",
+            Some("File registered successfully"),
             "File registration failed",
         )?;
         Ok(())
@@ -458,7 +460,7 @@ impl CerebroClient {
 
         self.handle_response::<DeleteFileResponse>(
             response,
-            &format!("File `{}` deleted successfully", file_id),
+            Some(&format!("File `{}` deleted successfully", file_id)),
             "File deletion failed",
         )?
         .data
@@ -496,7 +498,7 @@ impl CerebroClient {
         let files = self
             .handle_response::<ListFilesResponse>(
                 response,
-                "Files retrieved successfully",
+                None,
                 "Failed to retrieve files",
             )?
             .data
@@ -544,7 +546,7 @@ impl CerebroClient {
 
         let pipeline_id = self.handle_response::<RegisterPipelineResponse>(
             response,
-            "Pipeline registered successfully",
+            Some("Pipeline registered successfully"),
             "Pipeline registration failed",
         )?
         .data
@@ -572,7 +574,7 @@ impl CerebroClient {
         let pipelines = self
             .handle_response::<ListPipelinesResponse>(
                 response,
-                "Pipelines retrieved successfully",
+                None,
                 "Failed to retrieve pipelines",
             )?
             .data
@@ -612,7 +614,7 @@ impl CerebroClient {
 
         self.handle_response::<DeletePipelineResponse>(
             response,
-            &format!("Pipeline `{}` deleted successfully", pipeline_id),
+            Some(&format!("Pipeline `{}` deleted successfully", pipeline_id)),
             "Pipeline deletion failed",
         )?
         .data
@@ -637,7 +639,7 @@ impl CerebroClient {
         let data = self
             .handle_response::<PingPipelineResponse>(
                 response,
-                &format!("Pipeline `{}` pinged successfully", pipeline_id),
+                None,
                 "Pipeline ping failed",
             )?
             .data
@@ -668,7 +670,7 @@ impl CerebroClient {
 
         let watcher_id = self.handle_response::<RegisterWatcherResponse>(
             response,
-            "Watcher registered successfully",
+            Some("Watcher registered successfully"),
             "Watcher registration failed",
         )?
         .data
@@ -696,7 +698,7 @@ impl CerebroClient {
         let watchers = self
             .handle_response::<ListWatchersResponse>(
                 response,
-                "Watchers retrieved successfully",
+                None,
                 "Failed to retrieve watchers",
             )?
             .data
@@ -736,7 +738,7 @@ impl CerebroClient {
 
         self.handle_response::<DeleteWatcherResponse>(
             response,
-            &format!("Watcher `{}` deleted successfully", watcher_id),
+            Some(&format!("Watcher `{}` deleted successfully", watcher_id)),
             "Watcher deletion failed",
         )?
         .data
@@ -761,7 +763,7 @@ impl CerebroClient {
         let data = self
             .handle_response::<PingWatcherResponse>(
                 response,
-                &format!("Watcher `{}` pinged successfully", watcher_id),
+                None,
                 "Watcher ping failed",
             )?
             .data
@@ -1073,33 +1075,33 @@ impl CerebroClient {
 }
 
 
-fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) -> Result<ProjectCollection, HttpClientError>   {
-    let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name).collect();
+// fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) -> Result<ProjectCollection, HttpClientError>   {
+//     let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name).collect();
 
-    if matches.len() > 0 {
-        Ok(matches[0].to_owned())
-    } else {
-        let valid_project_name_string = projects.iter()
-            .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
-            .collect::<Vec<String>>()
-            .join(", ");
+//     if matches.len() > 0 {
+//         Ok(matches[0].to_owned())
+//     } else {
+//         let valid_project_name_string = projects.iter()
+//             .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
+//             .collect::<Vec<String>>()
+//             .join(", ");
     
-        Err(HttpClientError::InsertModelProjectParameter(valid_project_name_string))
-    }
-}
+//         Err(HttpClientError::InsertModelProjectParameter(valid_project_name_string))
+//     }
+// }
 
 
-fn get_database_by_name(databases: &Vec<TeamDatabase>, db_name: &str) -> Result<TeamDatabase, HttpClientError>   {
-    let matches: Vec<&TeamDatabase> = databases.into_iter().filter(|x| x.name == db_name).collect();
+// fn get_database_by_name(databases: &Vec<TeamDatabase>, db_name: &str) -> Result<TeamDatabase, HttpClientError>   {
+//     let matches: Vec<&TeamDatabase> = databases.into_iter().filter(|x| x.name == db_name).collect();
 
-    if matches.len() > 0 {
-        Ok(matches[0].to_owned())
-    } else {
-        let valid_database_name_string = databases.iter()
-            .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
-            .collect::<Vec<String>>()
-            .join(", ");
-        Err(HttpClientError::InsertModelDatabaseParameter(valid_database_name_string))
-    }
-}
+//     if matches.len() > 0 {
+//         Ok(matches[0].to_owned())
+//     } else {
+//         let valid_database_name_string = databases.iter()
+//             .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
+//             .collect::<Vec<String>>()
+//             .join(", ");
+//         Err(HttpClientError::InsertModelDatabaseParameter(valid_database_name_string))
+//     }
+// }
 

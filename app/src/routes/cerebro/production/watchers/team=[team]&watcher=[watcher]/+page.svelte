@@ -31,6 +31,25 @@
         await goto(`/cerebro/production/watchers/team=${selectedTeamId}&watcher=${selectedWatcher?.id}`)
     }
 
+
+    let selectedWatcher: ProductionWatcher | undefined = data.defaultWatcher;
+
+    $: watcherSelection = data.registeredWatchers;
+    $: selectedWatcher = watcherSelection.find(watcher => watcher.id === selectedWatcher?.id) || watcherSelection[0];
+
+    let selectedPipeline: ProductionPipeline | undefined = data.registeredPipelines[0];
+
+    $: pipelineSelection = data.registeredPipelines;
+    $: selectedPipeline = pipelineSelection.find(pipeline => pipeline.id === selectedPipeline?.id) || pipelineSelection[0];
+
+    $: pipelineIsActive = isWithinTimeLimit(
+        data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 5
+    );
+    $: watcherIsActive = isWithinTimeLimit(
+        data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 5
+    );
+
+
     /**
      * Group SeaweedFile objects by a specified key (watcher_location, run_id, or date).
      * Adjusted to handle nullable run_id by excluding those files from run_id grouping
@@ -119,24 +138,6 @@
 
     let specimenTag: string = "";
     let specimenTags: string[] = ["CSF", "BLD", "RES"]
-    
-    let selectedWatcher: ProductionWatcher | undefined = data.defaultWatcher;
-
-    $: watcherSelection = data.registeredWatchers;
-    $: selectedWatcher = watcherSelection.find(watcher => watcher.id === selectedWatcher?.id) || watcherSelection[0];
-
-    let selectedPipeline: ProductionPipeline | undefined = data.registeredPipelines[0];
-
-    $: pipelineSelection = data.registeredPipelines;
-    $: selectedPipeline = pipelineSelection.find(pipeline => pipeline.id === selectedPipeline?.id) || pipelineSelection[0];
-
-    $: pipelineIsActive = isWithinTimeLimit(
-        data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 5
-    );
-    $: watcherIsActive = isWithinTimeLimit(
-        data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 5
-    );
-
 
 
 </script>
