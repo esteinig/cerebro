@@ -74,6 +74,7 @@ impl FileSystemClient {
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
         }
     }
+    // Cerebro FS delete file request
     pub fn delete_file(&self, fid: &str) -> Result<(), FileSystemError> {
         let url = format!("{}/{}", self.fs_url, fid);
         
@@ -90,14 +91,41 @@ impl FileSystemClient {
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
         }
     }
+    // Cerebro API file entry deletion followed by Cerebro FS file deletion
+    pub fn delete_files(
+        &self,
+        file_ids: &Vec<String>,
+        run_id: Option<String>,
+        watcher_id: Option<String>
+    ) -> Result<(), FileSystemError> {
+
+        let file_ids = match (&run_id, &watcher_id) {
+            (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
+                self.api_client.get_files(run_id, watcher_id, 0, 1000, false)?
+                    .iter()
+                    .map(|file| file.id.to_owned())
+                    .collect()
+
+            },
+            _ => file_ids.clone()
+        };
+           
+
+        for file_id in file_ids {
+            let deleted_file = self.api_client.delete_file(&file_id)?;
+            self.delete_file(&deleted_file.fid)?;
+        } 
+        
+
+        Ok(())
+    }
     pub fn upload_files(
         &self,
         files: &Vec<PathBuf>,
         run_id: &Option<String>,
         sample_id: &Option<String>,
         upload_config: UploadConfig,
-        watcher: Option<ProductionWatcher>,
-        pipeline: Option<ProductionPipeline>,
+        watcher: Option<ProductionWatcher>
     ) -> Result<(), FileSystemError> {
 
         for file in files { 
@@ -132,8 +160,7 @@ impl FileSystemClient {
                 hash: file_hash,
                 fid: upload_response.fid,
                 size: upload_response.size,
-                watcher: watcher.clone(),
-                pipeline: pipeline.clone(),
+                watcher: watcher.clone()
             };
 
             log::info!("Registering file with Cerebro API");
@@ -141,34 +168,6 @@ impl FileSystemClient {
                 file_schema
             )?;
         }
-
-        Ok(())
-    }
-    // Cerebro API file entry deletion followed by Cerebro FS file deletion
-    pub fn delete_files(
-        &self,
-        file_ids: &Vec<String>,
-        run_id: Option<String>,
-        watcher_id: Option<String>
-    ) -> Result<(), FileSystemError> {
-
-        let file_ids = match (&run_id, &watcher_id) {
-            (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
-                self.api_client.get_files(run_id, watcher_id, 0, 1000, false)?
-                    .iter()
-                    .map(|file| file.id.to_owned())
-                    .collect()
-
-            },
-            _ => file_ids.clone()
-        };
-           
-
-        for file_id in file_ids {
-            let deleted_file = self.api_client.delete_file(&file_id)?;
-            self.delete_file(&deleted_file.fid)?;
-        } 
-        
 
         Ok(())
     }
@@ -213,8 +212,7 @@ impl FileSystemClient {
                     hash: file_hash,
                     fid: upload_response.fid,
                     size: upload_response.size,
-                    watcher: Some(watcher.clone()),
-                    pipeline: None
+                    watcher: Some(watcher.clone())
                 };
 
                 log::info!("{:#?}", file_schema);

@@ -81,9 +81,9 @@ pub enum Commands {
     Download(DownloadFileArgs),
     /// Delete a file from CerebroFS
     Delete(DeleteFileArgs),
-    /// List accessible files from CerebroFS registered with Cerebro
+    /// List accessible files from CerebroFS
     List(ListFileArgs),
-    /// Stage files fromn CerebroFS periodically from stage databases registered with Cerebro
+    /// Stage samples in CerebroAPI / CerebroFS for production pipelines
     Stage(StageFileArgs),
     /// Get the SeaweedFS executable
     Weed(GetWeedArgs),

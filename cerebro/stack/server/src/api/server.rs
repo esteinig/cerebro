@@ -19,6 +19,8 @@ use crate::api::pipelines::handler::pipelines_config;
 
 use crate::terminal::{App as Cli, Commands};
 
+use super::stage::handler::stage_config;
+
 
 
 /*
@@ -170,6 +172,7 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(files_config)
                     .configure(pipelines_config)
                     .configure(watchers_config)
+                    .configure(stage_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
                     .wrap(Logger::default())

@@ -3,16 +3,19 @@ use super::schema::RegisterPipelineSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum Pipeline {
+    #[serde(rename="pathogen-detection")]
     PathogenDetection,
+    #[serde(rename="panviral-enrichment")]
     PanviralEnrichment,
+    #[serde(rename="culture-identification")]
     CultureIdentification
 }
 impl std::fmt::Display for Pipeline {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PathogenDetection => write!(f, "PathogenDetection"),
-            Self::PanviralEnrichment => write!(f, "PanviralEnrichment"),
-            Self::CultureIdentification => write!(f, "CultureIdentification"),
+            Self::PathogenDetection => write!(f, "pathogen-detection"),
+            Self::PanviralEnrichment => write!(f, "panviral-enrichment"),
+            Self::CultureIdentification => write!(f, "culture-identification"),
 
         }
     }

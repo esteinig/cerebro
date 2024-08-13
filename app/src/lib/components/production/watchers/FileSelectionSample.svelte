@@ -26,7 +26,7 @@
 
 </script>
 
-<div class="grid grid-cols-6 gap-16 items-center">
+<div class="grid grid-cols-6 gap-8 items-center">
     <div class="opacity-60 col-span-2 truncate">{id}</div>
     <div class="col-span-1 flex justify-start">
         {#each nucleicAcidTags as tag}

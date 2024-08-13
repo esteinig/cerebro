@@ -51,7 +51,6 @@ fn main() -> Result<()> {
                 &args.sample_id,
                 UploadConfig::default(),
                 None,
-                None
             )?;
         },
         Commands::Download( args ) => {

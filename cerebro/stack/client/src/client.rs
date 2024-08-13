@@ -5,12 +5,17 @@ use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
 use cerebro_model::api::files::response::RegisterFileResponse;
+use cerebro_model::api::pipelines::model::Pipeline;
 use cerebro_model::api::pipelines::model::ProductionPipeline;
 use cerebro_model::api::pipelines::response::DeletePipelineResponse;
 use cerebro_model::api::pipelines::response::ListPipelinesResponse;
 use cerebro_model::api::pipelines::response::PingPipelineResponse;
 use cerebro_model::api::pipelines::response::RegisterPipelineResponse;
 use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::stage::model::StagedSample;
+use cerebro_model::api::stage::response::DeleteStagedSampleResponse;
+use cerebro_model::api::stage::response::ListStagedSamplesResponse;
+use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::watchers::response::DeleteWatcherResponse;
 use cerebro_model::api::watchers::response::ListWatchersResponse;
@@ -69,6 +74,9 @@ pub enum Route {
     TeamWatchersList,
     TeamWatchersDelete,
     TeamWatchersPing,
+    TeamStagedSamplesRegister,
+    TeamStagedSamplesList,
+    TeamStagedSamplesDelete,
 }
 
 impl Route {
@@ -94,6 +102,9 @@ impl Route {
             Route::TeamWatchersList => "watcher",
             Route::TeamWatchersDelete => "watcher",
             Route::TeamWatchersPing => "watcher",
+            Route::TeamStagedSamplesRegister => "stage/register",
+            Route::TeamStagedSamplesList => "stage",
+            Route::TeamStagedSamplesDelete => "stage"
         }
     }
 }
@@ -396,7 +407,6 @@ impl CerebroClient {
         url
     }
 
-
     pub fn create_project(
         &self,
         team_name: &str,
@@ -429,7 +439,7 @@ impl CerebroClient {
         )?;
         Ok(())
     }
-
+    
     pub fn register_file(
         &self,
         register_file_schema: RegisterFileSchema,
@@ -518,9 +528,11 @@ impl CerebroClient {
                     .unwrap_or(("none", "none"));
 
                 println!(
-                    "{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}",
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.0} MB\t{}",
                     file.id,
                     file.date,
+                    file.run_id.as_deref().unwrap_or(""),
+                    file.sample_id.as_deref().unwrap_or(""),
                     watcher_name,
                     watcher_location,
                     file.fid,
@@ -602,19 +614,19 @@ impl CerebroClient {
         Ok(pipelines)
     }
 
-    pub fn delete_pipeline(&self, pipeline_id: &str) -> Result<ProductionPipeline, HttpClientError> {
+    pub fn delete_pipeline(&self, id: &str) -> Result<ProductionPipeline, HttpClientError> {
         let response = self.send_request_with_team(
             self.client
                 .delete(&format!(
                     "{}/{}",
                     self.routes.url(Route::TeamPipelinesDelete),
-                    pipeline_id
+                    id
                 ))
         )?;
 
         self.handle_response::<DeletePipelineResponse>(
             response,
-            Some(&format!("Pipeline `{}` deleted successfully", pipeline_id)),
+            Some(&format!("Pipeline `{}` deleted successfully", id)),
             "Pipeline deletion failed",
         )?
         .data
@@ -750,13 +762,13 @@ impl CerebroClient {
         })
     }
 
-    pub fn ping_watcher(&self, watcher_id: &str, print: bool) -> Result<String, HttpClientError> {
+    pub fn ping_watcher(&self, id: &str, print: bool) -> Result<String, HttpClientError> {
         let response = self.send_request_with_team(
             self.client
                 .patch(&format!(
                     "{}/{}",
                     self.routes.url(Route::TeamWatchersPing),
-                    watcher_id
+                    id
                 ))
         )?;
 
@@ -779,6 +791,94 @@ impl CerebroClient {
         }
 
         Ok(data)
+    }
+
+
+    pub fn register_staged_samples(
+        &self,
+        register_staged_sample_schema: &RegisterStagedSampleSchema
+    ) -> Result<(), HttpClientError> {
+
+        let response = self.send_request_with_team(
+            self.client
+                .post(self.routes.url(Route::TeamStagedSamplesRegister))
+                .json(register_staged_sample_schema)
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some("Samples staged successfully"),
+            "Sample staging failed",
+        )?;
+        Ok(())
+    }
+
+
+    pub fn get_staged_samples(
+        &self,
+        id: Option<String>,
+        print: bool,
+    ) -> Result<Vec<StagedSample>, HttpClientError> {
+        let url = self.build_request_url(Route::TeamStagedSamplesList, &[("id", id)]);
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(&url)
+        )?;
+
+        let staged_samples = self
+            .handle_response::<ListStagedSamplesResponse>(
+                response,
+                None,
+                "Failed to retrieve staged samples",
+            )?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No watcher data returned"),
+                )
+            })?;
+
+        if print {
+            for staged_sample in &staged_samples {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    staged_sample.id,
+                    staged_sample.sample_id,
+                    staged_sample.database,
+                    staged_sample.project,
+                    staged_sample.pipeline,
+                    staged_sample.date,
+                );
+            }
+        }
+
+        Ok(staged_samples)
+    }
+
+    pub fn delete_staged_sample(&self, id: &str) -> Result<StagedSample, HttpClientError> {
+        let response = self.send_request_with_team(
+            self.client
+                .delete(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamStagedSamplesDelete),
+                    id
+                ))
+        )?;
+
+        self.handle_response::<DeleteStagedSampleResponse>(
+            response,
+            Some(&format!("Staged sample `{}` deleted successfully", id)),
+            "Staged sample deletion failed",
+        )?
+        .data
+        .ok_or_else(|| {
+            HttpClientError::DataResponseFailure(
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from("Stage sample data not returned after deletion"),
+            )
+        })
     }
 
     // pub fn upload_models(

@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::api::{pipelines::model::ProductionPipeline, watchers::model::ProductionWatcher};
+use crate::api::watchers::model::ProductionWatcher;
 
 use super::schema::RegisterFileSchema;
 
@@ -22,8 +22,7 @@ pub struct SeaweedFile {
     pub hash: String,
     pub fid: SeaweedFileId,
     pub size: u64,
-    pub watcher: Option<ProductionWatcher>,
-    pub pipeline: Option<ProductionPipeline>
+    pub watcher: Option<ProductionWatcher>
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {
@@ -37,7 +36,6 @@ impl SeaweedFile {
             fid: register_file_schema.fid.clone(),
             size: register_file_schema.size.clone(),
             watcher: register_file_schema.watcher.clone(),
-            pipeline: register_file_schema.pipeline.clone(),
         }
     }
     pub fn size_mb(&self) -> f64 {

@@ -3,12 +3,13 @@ use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{ApiPipelineCommands, ApiProjectCommands, ApiWatcherCommands, App, Commands};
+use cerebro_client::terminal::{ApiPipelineCommands, ApiProjectCommands, ApiStageCommands, ApiWatcherCommands, App, Commands};
 
 use cerebro_workflow::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
@@ -168,6 +169,32 @@ fn main() -> anyhow::Result<()> {
                     };
 
                     client.delete_watcher(&watcher_id)?;
+                },
+            }
+                        
+        },
+        Commands::Stage(subcommand) => {
+            match subcommand {
+                ApiStageCommands::Register( args ) => {
+                    
+                    let schema = RegisterStagedSampleSchema {
+                        run_id: args.run_id.clone(),
+                        database: args.database.clone(),
+                        project: args.project.clone(),
+                        pipeline: args.pipeline.clone()
+                    };
+
+                    client.register_staged_samples(&schema)?;
+
+                },
+                ApiStageCommands::List( args ) => {
+                    client.get_staged_samples(args.id.clone(), true)?;
+                },
+
+                ApiStageCommands::Delete( args ) => {
+
+                    client.delete_staged_sample(&args.id.clone())?;
+                    
                 },
             }
                         

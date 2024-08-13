@@ -25,6 +25,7 @@ use std::time::Duration;
 
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 
 use cerebro_watcher::utils::WatcherConfigArgs;
@@ -345,6 +346,26 @@ fn main() -> anyhow::Result<()> {
                             };
         
                             client.delete_watcher(&watcher_id)?;
+                        },
+                    }
+                                
+                },       
+                cerebro_client::terminal::Commands::Stage(subcommand) => {
+                    match subcommand {
+                        cerebro_client::terminal::ApiStageCommands::Register( args ) => {
+                            
+                            let schema = RegisterStagedSampleSchema {
+                                run_id: args.run_id.clone(),
+                                database: args.database.clone(),
+                                project: args.project.clone(),
+                                pipeline: args.pipeline.clone()
+                            };
+
+                            client.register_staged_samples(&schema)?;
+                        },
+                        cerebro_client::terminal::ApiStageCommands::List( args ) => {
+                        },
+                        cerebro_client::terminal::ApiStageCommands::Delete( args ) => {
                         },
                     }
                                 

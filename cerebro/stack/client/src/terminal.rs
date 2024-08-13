@@ -73,6 +73,9 @@ pub enum Commands {
     /// CRUD operations for production pipelines
     #[clap(subcommand)]
     Pipeline(ApiPipelineCommands),
+    /// CRUD operations for staging production files
+    #[clap(subcommand)]
+    Stage(ApiStageCommands),
     /// CRUD operations for teams
     #[clap(subcommand)]
     Team(ApiTeamCommands),
@@ -204,6 +207,48 @@ pub struct ApiTeamArgs {
 }
 
 #[derive(Debug, Subcommand)]
+pub enum ApiStageCommands {
+    /// Register samples for processing with a production pipeline
+    Register(ApiStageRegisterArgs),
+    /// List registered samples in the staging area
+    List(ApiStageListArgs),
+    /// Delete registered samples from the staging area
+    Delete(ApiStageDeleteArgs),
+}
+
+
+#[derive(Debug, Args)]
+pub struct ApiStageRegisterArgs {
+    /// Run identifier or name for sample registration
+    #[clap(long, short = 'r')]
+    pub run_id: String,
+    /// Database for pipeline outputs
+    #[clap(long, short = 'd')]
+    pub database: String,
+    /// Database project for pipeline outputs
+    #[clap(long, short = 'p')]
+    pub project: String,
+    /// Cerebro pipeline for registration
+    #[clap(long, short = 'i')]
+    pub pipeline: Pipeline,
+}
+
+#[derive(Debug, Args)]
+pub struct ApiStageListArgs {
+    /// Staged sample identifier for single record listing
+    #[clap(long, short = 'i')]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct ApiStageDeleteArgs {
+    /// Staged sample identifier generated during registration
+    #[clap(long, short = 'i', group = "input")]
+    pub id: String,
+}
+
+
+#[derive(Debug, Subcommand)]
 pub enum ApiPipelineCommands {
     /// Register a new production pipeline
     Register(ApiPipelineRegisterArgs),
@@ -244,7 +289,7 @@ pub struct ApiPipelinePingArgs {
 
 #[derive(Debug, Args)]
 pub struct ApiPipelineListArgs {
-    /// Pipeline identifier generated during registration
+    /// Pipeline identifier generated during registration for single record listing
     #[clap(long, short = 'i')]
     pub id: Option<String>,
 }
@@ -303,7 +348,7 @@ pub struct ApiWatcherListArgs {
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
 pub struct ApiWatcherPingArgs {
-    /// Watcher identifier generated during registration
+    /// Watcher identifier generated during registration for single record listing
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
     /// Watcher registration record (.json)
