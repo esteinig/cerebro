@@ -14,7 +14,7 @@ pub fn get_latest_files_paginated_pipeline(run_id: Option<String>, watcher_id: O
             },
             doc! {
                 "$sort": {
-                    "date": -1
+                    "run_id": 1
                 }
             },
         ]
@@ -29,7 +29,7 @@ pub fn get_latest_files_paginated_pipeline(run_id: Option<String>, watcher_id: O
             },
             doc! {
                 "$sort": {
-                    "date": -1
+                    "sample_id": 1
                 }
             },
         ]
@@ -45,12 +45,11 @@ pub fn get_latest_files_paginated_pipeline(run_id: Option<String>, watcher_id: O
             },
             doc! {
                 "$sort": {
-                    "date": -1
+                    "sample_id": 1
                 }
             },
         ]
     }
-
 
     vec![
         doc! {

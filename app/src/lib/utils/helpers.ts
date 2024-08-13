@@ -5,23 +5,60 @@ export const getDateTime = (isoString: string): [string, string] => {
     return [data[0], data[1].split("Z")[0].substring(0,8)]
 }
 
-export const getDateTimeString = (isoString: string, time: boolean = true, sep: string = " "): string => {
-    // No sub-seconds 
-    let data = isoString.split("T");
-    if (time) {
-        return [data[0], data[1].split("Z")[0].substring(0,8)].join(sep)
-    } else {
-        return data[0]
-    }
-}
+export const getDateTimeString = (
+    isoString: string, 
+    time: boolean = true, 
+    sep: string = " ", 
+    localeString: boolean = false
+): string => {
+    const date = new Date(isoString);
 
-export const getDateTimeStringUtc = (utcString: string, time: boolean = true, sep: string = " "): string => {
-    // No sub-seconds included
-    let data = utcString.split(" ");
-    if (time) {
-        return [data[0], data[1].substring(0,8), "UTC"].join(sep)
+    if (localeString) {
+        const options: Intl.DateTimeFormatOptions = {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            ...(time && { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        };
+        return date.toLocaleString(undefined, options).replace(',', sep);
     } else {
-        return data[0]
+        const datePart = date.toISOString().split("T")[0];
+        const timePart = date.toISOString().split("T")[1].substring(0, 8);
+        return time ? `${datePart}${sep}${timePart}` : datePart;
+    }
+};
+
+export const getDateTimeStringUtc = (
+    utcString: string, 
+    time: boolean = true, 
+    localeString: boolean = false,
+    sep: string = " ", 
+): string => {
+    const date = new Date(utcString);
+
+    if (localeString) {
+        const options: Intl.DateTimeFormatOptions = {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            ...(time && { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit', 
+                hour12: false // Use 24-hour format
+            }),
+        };
+        let formattedString = date.toLocaleString(undefined, options);
+        
+        if (time) {
+            formattedString = formattedString.replace(' at ', " @ ");
+        }
+        return formattedString;
+        
+    } else {
+        const datePart = date.toISOString().split("T")[0];
+        const timePart = date.toISOString().split("T")[1].substring(0, 8);
+        return time ? `${datePart}${sep}${timePart} UTC` : datePart;
     }
 }
 

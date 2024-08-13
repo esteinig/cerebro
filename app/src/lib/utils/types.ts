@@ -1715,7 +1715,7 @@ export const parsePipeline = (pipeline: string): Pipeline => {
         default:
             throw new Error(`Unknown Pipeline enumeration: ${pipeline}`);
     }
-};
+}
 
 /**
  * 
@@ -1743,7 +1743,61 @@ export const parseWatcherFormat = (format: string): WatcherFormat => {
         default:
             throw new Error(`Unknown WatcherFormat enumeration: ${format}`);
     }
-};
+}
+
+
+/**
+ * 
+ * Watcher file grouping enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum WatcherFileGrouping {
+    RunId = "Run ID",
+    WatcherLocation = "Watcher Location",
+    WatcherName = "Watcher Name",
+    SampleId = "Sample ID",
+    Date = "File Date"
+}
+
+
+/**
+ * 
+ * Library nucleic acid enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum LibraryNucleicAcid {
+    DNA = "DNA",
+    RNA = "RNA"
+}
+
+/**
+ * 
+ * Library specimen enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum LibrarySpecimen {
+    CSF = "CSF",
+    BLOOD = "BLD",
+    RESPIRATORY = "RES"
+}
+
+
+/**
+ * 
+ * Library specimen enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum LibraryControl {
+    POSITIVE = "POS",
+    NEGATIVE = "NEG",
+    TEMPLATE = "TMP",
+    ENVIRONMENT = "ENV"
+}
+
 
 /**
  * 
