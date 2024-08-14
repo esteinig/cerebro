@@ -94,6 +94,46 @@ async fn list_pipelines(data: web::Data<AppState>, query: web::Query<PipelineLis
 }
 
 
+#[derive(Deserialize)]
+struct PipelinesDeleteQuery {  
+    // Optional pipeline name
+    name: Option<String>,
+    // Optional pipeline location
+    location: Option<String>
+}
+
+
+#[delete("/pipeline")]
+async fn delete_pipelines(data: web::Data<AppState>, query: web::Query<PipelinesDeleteQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let pipeline_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Pipelines);
+    
+    let mut delete_query = doc! {};
+
+    if let Some(name) = &query.name {
+        delete_query.insert("name", name);
+    }
+    
+    if let Some(location) = &query.location {
+        delete_query.insert("location", location);
+    }
+
+    match pipeline_collection
+        .delete_many(delete_query, None) 
+        .await
+    {
+        Ok(delete_result) => {
+            if delete_result.deleted_count > 0 {
+                HttpResponse::Ok().json(DeletePipelineResponse::all_deleted())
+            } else {
+                HttpResponse::NotFound().json(DeletePipelineResponse::not_found())
+            }
+        }
+        Err(err) => HttpResponse::InternalServerError().json(DeletePipelineResponse::server_error(err.to_string()))
+    }
+}
+
+
 #[delete("/pipeline/{id}")]
 async fn delete_pipeline(data: web::Data<AppState>, id: web::Path<String>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
@@ -161,6 +201,7 @@ pub fn pipelines_config(cfg: &mut web::ServiceConfig) {
     cfg
         .service(register_pipeline)
         .service(delete_pipeline)
+        .service(delete_pipelines)
         .service(ping_pipeline)
         .service(list_pipelines);
 }

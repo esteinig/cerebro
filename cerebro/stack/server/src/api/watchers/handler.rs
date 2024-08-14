@@ -93,6 +93,53 @@ async fn list_watchers(data: web::Data<AppState>, query: web::Query<WatcherListQ
 
 }
 
+
+#[derive(Deserialize)]
+struct WatchersDeleteQuery {  
+    // Optional watcher name
+    name: Option<String>,
+    // Optional watcher location
+    location: Option<String>
+}
+
+
+#[delete("/watcher")]
+async fn delete_watchers(data: web::Data<AppState>, query: web::Query<WatchersDeleteQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let watcher_collection: Collection<ProductionWatcher> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Watchers);
+
+    let mut delete_query = doc! {};
+
+    if let Some(name) = &query.name {
+        delete_query.insert("name", name);
+    }
+
+    if let Some(location) = &query.location {
+        delete_query.insert("location", location);
+    }
+
+
+    match watcher_collection
+        .delete_many(delete_query, None) 
+        .await
+    {
+        Ok(delete_result) => {
+            if delete_result.deleted_count > 0 {
+                HttpResponse::Ok().json(
+                    DeleteWatcherResponse::all_deleted()
+                )
+            } else {
+                HttpResponse::NotFound().json(
+                    DeleteWatcherResponse::not_found()
+                )
+            }
+        }
+        Err(err) => HttpResponse::InternalServerError().json(
+            DeleteWatcherResponse::server_error(err.to_string())
+        )
+    }
+}
+
 #[delete("/watcher/{id}")]
 async fn delete_watcher(data: web::Data<AppState>, id: web::Path<String>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
         
@@ -158,6 +205,7 @@ async fn ping_watcher(data: web::Data<AppState>, id: web::Path<String>,  _: web:
 pub fn watchers_config(cfg: &mut web::ServiceConfig) {
     cfg
         .service(register_watcher)
+        .service(delete_watchers)
         .service(delete_watcher)
         .service(ping_watcher)
         .service(list_watchers);

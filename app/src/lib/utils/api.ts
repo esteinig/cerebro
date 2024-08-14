@@ -226,7 +226,8 @@ interface LogsRoutes {
     admin: string
 }
 interface FilesRoutes {
-    getFiles: string
+    getFiles: string,
+    updateTags: string
 }
 interface PipelineRoutes {
     getPipelines: string
@@ -318,7 +319,8 @@ export class Routes {
             admin: `${logsRoute}/admin`
         }
         this.files = {
-            getFiles: `${filesRoute}`
+            getFiles: `${filesRoute}`,
+            updateTags: `${filesRoute}/tags`
         }
         this.pipelines = {
             getPipelines: `${pipelinesRoute}`

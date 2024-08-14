@@ -3,9 +3,13 @@
 	import {  type SeaweedFile, WatcherFileGrouping } from "$lib/utils/types";
 	import FileSelectionRun from "./FileSelectionRun.svelte";
 	import FileSelectionSample from "./FileSelectionSample.svelte";
+	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
+	import { page } from "$app/stores";
 
     export let title: string = "Sequence Data";
     export let files: SeaweedFile[];
+    export let selected: string[] = [];
+
     export let firstLevel: WatcherFileGrouping = WatcherFileGrouping.RunId;
     export let secondLevel: WatcherFileGrouping = WatcherFileGrouping.SampleId;
 
@@ -44,10 +48,10 @@
 
             switch (group) {
                 case WatcherFileGrouping.WatcherLocation:
-                    key = file.watcher.location;
+                    key = file.watcher? file.watcher.location : null;
                     break;
                 case WatcherFileGrouping.WatcherName:
-                    key = file.watcher.name;
+                    key = file.watcher? file.watcher.name : null;
                     break;
                 case WatcherFileGrouping.RunId:
                     // Handle nullable run_id by setting a default key or excluding
@@ -77,6 +81,8 @@
         return grouped;
     }
 
+    let groupedFilesFirstLevel: Record<string, SeaweedFile[]> = {};
+
     $: groupedFilesFirstLevel = groupSeaweedFiles(files, firstLevel); 
 
     let numberRuns =  new Set(files.map(file => file.run_id)).size;
@@ -104,21 +110,47 @@
         };
     });
 
-    let checkedNodes : string[] = [];
-    let indeterminateNodes : string[] = [];
+    let checkedNodes: string[] = [];
+    let indeterminateNodes: string[] = [];
 
+    $: selected = checkedNodes.reduce((acc: string[], node) => {
+        const matchingFiles = files.filter(file => file.sample_id === node);
+        matchingFiles.forEach(file => acc.push(file.id));
+        return acc;
+    }, []);
 
+    $: numberSelectedLibraries = checkedNodes.filter(node => !Object.keys(groupedFilesFirstLevel).includes(node)).length
+        
 
 </script>
 
-<p class="opacity-60 mb-2">{title} <span class="ml-6 text-xs opacity-40">{numberRuns} {numberRuns == 1 ? "run": "runs"} detected</span></p>
-<RecursiveTreeView 
-    nodes={treeView} 
-    selection 
-    multiple
-    relational
-    bind:checkedNodes={checkedNodes} 
-	bind:indeterminateNodes={indeterminateNodes}
-    class="card border border-primary-500 !bg-transparent p-6"
-></RecursiveTreeView>
+<p class="opacity-60 mb-2">{title} 
+    <span class="ml-6 text-xs opacity-40">{numberRuns} {numberRuns == 1 ? "run": "runs"} detected</span>
+    
+    <span class="ml-6 text-xs opacity-40">{numberSelectedLibraries} {numberSelectedLibraries == 1 ? "library": "libraries"} selected</span>
+</p>
+<div class="card border border-primary-500 !bg-transparent p-6">
+    {#if numberRuns == 0}
+        <div class="mt-[3%] flex justify-center items-center">
+            <div class="text-center space-y-4">
+                <div class="flex justify-center">
+                    <ErrorAnimation />
+                </div>
+                <h3 class="h5">
+                    No sequence runs detected for this watcher
+                </h3>   
+                <p>{#if $page.error} {$page.error.message} {/if}</p>
+            </div>
+        </div>
+    {:else}
 
+        <RecursiveTreeView 
+            nodes={treeView} 
+            selection 
+            multiple
+            relational
+            bind:checkedNodes={checkedNodes} 
+            bind:indeterminateNodes={indeterminateNodes}
+        ></RecursiveTreeView>
+    {/if}
+</div>

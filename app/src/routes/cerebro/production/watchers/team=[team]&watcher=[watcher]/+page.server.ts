@@ -103,16 +103,16 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         throw error(404, `You are not a member of any teams - ${locals.admin ? "create a team for data upload first." : "please contact your administrator."}`)
     }
 
-    let defaultTeam: Team = currentUserTeams[0];
+    let selectedTeam: Team = currentUserTeams.find(team => team.id === params.team) || currentUserTeams[0];
     
-    if (!defaultTeam.databases.length){
-        throw error(404, `No database has been created for team (${defaultTeam.name})`)
+    if (!selectedTeam.databases.length){
+        throw error(404, `No database has been created for team (${selectedTeam.name})`)
     }
 
-    let defaultDatabase: TeamDatabase = defaultTeam.databases[0];
+    let defaultDatabase: TeamDatabase = selectedTeam.databases[0];
 
     if (!defaultDatabase.projects.length){
-        throw error(404, `No database projects have been created for team (${defaultTeam.name}) and database (${defaultDatabase.name})`)
+        throw error(404, `No database projects have been created for team (${selectedTeam.name}) and database (${defaultDatabase.name})`)
     }
     let defaultProject: ProjectCollection = defaultDatabase.projects[0];
         
@@ -137,7 +137,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         files,
         registeredPipelines,
         registeredWatchers,
-        defaultTeam,
+        selectedTeam,
         defaultDatabase,
         defaultProject,
         defaultWatcher

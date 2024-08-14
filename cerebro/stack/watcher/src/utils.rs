@@ -112,7 +112,7 @@ impl WatcherConfigArgs for ProductionWatcher {
                     (None, None) => return Err(WatcherError::WatcherIdentifierArgNotFound)
                 };
 
-                let watchers = api_client.get_watchers(
+                let watchers = api_client.list_watchers(
                      Some(watcher_id), 
                      false
                 )?;

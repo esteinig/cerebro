@@ -34,7 +34,9 @@ fn main() -> anyhow::Result<()> {
                 false,
                 cli.danger_invalid_certificate,
                 cli.token_file,
-                cli.team.clone()
+                cli.team,
+                cli.db,
+                cli.project
             )?;
 
             let fs_client = FileSystemClient::new(

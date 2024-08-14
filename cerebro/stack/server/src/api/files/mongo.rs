@@ -50,20 +50,30 @@ pub fn get_latest_files_paginated_pipeline(run_id: Option<String>, watcher_id: O
             },
         ]
     }
-
-    vec![
-        doc! {
-            "$sort": {
-                "date": -1
+    if limit > 0 {
+        vec![
+            doc! {
+                "$sort": {
+                    "date": -1
+                }
+            },
+            doc! {
+                // page
+                "$skip": page*limit
+            },
+            doc! {
+                "$limit": limit
             }
-        },
-        doc! {
-            // page
-            "$skip": page*limit
-        },
-        doc! {
-            "$limit": limit
-        }
-    ]
+        ]
+    } else {
+        vec![
+            doc! {
+                "$sort": {
+                    "date": -1
+                }
+            },
+        ]
+    }
+    
     
 }

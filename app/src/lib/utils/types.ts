@@ -1688,7 +1688,8 @@ export type SeaweedFile = {
     hash: string,
     fid: string,
     size: number,
-    watcher: WatcherConfig,
+    tags: FileTag[],
+    watcher: WatcherConfig | null,
 }
 
 /**
@@ -1706,11 +1707,11 @@ export enum Pipeline {
 
 export const parsePipeline = (pipeline: string): Pipeline => {
     switch (pipeline) {
-        case "PathogenDetection":
+        case "pathogen-detection":
             return Pipeline.PathogenDetection;
-        case "PanviralEnrichment":
+        case "panviral-enrichment":
             return Pipeline.PanviralEnrichment;
-        case "CultureIdentification":
+        case "culture-identification":
             return Pipeline.CultureIdentification;
         default:
             throw new Error(`Unknown Pipeline enumeration: ${pipeline}`);
@@ -1763,41 +1764,18 @@ export enum WatcherFileGrouping {
 
 /**
  * 
- * Library nucleic acid enumeration
+ * File tag enumeration
  * 
  * @file lib/utils/types
  */
-export enum LibraryNucleicAcid {
+export enum FileTag {
     DNA = "DNA",
-    RNA = "RNA"
+    RNA = "RNA",
+    POS = "POS",
+    NEG = "NEG",
+    TMP = "TMP",
+    ENV = "ENV"
 }
-
-/**
- * 
- * Library specimen enumeration
- * 
- * @file lib/utils/types
- */
-export enum LibrarySpecimen {
-    CSF = "CSF",
-    BLOOD = "BLD",
-    RESPIRATORY = "RES"
-}
-
-
-/**
- * 
- * Library specimen enumeration
- * 
- * @file lib/utils/types
- */
-export enum LibraryControl {
-    POSITIVE = "POS",
-    NEGATIVE = "NEG",
-    TEMPLATE = "TMP",
-    ENVIRONMENT = "ENV"
-}
-
 
 /**
  * 
@@ -1812,6 +1790,7 @@ export type ProductionPipeline = {
     location: string,
     last_ping: string,
     pipeline: Pipeline,
+    stage: string
 }
 
 /**
@@ -1860,3 +1839,14 @@ export type WatcherResponseData = {
     data: ProductionWatcher[]
 } & ErrorResponseData
 
+
+/**
+ * 
+ * Cerebro production pipeline model
+ * 
+ * @file lib/utils/types
+ */
+export type FileTagUpdateSchema = {
+    ids: string[],
+    tags: FileTag[]
+}

@@ -1,20 +1,34 @@
 
 
-use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
+use cerebro_model::api::{pipelines::model::ProductionPipeline, stage::schema::RegisterStagedSampleSchema};
 use chrono::Utc;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::{doc, Document, to_bson};
 use uuid::Uuid;
 
 
-pub fn get_staged_samples_pipeline(schema: &RegisterStagedSampleSchema) -> Vec<Document> {
+pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, pipeline: &ProductionPipeline, database: &str, project: &str) -> Vec<Document> {
     
-    vec![
+    let mut mongo_pipeline = vec![];
+
+    if let Some(run_id) = &schema.run_id {
         // Match documents by the specified run_id
-        doc! {
+        mongo_pipeline.push(doc! {
             "$match": {
-                "run_id": &schema.run_id
+                "run_id": run_id
             }
-        },
+        })
+    }
+
+    if let Some(file_ids) = &schema.file_ids {
+        // Match documents by the specified run_id
+        mongo_pipeline.push(doc! {
+            "$match": {
+                "id": { "$in": file_ids }
+            }
+        })
+    }
+
+    mongo_pipeline.push(
         // Group the documents by sample_id
         doc! {
             "$group": {
@@ -22,7 +36,10 @@ pub fn get_staged_samples_pipeline(schema: &RegisterStagedSampleSchema) -> Vec<D
                 "files": { "$push": "$$ROOT" },
                 "run_id": { "$first": "$run_id" },
             }
-        },
+        }
+    );
+
+    mongo_pipeline.push(
         // Project the grouped documents into the StagedSample structure
         doc! {
             "$project": {
@@ -30,18 +47,20 @@ pub fn get_staged_samples_pipeline(schema: &RegisterStagedSampleSchema) -> Vec<D
                 "date": Utc::now().to_string(),  
                 "run_id": "$run_id",
                 "sample_id": "$_id",
-                "database": &schema.database,                       
-                "project": &schema.project,                         
-                "pipeline": format!("{}", schema.pipeline),        
+                "database": database,                       
+                "project": project,                         
+                "pipeline": to_bson(pipeline).unwrap(), 
                 "files": "$files"
             }
         }
-    ]
+    );
+
+    mongo_pipeline
 }
 
 
 
-pub fn get_latest_staged_samples_pipeline(run_id: Option<String>) -> Vec<Document> {
+pub fn get_latest_staged_samples_pipeline(run_id: Option<String>, sample_id: Option<String>) -> Vec<Document> {
     
     
     if let Some(run_id) = run_id {
@@ -54,6 +73,38 @@ pub fn get_latest_staged_samples_pipeline(run_id: Option<String>) -> Vec<Documen
             doc! {
                 "$sort": {
                     "date": -1
+                }
+            },
+        ]
+    }
+
+    
+    if let Some(sample_id) = sample_id {
+        return vec![
+            doc! {
+                "$match": {
+                    "sample_id": &sample_id
+                }  
+            },
+            doc! {
+                "$sort": {
+                    "sample_id": 1
+                }
+            },
+        ]
+    }
+
+    if let (Some(run_id), Some(sample_id)) = (run_id, sample_id) {
+        return vec![
+            doc! {
+                "$match": {
+                    "sample_id": &sample_id,
+                    "run_id": &run_id
+                }  
+            },
+            doc! {
+                "$sort": {
+                    "sample_id": 1
                 }
             },
         ]

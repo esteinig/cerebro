@@ -1,5 +1,4 @@
-<!-- Source: https://twitter.com/_davideast/status/1586091388826886145 -->
-<!-- https://fjolt.com/article/css-3d-interactive-flippable-cards -->
+
 <figure>
 	<section class="img-bg" />
     <svg class="fill-token"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">

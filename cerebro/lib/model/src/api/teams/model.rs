@@ -9,7 +9,6 @@ pub enum TeamAdminCollection {
     Logs,
     Reports,
     Files,
-    Stage,
     Watchers,
     Pipelines
 }
@@ -19,7 +18,6 @@ impl TeamAdminCollection {
             TeamAdminCollection::Logs => String::from("logs"),
             TeamAdminCollection::Reports => String::from("reports"),
             TeamAdminCollection::Files => String::from("files"),
-            TeamAdminCollection::Stage => String::from("stage"),
             TeamAdminCollection::Watchers => String::from("watchers"),
             TeamAdminCollection::Pipelines => String::from("pipelines")
         }
@@ -115,7 +113,6 @@ impl TeamDatabase {
                 ProjectCollection::team_files(),
                 ProjectCollection::team_watchers(),
                 ProjectCollection::team_pipelines(),
-                ProjectCollection::team_stage(),
                 ProjectCollection::team_logs(),
                 ProjectCollection::team_reports(),
             ]
@@ -176,14 +173,6 @@ impl ProjectCollection {
             name: String::from("Pipelines"),
             description: String::from("Production pipeline registrations for Cerebro"),
             collection: TeamAdminCollection::Pipelines.name()
-        }
-    }
-    pub fn team_stage() -> ProjectCollection {
-        ProjectCollection {
-            id: uuid::Uuid::new_v4().to_string(),
-            name: String::from("Stage"),
-            description: String::from("File stage for production pipelines"),
-            collection: TeamAdminCollection::Stage.name()
         }
     }
     pub fn team_logs() -> ProjectCollection {

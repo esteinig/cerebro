@@ -28,7 +28,8 @@ pub struct ProductionPipeline {
     pub name: String,
     pub location: String,
     pub last_ping: String,
-    pub pipeline: Pipeline
+    pub pipeline: Pipeline,
+    pub stage: String
 }
 impl ProductionPipeline {
     pub fn from_schema(schema: &RegisterPipelineSchema) -> Self {
@@ -39,6 +40,7 @@ impl ProductionPipeline {
             location: schema.location.clone(),
             last_ping: schema.last_ping.clone(),
             pipeline: schema.pipeline.clone(),
+            stage: schema.stage.clone()
         }
     }
 }

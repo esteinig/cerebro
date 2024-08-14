@@ -61,9 +61,9 @@ pub struct TeamAccessQuery {
 #[derive(Deserialize)]
 pub struct TeamDatabaseAccessQuery {  
     // Required team query params for JwtDataAuth
-    team: String,
+    pub team: String,
     // Database query params for JwtDataAuth
-    db: String,
+    pub db: String,
 }
 
 
@@ -71,11 +71,11 @@ pub struct TeamDatabaseAccessQuery {
 #[derive(Deserialize)]
 pub struct TeamProjectAccessQuery {  
     // Required team query params for JwtDataAuth
-    team: String,
+    pub team: String,
     // Database query params for JwtDataAuth
-    db: String,
+    pub db: String,
     // Project query params for JwtDataAuth
-    project: String,
+    pub project: String,
 }
 
 #[derive(Debug, Deserialize)]

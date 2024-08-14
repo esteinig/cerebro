@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 
+use crate::api::files::model::FileType;
+
 use super::schema::RegisterWatcherSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
@@ -16,6 +18,14 @@ impl WatcherFormat {
             Self::FastqPe => String::from("*_{R1,R2}.fastq.gz"),
             Self::Iseq => String::from("*_{L001_R1_001,L001_R2_001}.fastq.gz"),
             Self::Nextseq => String::from("*_{R1_001,R2_001}.fastq.gz")
+        }
+    }
+    pub fn file_type(&self) -> FileType {
+        match self {
+            Self::Fastq => FileType::ReadsSingle,
+            Self::FastqPe => FileType::ReadsPaired,
+            Self::Iseq =>  FileType::ReadsPaired,
+            Self::Nextseq => FileType::ReadsPaired
         }
     }
 }

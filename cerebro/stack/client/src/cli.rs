@@ -9,7 +9,7 @@ use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{ApiPipelineCommands, ApiProjectCommands, ApiStageCommands, ApiWatcherCommands, App, Commands};
+use cerebro_client::terminal::{PipelineCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
 
 use cerebro_workflow::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
@@ -26,7 +26,9 @@ fn main() -> anyhow::Result<()> {
         match &cli.command { Commands::Login(_) | Commands::PingStatus(_) => true, _ => false },
         cli.danger_invalid_certificate,
         cli.token_file,
-        cli.team.clone()
+        cli.team,
+        cli.db,
+        cli.project
     )?;
 
     match &cli.command {
@@ -83,7 +85,7 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Pipeline(subcommand) => {
             match subcommand {
-                ApiPipelineCommands::Register( args ) => {
+                PipelineCommands::Register( args ) => {
                     
                     let register_pipeline_schema = RegisterPipelineSchema::new(
                         &args.name, 
@@ -100,35 +102,49 @@ fn main() -> anyhow::Result<()> {
                         register_pipeline_schema.to_json(path)?;
                     }
                 },
-                ApiPipelineCommands::List( args ) => {
-                    client.get_pipelines(args.id.clone(), true)?;
+                PipelineCommands::List( args ) => {
+                    client.list_pipelines(args.id.clone(), true)?;
                 },
-                ApiPipelineCommands::Ping( args ) => {
+                PipelineCommands::Ping( args ) => {
 
                     let pipleine_id = match (args.json.clone(), args.id.clone()) {
                         (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
                         (None, Some(id)) => id.to_owned(),
-                        _ => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
+                        _ => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
                     };
 
                     client.ping_pipeline(&pipleine_id,  true)?;
                 },
-                ApiPipelineCommands::Delete( args ) => {
-                    
-                    let pipleine_id = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
-                        (None, Some(id)) => id.to_owned(),
-                        _ => return Err(HttpClientError::PipeineIdentifierArgNotFound.into())
-                    };
+                PipelineCommands::Delete( args ) => {
+                    if args.all {
+                        let confirmation = dialoguer::Confirm::new()
+                            .with_prompt("Do you want to delete ALL pipelines?")
+                            .interact()
+                            .unwrap();
 
-                    client.delete_pipeline(&pipleine_id)?;
+                        if confirmation {
+                            client.delete_pipeline(
+                                None, 
+                                None, 
+                                None, 
+                                None
+                            )?;
+                        }
+                    } else {
+                        client.delete_pipeline(
+                            args.id.clone(), 
+                            args.json.clone(), 
+                            args.name.clone(), 
+                            args.location.clone()
+                        )?;
+                    }
                 },
             }
                         
         },
         Commands::Watcher(subcommand) => {
             match subcommand {
-                ApiWatcherCommands::Register( args ) => {
+                WatcherCommands::Register( args ) => {
                     
                     let register_watcher_schema = RegisterWatcherSchema::new(
                         &args.name, 
@@ -146,11 +162,11 @@ fn main() -> anyhow::Result<()> {
                         register_watcher_schema.to_json(path)?;
                     }
                 },
-                ApiWatcherCommands::List( args ) => {
-                    client.get_watchers(args.id.clone(), true)?;
+                WatcherCommands::List( args ) => {
+                    client.list_watchers(args.id.clone(), true)?;
                 },
 
-                ApiWatcherCommands::Ping( args ) => {
+                WatcherCommands::Ping( args ) => {
 
                     let watcher_id = match (args.json.clone(), args.id.clone()) {
                         (Some(path), _) => RegisterWatcherSchema::from_json(&path)?.id,
@@ -160,41 +176,108 @@ fn main() -> anyhow::Result<()> {
 
                     client.ping_watcher(&watcher_id, true)?;
                 },
-                ApiWatcherCommands::Delete( args ) => {
+                WatcherCommands::Delete( args ) => {
                     
-                    let watcher_id = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterWatcherSchema::from_json(&path)?.id,
-                        (None, Some(id)) => id.to_owned(),
-                        (None, None) => return Err(HttpClientError::WatcherIdentifierArgNotFound.into())
-                    };
+                    if args.all {
+                        let confirmation = dialoguer::Confirm::new()
+                            .with_prompt("Do you want to delete ALL watchers?")
+                            .interact()
+                            .unwrap();
 
-                    client.delete_watcher(&watcher_id)?;
+                        if confirmation {
+                            client.delete_watcher(
+                                None, 
+                                None, 
+                                None, 
+                                None
+                            )?;
+                        }
+                    } else {
+                        client.delete_watcher(
+                            args.id.clone(), 
+                            args.json.clone(), 
+                            args.name.clone(), 
+                            args.location.clone()
+                        )?;
+                    }
+
                 },
             }
                         
         },
         Commands::Stage(subcommand) => {
             match subcommand {
-                ApiStageCommands::Register( args ) => {
+                StageCommands::Register( args ) => {
                     
-                    let schema = RegisterStagedSampleSchema {
-                        run_id: args.run_id.clone(),
-                        database: args.database.clone(),
-                        project: args.project.clone(),
-                        pipeline: args.pipeline.clone()
+                    let schema = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterStagedSampleSchema::from_pipeline_json(
+                            &path, args.file_id.clone(), args.run_id.clone()
+                        )?,
+                        (None, Some(id)) => RegisterStagedSampleSchema::new(
+                            &id, args.file_id.clone(), args.run_id.clone()
+                        ),
+                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
                     };
 
                     client.register_staged_samples(&schema)?;
 
                 },
-                ApiStageCommands::List( args ) => {
-                    client.get_staged_samples(args.id.clone(), true)?;
+                StageCommands::List( args ) => {
+
+
+                    let pipeline_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id,
+                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                    };
+
+                    client.list_staged_samples(
+                        pipeline_id, 
+                        args.run_id.clone(), 
+                        args.sample_id.clone(),
+                        true
+                    )?;
                 },
+                StageCommands::Pull( args ) => {
 
-                ApiStageCommands::Delete( args ) => {
+                    let pipeline_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id,
+                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                    };
 
-                    client.delete_staged_sample(&args.id.clone())?;
-                    
+
+                },
+                StageCommands::Delete( args ) => {
+
+                    let pipeline_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                        (None, Some(id)) => id,
+                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                    };
+
+                    if args.all {
+                        let confirmation = dialoguer::Confirm::new()
+                            .with_prompt("Do you want to delete ALL staged samples for this staging area?")
+                            .interact()
+                            .unwrap();
+
+                        if confirmation {
+                            client.delete_staged_sample(
+                                &pipeline_id, 
+                                None, 
+                                None, 
+                                None
+                            )?;
+                        }
+                    } else {
+                        client.delete_staged_sample(
+                            &pipeline_id, 
+                            args.staged_id.clone(), 
+                            args.run_id.clone(), 
+                            args.sample_id.clone()
+                        )?;
+                    }                    
                 },
             }
                         
@@ -234,7 +317,7 @@ fn main() -> anyhow::Result<()> {
             match subcommand {
 
                 // Create new project in a team database
-                ApiProjectCommands::Create( args ) => {
+                ProjectCommands::Create( args ) => {
                     client.create_project(
                         &args.team_name, 
                         &args.db_name,

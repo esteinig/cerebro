@@ -1,4 +1,5 @@
 use actix_web::{web::Data, HttpResponse};
+use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::teams::model::{Team, TeamAdminCollection};
 use cerebro_model::api::utils::AdminCollection;
 use mongodb::Collection;
@@ -33,6 +34,13 @@ pub fn get_teams_db_collection<T>(data: &Data<AppState>, team: Team, collection:
     let db = data.db.database(&team.admin.database);
     db.collection(&collection.name())
 }
+
+// Get registered pipeline staged sample collection from team admin database
+pub fn get_teams_db_stage_collection(data: &Data<AppState>, team: Team, collection: &str) -> Collection<StagedSample> {
+    let db = data.db.database(&team.admin.database);
+    db.collection(&collection)
+}
+
 
 pub fn as_csv_string<T>(data: Vec<T>) -> Result<String, HttpResponse> 
     where T: Serialize

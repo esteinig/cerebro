@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use crate::api::files::model::SeaweedFile;
 
+use super::model::FileTag;
+
 #[derive(Serialize, Deserialize)]
 pub struct RegisterFileResponse {
     pub status: String,
@@ -61,6 +63,37 @@ impl ListFilesResponse {
     }
 }
 
+
+#[derive(Serialize, Deserialize)]
+pub struct UpdateTagsResponse {
+    pub status: String,
+    pub message: String,
+    pub data: Option<Vec<FileTag>>
+}
+impl UpdateTagsResponse {
+    pub fn success() -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Tags updated for files"),
+            data: None
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("Tags updated for files"),
+            data: None
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None
+        }
+    }
+}
+
 /// Represents the output of a successful `weed` command execution.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,6 +117,13 @@ impl DeleteFileResponse {
             status: String::from("success"),
             message: String::from("File entries deleted from database"),
             data: Some(file)
+        }
+    }
+    pub fn all_deleted() -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("File entries deleted from database"),
+            data: None
         }
     }
     pub fn not_found() -> Self {

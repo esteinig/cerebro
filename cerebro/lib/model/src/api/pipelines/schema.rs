@@ -4,14 +4,18 @@ use crate::api::cerebro::model::ModelError;
 
 use super::model::Pipeline;
 
+type StageId = String;
+type PipelineId = String;
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterPipelineSchema {
-    pub id: String,
+    pub id: PipelineId,
+    pub stage: StageId,
     pub date: String,
     pub name: String,
     pub location: String,
     pub last_ping: String,
-    pub pipeline: Pipeline
+    pub pipeline: Pipeline,
 }
 impl RegisterPipelineSchema {
     pub fn new(name: &str, location: &str, pipeline: Pipeline) -> Self {
@@ -22,7 +26,8 @@ impl RegisterPipelineSchema {
             name: name.to_string(),
             location: location.to_string(),
             last_ping: date,
-            pipeline
+            pipeline,
+            stage: uuid::Uuid::new_v4().to_string()
         }
     }
     pub fn from_json(path: &PathBuf) -> Result<Self, ModelError> {

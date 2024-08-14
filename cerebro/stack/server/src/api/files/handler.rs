@@ -1,9 +1,9 @@
 
-use cerebro_model::api::{files::response::{DeleteFileResponse, ListFilesResponse, RegisterFileResponse}, teams::model::TeamAdminCollection};
+use cerebro_model::api::{files::{response::{DeleteFileResponse, ListFilesResponse, RegisterFileResponse, UpdateTagsResponse}, schema::UpdateFileTagsSchema}, teams::model::TeamAdminCollection};
 use serde::Deserialize;
 use futures::TryStreamExt;
-use mongodb::{bson::{doc, from_document}, Collection};
-use actix_web::{delete, get, post, web, HttpResponse};
+use mongodb::{bson::{doc, from_document, to_bson}, Collection};
+use actix_web::{delete, get, patch, post, web, HttpResponse};
 
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::schema::RegisterFileSchema;
@@ -35,20 +35,20 @@ async fn register_file(data: web::Data<AppState>, schema: web::Json<RegisterFile
         Ok(_) => HttpResponse::Ok().json(RegisterFileResponse::success(&schema.id)),
         Err(err) => HttpResponse::InternalServerError().json(RegisterFileResponse::server_error(err.to_string())),
     }
-
 }
 
 
 #[derive(Deserialize)]
 struct FileListQuery {  
+    // Paginated files
+    page: u32,
+    // Limit files returned - can be zero for all files
+    limit: u32,
     // Optional run identifier
     run_id: Option<String>,
     // Optional watcher identifier
     watcher_id: Option<String>,
-    // Paginated files
-    page: u32,
-    // Limit files returned
-    limit: u32,
+   
 }
 
 
@@ -84,6 +84,78 @@ async fn list_files(data: web::Data<AppState>, query: web::Query<FileListQuery>,
 }
 
 
+#[patch("/files/tags")]
+async fn update_tags(data: web::Data<AppState>, schema: web::Json<UpdateFileTagsSchema>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Files);
+    
+    match files_collection
+        .update_many(
+            doc! { "id": { "$in": &schema.ids } },
+            doc! { "$set": { "tags": to_bson(&schema.tags).unwrap() } },
+            None
+        )
+        .await
+    {   
+        Ok(update_result) => {
+            if update_result.matched_count > 0 {
+                HttpResponse::Ok().json(UpdateTagsResponse::success())
+            } else {
+                HttpResponse::NotFound().json(UpdateTagsResponse::not_found())
+            }
+        }
+        Err(err) => HttpResponse::InternalServerError().json(
+            UpdateTagsResponse::server_error(err.to_string())
+        )
+    }
+}
+
+
+
+#[derive(Deserialize)]
+struct FilesDeleteQuery {  
+    // Optional run identifier
+    run_id: Option<String>,
+    // Optional sample identifier
+    sample_id: Option<String>
+}
+
+#[delete("/files")]
+async fn delete_files(data: web::Data<AppState>, query: web::Query<FilesDeleteQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Files);
+    
+    let mut delete_query = doc! {};
+
+    if let Some(run_id) = &query.run_id {
+        delete_query.insert("run_id", run_id);
+    }
+
+    if let Some(sample_id) = &query.sample_id {
+        delete_query.insert("sample_id", sample_id);
+    }
+
+    match files_collection
+        .delete_many(delete_query, None) 
+        .await
+    {
+        Ok(delete_result) => {
+            if delete_result.deleted_count > 0 {
+                HttpResponse::Ok().json(
+                    DeleteFileResponse::all_deleted()
+                )
+            } else {
+                HttpResponse::NotFound().json(
+                    DeleteFileResponse::not_found()
+                )
+            }
+        }
+        Err(err) => HttpResponse::InternalServerError().json(
+            DeleteFileResponse::server_error(err.to_string())
+        )
+    }
+}
+
 #[delete("/files/{id}")]
 async fn delete_file(data: web::Data<AppState>, id: web::Path<String>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
@@ -96,19 +168,24 @@ async fn delete_file(data: web::Data<AppState>, id: web::Path<String>,  _: web::
     {   
         Ok(deleted) => {
             match deleted {
-                Some(file) => HttpResponse::Ok().json(DeleteFileResponse::success(file)),
-                None => HttpResponse::NotFound().json(DeleteFileResponse::not_found())
+                Some(file) => HttpResponse::Ok().json(
+                    DeleteFileResponse::success(file)
+                ),
+                None => HttpResponse::NotFound().json(
+                    DeleteFileResponse::not_found()
+                )
             }
         }
-        Err(err) => HttpResponse::InternalServerError().json(DeleteFileResponse::server_error(err.to_string()))
+        Err(err) => HttpResponse::InternalServerError().json(
+            DeleteFileResponse::server_error(err.to_string())
+        )
     }
 }
-
-
 
 // Handler configuration
 pub fn files_config(cfg: &mut web::ServiceConfig) {
     cfg.service(register_file)
         .service(delete_file)
+        .service(update_tags)
         .service(list_files);
 }

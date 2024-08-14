@@ -76,6 +76,13 @@ impl DeleteWatcherResponse {
             data: Some(watchers)
         }
     }
+    pub fn all_deleted() -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Watcher registrations deleted from database"),
+            data: None
+        }
+    }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),

@@ -149,7 +149,8 @@ impl CerebroWatcher {
                                                     match watcher.fs_client.upload_files_from_watcher(
                                                         &fastq_files, 
                                                         run_id.to_string(),
-                                                        watcher.upload_config, 
+                                                        Some(watcher.config.format.file_type()), 
+                                                        watcher.upload_config,
                                                         watcher_config
                                                     ) {
                                                         Err(err) => log::error!("Error uploading read files to Cerebro FS: {}", err.to_string()),

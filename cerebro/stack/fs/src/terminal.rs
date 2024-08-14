@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
-use cerebro_client::terminal::ApiStatusArgs;
-use cerebro_client::terminal::ApiLoginArgs;
+use cerebro_model::api::files::model::FileType;
+use cerebro_client::terminal::StatusArgs;
+use cerebro_client::terminal::LoginArgs;
 
 /// Cerebro: file system anmd storage operations
 #[derive(Debug, Parser)]
@@ -42,10 +43,26 @@ pub struct App {
         hide_env_values = true
     )]
     pub team: Option<String>,
+    /// Team database name or identifier for requests that require database access 
+    #[clap(
+        long, 
+        short = 'd', 
+        env = "CEREBRO_USER_DB",
+        hide_env_values = true
+    )]
+    pub db: Option<String>,
+    /// Team database project name or identifier for requests that require project access 
+    #[clap(
+        long, 
+        short = 'p', 
+        env = "CEREBRO_USER_PROJECT",
+        hide_env_values = true
+    )]
+    pub project: Option<String>,
     /// SeaweedFS master node address
     #[clap(
         long, 
-        short = 's', 
+        short = 'a', 
         default_value = "http://fs.cerebro.localhost", 
         env = "CEREBRO_FS_URL"
     )]
@@ -53,7 +70,7 @@ pub struct App {
     /// SeaweedFS master node port
     #[clap(
         long, 
-        short = 'p',
+        short = 'm',
         env = "CEREBRO_FS_PORT",
         default_value = "9333", 
     )]
@@ -72,9 +89,9 @@ pub struct App {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     // Status of Cerebro API
-    Ping(ApiStatusArgs),
+    Ping(StatusArgs),
     // Login to Cerebro API
-    Login(ApiLoginArgs),
+    Login(LoginArgs),
     /// Upload files to CerebroFS and register files with CerebroAPI
     Upload(UploadFileArgs),
     /// Download of files from CerebroFS
@@ -118,6 +135,9 @@ pub struct DeleteFileArgs {
     /// Watcher identifier
     #[clap(long, short = 'w')]
     pub watcher_id: Option<String>,
+    /// Delete all files (requires confirmation)
+    #[clap(long, short = 'a')]
+    pub all: bool,
 }
 
 
@@ -126,6 +146,9 @@ pub struct UploadFileArgs {
     /// Files to register
     #[clap(long, short = 'f', num_args(0..))]
     pub files: Vec<PathBuf>,
+    /// File type
+    #[clap(long, short = 't')]
+    pub file_type: Option<FileType>,
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,

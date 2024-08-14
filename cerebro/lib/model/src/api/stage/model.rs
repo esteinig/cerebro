@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::api::{files::model::SeaweedFile, pipelines::model::Pipeline};
+use crate::api::{files::model::SeaweedFile, pipelines::model::ProductionPipeline};
 
 
 /*
@@ -19,6 +19,6 @@ pub struct StagedSample {
     pub sample_id: String,
     pub database: String,
     pub project: String,
-    pub pipeline: Pipeline,
+    pub pipeline: ProductionPipeline,
     pub files: Vec<SeaweedFile>
 }

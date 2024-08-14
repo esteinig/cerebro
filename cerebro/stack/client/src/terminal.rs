@@ -25,7 +25,7 @@ pub struct App {
         hide_env_values = true
     )]
     pub token: Option<String>,
-    /// User team name or identifier for requests that require team specification 
+    /// User team name or identifier for requests that require team data acess 
     #[clap(
         long, 
         short = 't', 
@@ -33,6 +33,22 @@ pub struct App {
         hide_env_values = true
     )]
     pub team: Option<String>,
+    /// Team database name or identifier for requests that require database access 
+    #[clap(
+        long, 
+        short = 'd', 
+        env = "CEREBRO_USER_DB",
+        hide_env_values = true
+    )]
+    pub db: Option<String>,
+    /// Team database project name or identifier for requests that require project access 
+    #[clap(
+        long, 
+        short = 'p', 
+        env = "CEREBRO_USER_PROJECT",
+        hide_env_values = true
+    )]
+    pub project: Option<String>,
     /// API token file - can be set from environment variable
     #[clap(
         long, 
@@ -55,48 +71,48 @@ pub struct App {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Login user for authentication token 
-    Login(ApiLoginArgs),
+    Login(LoginArgs),
     /// Ping the server as authenticated user 
-    PingServer(ApiPingArgs),
+    PingServer(PingArgs),
     /// Ping the server as unauthenticated user
-    PingStatus(ApiStatusArgs),
+    PingStatus(StatusArgs),
     /// Upload pipeline outputs to database
-    UploadSample(ApiUploadArgs),
+    UploadSample(UploadArgs),
     /// Summary of taxa evidence for requested models
-    GetTaxa(ApiTaxaArgs),
+    GetTaxa(TaxaArgs),
     /// Summary of quality control for requested models or samples
-    GetQuality(ApiQualityArgs),
+    GetQuality(QualityArgs),
     
     /// CRUD operations for production watchers
     #[clap(subcommand)]
-    Watcher(ApiWatcherCommands),
+    Watcher(WatcherCommands),
     /// CRUD operations for production pipelines
     #[clap(subcommand)]
-    Pipeline(ApiPipelineCommands),
+    Pipeline(PipelineCommands),
     /// CRUD operations for staging production files
     #[clap(subcommand)]
-    Stage(ApiStageCommands),
+    Stage(StageCommands),
     /// CRUD operations for teams
     #[clap(subcommand)]
-    Team(ApiTeamCommands),
+    Team(TeamCommands),
     #[clap(subcommand)]
     /// CRUD operations for team databases
-    Database(ApiDatabaseCommands),
+    Database(DatabaseCommands),
     #[clap(subcommand)]
     /// CRUD operations for team database projects
-    Project(ApiProjectCommands),
+    Project(ProjectCommands),
 }
 
 #[derive(Debug, Args)]
-pub struct ApiPingArgs {
+pub struct PingArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiStatusArgs {
+pub struct StatusArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiLoginArgs {
+pub struct LoginArgs {
     /// Registered user email
     #[clap(long, short = 'e', env = "CEREBRO_USER_EMAIL")]
     pub email: String,
@@ -107,7 +123,7 @@ pub struct ApiLoginArgs {
 
 
 #[derive(Debug, Args)]
-pub struct ApiUploadArgs {
+pub struct UploadArgs {
     /// Processed pipeline sample models (*.json)
     #[clap(long, short = 'i', num_args(0..))]
     pub sample_models: Vec<PathBuf>,
@@ -139,7 +155,7 @@ pub struct ApiUploadArgs {
 
 
 #[derive(Debug, Args)]
-pub struct ApiTaxaArgs {
+pub struct TaxaArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
@@ -171,7 +187,7 @@ pub struct ApiTaxaArgs {
 
 
 #[derive(Debug, Args)]
-pub struct ApiQualityArgs {
+pub struct QualityArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
@@ -197,7 +213,7 @@ pub struct ApiQualityArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiTeamArgs {
+pub struct TeamArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
@@ -207,61 +223,105 @@ pub struct ApiTeamArgs {
 }
 
 #[derive(Debug, Subcommand)]
-pub enum ApiStageCommands {
+pub enum StageCommands {
     /// Register samples for processing with a production pipeline
-    Register(ApiStageRegisterArgs),
-    /// List registered samples in the staging area
-    List(ApiStageListArgs),
-    /// Delete registered samples from the staging area
-    Delete(ApiStageDeleteArgs),
+    Register(StageRegisterArgs),
+    /// List registered samples in the pipeline staging area
+    List(StageListArgs),
+    /// Delete registered samples from the pipeline staging area
+    Delete(StageDeleteArgs),
+    /// Pull staged samples from the pipeline staging area
+    Pull(StagePullArgs),
 }
 
 
 #[derive(Debug, Args)]
-pub struct ApiStageRegisterArgs {
-    /// Run identifier or name for sample registration
-    #[clap(long, short = 'r')]
-    pub run_id: String,
-    /// Database for pipeline outputs
-    #[clap(long, short = 'd')]
-    pub database: String,
-    /// Database project for pipeline outputs
-    #[clap(long, short = 'p')]
-    pub project: String,
-    /// Cerebro pipeline for registration
-    #[clap(long, short = 'i')]
-    pub pipeline: Pipeline,
-}
-
-#[derive(Debug, Args)]
-pub struct ApiStageListArgs {
-    /// Staged sample identifier for single record listing
-    #[clap(long, short = 'i')]
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Args)]
-pub struct ApiStageDeleteArgs {
-    /// Staged sample identifier generated during registration
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+#[clap(group = ArgGroup::new("files").required(true).args(&["file_ids", "run_id"]))]
+pub struct StageRegisterArgs {
+    /// Registered pipeline identifier
     #[clap(long, short = 'i', group = "input")]
-    pub id: String,
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// File identifiers for sample stage registration
+    #[clap(long, short = 'f', group = "files")]
+    pub file_id: Option<Vec<String>>,
+    /// Run name for sample stage registration
+    #[clap(long, short = 'r', group = "files")]
+    pub run_id: Option<String>
+}
+
+
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct StagePullArgs {
+    /// Registered pipeline identifier
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+pub struct StageListArgs {
+    /// Registered pipeline identifier
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Run name to list in staging area
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Sample name to list in staging area
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+}
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
+#[clap(group = ArgGroup::new("delete").required(true).args(&["staged_id", "run_id", "sample_id", "all"]))]
+pub struct StageDeleteArgs {
+    /// Registered pipeline identifier
+    #[clap(long, short = 'i', group = "input")]
+    pub id: Option<String>,
+    /// Pipeline registration record (.json)
+    #[clap(long, short = 'j', group = "input")]
+    pub json: Option<PathBuf>,
+    /// Staged sample unique identifier to delete from staging area
+    #[clap(long, short = 'u', group = "delete")]
+    pub staged_id: Option<String>,
+    /// Run name to delete from staging area
+    #[clap(long, short = 'r', group = "delete")]
+    pub run_id: Option<String>,
+    /// Sample name to delete from staging area
+    #[clap(long, short = 's', group = "delete")]
+    pub sample_id: Option<String>,
+    /// Delete all staged samples in the staging area
+    #[clap(long, short = 'a', group = "delete")]
+    pub all: bool,
 }
 
 
 #[derive(Debug, Subcommand)]
-pub enum ApiPipelineCommands {
+pub enum PipelineCommands {
     /// Register a new production pipeline
-    Register(ApiPipelineRegisterArgs),
+    Register(PipelineRegisterArgs),
     /// List registered production pipelines
-    List(ApiPipelineListArgs),
+    List(PipelineListArgs),
     /// Delete a registered production pipeline
-    Delete(ApiPipelineDeleteArgs),
+    Delete(PipelineDeleteArgs),
     /// Ping a registered pipeline to update active status
-    Ping(ApiPipelinePingArgs),
+    Ping(PipelinePingArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct ApiPipelineRegisterArgs {
+pub struct PipelineRegisterArgs {
     /// Cerebro pipeline for registration
     #[clap(long, short = 'p')]
     pub pipeline: Pipeline,
@@ -278,7 +338,7 @@ pub struct ApiPipelineRegisterArgs {
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
-pub struct ApiPipelinePingArgs {
+pub struct PipelinePingArgs {
     /// Pipeline identifier generated during registration
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
@@ -288,38 +348,47 @@ pub struct ApiPipelinePingArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiPipelineListArgs {
+pub struct PipelineListArgs {
     /// Pipeline identifier generated during registration for single record listing
     #[clap(long, short = 'i')]
     pub id: Option<String>,
 }
 
 #[derive(Debug, Args)]
-#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
-pub struct ApiPipelineDeleteArgs {
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json", "name", "location", "all"]))]
+pub struct PipelineDeleteArgs {
     /// Pipeline identifier generated during registration
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
-    pub json: Option<PathBuf>
+    pub json: Option<PathBuf>,
+    /// Pipeline name
+    #[clap(long, short = 'r', group = "input")]
+    pub name: Option<String>,
+    /// Watcher location
+    #[clap(long, short = 'l', group = "input")]
+    pub location: Option<String>,
+    /// Delete all pipelines (requires confirmation)
+    #[clap(long, short = 'a')]
+    pub all: bool,
 }
 
 
 
 #[derive(Debug, Subcommand)]
-pub enum ApiWatcherCommands {
+pub enum WatcherCommands {
     /// Register a new production watcher
-    Register(ApiWatcherRegisterArgs),
+    Register(WatcherRegisterArgs),
     /// List registered production watchers
-    List(ApiWatcherListArgs),
+    List(WatcherListArgs),
     /// Delete a registered production watcher
-    Delete(ApiWatcherDeleteArgs),
+    Delete(WatcherDeleteArgs),
     /// Ping a registered watcher to update active status
-    Ping(ApiWatcherPingArgs),
+    Ping(WatcherPingArgs),
 }
 #[derive(Debug, Args)]
-pub struct ApiWatcherRegisterArgs {
+pub struct WatcherRegisterArgs {
     /// Watcher name for registration
     #[clap(long, short = 'n')]
     pub name: String,
@@ -338,7 +407,7 @@ pub struct ApiWatcherRegisterArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiWatcherListArgs {
+pub struct WatcherListArgs {
     /// Watcher identifier generated during registration
     #[clap(long, short = 'i')]
     pub id: Option<String>,
@@ -347,7 +416,7 @@ pub struct ApiWatcherListArgs {
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
-pub struct ApiWatcherPingArgs {
+pub struct WatcherPingArgs {
     /// Watcher identifier generated during registration for single record listing
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
@@ -357,40 +426,49 @@ pub struct ApiWatcherPingArgs {
 }
 
 #[derive(Debug, Args)]
-#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
-pub struct ApiWatcherDeleteArgs {
+#[clap(group = ArgGroup::new("input").required(true).args(&["id", "json", "name", "location", "all"]))]
+pub struct WatcherDeleteArgs {
     /// Watcher identifier generated during registration
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
     /// Watcher registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
+    /// Watcher name
+    #[clap(long, short = 'r', group = "input")]
+    pub name: Option<String>,
+    /// Watcher location
+    #[clap(long, short = 'l', group = "input")]
+    pub location: Option<String>,
+    /// Delete all watchers (requires confirmation)
+    #[clap(long, short = 'a')]
+    pub all: bool,
 }
 
 
 #[derive(Debug, Subcommand)]
-pub enum ApiTeamCommands {
+pub enum TeamCommands {
     // Create a new team
-    Create(ApiTeamCreateArgs)
+    Create(TeamCreateArgs)
 }
 
 
 #[derive(Debug, Subcommand)]
-pub enum ApiDatabaseCommands {
+pub enum DatabaseCommands {
     // Create a new team
-    Create(ApiDatabaseCreateArgs)
+    Create(DatabaseCreateArgs)
 }
 
 
 #[derive(Debug, Subcommand)]
-pub enum ApiProjectCommands {
+pub enum ProjectCommands {
     // Create a new team
-    Create(ApiProjectCreateArgs)
+    Create(ProjectCreateArgs)
 }
 
 
 #[derive(Debug, Args)]
-pub struct ApiTeamCreateArgs {
+pub struct TeamCreateArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
@@ -400,7 +478,7 @@ pub struct ApiTeamCreateArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiDatabaseCreateArgs {
+pub struct DatabaseCreateArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,
@@ -413,7 +491,7 @@ pub struct ApiDatabaseCreateArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ApiProjectCreateArgs {
+pub struct ProjectCreateArgs {
     /// Team name for model query
     #[clap(long, short = 't')]
     pub team_name: String,

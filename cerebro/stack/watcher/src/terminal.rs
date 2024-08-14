@@ -40,10 +40,26 @@ pub struct App {
         hide_env_values = true
     )]
     pub team: Option<String>,
+    /// Team database name or identifier for requests that require database access 
+    #[clap(
+        long, 
+        short = 'd', 
+        env = "CEREBRO_USER_DB",
+        hide_env_values = true
+    )]
+    pub db: Option<String>,
+    /// Team database project name or identifier for requests that require project access 
+    #[clap(
+        long, 
+        short = 'p', 
+        env = "CEREBRO_USER_PROJECT",
+        hide_env_values = true
+    )]
+    pub project: Option<String>,
     /// SeaweedFS master node address
     #[clap(
         long, 
-        short = 's', 
+        short = 'a',
         default_value = "http://fs.cerebro.localhost", 
         env = "CEREBRO_FS_URL"
     )]
@@ -51,7 +67,7 @@ pub struct App {
     /// SeaweedFS master node port
     #[clap(
         long, 
-        short = 'p',
+        short = 'm',
         env = "CEREBRO_FS_PORT",
         default_value = "9333", 
     )]
@@ -106,7 +122,6 @@ pub struct WatchArgs {
     /// Watcher input format to register new watcher
     #[clap(long, short = 'f', group = "new", help_heading = "New Watcher")]
     pub format: Option<WatcherFormat>,
-
     /// Optional file glob, overwrites defaults based on format (see long --help)
     /// 
     /// 'fastq' = "*.fastq.gz", 

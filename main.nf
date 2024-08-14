@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 params.team = "CNS"
+params.pipeline = ""
 params.stage_interval = "5s"
 
 process StageFilesCerebroFS {
@@ -31,7 +32,7 @@ process StageFilesCerebroFS {
     tuple env("TEST"), path("*.txt"), optional: true
 
     """
-    cerebro-fs --team $params.team list > list.txt
+    cerebro-client --team $params.team stage pull
     TEST=\$(head -1 list.txt)
     """
 }

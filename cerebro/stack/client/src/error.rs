@@ -52,9 +52,13 @@ pub enum HttpClientError {
     #[error("sample identifier is an empty string")]
     ModelSampleIdentifierEmpty,
     #[error("pipeline identifier could not be found (--id | --json)")]
-    PipeineIdentifierArgNotFound,
+    PipelineIdentifierArgNotFound,
     #[error("watcher identifier could not be found (--id | --json)")]
     WatcherIdentifierArgNotFound,
-    #[error("failed to send request with team parameter - did you provide team name or identifier?")]
-    RequireTeamNotConfigured
+    #[error("failed to send request with 'team' access parameter - did you provide a team name or identifier?")]
+    RequireTeamNotConfigured,
+    #[error("failed to send request with 'db' access parameter  - did you provide a database name or identifier?")]
+    RequireDbNotConfigured,
+    #[error("failed to send request with 'project' access parameter  - did you provide a project name or identifier?")]
+    RequireProjectNotConfigured
 }

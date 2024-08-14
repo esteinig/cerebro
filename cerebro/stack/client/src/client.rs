@@ -153,6 +153,8 @@ pub struct CerebroClient {
     pub url: String,
     pub client: Client,
     pub team: Option<String>,
+    pub db: Option<String>,
+    pub project: Option<String>,
     pub routes: CerebroRoutes,
     pub token_data: Option<AuthLoginTokenFile>,
     pub token_file: Option<PathBuf>
@@ -166,6 +168,8 @@ impl CerebroClient {
         danger_accept_invalid_certs: bool,
         token_file: Option<PathBuf>,
         team: Option<String>,
+        db: Option<String>,
+        project: Option<String>,
     ) -> Result<Self, HttpClientError> {
         let url_clean = url.trim_end_matches('/').to_string();
 
@@ -179,11 +183,6 @@ impl CerebroClient {
             .danger_accept_invalid_certs(danger_accept_invalid_certs)
             .build()?;
 
-        if let None = team {
-            log::warn!("No team access configured - you may need this for data access");
-            log::warn!("Use global argument '--team' or environment variable '$CEREBRO_USER_TEAM'")
-        }
-
         Ok(Self {
             url: url_clean.clone(),
             routes: CerebroRoutes::new(&url_clean),
@@ -191,9 +190,28 @@ impl CerebroClient {
             token_file,
             client,
             team,
+            db,
+            project
         })
     }
-
+    fn log_team_warning(&self) {
+        if let None = self.team {
+            log::warn!("No team configured - you may need this for data access!");
+            log::warn!("Use team name or identifier with global argument '--team' or environment variable '$CEREBRO_USER_TEAM'")
+        }
+    }
+    fn log_db_warning(&self) {
+        if let None = self.db {
+            log::warn!("No database configured - you may need this for data access!");
+            log::warn!("Use database name or identifier with global argument '--db' or environment variable '$CEREBRO_USER_DB'")
+        }
+    }
+    fn log_project_warning(&self) {
+        if let None = self.project {
+            log::warn!("No database project configured - you may need this for data access!");
+            log::warn!("Use project name or identifier with global argument '--project' or environment variable '$CEREBRO_USER_PROJECT'")
+        }
+    }
     fn load_token(
         token: Option<String>,
         token_file: Option<PathBuf>,
@@ -217,7 +235,7 @@ impl CerebroClient {
             }
         }
 
-        log::error!("Failed to obtain token from input or environmental variable");
+        log::error!("Failed to obtain token from global argument (--token | --token-file) or environment variable ($CEREBRO_API_TOKEN)");
         std::process::exit(1);
     }
 
@@ -357,6 +375,30 @@ impl CerebroClient {
         
         Ok(response)
     }
+    fn send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+        let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
+        let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
+
+        let response = request
+            .query(&[("team", team)])
+            .query(&[("db", db)])
+            .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
+        
+        Ok(response)
+    }
+    fn send_request_with_team_db_project(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+        let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
+        let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
+        let project = self.project.as_deref().ok_or(HttpClientError::RequireProjectNotConfigured)?;
+
+        let response = request
+            .query(&[("team", team)])
+            .query(&[("db", db)])
+            .query(&[("project", project)])
+            .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
+        
+        Ok(response)
+    }
 
     fn handle_response<T: DeserializeOwned>(
         &self,
@@ -387,11 +429,12 @@ impl CerebroClient {
         }
     }
 
-    fn build_request_url<T>(&self, route: Route, params: &[(&str, T)]) -> String
+    fn build_request_url<T, R>(&self, route: R, params: &[(&str, T)]) -> String
     where
         T: Into<Option<String>> + Clone,
+        R: Into<String> + Clone
     {
-        let mut url = self.routes.url(route);
+        let mut url = route.into().clone();
         let query_string: Vec<String> = params
             .iter()
             .filter_map(|(key, value)| {
@@ -414,8 +457,10 @@ impl CerebroClient {
         project_name: &str,
         project_description: &str,
     ) -> Result<(), HttpClientError> {
+
+
         let url = self.build_request_url(
-            Route::TeamProjectCreate,
+            self.routes.url(Route::TeamProjectCreate),
             &[("team_name", Some(team_name.to_string())), ("db_name", Some(db_name.to_string()))],
         );
 
@@ -444,6 +489,9 @@ impl CerebroClient {
         &self,
         register_file_schema: RegisterFileSchema,
     ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
         let response = self.send_request_with_team(
             self.client
                 .post(self.routes.url(Route::TeamFilesRegister))
@@ -458,19 +506,29 @@ impl CerebroClient {
         Ok(())
     }
 
-    pub fn delete_file(&self, file_id: &str) -> Result<SeaweedFile, HttpClientError> {
+    pub fn delete_file(&self, id: Option<String>, run_id: Option<String>, sample_id: Option<String>) -> Result<SeaweedFile, HttpClientError> {
+
+        self.log_team_warning();
+
+        let mut url = self.routes.url(Route::TeamFilesDelete);  // deletes all
+
+        if let Some(id) = id {
+            url = format!("{url}/{id}")
+        }
+
+        if run_id.is_some() | sample_id.is_some() {
+            url = self.build_request_url(
+                self.routes.url(Route::TeamFilesDelete), &[("run_id", run_id), ("sample_id", sample_id)]
+            );
+        }
+
         let response = self.send_request_with_team(
-            self.client
-                .delete(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamFilesDelete),
-                    file_id
-                ))
+            self.client.delete(url)
         )?;
 
         self.handle_response::<DeleteFileResponse>(
             response,
-            Some(&format!("File `{}` deleted successfully", file_id)),
+            None,
             "File deletion failed",
         )?
         .data
@@ -482,7 +540,7 @@ impl CerebroClient {
         })
     }
 
-    pub fn get_files(
+    pub fn list_files(
         &self,
         run_id: Option<String>,
         watcher_id: Option<String>,
@@ -490,8 +548,11 @@ impl CerebroClient {
         limit: u32,
         print: bool,
     ) -> Result<Vec<SeaweedFile>, HttpClientError> {
+
+        self.log_team_warning();
+
         let url = self.build_request_url(
-            Route::TeamFilesList,
+            self.routes.url(Route::TeamFilesList),
             &[
                 ("run_id", run_id),
                 ("watcher_id", watcher_id),
@@ -550,6 +611,9 @@ impl CerebroClient {
         register_pipeline_schema: &RegisterPipelineSchema,
         print: bool,
     ) -> Result<String, HttpClientError> {
+
+        self.log_team_warning();
+
         let response = self.send_request_with_team(
             self.client
                 .post(self.routes.url(Route::TeamPipelinesRegister))
@@ -571,12 +635,18 @@ impl CerebroClient {
         Ok(pipeline_id)
     }
 
-    pub fn get_pipelines(
+    pub fn list_pipelines(
         &self,
         id: Option<String>,
         print: bool,
     ) -> Result<Vec<ProductionPipeline>, HttpClientError> {
-        let url = self.build_request_url(Route::TeamPipelinesList, &[("id", id)]);
+        
+        self.log_team_warning();
+
+        let url = self.build_request_url(
+            self.routes.url(Route::TeamPipelinesList), 
+            &[("id", id)]
+        );
 
         let response = self.send_request_with_team(
             self.client
@@ -600,13 +670,14 @@ impl CerebroClient {
         if print {
             for pipeline in &pipelines {
                 println!(
-                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}",
                     pipeline.pipeline,
                     pipeline.id,
                     pipeline.date,
                     pipeline.name,
                     pipeline.location,
-                    pipeline.last_ping
+                    pipeline.last_ping,
+                    pipeline.stage
                 );
             }
         }
@@ -614,31 +685,50 @@ impl CerebroClient {
         Ok(pipelines)
     }
 
-    pub fn delete_pipeline(&self, id: &str) -> Result<ProductionPipeline, HttpClientError> {
+    pub fn delete_pipeline(
+        &self, 
+        id: Option<String>, 
+        json: Option<PathBuf>, 
+        name: Option<String>, 
+        location: Option<String>
+    ) -> Result<Option<ProductionPipeline>, HttpClientError> {
+
+        self.log_team_warning();
+
+        let mut url = self.routes.url(Route::TeamPipelinesDelete);  // deletes all
+
+        if let Some(id) = id {
+            url = format!("{url}/{id}")
+        }
+
+        if let Some(json) = json {
+            let id = RegisterPipelineSchema::from_json(&json)?.id;
+            url = format!("{url}/{id}")
+        }
+
+        if name.is_some() | location.is_some() {
+            url = self.build_request_url(
+                self.routes.url(Route::TeamPipelinesDelete), 
+                &[("name", name), ("location", location)]
+            );
+        }
+
         let response = self.send_request_with_team(
-            self.client
-                .delete(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamPipelinesDelete),
-                    id
-                ))
+            self.client.delete(url)
         )?;
 
-        self.handle_response::<DeletePipelineResponse>(
+        Ok(self.handle_response::<DeletePipelineResponse>(
             response,
-            Some(&format!("Pipeline `{}` deleted successfully", id)),
+            None,
             "Pipeline deletion failed",
         )?
-        .data
-        .ok_or_else(|| {
-            HttpClientError::DataResponseFailure(
-                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                String::from("Pipeline data not returned after deletion"),
-            )
-        })
+        .data)
     }
 
     pub fn ping_pipeline(&self, pipeline_id: &str, print: bool) -> Result<String, HttpClientError> {
+
+        self.log_team_warning();
+
         let response = self.send_request_with_team(
             self.client
                 .patch(&format!(
@@ -674,6 +764,9 @@ impl CerebroClient {
         register_watcher_schema: &RegisterWatcherSchema,
         print: bool,
     ) -> Result<String, HttpClientError> {
+
+        self.log_team_warning();
+
         let response = self.send_request_with_team(
             self.client
                 .post(self.routes.url(Route::TeamWatchersRegister))
@@ -695,12 +788,18 @@ impl CerebroClient {
         Ok(watcher_id)
     }
 
-    pub fn get_watchers(
+    pub fn list_watchers(
         &self,
         id: Option<String>,
         print: bool,
     ) -> Result<Vec<ProductionWatcher>, HttpClientError> {
-        let url = self.build_request_url(Route::TeamWatchersList, &[("id", id)]);
+
+        self.log_team_warning();
+
+        let url = self.build_request_url(
+            self.routes.url(Route::TeamWatchersList), 
+            &[("id", id)]
+        );
 
         let response = self.send_request_with_team(
             self.client
@@ -738,31 +837,50 @@ impl CerebroClient {
         Ok(watchers)
     }
 
-    pub fn delete_watcher(&self, watcher_id: &str) -> Result<ProductionWatcher, HttpClientError> {
+    pub fn delete_watcher(
+        &self, 
+        id: Option<String>, 
+        json: Option<PathBuf>, 
+        name: Option<String>, 
+        location: Option<String>
+    ) -> Result<Option<ProductionWatcher>, HttpClientError> {
+
+        self.log_team_warning();
+
+        let mut url = self.routes.url(Route::TeamWatchersDelete); // deletes all
+
+        if let Some(id) = id {
+            url = format!("{url}/{id}")
+        }
+
+        if let Some(json) = json {
+            let id = RegisterWatcherSchema::from_json(&json)?.id;
+            url = format!("{url}/{id}")
+        }
+
+        if name.is_some() | location.is_some() {
+            url = self.build_request_url(
+                self.routes.url(Route::TeamWatchersDelete), 
+                &[("name", name), ("location", location)]
+            );
+        }
+
         let response = self.send_request_with_team(
-            self.client
-                .delete(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamWatchersDelete),
-                    watcher_id
-                ))
+            self.client.delete(url)
         )?;
 
-        self.handle_response::<DeleteWatcherResponse>(
+        Ok(self.handle_response::<DeleteWatcherResponse>(
             response,
-            Some(&format!("Watcher `{}` deleted successfully", watcher_id)),
+            None,
             "Watcher deletion failed",
         )?
-        .data
-        .ok_or_else(|| {
-            HttpClientError::DataResponseFailure(
-                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                String::from("Watcher data not returned after deletion"),
-            )
-        })
+        .data)
     }
 
     pub fn ping_watcher(&self, id: &str, print: bool) -> Result<String, HttpClientError> {
+
+        self.log_team_warning();
+
         let response = self.send_request_with_team(
             self.client
                 .patch(&format!(
@@ -792,14 +910,16 @@ impl CerebroClient {
 
         Ok(data)
     }
-
-
     pub fn register_staged_samples(
         &self,
         register_staged_sample_schema: &RegisterStagedSampleSchema
     ) -> Result<(), HttpClientError> {
 
-        let response = self.send_request_with_team(
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
+        let response = self.send_request_with_team_db_project(
             self.client
                 .post(self.routes.url(Route::TeamStagedSamplesRegister))
                 .json(register_staged_sample_schema)
@@ -812,14 +932,21 @@ impl CerebroClient {
         )?;
         Ok(())
     }
-
-
-    pub fn get_staged_samples(
+    pub fn list_staged_samples(
         &self,
-        id: Option<String>,
+        id: String,
+        run_id: Option<String>,
+        sample_id: Option<String>,
         print: bool,
     ) -> Result<Vec<StagedSample>, HttpClientError> {
-        let url = self.build_request_url(Route::TeamStagedSamplesList, &[("id", id)]);
+
+        self.log_team_warning();
+
+        let url = self.build_request_url(
+            &format!("{}/{}", self.routes.url(Route::TeamStagedSamplesList), id), &[
+                ("run_id", run_id), ("sample_id", sample_id)
+            ]
+        );
 
         let response = self.send_request_with_team(
             self.client
@@ -843,13 +970,15 @@ impl CerebroClient {
         if print {
             for staged_sample in &staged_samples {
                 println!(
-                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    "{}\t{}\t{}\t{}\t{} @ {}\t{}\t{}",
                     staged_sample.id,
+                    staged_sample.date,
                     staged_sample.sample_id,
                     staged_sample.database,
                     staged_sample.project,
-                    staged_sample.pipeline,
-                    staged_sample.date,
+                    staged_sample.pipeline.name,
+                    staged_sample.pipeline.location,
+                    staged_sample.pipeline.stage,
                 );
             }
         }
@@ -857,28 +986,40 @@ impl CerebroClient {
         Ok(staged_samples)
     }
 
-    pub fn delete_staged_sample(&self, id: &str) -> Result<StagedSample, HttpClientError> {
+    pub fn delete_staged_sample(
+        &self, 
+        id: &str, 
+        staged_id: Option<String>,
+        run_id: Option<String>,
+        sample_id: Option<String>,
+    ) -> Result<Option<StagedSample>, HttpClientError> {
+
+        self.log_team_warning();
+
+        let mut url = format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)); // deletes all
+
+        if let Some(staged_id) = staged_id {
+            url = format!("{url}/{staged_id}")
+        }
+
+        if run_id.is_some() | sample_id.is_some() {
+            url = self.build_request_url(
+                format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)), 
+                &[("name", run_id), ("location", sample_id)]
+            );
+        }
+
         let response = self.send_request_with_team(
             self.client
-                .delete(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamStagedSamplesDelete),
-                    id
-                ))
+                .delete(url)
         )?;
 
-        self.handle_response::<DeleteStagedSampleResponse>(
+        Ok(self.handle_response::<DeleteStagedSampleResponse>(
             response,
-            Some(&format!("Staged sample `{}` deleted successfully", id)),
+            None,
             "Staged sample deletion failed",
         )?
-        .data
-        .ok_or_else(|| {
-            HttpClientError::DataResponseFailure(
-                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                String::from("Stage sample data not returned after deletion"),
-            )
-        })
+        .data)
     }
 
     // pub fn upload_models(

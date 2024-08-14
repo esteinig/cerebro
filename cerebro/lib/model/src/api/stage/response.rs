@@ -37,6 +37,13 @@ impl RegisterStagedSampleResponse {
             data: None
         }
     }
+    pub fn pipeline_not_found(pipeline_id: String) -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("No registered pipeline to found in database"),
+            data: Some(Vec::from([pipeline_id]))
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -81,6 +88,13 @@ impl DeleteStagedSampleResponse {
             status: String::from("success"),
             message: String::from("Staged sample entries deleted from database"),
             data: Some(sample)
+        }
+    }
+    pub fn all_deleted() -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("All staged sample entries deleted from database"),
+            data: None
         }
     }
     pub fn not_found() -> Self {

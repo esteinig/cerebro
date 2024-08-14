@@ -20,7 +20,9 @@ fn main() -> Result<()> {
         match &cli.command { Commands::Login(_) | Commands::Ping(_) => true, _ => false },
         cli.danger_invalid_certificate,
         cli.token_file,
-        cli.team.clone()
+        cli.team,
+        cli.db,
+        cli.project,
     )?;
     let fs_client = FileSystemClient::new(
         &api_client, 
@@ -47,8 +49,9 @@ fn main() -> Result<()> {
             log::info!("Starting file processing and upload");
             fs_client.upload_files(
                 &args.files,  
-                &args.run_id,
-                &args.sample_id,
+                args.run_id.clone(),
+                args.sample_id.clone(),
+                args.file_type.clone(),
                 UploadConfig::default(),
                 None,
             )?;
@@ -67,7 +70,7 @@ fn main() -> Result<()> {
             )?;
         },
         Commands::List( args ) => {
-            api_client.get_files(
+            api_client.list_files(
                 args.run_id.clone(),
                 args.watcher_id.clone(),
                 args.page,
