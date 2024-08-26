@@ -1,12 +1,12 @@
 use std::{path::PathBuf, process::Output};
 use std::process::Command;
 use reqwest::blocking::get;
-use std::fs;
+use std::fs::{self, create_dir_all};
 use std::io::Cursor;
 use tar::Archive;
 use anyhow::Result;
 
-use crate::error::{WeedUploadError, WeedDownloadError};
+use crate::error::{WeedDownloadError, WeedError};
 use cerebro_model::api::files::response::WeedUploadResponse;
 
 /// Executes the `weed` upload command for single file upload with specified options and returns a single response.
@@ -61,9 +61,9 @@ pub fn weed_upload(
     replication: Option<String>,
     ttl: Option<String>,
     use_public_url: bool,
-) -> Result<WeedUploadResponse, WeedUploadError> {
+) -> Result<WeedUploadResponse, WeedError> {
 
-    let command = get_command(
+    let command = get_upload_command(
         input_file,
         data_center,
         include,
@@ -76,39 +76,68 @@ pub fn weed_upload(
         use_public_url
     );
 
-    log::info!("Executing upload command: weed {command}");
+    log::info!("Executing upload command: weed {}", command.join(" "));
 
-    let output = run_command(&command, "weed")?;
+    let output = run_command(command, "weed")?;
     let output_str = String::from_utf8_lossy(&output.stdout);
     let response: Vec<WeedUploadResponse> = serde_json::from_str(&output_str)?;
 
     if response.len() > 1 {
-        return  Err(WeedUploadError::SingleUploadResponseError);
+        return  Err(WeedError::SingleUploadResponseError);
     }
 
-    response.first().ok_or(WeedUploadError::SingleUploadResponseError).cloned()
+    response.first().ok_or(WeedError::SingleUploadResponseError).cloned()
+}
+
+pub fn weed_download(
+    fid: &str,
+    outdir: &PathBuf,
+    master: Option<String>,
+    port: Option<String>, 
+) -> Result<(), WeedError> {
+
+
+    if !outdir.exists() || !outdir.is_dir() {
+        create_dir_all(&outdir)?;
+    }
+
+    let mut args = vec!["download".to_owned()];
+
+    // Strip "http://" and "https://" prefixes from the master parameter
+    let master_arg = master.unwrap_or_else(|| "localhost".to_owned())
+                            .replace("http://", "")
+                            .replace("https://", "");
+
+    let master_port = port.unwrap_or_else(|| "9333".to_owned());
+
+    args.push(format!("-server={}:{}", master_arg, master_port));
+    args.push(format!("-dir={}", outdir.display()));
+    args.push(fid.to_string());
+
+    run_command(args, "weed")?;
+
+    Ok(())
+
 }
 
 
 
-
-pub fn run_command(command: &str, program: &str) -> Result<Output, WeedUploadError> {
-    let args: Vec<&str> = command.split_whitespace().into_iter().collect();
+pub fn run_command(args: Vec<String>, program: &str) -> Result<Output, WeedError> {
 
     let output = Command::new(program)
         .args(args)
         .output()
-        .map_err(|_| WeedUploadError::ProgramExecutionFailed(program.to_string()))?;
+        .map_err(|_| WeedError::ProgramExecutionFailed(program.to_string()))?;
 
     // Ensure command ran successfully
     if !output.status.success() {
-        return Err(WeedUploadError::CommandExecutionFailed(String::from_utf8_lossy(&output.stderr).to_string()));
+        return Err(WeedError::CommandExecutionFailed(String::from_utf8_lossy(&output.stderr).to_string()));
     }
     Ok(output)
 }
 
 
-pub fn get_command(
+pub fn get_upload_command(
     input_file: &PathBuf,
     data_center: Option<String>,
     include: Option<String>,
@@ -119,7 +148,7 @@ pub fn get_command(
     replication: Option<String>,
     ttl: Option<String>,
     use_public_url: bool,
-) -> String {
+) -> Vec<String> {
 
     let mut command_parts = vec!["upload".to_owned()];
 
@@ -162,10 +191,7 @@ pub fn get_command(
 
     command_parts.push(input_file.display().to_string());
     
-    // Combine all parts into a single command string for display
-    let command_string = command_parts.join(" ");
-
-    command_string
+    command_parts
 }
 
 /// Downloads and installs the `weed` executable from SeaweedFS's GitHub releases into a specified path.

@@ -60,6 +60,11 @@ fn main() -> Result<()> {
             
         },
         Commands::Stage( args ) => {
+            fs_client.stage_files(
+                &args.json,
+                &args.outdir,
+                args.pipeline.clone()
+            )?;
             
         },
         Commands::Delete( args ) => {

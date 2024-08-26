@@ -1,6 +1,8 @@
+use std::{fs::File, path::PathBuf};
+use std::io::{Read, Write};
 use serde::{Serialize, Deserialize};
 
-use crate::api::{files::model::SeaweedFile, pipelines::model::ProductionPipeline};
+use crate::api::{cerebro::model::ModelError, files::model::SeaweedFile, pipelines::model::ProductionPipeline};
 
 
 /*
@@ -21,4 +23,21 @@ pub struct StagedSample {
     pub project: String,
     pub pipeline: ProductionPipeline,
     pub files: Vec<SeaweedFile>
+}
+impl StagedSample {
+
+    pub fn from_json(path: &PathBuf) -> Result<Self, ModelError> {
+        let mut file = File::open(path)?;
+        let mut json_data = String::new();
+        file.read_to_string(&mut json_data)?;
+        let schema = serde_json::from_str(&json_data).map_err(ModelError::JsonDeserialization)?;
+        Ok(schema)
+    }
+    pub fn to_json(&self, path: &PathBuf) -> Result<(), ModelError> {
+        let json_data = serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
+        let mut file = File::create(path)?;
+        file.write_all(json_data.as_bytes())?;
+
+        Ok(())
+    }
 }

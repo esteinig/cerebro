@@ -226,11 +226,11 @@ pub struct TeamArgs {
 pub enum StageCommands {
     /// Register samples for processing with a production pipeline
     Register(StageRegisterArgs),
-    /// List registered samples in the pipeline staging area
+    /// List registered samples in a pipeline staging area
     List(StageListArgs),
-    /// Delete registered samples from the pipeline staging area
+    /// Delete registered samples from a pipeline staging area
     Delete(StageDeleteArgs),
-    /// Pull staged samples from the pipeline staging area
+    /// Pull staged samples from a pipeline staging area
     Pull(StagePullArgs),
 }
 
@@ -264,6 +264,18 @@ pub struct StagePullArgs {
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
+    /// Run name to list in staging area
+    #[clap(long, short = 'o', default_value=".")]
+    pub outdir: PathBuf,
+    /// Delete staged samples
+    #[clap(long, short = 'd')]
+    pub delete: bool,
+    /// Run name to list in staging area
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Sample name to list in staging area
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
 }
 
 #[derive(Debug, Args)]

@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-            // client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+            client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
             
             
         },
@@ -232,7 +232,7 @@ fn main() -> anyhow::Result<()> {
                     };
 
                     client.list_staged_samples(
-                        pipeline_id, 
+                        &pipeline_id, 
                         args.run_id.clone(), 
                         args.sample_id.clone(),
                         true
@@ -246,6 +246,13 @@ fn main() -> anyhow::Result<()> {
                         (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
                     };
 
+                    client.pull_staged_samples(
+                        &pipeline_id, 
+                        args.run_id.clone(), 
+                        args.sample_id.clone(),
+                        &args.outdir,
+                        args.delete,
+                    )?;
 
                 },
                 StageCommands::Delete( args ) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import {  RecursiveTreeView } from "@skeletonlabs/skeleton";
-	import {  type SeaweedFile, WatcherFileGrouping } from "$lib/utils/types";
+	import {  RecursiveTreeView, type TreeViewNode } from "@skeletonlabs/skeleton";
+	import {  type SeaweedFile, SeaweedFileType, WatcherFileGrouping } from "$lib/utils/types";
 	import FileSelectionRun from "./FileSelectionRun.svelte";
 	import FileSelectionSample from "./FileSelectionSample.svelte";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
@@ -86,18 +86,31 @@
     $: groupedFilesFirstLevel = groupSeaweedFiles(files, firstLevel); 
 
     let numberRuns =  new Set(files.map(file => file.run_id)).size;
+
+    let showInvalidSamples: boolean = false;
     
     $: treeView = Object.entries(groupedFilesFirstLevel).map(([runId, groupedFiles1]) => {
-        const children = Object.entries(groupSeaweedFiles(groupedFiles1, secondLevel)).map(([sampleId, groupedFiles2]) => {
-            return {
-                id: sampleId,
-                content: FileSelectionSample,
-                contentProps: {
-                    id: sampleId,
-                    files: groupedFiles2
+        const children = Object.entries(groupSeaweedFiles(groupedFiles1, secondLevel))
+            .filter(([_, groupedFiles2]) => {
+
+                if (showInvalidSamples) {
+                    return true
+                } else {
+                    // Filter out unpaired nodes
+                    const unpaired = groupedFiles2.filter(file => file.ftype === SeaweedFileType.ReadsPaired).length % 2 !== 0;
+                    return !unpaired;
                 }
-            };
-        });
+            })
+            .map(([sampleId, groupedFiles2]) => {
+                return {
+                    id: sampleId,
+                    content: FileSelectionSample,
+                    contentProps: {
+                        id: sampleId,
+                        files: groupedFiles2
+                    }
+                } as TreeViewNode;
+            });
 
         return {
             id: runId,
@@ -107,7 +120,7 @@
                 files: groupedFiles1
             },
             children: children
-        };
+        } as TreeViewNode;
     });
 
     let checkedNodes: string[] = [];
@@ -115,9 +128,15 @@
 
     $: selected = checkedNodes.reduce((acc: string[], node) => {
         const matchingFiles = files.filter(file => file.sample_id === node);
-        matchingFiles.forEach(file => acc.push(file.id));
+        
+        const unpaired = matchingFiles.filter(file => file.ftype === SeaweedFileType.ReadsPaired).length % 2 !== 0;
+        if (!unpaired){
+            matchingFiles.forEach(file => acc.push(file.id));
+        }
         return acc;
     }, []);
+
+    $: console.log(selected)
 
     $: numberSelectedLibraries = checkedNodes.filter(node => !Object.keys(groupedFilesFirstLevel).includes(node)).length
         

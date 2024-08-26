@@ -108,9 +108,15 @@ pub enum Commands {
 
 #[derive(Debug, Args)]
 pub struct StageFileArgs {
+    /// Staged sample model (.json)
+    #[clap(long, short = 'j')]
+    pub json: PathBuf,
     /// Stage file directory
-    #[clap(long, short = 'o')]
+    #[clap(long, short = 'o', default_value=".")]
     pub outdir: PathBuf,
+    /// Stage a file that contains the requested pipeline
+    #[clap(long, short = 'p')]
+    pub pipeline: Option<PathBuf>,
 }
 
 

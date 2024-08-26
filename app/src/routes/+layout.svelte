@@ -26,7 +26,6 @@
 	}
 
 	storeTheme.subscribe(setBodyThemeAttribute);
-	
 
 </script>
 

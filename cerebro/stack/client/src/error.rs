@@ -12,6 +12,8 @@ Custom error definitions
 
 #[derive(Error, Debug)]
 pub enum HttpClientError {
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
     /// Represents failure to get password input from prompt
     #[error("failed to obtain password from prompt")]
     PasswordInput,

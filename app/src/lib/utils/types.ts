@@ -1673,6 +1673,19 @@ export type WatcherConfig = {
     db_name: string
 }
 
+
+/**
+ * 
+ * Cerebro FS file type enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum SeaweedFileType {
+    ReadsPaired = "ReadsPaired",
+    ReadsSingle = "ReadsSingle"
+}
+
+
 /**
  * 
  * Cerebro FS file model
@@ -1687,6 +1700,7 @@ export type SeaweedFile = {
     name: string,
     hash: string,
     fid: string,
+    ftype: SeaweedFileType | null,
     size: number,
     tags: FileTag[],
     watcher: WatcherConfig | null,
@@ -1842,11 +1856,25 @@ export type WatcherResponseData = {
 
 /**
  * 
- * Cerebro production pipeline model
+ * Cerebro file (Cerebro FS) tag update model
  * 
  * @file lib/utils/types
  */
 export type FileTagUpdateSchema = {
     ids: string[],
     tags: FileTag[]
+}
+
+type PipelineId = string;
+
+/**
+ * 
+ * Cerebro staged file registration model
+ * 
+ * @file lib/utils/types
+ */
+export type RegisterStagedSampleSchema = {
+    id: PipelineId,
+    file_ids: string[] | null,
+    run_id: string | null
 }

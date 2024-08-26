@@ -1,13 +1,13 @@
-use std::{collections::HashMap, path::PathBuf};
-use cerebro_model::api::files::model::FileType;
+use std::{collections::HashMap, fs::File, io::{BufWriter, Write}, path::PathBuf};
+use cerebro_model::api::{files::model::FileType, stage::model::StagedSample};
 use chrono::Utc;
 use anyhow::Result;
 use reqwest::StatusCode;
 
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{pipelines::model::ProductionPipeline, watchers::model::ProductionWatcher};
+use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use crate::{error::FileSystemError, hash::fast_file_hash, weed::weed_upload};
+use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, weed_upload}};
 
 
 #[derive(Clone, Debug)]
@@ -118,6 +118,42 @@ impl FileSystemClient {
             let deleted_file = self.api_client.delete_file(Some(file_id), None, None)?;
             self.delete_file(&deleted_file.fid)?;
         } 
+
+        Ok(())
+    }
+
+    pub fn stage_files(
+        &self,
+        json: &PathBuf,
+        outdir: &PathBuf,
+        pipeline: Option<PathBuf>,
+    ) -> Result<(), FileSystemError> {
+
+        let staged_sample = StagedSample::from_json(&json)?;
+        
+        for file in &staged_sample.files {
+            weed_download(
+                &file.fid, 
+                outdir, 
+                Some(self.fs_url.clone()), 
+                Some(self.fs_port.clone())
+            )?
+        }
+
+        staged_sample.to_json(&outdir.join(
+            format!("{}.json", staged_sample.sample_id)
+        ))?;
+
+        if let Some(file) = pipeline {
+            let mut writer = csv::WriterBuilder::new()
+                .has_headers(false)
+                .from_path(&file)?;
+            
+            writer.serialize(staged_sample.pipeline.pipeline)?;
+            writer.flush()?;
+        }
+
+        print!("{}", staged_sample.sample_id);
 
         Ok(())
     }

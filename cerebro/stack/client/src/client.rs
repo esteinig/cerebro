@@ -1,3 +1,4 @@
+use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::Write;
 use anyhow::Result;
@@ -22,8 +23,11 @@ use cerebro_model::api::watchers::response::ListWatchersResponse;
 use cerebro_model::api::watchers::response::PingWatcherResponse;
 use cerebro_model::api::watchers::response::RegisterWatcherResponse;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
+use cerebro_workflow::sample;
+use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
+use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use itertools::Itertools;
@@ -77,6 +81,7 @@ pub enum Route {
     TeamStagedSamplesRegister,
     TeamStagedSamplesList,
     TeamStagedSamplesDelete,
+    TeamStagedSamplesPull,
 }
 
 impl Route {
@@ -104,7 +109,8 @@ impl Route {
             Route::TeamWatchersPing => "watcher",
             Route::TeamStagedSamplesRegister => "stage/register",
             Route::TeamStagedSamplesList => "stage",
-            Route::TeamStagedSamplesDelete => "stage"
+            Route::TeamStagedSamplesDelete => "stage",
+            Route::TeamStagedSamplesPull => "stage"
         }
     }
 }
@@ -375,7 +381,7 @@ impl CerebroClient {
         
         Ok(response)
     }
-    fn send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+    fn _send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
         let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
         let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
 
@@ -934,7 +940,7 @@ impl CerebroClient {
     }
     pub fn list_staged_samples(
         &self,
-        id: String,
+        id: &str,
         run_id: Option<String>,
         sample_id: Option<String>,
         print: bool,
@@ -963,7 +969,7 @@ impl CerebroClient {
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
                     reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                    String::from("No watcher data returned"),
+                    String::from("No stage sample data returned"),
                 )
             })?;
 
@@ -998,14 +1004,10 @@ impl CerebroClient {
 
         let mut url = format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)); // deletes all
 
-        if let Some(staged_id) = staged_id {
-            url = format!("{url}/{staged_id}")
-        }
-
-        if run_id.is_some() | sample_id.is_some() {
+        if run_id.is_some() | sample_id.is_some() | staged_id.is_some() {
             url = self.build_request_url(
                 format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)), 
-                &[("name", run_id), ("location", sample_id)]
+                &[("run_id", run_id), ("sample_id", sample_id), ("stage_id", staged_id)]
             );
         }
 
@@ -1022,45 +1024,97 @@ impl CerebroClient {
         .data)
     }
 
-    // pub fn upload_models(
-    //     &self,
-    //     models: &[Cerebro],
-    //     team_name: &str,
-    //     project_name: &str,
-    //     db_name: Option<&String>,
-    // ) -> Result<(), HttpClientError> {
-    //     let urls = self.get_database_and_project_queries(
-    //         &self.routes.url(Route::DataCerebroInsertModel),
-    //         team_name,
-    //         Some(project_name),
-    //         db_name,
-    //     )?;
+    pub fn pull_staged_samples(
+        &self, 
+        id: &str, 
+        run_id: Option<String>,
+        sample_id: Option<String>,
+        outdir: &PathBuf,
+        delete: bool,
+    ) -> Result<(), HttpClientError> {
+        
+        self.log_team_warning();
 
-    //     for url in &urls {
-    //         for model in models {
-    //             if model.sample.id.is_empty() {
-    //                 return Err(HttpClientError::ModelSampleIdentifierEmpty);
-    //             }
+        if !outdir.exists() && outdir.is_dir() {
+            create_dir_all(&outdir)?;
+        }
 
-    //             let response = self
-    //                 .client
-    //                 .post(url)
-    //                 .header(AUTHORIZATION, self.get_bearer_token(None))
-    //                 .json(model)
-    //                 .send()?;
+        let staged_samples = match self.list_staged_samples(id, run_id, sample_id, false){
+            Ok(samples) => samples, Err(err) => {
+                match err {
+                    HttpClientError::ResponseFailure(code) => {
+                        if code == StatusCode::NOT_FOUND {
+                            Vec::new()  // no samples staged will not raise 404
+                        } else {
+                            return Err(err)
+                        }
+                    },
+                    _ => return Err(err)
+                }
+            }
+        };
 
-    //             self.handle_response::<serde_json::Value>(
-    //                 response,
-    //                 &format!(
-    //                     "Model for sample library {} uploaded successfully",
-    //                     model.sample.id
-    //                 ),
-    //                 "Upload failed",
-    //             )?;
-    //         }
-    //     }
-    //     Ok(())
-    // }
+        let timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+
+        for staged_sample in &staged_samples {
+            staged_sample.to_json(&outdir.join(
+                format!("{}.json", staged_sample.id)
+            ))?;
+        }
+
+        if delete {
+            for staged_sample in &staged_samples {
+                self.delete_staged_sample(
+                    &id, 
+                    Some(staged_sample.id.to_string()), 
+                    None, 
+                    None
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn upload_models(
+        &self,
+        models: &[Cerebro],
+        team_name: &str,
+        project_name: &str,
+        db_name: Option<&String>,
+    ) -> Result<(), HttpClientError> {
+        let urls = self.get_database_and_project_queries(
+            &self.routes.url(Route::DataCerebroInsertModel),
+            team_name,
+            Some(project_name),
+            db_name,
+        )?;
+
+        for url in &urls {
+            for model in models {
+                if model.sample.id.is_empty() {
+                    return Err(HttpClientError::ModelSampleIdentifierEmpty);
+                }
+
+                let response = self
+                    .client
+                    .post(url)
+                    .header(AUTHORIZATION, self.get_bearer_token(None))
+                    .json(model)
+                    .send()?;
+
+                self.handle_response::<serde_json::Value>(
+                    response,
+                    Some(&format!(
+                        "Model for sample library {} uploaded successfully",
+                        model.sample.id
+                    )),
+                    "Upload failed",
+                )?;
+            }
+        }
+        Ok(())
+    }
     // pub fn taxa_summary(
     //     &self, 
     //     team_name: &str, 
@@ -1252,84 +1306,82 @@ impl CerebroClient {
 
     //     get_database_by_name(&team.databases, db_name)
     // }
-    // pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: Option<&str>, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
+    pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: Option<&str>, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
 
-    //     let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
+        let url = format!("{}?name={}", &self.routes.url(Route::DataUserSelfTeams), team_name);
         
-    //     // Request data on a team project for insertion of new data
-    //     // log::info!("Getting user team for database verification ({})", &url);
-
-    //     let response = self.client.get(url)
-    //         .header(AUTHORIZATION, self.get_token_bearer(None))
-    //         .send()?;
+        // Request data on a team project for insertion of new data
+        // log::info!("Getting user team for database verification ({})", &url);
         
-    //     let status = response.status();
+        let response = self.client.get(&url)
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
+        log::info!("{url}");
+        let status = response.status();
 
-    //     let team = match status.is_success() {
-    //         true => {
-    //             let team_response: UserSelfTeamResponse = response.json()?;
-    //             team_response.data.team
-    //         }
-    //         false => {
-    //             let error_response: ErrorResponse = response.json().map_err(|_| {
-    //                 HttpClientError::ResponseFailure(
-    //                     status, 
-    //                     String::from("failed to make request")
-    //                 )
-    //             })?;
-    //             return Err(HttpClientError::ResponseFailure(
-    //                 status, 
-    //                 error_response.message
-    //             ))
-    //         }
-    //     };
+        let team = match status.is_success() {
+            true => {
+                let team_response: UserSelfTeamResponse = response.json()?;
+                team_response.data.team
+            }
+            false => {
+                let error_response: ErrorResponse = response.json().map_err(|_| {
+                    HttpClientError::ResponseFailure(
+                        status
+                    )
+                })?;
+                return Err(HttpClientError::ResponseFailure(
+                    status
+                ))
+            }
+        };
 
-    //     if team.databases.is_empty() {
-    //         log::error!("No team databases exist - this is unusual, please contact system administrator");
-    //         return Err(HttpClientError::TeamDatabasesNotFound)
-    //     }
+        if team.databases.is_empty() {
+            log::error!("No team databases exist - this is unusual, please contact system administrator");
+            return Err(HttpClientError::TeamDatabasesNotFound)
+        }
 
-    //     let mut urls = Vec::new();
-    //     for database in &team.databases {
+        let mut urls = Vec::new();
+        for database in &team.databases {
 
-    //         // If specific database name requested, check if this is it,
-    //         // otherwise use all databases for this team for data insertion
-    //         if let Some(name) = db_name {
-    //             if &database.name != name {
-    //                 log::info!("Requested database ({}) - skipping team database ({})", &name, &database.name);
-    //                 continue
-    //             }
-    //         }
-    //         match project_name {
-    //             Some(name) => {
-    //                 let project = get_project_by_name(&database.projects, name)?;
-    //                 urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
-    //             },
-    //             None => {
-    //                 urls.push(format!("{}?db={}", &route, database.id))
-    //             }
-    //         }
-    //     }    
+            // If specific database name requested, check if this is it,
+            // otherwise use all databases for this team for data insertion
+            if let Some(name) = db_name {
+                if &database.name != name {
+                    log::info!("Requested database ({}) - skipping team database ({})", &name, &database.name);
+                    continue
+                }
+            }
+            match project_name {
+                Some(name) => {
+                    let project = get_project_by_name(&database.projects, name)?;
+                    urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
+                },
+                None => {
+                    urls.push(format!("{}?db={}", &route, database.id))
+                }
+            }
+        }    
 
-    //     Ok(urls)
-    // }
+        Ok(urls)
+    }
 }
 
 
-// fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) -> Result<ProjectCollection, HttpClientError>   {
-//     let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name).collect();
+fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) -> Result<ProjectCollection, HttpClientError>   {
+    let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name).collect();
 
-//     if matches.len() > 0 {
-//         Ok(matches[0].to_owned())
-//     } else {
-//         let valid_project_name_string = projects.iter()
-//             .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
-//             .collect::<Vec<String>>()
-//             .join(", ");
+    if matches.len() > 0 {
+        Ok(matches[0].to_owned())
+    } else {
+        let valid_project_name_string = projects.iter()
+            .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
+            .collect::<Vec<String>>()
+            .join(", ");
     
-//         Err(HttpClientError::InsertModelProjectParameter(valid_project_name_string))
-//     }
-// }
+        Err(HttpClientError::InsertModelProjectParameter(valid_project_name_string))
+    }
+}
 
 
 // fn get_database_by_name(databases: &Vec<TeamDatabase>, db_name: &str) -> Result<TeamDatabase, HttpClientError>   {

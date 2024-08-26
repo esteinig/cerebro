@@ -55,8 +55,17 @@ async fn register_staged_samples(data: web::Data<AppState>, schema: web::Json<Re
                 .await
                 .unwrap_or_else(|_| vec![])
                 .into_iter()
-                .filter_map(|doc| from_document(doc).ok())
-                .collect()
+                .filter_map(|doc| {
+                    let staged_sample: Option<StagedSample> = from_document(doc).ok();
+                    if let Some(mut staged_sample) = staged_sample {
+                        staged_sample.id = uuid::Uuid::new_v4().to_string(); // assign a unique staging identifier!
+                        Some(staged_sample)
+                    } else {
+                        None
+                    }
+                    
+                })
+                .collect::<Vec<StagedSample>>()
         },
         Err(err) => {
             return HttpResponse::InternalServerError().json(
@@ -139,6 +148,8 @@ async fn list_staged_samples(data: web::Data<AppState>, pipeline_id: web::Path<S
 
 #[derive(Deserialize)]
 struct StageDeleteQuery {  
+    // Optional staged sample identifier
+    stage_id: Option<String>,
     // Optional run identifier
     run_id: Option<String>,
     // Optional sample identifier
@@ -159,6 +170,11 @@ async fn delete_staged_samples(data: web::Data<AppState>, pipeline_id: web::Path
     
     let mut delete_query = doc! {};
 
+
+    if let Some(id) = &query.stage_id {
+        delete_query.insert("id", id);
+    }
+
     if let Some(name) = &query.run_id {
         delete_query.insert("run_id", name);
     }
@@ -166,6 +182,7 @@ async fn delete_staged_samples(data: web::Data<AppState>, pipeline_id: web::Path
     if let Some(location) = &query.sample_id {
         delete_query.insert("sample_id", location);
     }
+
 
     match stage_collection
         .delete_many(delete_query, None) 
@@ -188,43 +205,10 @@ async fn delete_staged_samples(data: web::Data<AppState>, pipeline_id: web::Path
     }
 }
 
-#[delete("/stage/{pipeline_id}/{staged_id}")]
-async fn delete_staged_sample(data: web::Data<AppState>, pipeline_id: web::Path<String>, staged_id: web::Path<String>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let pipeline = match get_pipeline_from_db(&data, &pipeline_id, &auth_guard).await {
-        Ok(pipeline) => pipeline,
-        Err(response) => return response
-    };
-
-
-    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &pipeline.stage);
-    
-    match stage_collection
-        .find_one_and_delete(
-            doc! { "id":  &staged_id.into_inner()}, None)
-        .await
-    {   
-        Ok(deleted) => {
-            match deleted {
-                Some(file) => HttpResponse::Ok().json(
-                    DeleteStagedSampleResponse::success(file)
-                ),
-                None => HttpResponse::NotFound().json(
-                    DeleteStagedSampleResponse::not_found()
-                )
-            }
-        }
-        Err(err) => HttpResponse::InternalServerError().json(
-            DeleteStagedSampleResponse::server_error(err.to_string())
-        )
-    }
-}
-
 
 // Handler configuration
 pub fn stage_config(cfg: &mut web::ServiceConfig) {
     cfg.service(register_staged_samples)
         .service(delete_staged_samples)
-        .service(delete_staged_sample)
         .service(list_staged_samples);
 }

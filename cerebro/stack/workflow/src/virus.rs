@@ -168,7 +168,7 @@ impl VirusAlignmentSummary {
             let scan_annotation = Annotation::from(&scan_record.description, &annotation_options);
 
             // We can have multiple results with the same reference  if the reference was segmented. We therefore extract the 
-            // segment description from therecord annotations and append the extracted segment
+            // segment description from the record annotations and append the extracted segment
 
             let matching_records: Vec<&VircovRecord> = remap_vircov.records.iter().filter(|remap_record| {
                 let mut scan_id = scan_record.reference.clone();

@@ -237,6 +237,10 @@ interface WatcherRoutes {
     getWatchers: string
 }
 
+interface StageRoutes {
+    registerSamples: string
+}
+
 
 /**
  * Cerebro API Routes
@@ -255,6 +259,7 @@ export class Routes {
     files: FilesRoutes;
     pipelines: PipelineRoutes;
     watchers: WatcherRoutes;
+    stage: StageRoutes;
     cerebro: CerebroRoutes;
 
     constructor(apiUrl: string) {
@@ -266,6 +271,7 @@ export class Routes {
         let filesRoute = `${apiUrl}/files`;
         let pipelinesRoute = `${apiUrl}/pipeline`;
         let watcherRoute = `${apiUrl}/watcher`;
+        let stageRoute = `${apiUrl}/stage`;
         let cerebroRoute = `${apiUrl}/cerebro`;
 
         this.auth = {
@@ -327,6 +333,9 @@ export class Routes {
         }
         this.watchers = {
             getWatchers: `${watcherRoute}`
+        }
+        this.stage = {
+            registerSamples: `${stageRoute}/register`
         }
     }
 }

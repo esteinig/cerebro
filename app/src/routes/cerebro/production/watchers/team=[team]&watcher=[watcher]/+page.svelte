@@ -3,14 +3,27 @@
     import { page } from "$app/stores";
     import { onMount } from 'svelte';
     import { invalidate } from '$app/navigation';
+    import { getToastStore } from "@skeletonlabs/skeleton";
 
-	import { type SeaweedFile, type ProductionPipeline, type ProductionWatcher, type ProjectCollection, type TeamDatabase } from "$lib/utils/types";
+	import { 
+        type RegisterStagedSampleSchema, 
+        type ProductionPipeline, 
+        type ProductionWatcher, 
+        type ProjectCollection, 
+        type TeamDatabase 
+    } from "$lib/utils/types";
+
 	import { isWithinTimeLimit } from "$lib/utils/helpers";
 	import ActiveIndicator from "$lib/general/icons/ActiveIndicator.svelte";
 	import FileSelection from "$lib/components/production/watchers/FileSelection.svelte";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
+	import CerebroApi from "$lib/utils/api.js";
 
     export let data;
+    
+    let toastStore = getToastStore();
+    const publicApi = new CerebroApi()
+
 
     // Invalidates page data every three minute to update 
     // the watcher/pipeline activity status indicators
@@ -30,6 +43,8 @@
         await goto(`/cerebro/production/watchers/team=${selectedTeamId}&watcher=${selectedWatcher?.id}`)
     }
 
+    let selectedFilesIds: string[] = [];
+    let selectedTeamId: string = $page.params.team;
 
     let selectedWatcher: ProductionWatcher | undefined = data.defaultWatcher;
 
@@ -41,7 +56,15 @@
     $: pipelineSelection = data.registeredPipelines;
     $: selectedPipeline = pipelineSelection.find(pipeline => pipeline.id === selectedPipeline?.id) || pipelineSelection[0];
 
+    let selectedDatabase: TeamDatabase = data.defaultDatabase;
+    
+    $: databaseSelection = data.selectedTeam.databases;
+    $: selectedDatabase = databaseSelection.find(db => db.id === db.id) || databaseSelection[0];
 
+    let selectedProject: ProjectCollection = data.defaultProject;
+
+    $: projectSelection = selectedDatabase.projects;
+    $: selectedProject = projectSelection.find(project => project.id === selectedProject.id) || projectSelection[0];
 
     $: pipelineIsActive = isWithinTimeLimit(
         data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 5
@@ -50,21 +73,31 @@
         data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 5
     );    
 
-    let selectedTeamId: string = $page.params.team;
 
-    let selectedDatabase: TeamDatabase = data.defaultDatabase;
-    
-    $: databaseSelection = data.selectedTeam.databases;
-    $: selectedDatabase = databaseSelection.find(db => db.id === db.id) || databaseSelection[0];
+    const stageLibraries = async() => {
 
+        if (!selectedPipeline) {
+            return
+        }
 
-    let selectedProject: ProjectCollection = data.defaultProject;
+        let registerStagedSampleSchema: RegisterStagedSampleSchema = {
+            id: selectedPipeline.id,
+            file_ids: selectedFilesIds,
+            run_id: null
+        }
 
-    $: projectSelection = selectedDatabase.projects;
-    $: selectedProject = projectSelection.find(project => project.id === selectedProject.id) || projectSelection[0];
-
-    let selectedFilesIds: string[] = [];
-
+        await publicApi.fetchWithRefresh(
+            `${publicApi.routes.stage.registerSamples}?team=${$page.params.team}&db=${selectedDatabase.id}&project=${selectedProject.id}`,
+            { 
+                method: 'POST',  
+                mode: 'cors',
+                credentials: 'include', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(registerStagedSampleSchema) 
+            } as RequestInit,
+            $page.data.refreshToken, toastStore, "Staged libraries for pipeline execution"
+        )
+    }
 </script>
 
 
@@ -87,7 +120,7 @@
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Watcher</span></p>
-                            <select id="watcherSelect" class="select" bind:value={selectedWatcher} on:change={changeWatcher}>
+                            <select id="watcherSelect" class="select" bind:value={selectedWatcher} on:change={changeWatcher} placeholder="No watchers registered">
                                 {#each watcherSelection as watcher}
                                     <option value={watcher}>{watcher.name} @ {watcher.location}</option>
                                 {/each}
@@ -111,7 +144,7 @@
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Pipeline</span></p>
-                            <select id="pipelineSelect" class="select" bind:value={selectedPipeline}>
+                            <select id="pipelineSelect" class="select" bind:value={selectedPipeline} placeholder="No pipelines registered">
                                 {#each pipelineSelection as pipeline}
                                     <option value={pipeline}>{pipeline.name} @ {pipeline.location}</option>
                                 {/each}
@@ -144,7 +177,7 @@
                     </div>
                 </div>
                 <div class="flex gap-4 justify-center mt-4">
-                    <button type="button" class="btn btn-md variant-outline-primary align-center w-3/4" disabled={!pipelineIsActive}>
+                    <button type="button" class="btn btn-md variant-outline-primary align-center w-3/4" disabled={!pipelineIsActive} on:click={stageLibraries}>
                         <div class="w-4 h-4 mr-4 -mt-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-brain-circuit"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M9 13a4.5 4.5 0 0 0 3-4"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M12 13h4"/><path d="M12 18h6a2 2 0 0 1 2 2v1"/><path d="M12 8h8"/><path d="M16 8V5a2 2 0 0 1 2-2"/><circle cx="16" cy="13" r=".5"/><circle cx="18" cy="3" r=".5"/><circle cx="20" cy="21" r=".5"/><circle cx="20" cy="8" r=".5"/></svg>
                         </div>            

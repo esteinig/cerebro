@@ -4,9 +4,11 @@ use serde::{Serialize, Deserialize};
 
 use crate::api::{cerebro::model::ModelError, pipelines::schema::RegisterPipelineSchema};
 
+type PipelineId = String;
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterStagedSampleSchema {
-    pub id: String,
+    pub id: PipelineId,
     pub file_ids: Option<Vec<String>>,
     pub run_id: Option<String>,
 }
