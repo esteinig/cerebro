@@ -1,65 +1,18 @@
 
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import groovy.json.JsonSlurper
-
 process StageInputFiles {
 
     input:
     path(stageJson)
 
     output:
-    tuple env(PIPELINE), env(SAMPLE_ID), env(STAGE_ID), path(stageJson), path("*.gz")
+    tuple env(PIPELINE), env(SAMPLE_ID), path("*.gz")
 
     script:
 
     """
     SAMPLE_ID=\$(cerebro-fs stage --json $stageJson --outdir . --pipeline pipeline.txt)
-    STAGE_ID=\$(basename $stageJson .json)
     PIPELINE=\$(cat pipeline.txt)
     """
-}
-
-
-def stageCerebroSamples(String team, String pipelineId, String outputDir, boolean delete = false, long intervalSeconds = 5) {
-    
-    // Create the output directory if it doesn't exist
-    def outputDirectory = new File(outputDir)
-    if (!outputDirectory.exists()) {
-        outputDirectory.mkdirs()
-    }
-
-    def executor = Executors.newSingleThreadScheduledExecutor()
-    
-    def task = {
-        try {
-            // Generate a random filename for the output
-            def randomFileName = "${outputDir}/${UUID.randomUUID().toString()}.txt"
-            
-            // Command to execute
-            def command = "cerebro-client --team ${team} stage pull --id ${pipelineId} --outdir ${outputDir}"
-            
-            if (delete) {
-                command = "${command} --delete"
-            }
-            
-            def process = command.execute()
-            process.waitFor()
-
-            // Write the output to the file
-            new File(randomFileName).text = process.text
-
-            // Check for errors
-            if (process.exitValue() != 0) {
-                println "Error executing command: ${process.err.text}"
-            }
-        } catch (Exception e) {
-            println "An error occurred: ${e.message}"
-        }
-    }
-    
-    // Schedule the task to run at the specified interval
-    executor.scheduleAtFixedRate(task, 0, intervalSeconds, TimeUnit.SECONDS)
 }
 
 /**
@@ -160,4 +113,35 @@ def getPanviralEnrichmentVirusDatabase() {
     }
 
     return [virusIndexPaths, virusReferenceFile.absolutePath]
+}
+
+
+
+def getPanviralEnrichmentControlDatabase() {
+
+    controlReference = params.panviralEnrichment.controlReference
+    controlIndex = params.panviralEnrichment.controlIndex
+
+    // Check if the host aligner is Bowtie2 and retrieve the appropriate index files
+    if (params.panviralEnrichment.controlAligner == "bowtie2") {
+        try {
+            controlIndexPaths = getBowtie2IndexFiles(controlIndex)
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Error retrieving Bowtie2 index files for control database: ${e.message}")
+        }
+    } else {
+        // For other aligners, simply use the hostIndex as a single file path
+        controlIndexFile = new File(controlIndex)
+        controlIndexPaths = [controlIndexFile.absolutePath]
+        if (!controlIndexFile.exists()) {
+            throw new RuntimeException("Virus index file does not exist: ${controlIndex}")
+        }
+    }
+    
+    controlReferenceFile = new File(controlReference)
+    if (!controlReferenceFile.exists()) {
+        throw new RuntimeException("Virus reference file does not exist: ${controlReference}")
+    }
+
+    return [controlIndexPaths, controlReferenceFile.absolutePath]
 }

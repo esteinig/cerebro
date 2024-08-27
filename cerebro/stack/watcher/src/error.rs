@@ -10,12 +10,16 @@ Custom error definitions
 
 #[derive(Error, Debug)]
 pub enum WatcherError {
+    
     #[error(transparent)]
     CerebroClientError(#[from] cerebro_client::error::HttpClientError),
     #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
     #[error(transparent)]
+    CerebroSlackError(#[from] cerebro_model::slack::SlackError),
+    #[error(transparent)]
     FileSystemClientError(#[from] cerebro_fs::error::FileSystemError),
+    
     #[error(transparent)]
     NotifyError(#[from] notify::Error),
     #[error(transparent)]

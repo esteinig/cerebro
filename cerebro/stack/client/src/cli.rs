@@ -2,14 +2,14 @@
 use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{PipelineCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
+use cerebro_client::terminal::{TowerCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
 
 use cerebro_workflow::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
@@ -83,47 +83,47 @@ fn main() -> anyhow::Result<()> {
             
             
         },
-        Commands::Pipeline(subcommand) => {
+        Commands::Tower(subcommand) => {
             match subcommand {
-                PipelineCommands::Register( args ) => {
+                TowerCommands::Register( args ) => {
                     
-                    let register_pipeline_schema = RegisterPipelineSchema::new(
+                    let schema = RegisterTowerSchema::new(
                         &args.name, 
                         &args.location, 
-                        args.pipeline.clone()
+                        args.pipelines.clone()
                     );
 
-                    client.register_pipeline(
-                        &register_pipeline_schema,
+                    client.register_tower(
+                        &schema,
                         true
                     )?;
 
                     if let Some(path) = &args.json {
-                        register_pipeline_schema.to_json(path)?;
+                        schema.to_json(path)?;
                     }
                 },
-                PipelineCommands::List( args ) => {
-                    client.list_pipelines(args.id.clone(), true)?;
+                TowerCommands::List( args ) => {
+                    client.list_towers(args.id.clone(), true)?;
                 },
-                PipelineCommands::Ping( args ) => {
+                TowerCommands::Ping( args ) => {
 
-                    let pipleine_id = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                    let tower_id = match (args.json.clone(), args.id.clone()) {
+                        (Some(path), _) => RegisterTowerSchema::from_json(&path)?.id,
                         (None, Some(id)) => id.to_owned(),
-                        _ => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                        _ => return Err(HttpClientError::TowerIdentifierNotFound.into())
                     };
 
-                    client.ping_pipeline(&pipleine_id,  true)?;
+                    client.ping_tower(&tower_id,  true)?;
                 },
-                PipelineCommands::Delete( args ) => {
+                TowerCommands::Delete( args ) => {
                     if args.all {
                         let confirmation = dialoguer::Confirm::new()
-                            .with_prompt("Do you want to delete ALL pipelines?")
+                            .with_prompt("Do you want to delete ALL tower registrations?")
                             .interact()
                             .unwrap();
 
                         if confirmation {
-                            client.delete_pipeline(
+                            client.delete_tower(
                                 None, 
                                 None, 
                                 None, 
@@ -131,7 +131,7 @@ fn main() -> anyhow::Result<()> {
                             )?;
                         }
                     } else {
-                        client.delete_pipeline(
+                        client.delete_tower(
                             args.id.clone(), 
                             args.json.clone(), 
                             args.name.clone(), 
@@ -209,14 +209,14 @@ fn main() -> anyhow::Result<()> {
             match subcommand {
                 StageCommands::Register( args ) => {
                     
-                    let schema = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterStagedSampleSchema::from_pipeline_json(
-                            &path, args.file_id.clone(), args.run_id.clone()
+                    let schema = match (args.json.clone(), args.tower_id.clone()) {
+                        (Some(path), _) => RegisterStagedSampleSchema::from_tower_json(
+                            &path, args.pipeline.clone(), args.file_id.clone(), args.run_id.clone()
                         )?,
                         (None, Some(id)) => RegisterStagedSampleSchema::new(
-                            &id, args.file_id.clone(), args.run_id.clone()
+                            &id, args.pipeline.clone(), args.file_id.clone(), args.run_id.clone()
                         ),
-                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                        (None, None) => return Err(HttpClientError::TowerIdentifierNotFound.into())
                     };
 
                     client.register_staged_samples(&schema)?;
@@ -225,14 +225,14 @@ fn main() -> anyhow::Result<()> {
                 StageCommands::List( args ) => {
 
 
-                    let pipeline_id = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                    let tower_id = match (args.json.clone(), args.tower_id.clone()) {
+                        (Some(path), _) => RegisterTowerSchema::from_json(&path)?.id,
                         (None, Some(id)) => id,
-                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                        (None, None) => return Err(HttpClientError::TowerIdentifierNotFound.into())
                     };
 
                     client.list_staged_samples(
-                        &pipeline_id, 
+                        &tower_id, 
                         args.run_id.clone(), 
                         args.sample_id.clone(),
                         true
@@ -240,14 +240,14 @@ fn main() -> anyhow::Result<()> {
                 },
                 StageCommands::Pull( args ) => {
 
-                    let pipeline_id = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                    let tower_id = match (args.json.clone(), args.tower_id.clone()) {
+                        (Some(path), _) => RegisterTowerSchema::from_json(&path)?.id,
                         (None, Some(id)) => id,
-                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                        (None, None) => return Err(HttpClientError::TowerIdentifierNotFound.into())
                     };
 
                     client.pull_staged_samples(
-                        &pipeline_id, 
+                        &tower_id, 
                         args.run_id.clone(), 
                         args.sample_id.clone(),
                         &args.outdir,
@@ -257,10 +257,10 @@ fn main() -> anyhow::Result<()> {
                 },
                 StageCommands::Delete( args ) => {
 
-                    let pipeline_id = match (args.json.clone(), args.id.clone()) {
-                        (Some(path), _) => RegisterPipelineSchema::from_json(&path)?.id,
+                    let tower_id = match (args.json.clone(), args.tower_id.clone()) {
+                        (Some(path), _) => RegisterTowerSchema::from_json(&path)?.id,
                         (None, Some(id)) => id,
-                        (None, None) => return Err(HttpClientError::PipelineIdentifierArgNotFound.into())
+                        (None, None) => return Err(HttpClientError::TowerIdentifierNotFound.into())
                     };
 
                     if args.all {
@@ -271,7 +271,7 @@ fn main() -> anyhow::Result<()> {
 
                         if confirmation {
                             client.delete_staged_sample(
-                                &pipeline_id, 
+                                &tower_id, 
                                 None, 
                                 None, 
                                 None
@@ -279,7 +279,7 @@ fn main() -> anyhow::Result<()> {
                         }
                     } else {
                         client.delete_staged_sample(
-                            &pipeline_id, 
+                            &tower_id, 
                             args.staged_id.clone(), 
                             args.run_id.clone(), 
                             args.sample_id.clone()

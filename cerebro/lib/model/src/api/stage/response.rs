@@ -37,11 +37,11 @@ impl RegisterStagedSampleResponse {
             data: None
         }
     }
-    pub fn pipeline_not_found(pipeline_id: String) -> Self {
+    pub fn tower_not_found(tower_id: String) -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No registered pipeline to found in database"),
-            data: Some(Vec::from([pipeline_id]))
+            message: String::from("No registered tower found in database"),
+            data: Some(Vec::from([tower_id]))
         }
     }
 }

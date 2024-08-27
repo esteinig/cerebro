@@ -2,7 +2,8 @@ use std::{fs::File, path::PathBuf};
 use std::io::{Read, Write};
 use serde::{Serialize, Deserialize};
 
-use crate::api::{cerebro::model::ModelError, files::model::SeaweedFile, pipelines::model::ProductionPipeline};
+use crate::api::towers::model::Pipeline;
+use crate::api::{cerebro::model::ModelError, files::model::SeaweedFile, towers::model::ProductionTower};
 
 
 /*
@@ -21,7 +22,8 @@ pub struct StagedSample {
     pub sample_id: String,
     pub database: String,
     pub project: String,
-    pub pipeline: ProductionPipeline,
+    pub pipeline: Pipeline,
+    pub tower: ProductionTower,
     pub files: Vec<SeaweedFile>
 }
 impl StagedSample {

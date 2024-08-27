@@ -10,7 +10,7 @@ pub enum TeamAdminCollection {
     Reports,
     Files,
     Watchers,
-    Pipelines
+    Towers
 }
 impl TeamAdminCollection {
     pub fn name(&self) -> String {
@@ -19,7 +19,7 @@ impl TeamAdminCollection {
             TeamAdminCollection::Reports => String::from("reports"),
             TeamAdminCollection::Files => String::from("files"),
             TeamAdminCollection::Watchers => String::from("watchers"),
-            TeamAdminCollection::Pipelines => String::from("pipelines")
+            TeamAdminCollection::Towers => String::from("towers")
         }
     }
 }
@@ -172,7 +172,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("Pipelines"),
             description: String::from("Production pipeline registrations for Cerebro"),
-            collection: TeamAdminCollection::Pipelines.name()
+            collection: TeamAdminCollection::Towers.name()
         }
     }
     pub fn team_logs() -> ProjectCollection {

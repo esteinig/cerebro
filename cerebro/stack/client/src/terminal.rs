@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use cerebro_model::api::{watchers::model::WatcherFormat, pipelines::model::Pipeline};
+use cerebro_model::api::{watchers::model::WatcherFormat, towers::model::Pipeline};
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production stack server
@@ -88,7 +88,7 @@ pub enum Commands {
     Watcher(WatcherCommands),
     /// CRUD operations for production pipelines
     #[clap(subcommand)]
-    Pipeline(PipelineCommands),
+    Tower(TowerCommands),
     /// CRUD operations for staging production files
     #[clap(subcommand)]
     Stage(StageCommands),
@@ -239,12 +239,15 @@ pub enum StageCommands {
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
 #[clap(group = ArgGroup::new("files").required(true).args(&["file_ids", "run_id"]))]
 pub struct StageRegisterArgs {
-    /// Registered pipeline identifier
+    /// Registered tower identifier
     #[clap(long, short = 'i', group = "input")]
-    pub id: Option<String>,
+    pub tower_id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
+    /// Registered tower identifier
+    #[clap(long, short = 'p')]
+    pub pipeline: Pipeline,
     /// File identifiers for sample stage registration
     #[clap(long, short = 'f', group = "files")]
     pub file_id: Option<Vec<String>>,
@@ -258,9 +261,9 @@ pub struct StageRegisterArgs {
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
 pub struct StagePullArgs {
-    /// Registered pipeline identifier
+    /// Registered tower identifier
     #[clap(long, short = 'i', group = "input")]
-    pub id: Option<String>,
+    pub tower_id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
@@ -281,9 +284,9 @@ pub struct StagePullArgs {
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
 pub struct StageListArgs {
-    /// Registered pipeline identifier
+    /// Registered tower identifier
     #[clap(long, short = 'i', group = "input")]
-    pub id: Option<String>,
+    pub tower_id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
@@ -299,9 +302,9 @@ pub struct StageListArgs {
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
 #[clap(group = ArgGroup::new("delete").required(true).args(&["staged_id", "run_id", "sample_id", "all"]))]
 pub struct StageDeleteArgs {
-    /// Registered pipeline identifier
+    /// Registered tower identifier
     #[clap(long, short = 'i', group = "input")]
-    pub id: Option<String>,
+    pub tower_id: Option<String>,
     /// Pipeline registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
@@ -321,67 +324,67 @@ pub struct StageDeleteArgs {
 
 
 #[derive(Debug, Subcommand)]
-pub enum PipelineCommands {
-    /// Register a new production pipeline
-    Register(PipelineRegisterArgs),
-    /// List registered production pipelines
-    List(PipelineListArgs),
-    /// Delete a registered production pipeline
-    Delete(PipelineDeleteArgs),
-    /// Ping a registered pipeline to update active status
-    Ping(PipelinePingArgs),
+pub enum TowerCommands {
+    /// Register a new production tower
+    Register(TowerRegisterArgs),
+    /// List registered production towers
+    List(TowerListArgs),
+    /// Delete a registered production tower
+    Delete(TowerDeleteArgs),
+    /// Ping a registered tower to update active status
+    Ping(TowerPingArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct PipelineRegisterArgs {
-    /// Cerebro pipeline for registration
-    #[clap(long, short = 'p')]
-    pub pipeline: Pipeline,
-    /// Pipeline name for registration
+pub struct TowerRegisterArgs {
+    /// Tower name for registration
     #[clap(long, short = 'n')]
     pub name: String,
-    /// Pipeline location for registration
+    /// Tower location for registration
     #[clap(long, short = 'l')]
     pub location: String,
     /// Output registration for future reference (.json)
     #[clap(long, short = 'j')]
     pub json: Option<PathBuf>,
+    /// Cerebro pipelines for registration, otherwise are all available
+    #[clap(long, short = 'p', num_args(0..))]
+    pub pipelines: Option<Vec<Pipeline>>,
 }
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
-pub struct PipelinePingArgs {
-    /// Pipeline identifier generated during registration
+pub struct TowerPingArgs {
+    /// Tower identifier generated during registration
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
-    /// Pipeline registration record (.json)
+    /// Tower registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>
 }
 
 #[derive(Debug, Args)]
-pub struct PipelineListArgs {
-    /// Pipeline identifier generated during registration for single record listing
+pub struct TowerListArgs {
+    /// Tower identifier generated during registration for single record listing
     #[clap(long, short = 'i')]
     pub id: Option<String>,
 }
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json", "name", "location", "all"]))]
-pub struct PipelineDeleteArgs {
-    /// Pipeline identifier generated during registration
+pub struct TowerDeleteArgs {
+    /// Tower identifier generated during registration
     #[clap(long, short = 'i', group = "input")]
     pub id: Option<String>,
-    /// Pipeline registration record (.json)
+    /// Tower registration record (.json)
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
-    /// Pipeline name
+    /// Tower name
     #[clap(long, short = 'r', group = "input")]
     pub name: Option<String>,
     /// Watcher location
     #[clap(long, short = 'l', group = "input")]
     pub location: Option<String>,
-    /// Delete all pipelines (requires confirmation)
+    /// Delete all towers (requires confirmation)
     #[clap(long, short = 'a')]
     pub all: bool,
 }

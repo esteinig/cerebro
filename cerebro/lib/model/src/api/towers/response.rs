@@ -1,25 +1,25 @@
 use serde::{Deserialize, Serialize};
 
-use super::model::ProductionPipeline;
+use super::model::ProductionTower;
 
 #[derive(Serialize, Deserialize)]
-pub struct RegisterPipelineResponse {
+pub struct RegisterTowerResponse {
     pub status: String,
     pub message: String,
     pub data: Option<String>
 }
-impl RegisterPipelineResponse {
+impl RegisterTowerResponse {
     pub fn success(id: &str) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registered successfully"),
+            message: String::from("Tower registered successfully"),
             data: Some(id.to_string())
         }
     }
     pub fn conflict(id: &str, name: &str, location: &str) -> Self {
         Self {
             status: String::from("fail"),
-            message: format!("Pipeline with identifier '{id}' or name '{name}' and location '{location}' already exists in database"),
+            message: format!("Tower with identifier '{id}' or name '{name}' and location '{location}' already exists in database"),
             data: Some(id.to_string())
         }
     }
@@ -33,23 +33,23 @@ impl RegisterPipelineResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ListPipelinesResponse {
+pub struct ListTowersResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<ProductionPipeline>>
+    pub data: Option<Vec<ProductionTower>>
 }
-impl ListPipelinesResponse {
-    pub fn success(pipelines: Vec<ProductionPipeline>) -> Self {
+impl ListTowersResponse {
+    pub fn success(towers: Vec<ProductionTower>) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registrations found in database"),
-            data: Some(pipelines)
+            message: String::from("Tower registrations found in database"),
+            data: Some(towers)
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No pipeline registrations found in database"),
+            message: String::from("No tower registrations found in database"),
             data: None
         }
     }
@@ -63,30 +63,30 @@ impl ListPipelinesResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeletePipelineResponse {
+pub struct DeleteTowerResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<ProductionPipeline>
+    pub data: Option<ProductionTower>
 }
-impl DeletePipelineResponse {
-    pub fn success(pipeline: ProductionPipeline) -> Self {
+impl DeleteTowerResponse {
+    pub fn success(tower: ProductionTower) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registrations deleted from database"),
-            data: Some(pipeline)
+            message: String::from("Tower registrations deleted from database"),
+            data: Some(tower)
         }
     }
     pub fn all_deleted() -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline registrations deleted from database"),
+            message: String::from("Tower registrations deleted from database"),
             data: None
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No pipeline registrations found in database"),
+            message: String::from("No tower registrations found in database"),
             data: None
         }
     }
@@ -101,23 +101,23 @@ impl DeletePipelineResponse {
 
 
 #[derive(Serialize, Deserialize)]
-pub struct PingPipelineResponse {
+pub struct PingTowerResponse {
     pub status: String,
     pub message: String,
     pub data: Option<String>
 }
-impl PingPipelineResponse {
+impl PingTowerResponse {
     pub fn success(last_ping: String) -> Self {
         Self {
             status: String::from("success"),
-            message: String::from("Pipeline last ping datetime updated"),
+            message: String::from("Tower last ping datetime updated"),
             data: Some(last_ping)
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("No pipeline registrations found in database"),
+            message: String::from("No tower registrations found in database"),
             data: None
         }
     }

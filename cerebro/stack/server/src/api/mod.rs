@@ -7,6 +7,6 @@ pub mod email;
 pub mod logs;
 pub mod utils;
 pub mod files;
-pub mod pipelines;
+pub mod towers;
 pub mod watchers;
 pub mod stage;

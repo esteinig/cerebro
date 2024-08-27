@@ -2,28 +2,31 @@ use std::path::PathBuf;
 
 use serde::{Serialize, Deserialize};
 
-use crate::api::{cerebro::model::ModelError, pipelines::schema::RegisterPipelineSchema};
+use crate::api::{cerebro::model::ModelError, towers::{model::Pipeline, schema::RegisterTowerSchema}};
 
-type PipelineId = String;
+type TowerId = String;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterStagedSampleSchema {
-    pub id: PipelineId,
+    pub tower_id: TowerId,
+    pub pipeline: Pipeline,
     pub file_ids: Option<Vec<String>>,
     pub run_id: Option<String>,
 }
 impl RegisterStagedSampleSchema {
-    pub fn new(id: &str, file_ids: Option<Vec<String>>, run_id: Option<String>) -> Self {
+    pub fn new(tower_id: &str, pipeline: Pipeline, file_ids: Option<Vec<String>>, run_id: Option<String>) -> Self {
         Self {
-            id: id.to_string(),
+            tower_id: tower_id.to_string(),
+            pipeline,
             file_ids,
             run_id,
         }
     }
-    pub fn from_pipeline_json(path: &PathBuf, file_ids: Option<Vec<String>>, run_id: Option<String>) -> Result<Self, ModelError> {
-        let schema = RegisterPipelineSchema::from_json(path)?;
+    pub fn from_tower_json(path: &PathBuf, pipeline: Pipeline, file_ids: Option<Vec<String>>, run_id: Option<String>) -> Result<Self, ModelError> {
+        let schema = RegisterTowerSchema::from_json(path)?;
         Ok(Self {
-            id: schema.id,
+            tower_id: schema.id,
+            pipeline,
             file_ids,
             run_id
         })

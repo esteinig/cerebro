@@ -5,21 +5,20 @@
 
 
 
-process Fastp {
+process QualityControl {
 
     label "fastp"
     tag { sampleID }
 
 
-    publishDir "$params.outdir/panviral_enrichment/$sampleID/$stageID", mode: "copy", pattern: "${sampleID}.fastp.json"
-    publishDir "$params.outdir/panviral_enrichment/$sampleID/$stageID", mode: "copy", pattern: "${stageJson}"
+    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.fastp.json"
 
     input:
-    tuple val(sampleID), val(stageID), path(stageJson), path(forward), path(reverse)
+    tuple val(sampleID), path(forward), path(reverse)
 
     output:
-    tuple (val(sampleID), val(stageID), path(stageJson), path("${sampleID}__qc__R1.fq.gz"), path("${sampleID}__qc__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), val(stageID), path("${sampleID}.fastp.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}__qc__R1.fq.gz"), path("${sampleID}__qc__R2.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.fastp.json"), emit: results)
    
 
     script:
@@ -33,21 +32,22 @@ process Fastp {
 
 }
 
-process Scrubby {
+
+process HostDepletion {
 
     label "scrubby"
     tag { sampleID }
 
-    publishDir "$params.outdir/panviral_enrichment/$sampleID/$stageID", mode: "copy", pattern: "${sampleID}.scrubby.json"
+    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.scrubby.json"
     
     input:
-    tuple val(sampleID), val(stageID), path(stageJson), path(forward), path(reverse)
+    tuple val(sampleID), path(forward), path(reverse)
     path(index)
     val(aligner)
 
     output:
-    tuple (val(sampleID), val(stageID), path(stageJson), path("${sampleID}__host__R1.fq.gz"), path("${sampleID}__host__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), val(stageID), path("${sampleID}.scrubby.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}__host__R1.fq.gz"), path("${sampleID}__host__R2.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.scrubby.json"), emit: results)
     
     script:
 
@@ -60,22 +60,50 @@ process Scrubby {
 }
 
 
-
-process Vircov {
+process InternalControls {
     
-    label "vircov"
+    label "vircov_scrubby"
     tag { sampleID }
 
-    publishDir "$params.outdir/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
+    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
+    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
 
     input:
-    tuple val(sampleID), val(stageID), path(stageJson), path(forward), path(reverse)
+    tuple val(sampleID), path(forward), path(reverse)
     tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
     val(aligner)
 
     output:
-    tuple (val(sampleID), val(stageID), path(stageJson), path(forward), path(reverse), emit: reads)
-    tuple (val(sampleID), val(stageID), path("${sampleID}.vircov.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}__controls__R1.fq.gz"), path("${sampleID}__controls__R2.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.controls.tsv"), path("${sampleID}.controls.json"), emit: results)
+
+    script:
+
+    indexName = index[0].getSimpleName()
+    alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
+
+    """
+    vircov coverage -i $forward -i $reverse -o ${sampleID}.controls.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
+    scrubby alignment -i $forward -i $reverse -a reads.txt -o ${sampleID}__controls__R1.fq.gz -o ${sampleID}__controls__R2.fq.gz --json ${sampleID}.controls.json
+    """
+    
+}
+
+process VirusRecovery {
+    
+    label "vircov"
+    tag { sampleID }
+
+    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    val(aligner)
+
+    output:
+    tuple (val(sampleID), path(forward), path(reverse), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
 
     script:
 
@@ -92,30 +120,34 @@ workflow PanviralEnrichment {
 
     take:
         reads
-        hostIndex
-        virusIndex
+        hostDB
+        virusDB
+        controlDB
     main:
 
-        readQualityControl = Fastp(reads)
+        QualityControl(reads)
 
-        hostDepletion = Scrubby(
-            readQualityControl.reads, 
-            hostIndex, 
+        HostDepletion(
+            QualityControl.out.reads, 
+            hostDB, 
             params.panviralEnrichment.hostAligner
         )
 
-        virusRecovery = Vircov(
-            hostDepletion.reads, 
-            virusIndex, 
+        InternalControls(
+            HostDepletion.out.reads,
+            controlDB,
+            params.panviralEnrichment.controlAligner
+        )
+
+        VirusRecovery(
+            InternalControls.out.reads, 
+            virusDB, 
             params.panviralEnrichment.virusAligner
         )
 
-        results = readQualityControl.results.mix(
-            hostDepletion.results, 
-            virusRecovery.results
+        QualityControl.out.results.mix(
+            HostDepletion.out.results, 
+            InternalControls.out.results,
+            VirusRecovery.out.results
         )
-
-    emit:
-        results = results
-
 }

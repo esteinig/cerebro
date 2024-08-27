@@ -24,7 +24,7 @@ use std::fs::create_dir_all;
 use std::time::Duration;
 
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 

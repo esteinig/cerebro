@@ -257,7 +257,7 @@ export class Routes {
     teams: TeamRoutes;
     logs: LogsRoutes;
     files: FilesRoutes;
-    pipelines: PipelineRoutes;
+    towers: PipelineRoutes;
     watchers: WatcherRoutes;
     stage: StageRoutes;
     cerebro: CerebroRoutes;
@@ -269,7 +269,7 @@ export class Routes {
         let teamRoute = `${apiUrl}/teams`;
         let logsRoute = `${apiUrl}/logs`;
         let filesRoute = `${apiUrl}/files`;
-        let pipelinesRoute = `${apiUrl}/pipeline`;
+        let towersRoute = `${apiUrl}/tower`;
         let watcherRoute = `${apiUrl}/watcher`;
         let stageRoute = `${apiUrl}/stage`;
         let cerebroRoute = `${apiUrl}/cerebro`;
@@ -328,8 +328,8 @@ export class Routes {
             getFiles: `${filesRoute}`,
             updateTags: `${filesRoute}/tags`
         }
-        this.pipelines = {
-            getPipelines: `${pipelinesRoute}`
+        this.towers = {
+            getPipelines: `${towersRoute}`
         }
         this.watchers = {
             getWatchers: `${watcherRoute}`

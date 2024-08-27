@@ -7,13 +7,15 @@
 
 	import { 
         type RegisterStagedSampleSchema, 
-        type ProductionPipeline, 
+        type ProductionTower, 
         type ProductionWatcher, 
         type ProjectCollection, 
-        type TeamDatabase 
+        type TeamDatabase, 
+		Pipeline
+
     } from "$lib/utils/types";
 
-	import { isWithinTimeLimit } from "$lib/utils/helpers";
+	import { getDateTimeStringUtc, isWithinTimeLimit } from "$lib/utils/helpers";
 	import ActiveIndicator from "$lib/general/icons/ActiveIndicator.svelte";
 	import FileSelection from "$lib/components/production/watchers/FileSelection.svelte";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
@@ -51,10 +53,16 @@
     $: watcherSelection = data.registeredWatchers;
     $: selectedWatcher = watcherSelection.find(watcher => watcher.id === selectedWatcher?.id) || watcherSelection[0];
 
-    let selectedPipeline: ProductionPipeline | undefined = data.registeredPipelines[0];
+    let selectedTower: ProductionTower | undefined = data.registeredTowers[0];
 
-    $: pipelineSelection = data.registeredPipelines;
-    $: selectedPipeline = pipelineSelection.find(pipeline => pipeline.id === selectedPipeline?.id) || pipelineSelection[0];
+    $: towerSelection = data.registeredTowers;
+    $: selectedTower = towerSelection.find(tower => tower.id === selectedTower?.id) || towerSelection[0];
+
+    let selectedPipeline: Pipeline | undefined = data.registeredTowers[0]?.pipelines[0];
+
+    $: pipelineSelection = selectedTower?.pipelines;
+    $: selectedPipeline= pipelineSelection?.find(pipeline => pipeline === selectedPipeline);
+
 
     let selectedDatabase: TeamDatabase = data.defaultDatabase;
     
@@ -66,8 +74,8 @@
     $: projectSelection = selectedDatabase.projects;
     $: selectedProject = projectSelection.find(project => project.id === selectedProject.id) || projectSelection[0];
 
-    $: pipelineIsActive = isWithinTimeLimit(
-        data.registeredPipelines.find((pipeline) => pipeline.id === selectedPipeline?.id)?.last_ping, 5
+    $: towerIsActive = isWithinTimeLimit(
+        data.registeredTowers.find((tower) => tower.id === selectedTower?.id)?.last_ping, 5
     );
     $: watcherIsActive = isWithinTimeLimit(
         data.registeredWatchers.find((watcher) => watcher.id === selectedWatcher?.id)?.last_ping, 5
@@ -76,12 +84,13 @@
 
     const stageLibraries = async() => {
 
-        if (!selectedPipeline) {
+        if (!selectedTower || !selectedPipeline ) {
             return
         }
 
         let registerStagedSampleSchema: RegisterStagedSampleSchema = {
-            id: selectedPipeline.id,
+            tower_id: selectedTower.id,
+            pipeline: selectedPipeline,
             file_ids: selectedFilesIds,
             run_id: null
         }
@@ -127,7 +136,7 @@
                             </select>
                             <div class="my-2 ml-1 inline-flex items-center">
                                 <ActiveIndicator size=0.6 divClass="mt-0.5" active={watcherIsActive}></ActiveIndicator>
-                                <span class="text-sm opacity-60 ml-1.5">{selectedWatcher ? selectedWatcher.format : "No watcher selected"}</span>
+                                <span class="text-sm opacity-60 ml-1.5">{selectedWatcher ? getDateTimeStringUtc(selectedWatcher.last_ping, true, true) : "No watcher selected"}</span>
                             </div>
                         </div>
                     </div><div class="flex gap-4 mb-4">
@@ -143,16 +152,26 @@
                 <div class="card border border-primary-500 !bg-transparent p-6 gap-4">
                     <div class="flex gap-4 mb-4">
                         <div class="w-full">
-                            <p class="mb-1"><span class="opacity-60">Pipeline</span></p>
-                            <select id="pipelineSelect" class="select" bind:value={selectedPipeline} placeholder="No pipelines registered">
-                                {#each pipelineSelection as pipeline}
-                                    <option value={pipeline}>{pipeline.name} @ {pipeline.location}</option>
+                            <p class="mb-1"><span class="opacity-60">Tower</span></p>
+                            <select id="towerSelect" class="select" bind:value={selectedTower} placeholder="No towers registered">
+                                {#each towerSelection as tower}
+                                    <option value={tower}>{tower.name} @ {tower.location}</option>
                                 {/each}
                             </select>
                             <div class="my-2 ml-1 inline-flex items-center">
-                                <ActiveIndicator size=0.6 divClass="mt-0.5" active={pipelineIsActive}></ActiveIndicator>
-                                <span class="text-sm opacity-60 ml-1.5">{selectedPipeline ? selectedPipeline.pipeline : "No pipeline selected"}</span>
+                                <ActiveIndicator size=0.6 divClass="mt-0.5" active={towerIsActive}></ActiveIndicator>
+                                <span class="text-sm opacity-60 ml-1.5">{selectedTower ?getDateTimeStringUtc(selectedTower.last_ping, true, true) : "No towers selected"}</span>
                             </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-full">
+                            <p class="mb-1"><span class="opacity-60">Pipeline</span></p>
+                            <select id="pipelineSelect" class="select" bind:value={selectedPipeline}>
+                                {#each pipelineSelection as pipeline}
+                                    <option value={pipeline}>{pipeline}</option>
+                                {/each}
+                            </select>
                         </div>
                     </div>
                     <div class="flex gap-4 mb-4">
@@ -177,7 +196,7 @@
                     </div>
                 </div>
                 <div class="flex gap-4 justify-center mt-4">
-                    <button type="button" class="btn btn-md variant-outline-primary align-center w-3/4" disabled={!pipelineIsActive} on:click={stageLibraries}>
+                    <button type="button" class="btn btn-md variant-outline-primary align-center w-3/4" disabled={!towerIsActive} on:click={stageLibraries}>
                         <div class="w-4 h-4 mr-4 -mt-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-brain-circuit"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M9 13a4.5 4.5 0 0 0 3-4"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M12 13h4"/><path d="M12 18h6a2 2 0 0 1 2 2v1"/><path d="M12 8h8"/><path d="M16 8V5a2 2 0 0 1 2-2"/><circle cx="16" cy="13" r=".5"/><circle cx="18" cy="3" r=".5"/><circle cx="20" cy="21" r=".5"/><circle cx="20" cy="8" r=".5"/></svg>
                         </div>            

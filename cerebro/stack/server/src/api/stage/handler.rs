@@ -1,5 +1,5 @@
 
-use cerebro_model::api::{pipelines::model::ProductionPipeline, stage::{model::StagedSample, response::{DeleteStagedSampleResponse, ListStagedSamplesResponse, RegisterStagedSampleResponse}}, teams::model::TeamAdminCollection};
+use cerebro_model::api::{towers::model::ProductionTower, stage::{model::StagedSample, response::{DeleteStagedSampleResponse, ListStagedSamplesResponse, RegisterStagedSampleResponse}}, teams::model::TeamAdminCollection};
 use serde::Deserialize;
 use futures::TryStreamExt;
 use mongodb::{bson::{doc, from_document}, Collection};
@@ -14,17 +14,17 @@ use crate::api::utils::{get_teams_db_collection, get_teams_db_stage_collection};
 use crate::api::stage::mongo::{get_latest_staged_samples_pipeline, create_staged_samples_pipeline};
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 
-async fn get_pipeline_from_db(data: &web::Data<AppState>, id: &str, auth_guard: &jwt::JwtDataMiddleware) -> Result<ProductionPipeline, HttpResponse> {
+async fn get_tower_from_db(data: &web::Data<AppState>, id: &str, auth_guard: &jwt::JwtDataMiddleware) -> Result<ProductionTower, HttpResponse> {
      // Get the registered pipeline to use the pipeline staging area
-     let pipeline_collection: Collection<ProductionPipeline> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Pipelines);
+     let tower_collection: Collection<ProductionTower> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Towers);
 
-     match pipeline_collection
+     match tower_collection
          .find_one(doc! { "id": &id }, None)
          .await
      {
-         Ok(Some(pipeline)) => Ok(pipeline),
+         Ok(Some(tower)) => Ok(tower),
          Ok(None) => Err(HttpResponse::NotFound().json(
-             RegisterStagedSampleResponse::pipeline_not_found(id.to_string())
+             RegisterStagedSampleResponse::tower_not_found(id.to_string())
          )),
          Err(err) => Err(HttpResponse::InternalServerError().json(
              RegisterStagedSampleResponse::server_error(err.to_string())
@@ -36,13 +36,13 @@ async fn get_pipeline_from_db(data: &web::Data<AppState>, id: &str, auth_guard: 
 #[post("/stage/register")]
 async fn register_staged_samples(data: web::Data<AppState>, schema: web::Json<RegisterStagedSampleSchema>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let pipeline = match get_pipeline_from_db(&data, &schema.id, &auth_guard).await {
-        Ok(pipeline) => pipeline,
+    let tower = match get_tower_from_db(&data, &schema.tower_id, &auth_guard).await {
+        Ok(tower) => tower,
         Err(response) => return response
     };
 
     // Get the registered files from the staged sample request and transform into StagedSample
-    let aggregate_pipeline = create_staged_samples_pipeline(&schema.into_inner(), &pipeline, &access.db, &access.project);
+    let aggregate_pipeline = create_staged_samples_pipeline(&schema.into_inner(), &tower, &access.db, &access.project);
     let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Files);
 
     let staged_samples: Vec<StagedSample> = match files_collection
@@ -76,8 +76,8 @@ async fn register_staged_samples(data: web::Data<AppState>, schema: web::Json<Re
 
     log::info!("{:#?}", staged_samples);
 
-    // Insert the StagedSample into the pipeline stage collection
-    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &pipeline.stage);
+    // Insert the StagedSample into the tower stage collection
+    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &tower.stage);
 
     match stage_collection
         .insert_many(&staged_samples, None)
@@ -106,15 +106,15 @@ struct StageListQuery {
 }
 
 
-#[get("/stage/{pipeline_id}")]
-async fn list_staged_samples(data: web::Data<AppState>, pipeline_id: web::Path<String>, query: web::Query<StageListQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+#[get("/stage/{tower_id}")]
+async fn list_staged_samples(data: web::Data<AppState>, tower_id: web::Path<String>, query: web::Query<StageListQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    let pipeline = match get_pipeline_from_db(&data, &pipeline_id, &auth_guard).await {
-        Ok(pipeline) => pipeline,
+    let tower = match get_tower_from_db(&data, &tower_id, &auth_guard).await {
+        Ok(tower) => tower,
         Err(response) => return response
     };
 
-    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &&pipeline.stage);
+    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &&tower.stage);
     
     let aggregate_pipeline = get_latest_staged_samples_pipeline(query.run_id.clone(), query.sample_id.clone());
     
@@ -156,17 +156,17 @@ struct StageDeleteQuery {
     sample_id: Option<String>
 }
 
-#[delete("/stage/{pipeline_id}")]
-async fn delete_staged_samples(data: web::Data<AppState>, pipeline_id: web::Path<String>, query: web::Query<StageDeleteQuery>,   _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+#[delete("/stage/{tower_id}")]
+async fn delete_staged_samples(data: web::Data<AppState>, tower_id: web::Path<String>, query: web::Query<StageDeleteQuery>,   _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
 
-    let pipeline = match get_pipeline_from_db(&data, &pipeline_id, &auth_guard).await {
-        Ok(pipeline) => pipeline,
+    let tower = match get_tower_from_db(&data, &tower_id, &auth_guard).await {
+        Ok(tower) => tower,
         Err(response) => return response
     };
 
 
-    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &pipeline.stage);
+    let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &tower.stage);
     
     let mut delete_query = doc! {};
 

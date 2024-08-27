@@ -6,13 +6,13 @@ use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
 use cerebro_model::api::files::response::RegisterFileResponse;
-use cerebro_model::api::pipelines::model::Pipeline;
-use cerebro_model::api::pipelines::model::ProductionPipeline;
-use cerebro_model::api::pipelines::response::DeletePipelineResponse;
-use cerebro_model::api::pipelines::response::ListPipelinesResponse;
-use cerebro_model::api::pipelines::response::PingPipelineResponse;
-use cerebro_model::api::pipelines::response::RegisterPipelineResponse;
-use cerebro_model::api::pipelines::schema::RegisterPipelineSchema;
+use cerebro_model::api::towers::model::Pipeline;
+use cerebro_model::api::towers::model::ProductionTower;
+use cerebro_model::api::towers::response::DeleteTowerResponse;
+use cerebro_model::api::towers::response::ListTowersResponse;
+use cerebro_model::api::towers::response::PingTowerResponse;
+use cerebro_model::api::towers::response::RegisterTowerResponse;
+use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::stage::response::DeleteStagedSampleResponse;
 use cerebro_model::api::stage::response::ListStagedSamplesResponse;
@@ -23,7 +23,6 @@ use cerebro_model::api::watchers::response::ListWatchersResponse;
 use cerebro_model::api::watchers::response::PingWatcherResponse;
 use cerebro_model::api::watchers::response::RegisterWatcherResponse;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
-use cerebro_workflow::sample;
 use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
@@ -37,7 +36,6 @@ use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, Deserialize};
 use actix_web_httpauth::headers::authorization::Bearer;
 
-use cerebro_model::api::cerebro::response::TaxaSummaryDataResponse;
 use cerebro_model::api::utils::ErrorResponse;
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_model::api::auth::schema::AuthLoginSchema;
@@ -45,9 +43,6 @@ use cerebro_model::api::teams::model::ProjectCollection;
 use cerebro_model::api::users::response::UserSelfResponse;
 use cerebro_model::api::users::response::UserSelfTeamResponse;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
-use cerebro_workflow::filters::TaxonFilterConfig;
-use cerebro_model::api::cerebro::schema::{SampleSummaryQcSchema, TaxaSummarySchema};
-use cerebro_model::api::teams::model::TeamDatabase;
 use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 
@@ -70,10 +65,10 @@ pub enum Route {
     TeamFilesRegister,
     TeamFilesList,
     TeamFilesDelete,
-    TeamPipelinesRegister,
-    TeamPipelinesList,
-    TeamPipelinesDelete,
-    TeamPipelinesPing,
+    TeamTowersRegister,
+    TeamTowersList,
+    TeamTowersDelete,
+    TeamTowersPing,
     TeamWatchersRegister,
     TeamWatchersList,
     TeamWatchersDelete,
@@ -99,10 +94,10 @@ impl Route {
             Route::TeamFilesRegister => "files/register",
             Route::TeamFilesList => "files",
             Route::TeamFilesDelete => "files",
-            Route::TeamPipelinesRegister => "pipeline/register",
-            Route::TeamPipelinesList => "pipeline",
-            Route::TeamPipelinesDelete => "pipeline",
-            Route::TeamPipelinesPing => "pipeline",
+            Route::TeamTowersRegister => "tower/register",
+            Route::TeamTowersList => "tower",
+            Route::TeamTowersDelete => "tower",
+            Route::TeamTowersPing => "tower",
             Route::TeamWatchersRegister => "watcher/register",
             Route::TeamWatchersList => "watcher",
             Route::TeamWatchersDelete => "watcher",
@@ -612,9 +607,9 @@ impl CerebroClient {
         Ok(files)
     }
 
-    pub fn register_pipeline(
+    pub fn register_tower(
         &self,
-        register_pipeline_schema: &RegisterPipelineSchema,
+        schema: &RegisterTowerSchema,
         print: bool,
     ) -> Result<String, HttpClientError> {
 
@@ -622,35 +617,35 @@ impl CerebroClient {
 
         let response = self.send_request_with_team(
             self.client
-                .post(self.routes.url(Route::TeamPipelinesRegister))
-                .json(register_pipeline_schema),
+                .post(self.routes.url(Route::TeamTowersRegister))
+                .json(schema),
         )?;
 
-        let pipeline_id = self.handle_response::<RegisterPipelineResponse>(
+        let tower_id = self.handle_response::<RegisterTowerResponse>(
             response,
-            Some("Pipeline registered successfully"),
-            "Pipeline registration failed",
+            Some("Tower registered successfully"),
+            "Tower registration failed",
         )?
         .data
-        .unwrap_or(register_pipeline_schema.id.clone());
+        .unwrap_or(schema.id.clone());
 
         if print {
-            println!("{}", pipeline_id);
+            println!("{}", tower_id);
         }
 
-        Ok(pipeline_id)
+        Ok(tower_id)
     }
 
-    pub fn list_pipelines(
+    pub fn list_towers(
         &self,
         id: Option<String>,
         print: bool,
-    ) -> Result<Vec<ProductionPipeline>, HttpClientError> {
+    ) -> Result<Vec<ProductionTower>, HttpClientError> {
         
         self.log_team_warning();
 
         let url = self.build_request_url(
-            self.routes.url(Route::TeamPipelinesList), 
+            self.routes.url(Route::TeamTowersList), 
             &[("id", id)]
         );
 
@@ -659,62 +654,62 @@ impl CerebroClient {
                 .get(&url)
         )?;
 
-        let pipelines = self
-            .handle_response::<ListPipelinesResponse>(
+        let towers = self
+            .handle_response::<ListTowersResponse>(
                 response,
                 None,
-                "Failed to retrieve pipelines",
+                "Failed to retrieve towers",
             )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
                     reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                    String::from("No pipeline data returned"),
+                    String::from("No tower data returned"),
                 )
             })?;
 
         if print {
-            for pipeline in &pipelines {
+            for towers in &towers {
                 println!(
                     "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                    pipeline.pipeline,
-                    pipeline.id,
-                    pipeline.date,
-                    pipeline.name,
-                    pipeline.location,
-                    pipeline.last_ping,
-                    pipeline.stage
+                    towers.id,
+                    towers.date,
+                    towers.name,
+                    towers.location,
+                    towers.last_ping,
+                    towers.stage,
+                    towers.pipelines.iter().map(|p| format!("{p}")).join(", "),
                 );
             }
         }
 
-        Ok(pipelines)
+        Ok(towers)
     }
 
-    pub fn delete_pipeline(
+    pub fn delete_tower(
         &self, 
         id: Option<String>, 
         json: Option<PathBuf>, 
         name: Option<String>, 
         location: Option<String>
-    ) -> Result<Option<ProductionPipeline>, HttpClientError> {
+    ) -> Result<Option<ProductionTower>, HttpClientError> {
 
         self.log_team_warning();
 
-        let mut url = self.routes.url(Route::TeamPipelinesDelete);  // deletes all
+        let mut url = self.routes.url(Route::TeamTowersDelete);  // deletes all
 
         if let Some(id) = id {
             url = format!("{url}/{id}")
         }
 
         if let Some(json) = json {
-            let id = RegisterPipelineSchema::from_json(&json)?.id;
+            let id = RegisterTowerSchema::from_json(&json)?.id;
             url = format!("{url}/{id}")
         }
 
         if name.is_some() | location.is_some() {
             url = self.build_request_url(
-                self.routes.url(Route::TeamPipelinesDelete), 
+                self.routes.url(Route::TeamTowersDelete), 
                 &[("name", name), ("location", location)]
             );
         }
@@ -723,15 +718,15 @@ impl CerebroClient {
             self.client.delete(url)
         )?;
 
-        Ok(self.handle_response::<DeletePipelineResponse>(
+        Ok(self.handle_response::<DeleteTowerResponse>(
             response,
             None,
-            "Pipeline deletion failed",
+            "Tower deletion failed",
         )?
         .data)
     }
 
-    pub fn ping_pipeline(&self, pipeline_id: &str, print: bool) -> Result<String, HttpClientError> {
+    pub fn ping_tower(&self, tower_id: &str, print: bool) -> Result<String, HttpClientError> {
 
         self.log_team_warning();
 
@@ -739,22 +734,22 @@ impl CerebroClient {
             self.client
                 .patch(&format!(
                     "{}/{}",
-                    self.routes.url(Route::TeamPipelinesPing),
-                    pipeline_id
+                    self.routes.url(Route::TeamTowersPing),
+                    tower_id
                 ))
         )?;
 
         let data = self
-            .handle_response::<PingPipelineResponse>(
+            .handle_response::<PingTowerResponse>(
                 response,
                 None,
-                "Pipeline ping failed",
+                "Tower ping failed",
             )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
                     reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                    String::from("No data returned after pipeline ping"),
+                    String::from("No data returned after tower ping"),
                 )
             })?;
 
@@ -982,9 +977,9 @@ impl CerebroClient {
                     staged_sample.sample_id,
                     staged_sample.database,
                     staged_sample.project,
-                    staged_sample.pipeline.name,
-                    staged_sample.pipeline.location,
-                    staged_sample.pipeline.stage,
+                    staged_sample.tower.name,
+                    staged_sample.tower.location,
+                    staged_sample.tower.stage,
                 );
             }
         }

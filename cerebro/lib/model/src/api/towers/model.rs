@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use super::schema::RegisterPipelineSchema;
+use super::schema::RegisterTowerSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum Pipeline {
@@ -22,24 +22,24 @@ impl std::fmt::Display for Pipeline {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProductionPipeline {
+pub struct ProductionTower {
     pub id: String,
     pub date: String,
     pub name: String,
     pub location: String,
     pub last_ping: String,
-    pub pipeline: Pipeline,
+    pub pipelines: Vec<Pipeline>,
     pub stage: String
 }
-impl ProductionPipeline {
-    pub fn from_schema(schema: &RegisterPipelineSchema) -> Self {
+impl ProductionTower {
+    pub fn from_schema(schema: &RegisterTowerSchema) -> Self {
         Self {
             id: schema.id.clone(),
             date: schema.date.clone(),
             name: schema.name.clone(),
             location: schema.location.clone(),
             last_ping: schema.last_ping.clone(),
-            pipeline: schema.pipeline.clone(),
+            pipelines: schema.pipelines.clone(),
             stage: schema.stage.clone()
         }
     }

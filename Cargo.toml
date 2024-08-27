@@ -8,5 +8,6 @@ members = [
     "cerebro/stack/client",
     "cerebro/stack/watcher",
     "cerebro/stack/fs",
+    "cerebro/stack/tower",
 ]
 resolver = "2"

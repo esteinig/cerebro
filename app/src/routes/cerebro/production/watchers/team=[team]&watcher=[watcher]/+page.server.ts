@@ -1,4 +1,4 @@
-import { type ErrorResponseData, type Team, type TeamDatabase, type SeaweedFile, type FileResponseData, type ProjectCollection, type PipelineResponseData, type ProductionPipeline, type ProductionWatcher, type WatcherResponseData, parseWatcherFormat, parsePipeline } from "$lib/utils/types";
+import { type ErrorResponseData, type Team, type TeamDatabase, type SeaweedFile, type FileResponseData, type ProjectCollection, type TowerResponseData, type ProductionTower, type ProductionWatcher, type WatcherResponseData, parseWatcherFormat, parsePipeline } from "$lib/utils/types";
 import { env as private_env } from "$env/dynamic/private";
 import { error } from "@sveltejs/kit";
 import CerebroApi from "$lib/utils/api";
@@ -32,29 +32,29 @@ const fetchFiles = async(fetch: Function, requestInit: RequestInit, team_param: 
 }
 
 
-const fetchPipelines = async(fetch: Function, requestInit: RequestInit, team_param: string): Promise<ProductionPipeline[]> => {
+const fetchTowers = async(fetch: Function, requestInit: RequestInit, team_param: string): Promise<ProductionTower[]> => {
     
-    let pipelines: ProductionPipeline[] = [];
+    let towers: ProductionTower[] = [];
 
-    let pipelinesResponse: Response = await fetch(
-        `${api.routes.pipelines.getPipelines}?team=${team_param}`, requestInit
+    let towersResponse: Response = await fetch(
+        `${api.routes.towers.getPipelines}?team=${team_param}`, requestInit
     );
-    if (pipelinesResponse.ok) {
-        let pipelinesResponseData: PipelineResponseData = await pipelinesResponse.json();
+    if (towersResponse.ok) {
+        let towersResponseData: TowerResponseData = await towersResponse.json();
 
-        pipelines = pipelinesResponseData.data.map(pipeline => ({
-            ...pipeline,
-            format: parsePipeline(pipeline.pipeline)
+        towers = towersResponseData.data.map(tower => ({
+            ...tower,
+            format: tower.pipelines.map(pipeline => parsePipeline(pipeline))
         }));
     } else {
-        if (pipelinesResponse.status == 404) {  // No pipelines found returns empty for page to render
-            return pipelines
+        if (towersResponse.status == 404) {  // No towers found returns empty for page to render
+            return towers
         } else {
-            let errorResponse: ErrorResponseData = await pipelinesResponse.json();
-            throw error(pipelinesResponse.status, errorResponse.message)
+            let errorResponse: ErrorResponseData = await towersResponse.json();
+            throw error(towersResponse.status, errorResponse.message)
         }
     }
-    return pipelines
+    return towers
 }
 
 const fetchWatchers = async(fetch: Function, requestInit: RequestInit, team_param: string): Promise<ProductionWatcher[]> => {
@@ -116,8 +116,8 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
     }
     let defaultProject: ProjectCollection = defaultDatabase.projects[0];
         
-    const [registeredPipelines, registeredWatchers] = await Promise.all([
-        fetchPipelines(fetch, fetchDataRequestInit, params.team),
+    const [registeredTowers, registeredWatchers] = await Promise.all([
+        fetchTowers(fetch, fetchDataRequestInit, params.team),
         fetchWatchers(fetch, fetchDataRequestInit, params.team),
     ]);
 
@@ -135,7 +135,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
 
     return { 
         files,
-        registeredPipelines,
+        registeredTowers,
         registeredWatchers,
         selectedTeam,
         defaultDatabase,

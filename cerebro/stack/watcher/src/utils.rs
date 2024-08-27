@@ -6,6 +6,7 @@ use cerebro_client::client::CerebroClient;
 use cerebro_fs::client::UploadConfig;
 use cerebro_model::api::watchers::model::{WatcherFormat, ProductionWatcher};
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
+use cerebro_model::slack::SlackConfig;
 use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
@@ -89,6 +90,26 @@ pub fn init_logger() {
         .init();
 }
 
+pub trait WatcherSlackArgs {
+    fn from_args(watch_args: &WatchArgs)-> Option<Self>
+    where
+        Self: Sized;
+}
+
+impl WatcherSlackArgs for SlackConfig {
+    fn from_args(watch_args: &WatchArgs) -> Option<Self> {
+        match (&watch_args.slack_channel, &watch_args.slack_token) {
+            (Some(channel), Some(token)) => Some(
+                SlackConfig { channel: channel.to_string(), token: token.to_string() }
+            ),
+            _ => {
+                log::info!("Slack channel and token configuration not provided for this watcher");
+                None
+            }
+        }
+    }
+}
+
 pub trait WatcherConfigArgs {
     fn from_args(watch_args: &WatchArgs, api_client: &CerebroClient) -> Result<ProductionWatcher, WatcherError>;
 }
@@ -161,6 +182,8 @@ impl UploadConfigArgs for UploadConfig {
         }
     }
 }
+
+
 
 
 pub trait FileGetter {

@@ -5,28 +5,35 @@ use crate::api::cerebro::model::ModelError;
 use super::model::Pipeline;
 
 type StageId = String;
-type PipelineId = String;
+type TowerId = String;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct RegisterPipelineSchema {
-    pub id: PipelineId,
+pub struct RegisterTowerSchema {
+    pub id: TowerId,
     pub stage: StageId,
     pub date: String,
     pub name: String,
     pub location: String,
     pub last_ping: String,
-    pub pipeline: Pipeline,
+    pub pipelines: Vec<Pipeline>,
 }
-impl RegisterPipelineSchema {
-    pub fn new(name: &str, location: &str, pipeline: Pipeline) -> Self {
+impl RegisterTowerSchema {
+    pub fn new(name: &str, location: &str, pipelines: Option<Vec<Pipeline>>) -> Self {
+        
         let date = chrono::Utc::now().to_string();
+
+        let pipelines = match pipelines {
+            Some(pipelines) => pipelines,
+            None => Vec::from([Pipeline::PanviralEnrichment, Pipeline::PathogenDetection, Pipeline::CultureIdentification])
+        };
+
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             date: date.clone(),
             name: name.to_string(),
             location: location.to_string(),
             last_ping: date,
-            pipeline,
+            pipelines,
             stage: uuid::Uuid::new_v4().to_string()
         }
     }

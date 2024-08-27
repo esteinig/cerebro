@@ -6,6 +6,6 @@ pub mod users;
 pub mod utils;
 pub mod config;
 pub mod files;
-pub mod pipelines;
+pub mod towers;
 pub mod watchers;
 pub mod stage;

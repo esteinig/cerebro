@@ -5,11 +5,12 @@ use cerebro_client::client::CerebroClient;
 use cerebro_fs::client::{FileSystemClient, UploadConfig};
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_watcher::utils::WatcherConfigArgs;
+use cerebro_watcher::utils::WatcherSlackArgs;
 use cerebro_watcher::watcher::CerebroWatcher;
 use cerebro_watcher::utils::{init_logger, UploadConfigArgs};
 use cerebro_watcher::terminal::{App, Commands};
-use cerebro_watcher::slack::{SlackMessage, SlackClient};
-use cerebro_watcher::slack::SlackConfig;
+use cerebro_model::slack::{SlackMessage, SlackBlockingClient};
+use cerebro_model::slack::SlackConfig;
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -20,7 +21,7 @@ fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Commands::Slack( args ) => {
-            let messenger = SlackClient::new(&args.token);
+            let messenger = SlackBlockingClient::new(&args.token);
             messenger.send(
                 &SlackMessage::new(&args.channel, &args.message)
             )?;

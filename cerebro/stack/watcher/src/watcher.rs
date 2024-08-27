@@ -5,6 +5,7 @@ use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use cerebro_fs::client::{FileSystemClient, UploadConfig};
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_client::client::CerebroClient;
+use cerebro_model::slack::{SlackConfig, SlackTools};
 use notify::event::CreateKind;
 use std::path::Path;
 use std::time::Duration;
@@ -13,8 +14,6 @@ use std::thread;
 
 use crate::utils::FileGetter;
 use crate::error::WatcherError;
-use crate::slack::{SlackConfig, SlackTools};
-
 #[derive(Clone, Debug)]
 pub struct CerebroWatcher {
     pub config: ProductionWatcher,

@@ -149,7 +149,7 @@ impl FileSystemClient {
                 .has_headers(false)
                 .from_path(&file)?;
             
-            writer.serialize(staged_sample.pipeline.pipeline)?;
+            writer.serialize(staged_sample.pipeline)?;
             writer.flush()?;
         }
 

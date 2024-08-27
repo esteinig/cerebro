@@ -2,7 +2,7 @@
 
 use mongodb::bson::{doc, Document};
 
-pub fn get_registered_pipelines_pipeline(id: &Option<String>) -> Vec<Document> {
+pub fn get_registered_towers_pipeline(id: &Option<String>) -> Vec<Document> {
     if let Some(id) = id {
         vec![
             doc! {

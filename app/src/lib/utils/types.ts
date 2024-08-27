@@ -1793,17 +1793,17 @@ export enum FileTag {
 
 /**
  * 
- * Cerebro production pipeline model
+ * Cerebro production tower model
  * 
  * @file lib/utils/types
  */
-export type ProductionPipeline = {
+export type ProductionTower = {
     id: string,
     date: string,
     name: string,
     location: string,
     last_ping: string,
-    pipeline: Pipeline,
+    pipelines: Pipeline[],
     stage: string
 }
 
@@ -1834,13 +1834,13 @@ export type FileResponseData = {
 } & ErrorResponseData
 
 /**
- * Status and data returned in successful pipeline endpoint response 
+ * Status and data returned in successful tower endpoint response 
  * 
  * @file lib/utils/types
- * @param {Array<ProductionPipeline>} data - Response data with pipelines
+ * @param {Array<ProductionTower>} data - Response data with towers
  */
-export type PipelineResponseData = {
-    data: ProductionPipeline[]
+export type TowerResponseData = {
+    data: ProductionTower[]
 } & ErrorResponseData
 
 /**
@@ -1865,7 +1865,7 @@ export type FileTagUpdateSchema = {
     tags: FileTag[]
 }
 
-type PipelineId = string;
+type TowerId = string;
 
 /**
  * 
@@ -1874,7 +1874,8 @@ type PipelineId = string;
  * @file lib/utils/types
  */
 export type RegisterStagedSampleSchema = {
-    id: PipelineId,
+    tower_id: TowerId,
+    pipeline: Pipeline,
     file_ids: string[] | null,
     run_id: string | null
 }

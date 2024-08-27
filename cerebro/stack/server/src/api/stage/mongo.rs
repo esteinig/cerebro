@@ -1,12 +1,12 @@
 
 
-use cerebro_model::api::{pipelines::model::ProductionPipeline, stage::schema::RegisterStagedSampleSchema};
+use cerebro_model::api::{stage::schema::RegisterStagedSampleSchema, towers::model::ProductionTower};
 use chrono::Utc;
 use mongodb::bson::{doc, Document, to_bson};
 use uuid::Uuid;
 
 
-pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, pipeline: &ProductionPipeline, database: &str, project: &str) -> Vec<Document> {
+pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, tower: &ProductionTower, database: &str, project: &str) -> Vec<Document> {
     
     let mut mongo_pipeline = vec![];
 
@@ -48,8 +48,9 @@ pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, pipel
                 "run_id": "$run_id",
                 "sample_id": "$_id",
                 "database": database,                       
-                "project": project,                         
-                "pipeline": to_bson(pipeline).unwrap(), 
+                "project": project,            
+                "pipeline": format!("{}", schema.pipeline),       
+                "tower": to_bson(tower).unwrap(), 
                 "files": "$files"
             }
         }

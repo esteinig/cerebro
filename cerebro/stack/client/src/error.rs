@@ -53,8 +53,8 @@ pub enum HttpClientError {
     /// Represents failure to use a valid sample identifier
     #[error("sample identifier is an empty string")]
     ModelSampleIdentifierEmpty,
-    #[error("pipeline identifier could not be found (--id | --json)")]
-    PipelineIdentifierArgNotFound,
+    #[error("tower identifier could not be found (--id | --json)")]
+    TowerIdentifierNotFound,
     #[error("watcher identifier could not be found (--id | --json)")]
     WatcherIdentifierArgNotFound,
     #[error("failed to send request with 'team' access parameter - did you provide a team name or identifier?")]

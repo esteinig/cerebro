@@ -2,36 +2,35 @@ use std::process;
 use actix_web_httpauth::headers::authorization::Bearer;
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, Deserialize};
-use crate::{error::WatcherError, terminal::WatchArgs};
+
+use thiserror::Error;
+
+/*
+========================
+Custom error definitions
+========================
+*/
+
+#[derive(Error, Debug)]
+pub enum SlackError {
+
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlackConfig {
     pub channel: String,
     pub token: String
 }
-impl SlackConfig {
-    pub fn from_args(watch_args: &WatchArgs) -> Option<Self> {
-        match (&watch_args.slack_channel, &watch_args.slack_token) {
-            (Some(channel), Some(token)) => Some(
-                SlackConfig { channel: channel.to_string(), token: token.to_string() }
-            ),
-            _ => {
-                log::info!("Slack channel and token configuration not provided for this watcher");
-                None
-            }
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct SlackTools {
-    pub client: SlackClient,
+    pub client: SlackBlockingClient,
     pub message: MessageGenerator
 }
 impl SlackTools {
     pub fn from_config(slack_config: &SlackConfig) -> Self {
         Self {
-            client: SlackClient::new(&slack_config.token),
+            client: SlackBlockingClient::new(&slack_config.token),
             message: MessageGenerator::new(&slack_config.channel)
         }
     }
@@ -128,17 +127,17 @@ pub struct SlackMessengerResponse {
 }
 
 #[derive(Debug, Clone)]
-pub struct SlackClient {
+pub struct SlackBlockingClient {
     pub url: String,
     pub token: String,
     pub client: reqwest::blocking::Client
 }
-impl SlackClient {
+impl SlackBlockingClient {
     pub fn new(token: &str) -> Self {
         let client = reqwest::blocking::Client::builder().build().expect("Failed to initialize Reqwest blocking client!");
         Self { url: String::from("https://slack.com/api/chat.postMessage"), token: token.to_string(), client }
     }
-    pub fn send(&self, message: &SlackMessage) -> Result<(), WatcherError> {
+    pub fn send(&self, message: &SlackMessage) -> Result<(), SlackError> {
 
         let response: reqwest::blocking::Response = self.client.post(self.url.clone())
             .header(AUTHORIZATION, Bearer::new(self.token.clone()).to_string())
