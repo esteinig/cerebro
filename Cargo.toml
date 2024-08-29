@@ -3,11 +3,12 @@ members = [
     "cerebro/cerebro",
     "cerebro/lib/model",
     "cerebro/stack/report",
-    "cerebro/stack/workflow",
+    "cerebro/stack/pipeline",
     "cerebro/stack/server",
     "cerebro/stack/client",
     "cerebro/stack/watcher",
     "cerebro/stack/fs",
     "cerebro/stack/tower",
+    "cerebro/stack/pipe",
 ]
 resolver = "2"

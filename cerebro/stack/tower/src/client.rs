@@ -3,6 +3,7 @@ use std::fs::create_dir_all;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::stage::response::{DeleteStagedSampleResponse, ListStagedSamplesResponse};
+use cerebro_model::api::towers::response::PingTowerResponse;
 use cerebro_model::api::utils::ErrorResponse;
 use reqwest::{Client, Response, StatusCode};
 use reqwest::header::AUTHORIZATION;
@@ -24,6 +25,7 @@ pub enum Route {
     TeamStagedSamplesList,
     TeamStagedSamplesDelete,
     TeamStagedSamplesPull,
+    TeamTowersPing
 }
 
 impl Route {
@@ -37,7 +39,8 @@ impl Route {
             Route::TeamStagedSamplesRegister => "stage/register",
             Route::TeamStagedSamplesList => "stage",
             Route::TeamStagedSamplesDelete => "stage",
-            Route::TeamStagedSamplesPull => "stage"
+            Route::TeamStagedSamplesPull => "stage",
+            Route::TeamTowersPing => "tower"
         }
     }
 }
@@ -284,5 +287,37 @@ impl TowerClient {
             .await?
             .data
         )
+    }
+
+
+    pub async fn ping_tower(&self, tower_id: &str, print: bool) -> Result<String, TowerError> {
+
+        let response = self.send_request_with_team(
+            self.client
+                .patch(&format!(
+                    "{}/{}",
+                    self.routes.url(Route::TeamTowersPing),
+                    tower_id
+                ))
+        ).await?;
+
+        let data = self
+            .handle_response::<PingTowerResponse>(
+                response,
+                Some("Tower ping failed"),
+            ).await?
+            .data
+            .ok_or_else(|| {
+                TowerError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No data returned after tower ping"),
+                )
+            })?;
+
+        if print {
+            println!("{}", data);
+        }
+
+        Ok(data)
     }
 }

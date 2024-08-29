@@ -11,7 +11,7 @@ use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
 
-use cerebro_workflow::{
+use cerebro_pipeline::{
     error::{WorkflowError, WorkflowUtilityError}, filters::TaxonFilterConfig, module::QualityControlModule, sample::WorkflowSample, sheet::SampleSheet, taxon::{Taxon, TaxonOverview}
 };
 

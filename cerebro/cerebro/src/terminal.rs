@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
-use cerebro_workflow::terminal::Commands as WorkflowCommands;
+use cerebro_pipeline::terminal::Commands as WorkflowCommands;
 use cerebro_report::terminal::Commands as ReportCommands;
 use cerebro_client::terminal::Commands as ClientCommands;
 use cerebro_watcher::terminal::Commands as WatcherCommands;

@@ -7,7 +7,7 @@ use std::fs;
 use typst::foundations::Smart;
 use typst::{eval::Tracer, layout::Abs};
 
-use cerebro_workflow::quality::QualityControlSummary;
+use cerebro_pipeline::quality::QualityControlSummary;
 use cerebro_model::{
     api::cerebro::model::{CerebroId, PriorityTaxonDecision}, 
     api::cerebro::schema::ReportSchema, 

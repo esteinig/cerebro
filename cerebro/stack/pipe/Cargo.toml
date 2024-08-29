@@ -1,8 +1,8 @@
 [package]
-name = "cerebro-workflow"
+name = "cerebro-pipe"
 version = "0.8.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
-description = "Cerebro: workflow module for internal utility tools and output handling"
+description = "Cerebro: pipeline module for internal utility tools and output handling"
 documentation = "https://github.com/esteinig/cerebro"
 homepage = "https://github.com/esteinig/cerebro"
 repository = "https://github.com/esteinig/cerebro"
@@ -18,11 +18,11 @@ include = [
 ]
 
 [[bin]]
-name = "cerebro-workflow"
+name = "cerebro-pipe"
 path = "src/cli.rs"
 
 [lib]
-name = "cerebro_workflow"
+name = "cerebro_pipe"
 
 [dependencies]
 
@@ -51,3 +51,6 @@ uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "
 clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
 anstyle = "1.0.6"
 fancy-regex = "0.11.0"
+
+vircov = { path = "/data/dev/meta-gp/pipeline/vircov" }
+scrubby = { path = "/data/dev/meta-gp/pipeline/scrubby" }

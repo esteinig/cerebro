@@ -45,10 +45,10 @@ use cerebro_model::api::cerebro::schema::{
 use cerebro_model::api::cerebro::response::{TaxonSummaryOverview, TaxaSummaryMongoPipeline};
 use cerebro_report::report::ClinicalReport;
 
-use cerebro_workflow::filters::*;
-use cerebro_workflow::module::QualityControlModule;
-use cerebro_workflow::quality::{QualityControlSummary, ModelConfig};
-use cerebro_workflow::taxon::{Taxon, TaxonOverview, aggregate};
+use cerebro_pipeline::filters::*;
+use cerebro_pipeline::module::QualityControlModule;
+use cerebro_pipeline::quality::{QualityControlSummary, ModelConfig};
+use cerebro_pipeline::taxon::{Taxon, TaxonOverview, aggregate};
 
 type CerebroIds = String;
 

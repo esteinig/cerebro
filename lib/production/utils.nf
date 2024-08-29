@@ -64,6 +64,14 @@ def getBowtie2IndexFiles(String index) {
     return bowtie2Files
 }
 
+def getPanviralEnrichmentDatabases() {
+    return [
+        host: getPanviralEnrichmentHostDatabase(),
+        virus: getPanviralEnrichmentVirusDatabase(),
+        control:  getPanviralEnrichmentControlDatabase()
+    ]
+}
+
 def getPanviralEnrichmentHostDatabase() {
 
     hostIndex = params.panviralEnrichment.hostIndex
@@ -137,7 +145,7 @@ def getPanviralEnrichmentControlDatabase() {
             throw new RuntimeException("Virus index file does not exist: ${controlIndex}")
         }
     }
-    
+
     controlReferenceFile = new File(controlReference)
     if (!controlReferenceFile.exists()) {
         throw new RuntimeException("Virus reference file does not exist: ${controlReference}")

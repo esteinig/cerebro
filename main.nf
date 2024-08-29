@@ -25,9 +25,7 @@ Production pipeline operate as follows:
 include { StageInputFiles } from './lib/production/utils';
 include { PanviralEnrichment } from './lib/production/panviral';
 
-include { getPanviralEnrichmentHostDatabase } from './lib/production/utils'; 
-include { getPanviralEnrichmentVirusDatabase } from './lib/production/utils'; 
-include { getPanviralEnrichmentControlDatabase } from './lib/production/utils'; 
+include { getPanviralEnrichmentDatabases } from './lib/production/utils'; 
 
 def pipelineSelection = branchCriteria {
     panviral: it[0] == 'panviral-enrichment'
@@ -53,14 +51,24 @@ workflow production {
     
     /* Panviral enrichment */
 
+    def panviralDB = getPanviralEnrichmentDatabases()
+
     PanviralEnrichment(
         pairedReadsFromStage(pipelines.panviral),
-        getPanviralEnrichmentHostDatabase(),
-        getPanviralEnrichmentVirusDatabase(),
-        getPanviralEnrichmentControlDatabase(),
+        panviralDB.host, 
+        panviralDB.virus, 
+        panviralDB.control,
     )
 
     /* Pathogen detection */
+    
+    
+
+    // def database = getPathogenDetectionDatabases()
+    
+    // PathogenDetection(
+
+    // )
     
     
 

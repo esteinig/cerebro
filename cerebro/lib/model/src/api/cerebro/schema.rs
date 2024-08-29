@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use cerebro_workflow::filters::TaxonFilterConfig;
-use cerebro_workflow::taxon::TaxonOverview;
+use cerebro_pipeline::filters::TaxonFilterConfig;
+use cerebro_pipeline::taxon::TaxonOverview;
 
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{

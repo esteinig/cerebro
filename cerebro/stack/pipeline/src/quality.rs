@@ -319,17 +319,20 @@ pub struct QualityControlSummary {
     pub workflow_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_date: Option<String>,
+
     pub total_reads: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_bases: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub total_biomass: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deduplicated_reads: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub deduplicated_percent: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ercc_constructs: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -343,24 +346,29 @@ pub struct QualityControlSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_nine")]
     pub ercc_mass_per_read: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub adapter_trimmed_reads: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub adapter_trimmed_percent: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub low_complexity_reads: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub low_complexity_percent: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mean_length_r1: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mean_length_r2: Option<u64>,
+
     pub qc_reads: u64,
     #[serde(serialize_with = "round_two")]
     pub qc_percent: Option<f64>,
     pub qc_bases: Option<u64>,
+
     // Fastp options
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
@@ -386,18 +394,21 @@ pub struct QualityControlSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub q30_percent: Option<f64>,
+
     pub host_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub host_percent: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub host_biomass: Option<f64>,
+
     pub other_reads: Option<u64>,
     #[serde(serialize_with = "round_two")]
     pub other_percent: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub other_biomass: Option<f64>,
+
     // ONT options
     #[serde(skip_serializing_if = "Option::is_none")]
     pub longest_read: Option<u64>,
@@ -413,6 +424,7 @@ pub struct QualityControlSummary {
     pub median_read_q: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mean_read_q: Option<u64>,
+
     // DNA phage control
     pub dna_phage_id: Option<String>,
     pub dna_phage_reads: Option<u64>,
@@ -442,10 +454,12 @@ pub struct QualityControlSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "round_two")]
     pub seq_phage_biomass: Option<f64>,
+
     // Output reads after quality control
     pub output_reads: u64,
     #[serde(serialize_with = "round_two")]
     pub output_percent: Option<f64>,
+
     // Threshold important quality control
     #[serde(skip_serializing_if = "Option::is_none")]
     pub control_status_dna_extraction: Option<bool>,
@@ -455,6 +469,7 @@ pub struct QualityControlSummary {
     pub control_status_library: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub control_status_sequencing: Option<bool>,
+    
 }
 impl QualityControlSummary {
     pub fn from(

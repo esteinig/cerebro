@@ -1,15 +1,15 @@
 
-use cerebro_workflow::taxon::TaxonThresholdConfig;
+use cerebro_pipeline::taxon::TaxonThresholdConfig;
 use clap::Parser;
 use rayon::prelude::*;
 
-use cerebro_workflow::utils;
-use cerebro_workflow::terminal;
-use cerebro_workflow::internal;
-use cerebro_workflow::virus;
+use cerebro_pipeline::utils;
+use cerebro_pipeline::terminal;
+use cerebro_pipeline::internal;
+use cerebro_pipeline::virus;
 
-use cerebro_workflow::terminal::Commands;
-use cerebro_workflow::terminal::ToolCommands;
+use cerebro_pipeline::terminal::Commands;
+use cerebro_pipeline::terminal::ToolCommands;
 
 fn main() -> anyhow::Result<()> {
 
@@ -81,7 +81,7 @@ fn main() -> anyhow::Result<()> {
         // Parse and process a pipeline results into a sample model output
         Commands::Process( args ) => {
             args.input.par_iter().for_each(|results| {
-                let sample = cerebro_workflow::sample::WorkflowSample::new(&results, &args.sample_id, args.taxonomy.clone(), true).expect(
+                let sample = cerebro_pipeline::sample::WorkflowSample::new(&results, &args.sample_id, args.taxonomy.clone(), true).expect(
                     &format!("Failed to parse workflow sample directory: {}", results.display())
                 );  // SPECIES-LEVEL
                 sample.write_json(&args.output).expect(
@@ -91,17 +91,17 @@ fn main() -> anyhow::Result<()> {
         },
         // Quality control table
         Commands::Quality( args ) => {
-            cerebro_workflow::utils::create_qc_table(args.input.clone(), &args.output, args.header, args.ercc_mass)?;
+            cerebro_pipeline::utils::create_qc_table(args.input.clone(), &args.output, args.header, args.ercc_mass)?;
         },
 
         // Taxa table
         Commands::Taxa( args ) => {
             let threshold_filter = TaxonThresholdConfig::from_args(args);
-            cerebro_workflow::taxon::taxa_summary(args.input.clone(), &args.output, args.sep, args.header, args.extract, args.filter.clone(), &threshold_filter)?;
+            cerebro_pipeline::taxon::taxa_summary(args.input.clone(), &args.output, args.sep, args.header, args.extract, args.filter.clone(), &threshold_filter)?;
         },
         // Sample sheet creation
         Commands::SampleSheet( args ) => {
-            let sample_sheet = cerebro_workflow::sheet::SampleSheet::new(
+            let sample_sheet = cerebro_pipeline::sheet::SampleSheet::new(
                 &args.input, 
                 &args.glob, 
                 args.ont, 

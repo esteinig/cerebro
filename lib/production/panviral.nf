@@ -11,23 +11,22 @@ process QualityControl {
     tag { sampleID }
 
 
-    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.fastp.json"
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.reads.json"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
 
     output:
-    tuple (val(sampleID), path("${sampleID}__qc__R1.fq.gz"), path("${sampleID}__qc__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.fastp.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}__reads__R1.fq.gz"), path("${sampleID}__reads__R2.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.reads.json"), emit: results)
    
 
     script:
     
     adapter_sequence = params.panviralEnrichment.adapterForward && params.panviralEnrichment.adapterReverse ? "--adapter_sequence=$params.panviralEnrichment.adapterForward --adapter_sequence_r2=$params.panviralEnrichment.adapterReverse" : ""
     
-
     """
-    fastp -i $forward -I $reverse -o ${sampleID}__qc__R1.fq.gz -O ${sampleID}__qc__R2.fq.gz --thread $task.cpus --json ${sampleID}.fastp.json --length_required 50 --cut_tail --cut_tail_mean_quality 20 --low_complexity_filter --complexity_threshold 30 --detect_adapter_for_pe --trim_poly_g --poly_g_min_len 10 $adapter_sequence
+    fastp -i $forward -I $reverse -o ${sampleID}__reads__R1.fq.gz -O ${sampleID}__reads__R2.fq.gz --thread $task.cpus --json ${sampleID}.reads.json --length_required 50 --cut_tail --cut_tail_mean_quality 20 --low_complexity_filter --complexity_threshold 30 --detect_adapter_for_pe --trim_poly_g --poly_g_min_len 10 $adapter_sequence
     """
 
 }
@@ -35,10 +34,11 @@ process QualityControl {
 
 process HostDepletion {
 
-    label "scrubby"
+    label "vircov_scrubby"
     tag { sampleID }
 
-    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.scrubby.json"
+
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.host.json"
     
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -47,7 +47,7 @@ process HostDepletion {
 
     output:
     tuple (val(sampleID), path("${sampleID}__host__R1.fq.gz"), path("${sampleID}__host__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.scrubby.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.host.json"), emit: results)
     
     script:
 
@@ -55,7 +55,7 @@ process HostDepletion {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    scrubby reads -i $forward -i $reverse -o ${sampleID}__host__R1.fq.gz -o ${sampleID}__host__R2.fq.gz --aligner $aligner --index $alignmentIndex --threads $task.cpus --json ${sampleID}.scrubby.json
+    scrubby reads -i $forward -i $reverse --index $alignmentIndex --aligner $aligner -o ${sampleID}__host__R1.fq.gz -o ${sampleID}__host__R2.fq.gz --json ${sampleID}.host.json
     """
 }
 
@@ -65,8 +65,8 @@ process InternalControls {
     label "vircov_scrubby"
     tag { sampleID }
 
-    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
-    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -75,7 +75,8 @@ process InternalControls {
 
     output:
     tuple (val(sampleID), path("${sampleID}__controls__R1.fq.gz"), path("${sampleID}__controls__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.controls.tsv"), path("${sampleID}.controls.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.controls.tsv"), emit: results)
+    path("${sampleID}.controls.json")
 
     script:
 
@@ -94,7 +95,7 @@ process VirusRecovery {
     label "vircov"
     tag { sampleID }
 
-    publishDir "$params.outputDirectory/panviral_enrichment/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.viruses.tsv"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -103,7 +104,7 @@ process VirusRecovery {
 
     output:
     tuple (val(sampleID), path(forward), path(reverse), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.viruses.tsv"), emit: results)
 
     script:
 
@@ -111,7 +112,29 @@ process VirusRecovery {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    vircov run -i $forward -i $reverse -o ${sampleID}.vircov.tsv --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.panviralEnrichment.remapThreads --parallel $params.panviralEnrichment.remapParallel --workdir data/
+    vircov run -i $forward -i $reverse -o ${sampleID}.viruses.tsv --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.panviralEnrichment.remapThreads --parallel $params.panviralEnrichment.remapParallel --workdir data/
+    """
+    
+}
+
+
+process ProcessOutput {
+    
+    label "cerebro"
+    tag { sampleID }
+
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
+
+    input:
+    tuple val(sampleID), path(result_files)
+
+    output:
+    tuple val(sampleID), path("${sampleID}.qc.json")
+
+    script:
+
+    """
+    cerebro-pipe process panviral --id ${sampleID} --qc ${sampleID}.qc.json 
     """
     
 }
@@ -120,34 +143,37 @@ workflow PanviralEnrichment {
 
     take:
         reads
-        hostDB
-        virusDB
-        controlDB
+        hostDatabase
+        virusDatabase
+        controlDatabase
     main:
 
         QualityControl(reads)
 
         HostDepletion(
             QualityControl.out.reads, 
-            hostDB, 
+            hostDatabase, 
             params.panviralEnrichment.hostAligner
         )
 
         InternalControls(
             HostDepletion.out.reads,
-            controlDB,
+            controlDatabase,
             params.panviralEnrichment.controlAligner
         )
 
         VirusRecovery(
             InternalControls.out.reads, 
-            virusDB, 
+            virusDatabase, 
             params.panviralEnrichment.virusAligner
         )
 
-        QualityControl.out.results.mix(
+        results = QualityControl.out.results.mix(
             HostDepletion.out.results, 
             InternalControls.out.results,
             VirusRecovery.out.results
         )
+
+        results | groupTuple | ProcessOutput
+
 }

@@ -1,5 +1,5 @@
 
-use cerebro_workflow::error::WorkflowError;
+use cerebro_pipeline::error::WorkflowError;
 use reqwest::StatusCode;
 use thiserror::Error;
 use cerebro_model::api::cerebro::model::ModelError;

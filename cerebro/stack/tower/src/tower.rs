@@ -139,8 +139,7 @@ impl CerebroTower {
         Ok(Self { client, nextflow })
     }
 
-
-    pub async fn watch(&self, pipeline_id: &str, delete_from_stage: bool) -> Result<(), TowerError> {
+    pub async fn watch(&self, tower_id: &str, delete_from_stage: bool) -> Result<(), TowerError> {
 
         let (tx, rx) = mpsc::channel(32); 
 
@@ -153,7 +152,7 @@ impl CerebroTower {
         let watchtower_handle = task::spawn(
             watchtower_task(
                 self.client.clone(),
-                pipeline_id.to_string(),
+                tower_id.to_string(),
                 delete_from_stage,
                 tx.clone(), 
                 10,
@@ -162,7 +161,13 @@ impl CerebroTower {
 
         // Start the process manager task
         let process_manager_handle = task::spawn(
-            process_manager_task(self.nextflow.clone(), rx, semaphore)
+            process_manager_task(
+            self.nextflow.clone(),
+            self.client.clone(),
+            tower_id.to_string(),
+                rx, 
+                semaphore
+            )
         );
 
         // Handle graceful shutdown
@@ -183,13 +188,22 @@ impl CerebroTower {
 #[derive(Debug)]
 enum WatchtowerCommand {
     StartProcess(Vec<StagedSample>),
-    LogRequest,
+    PingTower,
 }
 
-async fn watchtower_task(client: TowerClient, pipeline_id: String, delete_from_stage: bool, tx: mpsc::Sender<WatchtowerCommand>, interval: u64) {
+async fn watchtower_task(
+    client: TowerClient, 
+    tower_id: String, 
+    delete_from_stage: bool, 
+    tx: mpsc::Sender<WatchtowerCommand>, 
+    interval: u64
+) {
     
     loop {
-        let response = client.pull_staged_samples(&pipeline_id, delete_from_stage).await;
+        let response = client.pull_staged_samples(
+            &tower_id, 
+            delete_from_stage
+        ).await;
 
         match response {
             Ok(samples) => {
@@ -198,8 +212,8 @@ async fn watchtower_task(client: TowerClient, pipeline_id: String, delete_from_s
                     let command = WatchtowerCommand::StartProcess(samples);
                     tx.send(command).await.unwrap();
 
-                } else if should_log_request(&samples) {
-                    let command = WatchtowerCommand::LogRequest;
+                } else if should_ping_tower(&samples) {
+                    let command = WatchtowerCommand::PingTower;
                     tx.send(command).await.unwrap();
                 }
 
@@ -215,6 +229,8 @@ async fn watchtower_task(client: TowerClient, pipeline_id: String, delete_from_s
 
 async fn process_manager_task(
     nextflow: NextflowConfig,
+    client: TowerClient,
+    tower_id: String, 
     mut rx: mpsc::Receiver<WatchtowerCommand>,
     semaphore: Arc<Semaphore>,
 ) {
@@ -229,28 +245,28 @@ async fn process_manager_task(
                 // Spawn a new task to handle the process
                 task::spawn(async move {
                     if let Ok(mut child) = pipeline.launch(&data).await {
-                        
+
                         match child.wait().await {
-                            Err(e) => log::error!("Error handling process: {}", e),
+                            Err(e) => {
+                                log::error!("Error handling process: {}", e)
+                            },
                             Ok(exit_status) => {
                                 log::info!("Process completed with {exit_status}");
-
                                 if let Err(err) = pipeline.cleanup().await {
                                     log::error!("Failed to cleanup execution directory: {}", err.to_string())
                                 }
-
                             }
                         }
 
-
                     }
-
                     // Permit is automatically released when the task completes
                     drop(permit);
                 });
             }
-            WatchtowerCommand::LogRequest => {
-                // log::info!("No staged samples available");
+            WatchtowerCommand::PingTower => {
+                if let Err(e) = client.ping_tower(&tower_id, false).await {
+                    log::error!("Failed to ping tower: {}", e.to_string())
+                }
             }
         }
     }
@@ -261,6 +277,6 @@ fn should_start_process(staged_samples: &Vec<StagedSample>) -> bool {
     !staged_samples.is_empty()
 }
 
-fn should_log_request(staged_samples: &Vec<StagedSample>) -> bool {
+fn should_ping_tower(staged_samples: &Vec<StagedSample>) -> bool {
     staged_samples.is_empty()
 }

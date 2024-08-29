@@ -11,7 +11,7 @@ use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{TowerCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
 
-use cerebro_workflow::sample::WorkflowSample;
+use cerebro_pipeline::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
 
 fn main() -> anyhow::Result<()> {

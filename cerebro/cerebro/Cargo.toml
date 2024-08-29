@@ -33,7 +33,7 @@ name = "cerebro"
 
 cerebro-watcher = { path = "../stack/watcher" }
 cerebro-fs = { path = "../stack/fs" }
-cerebro-workflow = { path = "../stack/workflow" }
+cerebro-pipeline = { path = "../stack/pipeline" }
 cerebro-client = { path = "../stack/client" }
 cerebro-report = { path = "../stack/report" }
 cerebro-model = { path = "../lib/model" }
