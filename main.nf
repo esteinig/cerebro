@@ -24,8 +24,10 @@ Production pipeline operate as follows:
 
 include { StageInputFiles } from './lib/production/utils';
 include { PanviralEnrichment } from './lib/production/panviral';
+include { PathogenDetection } from './lib/production/panviral';
 
 include { getPanviralEnrichmentDatabases } from './lib/production/utils'; 
+include { getPathogenDetectionDatabases } from './lib/production/utils'; 
 
 def pipelineSelection = branchCriteria {
     panviral: it[0] == 'panviral-enrichment'
@@ -62,7 +64,13 @@ workflow production {
 
     /* Pathogen detection */
     
-    
+
+    def pathogenDB = getPanviralEnrichmentDatabases()
+
+    PathogenDetection(
+        pairedReadsFromStage(pipelines.pathogen),
+        pathogenDB.qualityControl,
+    )
 
     // def database = getPathogenDetectionDatabases()
     
