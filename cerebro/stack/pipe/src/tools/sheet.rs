@@ -275,10 +275,9 @@ pub fn get_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bo
         };
         let sample_id = entry.matched().get(1).ok_or_else(||WorkflowError::GlobMatchSampleIdentifier(format!("{:?}", file_path)))?;
         
-        log::debug!("Sample sheet utility - [{:?}] - detected paired-end file: {:?}", sample_id, file_path);
+        log::info!("Sample sheet utility - [{:?}] - detected paired-end file: {:?}", sample_id, file_path);
 
         if prefix_subset.is_empty() {
-
             paired_files.entry(sample_id.to_owned()).or_insert_with(Vec::new).push(file_path.to_path_buf());
         } else {
             let (include, prefix) = check_sample_prefix(&prefix_subset, sample_id); 
