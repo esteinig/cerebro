@@ -262,10 +262,26 @@ fn sample_prefix_summary(prefixes: &Vec<String>, detected: &Vec<String>) -> Vec<
 
 // A helper function to check if sample identifiers are unique
 fn check_unique_sample_id(entries: &Vec<SampleSheetEntry>) -> Result<(), WorkflowError> {
-    let n_unique = entries.iter().map(|x| x.sample_id.as_str()).collect::<HashSet<&str>>().len();
-    if n_unique != entries.len() {
+    let mut id_count: HashMap<&str, usize> = HashMap::new();
+
+    // Count occurrences of each sample_id
+    for entry in entries {
+        *id_count.entry(entry.sample_id.as_str()).or_insert(0) += 1;
+    }
+
+    // Collect all sample IDs that are not unique (appear more than once)
+    let duplicates: Vec<&str> = id_count.iter()
+        .filter(|&(_, &count)| count > 1)
+        .map(|(&sample_id, _)| sample_id)
+        .collect();
+
+    if !duplicates.is_empty() {
+        // You can log or handle the duplicates here as needed
+        println!("Duplicate sample IDs found: {:#?}", duplicates);
+
         return Err(WorkflowError::SampleSheetIdsNotUnique)
-    } 
+    }
+
     Ok(())
 }
 
