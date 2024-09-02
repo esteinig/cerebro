@@ -104,7 +104,6 @@ workflow panviral {
         panviralDB.control,
     )
 
-    
 }
 
 
@@ -115,7 +114,7 @@ workflow pathogen {
     def pathogenDB = getPathogenDetectionDatabases();
 
     PathogenDetection(
-        getReads(params.fastq, params.sampleSheet),
+        getReads(params.fastqPaired, params.sampleSheet, true),
         pathogenDB.qualityControl,
     )   
 

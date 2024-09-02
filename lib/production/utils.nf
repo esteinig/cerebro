@@ -199,11 +199,97 @@ def getAlignmentReferenceIndex(String reference, String index, String aligner, S
 
 }
 
-def getReads(String fastq, String sampleSheet) {
+def getReads(String fastq, String sampleSheet, Boolean paired) {
     
-
+    if (paired) {
+        return getPairedReads(fastq, sampleSheet)
+    } else {
+        return getSingleReads(fastq, sampleSheet)
+    }
 }
 
+
+def getPairedReads(String fastq, String sampleSheet) {
+
+    if (sampleSheet){
+        reads = sampleSheetPairedEnd(sample_sheet, production)
+    } else if (fastq) {
+        reads = channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
+    } else {
+        error "Either `--fastqPaired` or `--sampleSheet` have to be specified for paired-end reads"
+    }
+    return reads
+}
+
+def getSingleReads(String fastq, String sampleSheet) {
+
+    if (sampleSheet){
+        error "Not supported"
+    } else if (fastq) {
+        reads = channel.fromPath(params.fastqSingle, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
+    } else {
+        error "Either `--fastqSingle` or `--sampleSheet` have to be specified for nanopore reads"
+    }
+    return reads
+}
+
+def sampleSheetPairedEnd(file, production){
+
+    def row_number = 2 // with header
+
+    fastq_files = channel.fromPath("$file") | splitCsv(header:true, strip:true) | map { row -> 
+
+        // Check that required columns are present
+        if (row.sample_id === null || row.forward_path === null || row.reverse_path === null) {
+            error "Sample sheet did not contain required columns (sample_id, forward_path, reverse_path)"
+        }
+
+        // Check that required values for this row are set
+        if (row.sample_id.isEmpty() || row.forward_path.isEmpty() || row.reverse_path.isEmpty() ) {
+            error "Sample sheet did not contain required values (sample_id, forward_path, reverse_path) in row: ${row_number}"
+        }
+
+        forward = new File(row.forward_path)
+        reverse = new File(row.reverse_path)
+
+        if (!forward.exists()){
+            error "Forward read file does not exist: ${forward}"
+        }
+        if (!reverse.exists()){
+            error "Reverse read file does not exist: ${reverse}"
+        }
+
+        if (production) {
+             // Check that required columns are present
+            if (row.run_id === null || row.run_date === null) {
+                error "Production mode is activated, but the sample sheet did not contain required columns (run_date, run_id)"
+            }
+            // Check that run date and identifier are set for production models
+            if (row.run_id.isEmpty() || row.run_date.isEmpty()) {
+                error "Production mode is activated, but the sample sheet did not contain a sequence run identifier or date for sample: ${row.sample_id}"
+            }
+            // Check if the aneuploidy column is present
+            if (row.aneuploidy === null || row.aneuploidy.isEmpty()) {
+                error "Production mode is activated, but the sample sheet did not specify the aneuploidy detection/consent column for sample: ${row.sample_id}"
+            }
+        }
+
+        row_number++
+
+        return tuple(row.sample_id, row.forward_path, row.reverse_path, row.aneuploidy.toBoolean())
+
+    }
+
+    fastq_files | ifEmpty { exit 1, "Could not find read files specified in sample sheet." }
+
+    return fastq_files | map { tuple(it[0], it[1], it[2]) }
+
+    // return [
+    //     aneuploidy: fastq_files | filter { it[3] } | map { tuple(it[0], it[1], it[2]) },
+    //     pathogen: fastq_files | map { tuple(it[0], it[1], it[2]) }
+    // ]
+
+}
 
 
 c_reset = params.monochrome ? '' : "\033[0m";
