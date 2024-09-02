@@ -22,12 +22,30 @@ Production pipeline operate as follows:
 */
 
 
-include { StageInputFiles } from './lib/production/utils';
 include { PanviralEnrichment } from './lib/production/panviral';
-include { PathogenDetection } from './lib/production/panviral';
+include { PathogenDetection } from './lib/production/pathogen';
 
+include { getReads } from './lib/production/utils'; 
 include { getPanviralEnrichmentDatabases } from './lib/production/utils'; 
 include { getPathogenDetectionDatabases } from './lib/production/utils'; 
+
+
+process StageInputFiles {
+
+    input:
+    path(stageJson)
+
+    output:
+    tuple env(PIPELINE), env(SAMPLE_ID), path("*.gz")
+
+    script:
+
+    """
+    SAMPLE_ID=\$(cerebro-fs stage --json $stageJson --outdir . --pipeline pipeline.txt)
+    PIPELINE=\$(cat pipeline.txt)
+    """
+}
+
 
 def pipelineSelection = branchCriteria {
     panviral: it[0] == 'panviral-enrichment'
@@ -48,12 +66,12 @@ workflow production {
     Channel.fromPath("$params.stageDirectory/*.json") | StageInputFiles
 
     /* Pipeline selection */
-   
-    pipelines = StageInputFiles.out.branch(pipelineSelection)
+
+    pipelines = StageInputFiles.out.branch(pipelineSelection);
     
     /* Panviral enrichment */
 
-    def panviralDB = getPanviralEnrichmentDatabases()
+    def panviralDB = getPanviralEnrichmentDatabases();
 
     PanviralEnrichment(
         pairedReadsFromStage(pipelines.panviral),
@@ -64,20 +82,42 @@ workflow production {
 
     /* Pathogen detection */
     
-
-    def pathogenDB = getPanviralEnrichmentDatabases()
+    def pathogenDB = getPathogenDetectionDatabases();
 
     PathogenDetection(
         pairedReadsFromStage(pipelines.pathogen),
         pathogenDB.qualityControl,
-    )
-
-    // def database = getPathogenDetectionDatabases()
-    
-    // PathogenDetection(
-
-    // )
-    
-    
+    )   
 
 }
+
+workflow panviral {
+
+    /* Panviral enrichment */
+
+    def panviralDB = getPanviralEnrichmentDatabases();
+
+    PanviralEnrichment(
+        getReads(params.fastq, params.sampleSheet),
+        panviralDB.host, 
+        panviralDB.virus, 
+        panviralDB.control,
+    )
+
+    
+}
+
+
+workflow pathogen {
+
+    /* Pathogen detection */
+
+    def pathogenDB = getPathogenDetectionDatabases();
+
+    PathogenDetection(
+        getReads(params.fastq, params.sampleSheet),
+        pathogenDB.qualityControl,
+    )   
+
+}
+

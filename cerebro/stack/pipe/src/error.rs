@@ -17,13 +17,28 @@ pub enum WorkflowError {
     ScrubbyError(#[from] scrubby::error::ScrubbyError),
     #[error(transparent)]
     VircovError(#[from] vircov::error::VircovError),
-    
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    /// Represents errors from building a Rayon thread pool.
+    #[error(transparent)]
+    RayonThreadPoolError(#[from] rayon::ThreadPoolBuildError),
+    /// Represents all other cases of `niffler::Error`.
+    #[error(transparent)]
+    NifflerError(#[from] niffler::Error),
+
     #[error("Failed to convert OsString to String")]
     FileNameConversionError,
 
     #[error("Failed to detect required output file")]
     PipelineOutputNotFound,
 
+    /// Represents an error when failing to extract a sequence record header.
+    #[error("failed to extract sequence record header")]
+    NeedletailHeader(#[source] std::str::Utf8Error),
+    /// Represents an error when failing to extract a valid header of a read.
+    #[error("failed to extract a valid header of read")]
+    NeedletailFastqHeader,
+    
     /// Indicates failure to parse a the nanoq JSON
     #[error("failed to parse nanoq output from JSON")]
     ParseNanoq(#[source] serde_json::Error),
@@ -33,9 +48,6 @@ pub enum WorkflowError {
     /// Indicates failure to find the required nanoq scan output
     #[error("failed to find nanoq scan output")]
     NanoqScan,
-    /// Represents all other cases of `std::io::Error`.
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
     /// Indicates failure to find a taxid in the scan-remap record and subsequent failure to aggregate the record
     #[error("failed to find taxonomic identifier in Vircov Scan-Remap Record")]
     VircovScanRemapTaxidMissing,
@@ -215,9 +227,6 @@ pub enum WorkflowError {
     /// Indicates failure to parse the last field of the sequence identifier which shoudl contain the UMI
     #[error("failed to parse the last sequence identifier field with the given separator: {0}")]
     UmiFieldNotFound(String),
-    /// Indicates failure to obtain compression writer with Niffler
-    #[error("failed to get compression writer")]
-    CompressionWriter(#[from] niffler::Error),
     /// Indicates failure to parse an integer in a record
     #[error("failed to parse a valid integer into record")]
     RecordIntError(#[from] std::num::ParseIntError),
@@ -267,10 +276,7 @@ pub enum WorkflowError {
     /// Indicates failure to obtain the sample tag regex capture match
     #[error("failed to get sample tag regex capture match")]
     SampleTagRegexCaptureMatch,
-}
 
-#[derive(Error, Debug)]
-pub enum WorkflowUtilityError {
     /// Represents a failure to extract the sample identifier from a glob matched pattern
     #[error("failed to extract pattern match for sample identifier from: {0}")]
     GlobMatchSampleIdentifier(String),
@@ -298,6 +304,11 @@ pub enum WorkflowUtilityError {
     /// Represents a failure to initiate reader
     #[error("failed to create a sample sheet reader from file: {0}")]
     SampleSheetCsvReader(String),
+}
+
+#[derive(Error, Debug)]
+pub enum WorkflowUtilityError {
+   
     /// Represents all other cases of `csv::Error`.
     #[error("failed to process CSV")]
     CsvError(#[from] csv::Error),

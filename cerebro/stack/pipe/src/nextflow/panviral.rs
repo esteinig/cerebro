@@ -1,11 +1,18 @@
 use std::path::PathBuf;
 
-use crate::{error::WorkflowError, parsers::fastp::FastpReport, utils::{get_file_component, FileComponent}};
+use crate::error::WorkflowError;
+use crate::parsers::fastp::FastpReport;
+
+use crate::utils::{
+    get_file_component, 
+    get_file_by_name, 
+    FileComponent
+};
+
 
 use scrubby::report::ScrubbyReport;
 use vircov::vircov::VircovSummary;
 
-use super::utils::get_file_by_name;
 
 pub struct PanviralFiles {
     pub reads: Option<PathBuf>,
@@ -54,11 +61,15 @@ impl PanviralOutput {
                 }
             },
             host: match files.host { 
-                Some(ref path) => Some(ScrubbyReport::from_json(path)?), 
+                Some(ref path) => Some(
+                    ScrubbyReport::from_json(path)?
+                ), 
                 None => None
             },
             controls: match files.controls { 
-                Some(ref path) => Some(VircovSummary::from_tsv(path, true)?), 
+                Some(ref path) => Some(
+                    VircovSummary::from_tsv(path, true)?
+                ), 
                 None => None
             },
             viruses: match files.viruses { 

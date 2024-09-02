@@ -1,19 +1,114 @@
 
-process StageInputFiles {
+/* Panviral Enrichment */
 
-    input:
-    path(stageJson)
-
-    output:
-    tuple env(PIPELINE), env(SAMPLE_ID), path("*.gz")
-
-    script:
-
-    """
-    SAMPLE_ID=\$(cerebro-fs stage --json $stageJson --outdir . --pipeline pipeline.txt)
-    PIPELINE=\$(cat pipeline.txt)
-    """
+def getPanviralEnrichmentDatabases() {
+    return [
+        host: getPanviralEnrichmentHostDatabase(),
+        virus: getPanviralEnrichmentVirusDatabase(),
+        control:  getPanviralEnrichmentControlDatabase()
+    ]
 }
+
+
+def getPanviralEnrichmentHostDatabase() {
+
+    return getAlignmentIndex(
+        params.panviralEnrichment.hostIndex, 
+        params.panviralEnrichment.hostAligner,
+        "panviral enrichment :: quality control :: host"
+    )
+}
+
+
+def getPanviralEnrichmentVirusDatabase() {
+
+    return getAlignmentReferenceIndex(
+        params.panviralEnrichment.virusReference, 
+        params.panviralEnrichment.virusIndex, 
+        params.panviralEnrichment.virusAligner,
+        "panviral enrichment :: quality control :: virus"
+    )
+}
+
+
+def getPanviralEnrichmentControlDatabase() {
+
+    return getAlignmentReferenceIndex(
+        params.panviralEnrichment.controlReference, 
+        params.panviralEnrichment.controlIndex, 
+        params.panviralEnrichment.controlAligner,
+        "panviral enrichment :: quality control :: internal controls"
+    )
+}
+
+/* Pathogen Detection */
+
+def getPathogenDetectionDatabases() {
+    return [
+        qualityControl: getPathogenDetectionQualityDatabases(),
+    ]
+}
+
+def getPathogenDetectionQualityDatabases() {
+
+    def qualityControlParams = params.pathogenDetection.qualityControl;
+    
+    return [
+        hostDepletion:       qualityControlParams.hostDepletion       ? getPathogenDetectionHostDatabase(qualityControlParams) : Channel.empty(),
+        internalControls:    qualityControlParams.internalControls    ? getPathogenDetectionInternalControls(qualityControlParams) : Channel.empty(),
+        syntheticControls:   qualityControlParams.syntheticControls   ? getPathogenDetectionSyntheticControls(qualityControlParams) : Channel.empty(),
+        backgroundDepletion: qualityControlParams.backgroundDepletion ? getPathogenDetectionBackgroundDatabase(qualityControlParams) : Channel.empty(),
+    ]
+}
+
+def getPathogenDetectionHostDatabase(qualityControlParams) {
+
+    return getAlignmentIndex(
+        qualityControlParams.hostDepletionIndex, 
+        qualityControlParams.hostDepletionAligner,
+        "pathogen detection :: quality control :: host"
+    )
+}
+def getPathogenDetectionBackgroundDatabase(qualityControlParams) {
+
+    return getAlignmentReferenceIndex(
+        qualityControlParams.backgroundDepletionReference, 
+        qualityControlParams.backgroundDepletionIndex, 
+        qualityControlParams.backgroundDepletionAligner,
+        "pathogen detection :: quality control :: background"
+    )
+}
+
+def getPathogenDetectionInternalControls(qualityControlParams) {
+
+    return getAlignmentReferenceIndex(
+        qualityControlParams.internalControlsReference, 
+        qualityControlParams.internalControlsIndex, 
+        qualityControlParams.internalControlsAligner,
+        "pathogen detection :: quality control :: internal controls"
+    )
+}
+
+def getPathogenDetectionSyntheticControls(qualityControlParams) {
+
+    return getAlignmentReferenceIndex(
+        qualityControlParams.syntheticControlsReference, 
+        qualityControlParams.syntheticControlsIndex, 
+        qualityControlParams.syntheticControlsAligner,
+        "pathogen detection :: quality control :: synthetic controls"
+    )
+}
+
+def getAlignmentReference(String, reference, String description) {
+
+    referenceFile = new File(reference)
+    if (!referenceFile.exists()) {
+        throw new RuntimeException("Reference sequence file for ${description} database does not exist: ${referenceFile}")
+    }
+    return referenceFile.absolutePath
+
+}
+
 
 /**
  * Retrieves the Bowtie2 or Bowtie21 index files based on the provided index prefix.
@@ -64,92 +159,166 @@ def getBowtie2IndexFiles(String index) {
     return bowtie2Files
 }
 
-def getPanviralEnrichmentDatabases() {
-    return [
-        host: getPanviralEnrichmentHostDatabase(),
-        virus: getPanviralEnrichmentVirusDatabase(),
-        control:  getPanviralEnrichmentControlDatabase()
-    ]
-}
 
-def getPanviralEnrichmentHostDatabase() {
+def getAlignmentIndex(String index, String aligner, String description) {
 
-    hostIndex = params.panviralEnrichment.hostIndex
+    if (index == null) {
+        throw new RuntimeException("Index path for ${description} cannot be null")
+    }
 
-    // Check if the host aligner is Bowtie2 and retrieve the appropriate index files
-    if (params.panviralEnrichment.hostAligner == "bowtie2") {
+    // Check if the aligner is Bowtie2 and retrieve the appropriate index files
+    if (aligner == "bowtie2") {
         try {
-            hostIndexPaths = getBowtie2IndexFiles(hostIndex)
+            indexPaths = getBowtie2IndexFiles(index)
         } catch (RuntimeException e) {
-            throw new RuntimeException("Error retrieving Bowtie2 index files for host database: ${e.message}")
+            throw new RuntimeException("Error retrieving Bowtie2 index files for ${description} database: ${e.message}")
         }
     } else {
-        // For other aligners, simply use the hostIndex as a single file path
-        hostIndexPaths = [new File(hostIndex).absolutePath]
-        if (!new File(hostIndex).exists()) {
-            throw new RuntimeException("Host index file does not exist: ${hostIndex}")
+        // For other aligners, simply use the index as a single file path
+        indexPaths = [new File(index).absolutePath]
+        if (!new File(index).exists()) {
+            throw new RuntimeException("Index file for ${description} database does not exist: ${hostIndex}")
         }
     }
-    return hostIndexPaths
+    return indexPaths
+    
 }
 
+/* Wrapper alignment infex/reference database functions */
 
-def getPanviralEnrichmentVirusDatabase() {
+def getAlignmentReferenceIndex(String reference, String index, String aligner, String description) {
 
-    virusReference = params.panviralEnrichment.virusReference
-    virusIndex = params.panviralEnrichment.virusIndex
+    indexPaths = getAlignmentIndex(index, aligner, description)
 
-    // Check if the host aligner is Bowtie2 and retrieve the appropriate index files
-    if (params.panviralEnrichment.virusAligner == "bowtie2") {
-        try {
-            virusIndexPaths = getBowtie2IndexFiles(virusIndex)
-        } catch (RuntimeException e) {
-            throw new RuntimeException("Error retrieving Bowtie2 index files for virus database: ${e.message}")
-        }
-    } else {
-        // For other aligners, simply use the hostIndex as a single file path
-        virusIndexFile = new File(virusIndex)
-        virusIndexPaths = [virusIndexFile.absolutePath]
-        if (!virusIndexFile.exists()) {
-            throw new RuntimeException("Virus index file does not exist: ${virusIndex}")
-        }
+    referenceFile = new File(reference)
+    if (!referenceFile.exists()) {
+        throw new RuntimeException("Reference sequence file for ${description} database does not exist: ${referenceFile}")
     }
     
-    virusReferenceFile = new File(virusReference)
-    if (!virusReferenceFile.exists()) {
-        throw new RuntimeException("Virus reference file does not exist: ${virusReference}")
-    }
+    return [indexPaths, referenceFile.absolutePath]
 
-    return [virusIndexPaths, virusReferenceFile.absolutePath]
+}
+
+def getReads(String fastq, String sampleSheet) {
+    
+
 }
 
 
 
-def getPanviralEnrichmentControlDatabase() {
+c_reset = params.monochrome ? '' : "\033[0m";
+c_dim = params.monochrome ? '' : "\033[2m";
+c_black = params.monochrome ? '' : "\033[0;30m";
+c_green = params.monochrome ? '' : "\033[0;32m";
+c_yellow = params.monochrome ? '' : "\033[0;33m";
+c_blue = params.monochrome ? '' : "\033[0;34m";
+c_purple = params.monochrome ? '' : "\033[0;35m";
+c_cyan = params.monochrome ? '' : "\033[0;36m";
+c_white = params.monochrome ? '' : "\033[0;37m";
+c_red = params.monochrome ? '' : "\033[0;31m";
+c_indigo = params.monochrome ? '' : "\033[38;5;57m";
+c_light_indigo = params.monochrome ? '' : "\033[38;5;63m";
+c_light_blue = params.monochrome ? '' : "\033[38;5;33m";
 
-    controlReference = params.panviralEnrichment.controlReference
-    controlIndex = params.panviralEnrichment.controlIndex
+def initMessage(){
 
-    // Check if the host aligner is Bowtie2 and retrieve the appropriate index files
-    if (params.panviralEnrichment.controlAligner == "bowtie2") {
-        try {
-            controlIndexPaths = getBowtie2IndexFiles(controlIndex)
-        } catch (RuntimeException e) {
-            throw new RuntimeException("Error retrieving Bowtie2 index files for control database: ${e.message}")
-        }
-    } else {
-        // For other aligners, simply use the hostIndex as a single file path
-        controlIndexFile = new File(controlIndex)
-        controlIndexPaths = [controlIndexFile.absolutePath]
-        if (!controlIndexFile.exists()) {
-            throw new RuntimeException("Virus index file does not exist: ${controlIndex}")
-        }
-    }
+    production_msg = params.production ? "${c_light_blue}Production mode active.${c_reset}" : ""
 
-    controlReferenceFile = new File(controlReference)
-    if (!controlReferenceFile.exists()) {
-        throw new RuntimeException("Virus reference file does not exist: ${controlReference}")
-    }
+    log.info """
+    ${c_indigo}=====================
+    ${c_light_blue}C E R E B R O
+    ${c_indigo}=====================${c_reset}
 
-    return [controlIndexPaths, controlReferenceFile.absolutePath]
+    ${workflow.manifest.description}
+
+    Version:              ${c_light_indigo}v${workflow.manifest.version}${c_reset}
+    Documentation:        ${c_light_blue}https://docs.meta-gp.org${c_reset}
+
+    Workflow:             ${c_light_blue}${workflow.sessionId}${c_reset}
+    Started:              ${c_light_indigo}${workflow.start}${c_reset}
+
+    Profiles:             ${c_white}${workflow.profile}${c_reset}
+    Working directory:    ${c_white}${workflow.workDir}${c_reset}
+
+    ${production_msg}
+
+    """.stripIndent()
 }
+
+def completionMessage(){
+
+    log.info """
+
+    ${c_indigo}=====================
+    ${c_light_blue}C E R E B R O
+    ${c_indigo}=====================${c_reset}
+
+    Version:              ${c_light_indigo}v${workflow.manifest.version}${c_reset}
+    Workflow:             ${c_light_blue}${workflow.sessionId}${c_reset}
+    Completed:            ${c_light_indigo}${workflow.complete}${c_reset}
+
+    ${c_indigo}=============================================================${c_reset}
+
+    Please cite the following tools if used in the pipeline:
+
+        - cerebro        0.7.0      https://github.com/esteinig/cerebro
+        - umi-tools      1.1.4      https://github.com/CGATOxford/UMI-tools
+        - calib          0.3.4      https://github.com/vpc-ccg/calib
+        - covtobed       1.3.5      https://github.com/telatin/covtobed       
+        - minimap2       2.24       https://github.com/lh3/minimap2          
+        - samtools                  https://github.com/samtools/samtools      
+        - kraken2        2.1.2      https://github.com/DerrickWood/kraken2    
+        - fastp          0.23.2     https://github.com/OpenGene/fastp         
+        - nextflow       24.04      https://github.com/nextflow-io/nextflow  
+        - ivar           1.3.1      https://github.com/andersen-lab/ivar      
+        - spades         3.15.5     https://github.com/ablab/spades           
+        - strobealign    0.13.0     https://github.com/ksahlin/strobealign    
+        - blast          2.13.0     https://github.com/ncbi                   
+        - mash           2.3        https://github.com/marbl/Mash             
+        - diamond        2.1.4      https://github.com/bbuchfink/diamond      
+        - vircov         0.6.0      https://github.com/esteinig/vircov        
+        - scrubby        0.3.0      https://github.com/esteinig/scrubby 
+        - rasusa         0.7.1      https://github.com/mbhall88/rasusa
+        - cnvkit         0.9.10     https://github.com/etal/cnvkit
+        - nanoq          0.10.0     https://github.com/esteinig/nanoq
+
+    Bibtex citations file can be found in the output directory for your convenience;
+    please include citations of tools used in your workflow when citing Cerebro in
+    research publications.
+
+    ${c_indigo}=============================================================${c_reset}
+
+    ${c_light_blue}Cerebro${c_reset} depends on open-source libraries, including:
+    
+        - needletail                 https://github.com/onecodex/needletail
+        - taxonomy                   https://github.com/onecodex/taxonomy 
+        - niffler                    https://github.com/luizirber/niffler 
+        - typst                      https://github.com/typst/typst
+
+    ${c_indigo}=============================================================${c_reset}
+
+    Cerebro is part of the Australian metagenomics diagnostics consortium ${c_light_blue}META-GP${c_reset}. 
+
+    For more information on accredited software for clinical public health metagenomics, 
+    please see the documentation: 
+    
+    ${c_light_blue}https://cerebro.meta-gp.org${c_reset}
+ 
+    ${c_indigo}=============================================================${c_reset}
+    """.stripIndent()
+}
+
+def helpMessage(){
+
+    log.info """
+    ${c_indigo}=====================
+    ${c_light_blue}C E R E B R O
+    ${c_indigo}=====================${c_reset}
+
+    Version:               ${c_light_indigo}v${workflow.mainfest.version}${c_reset}
+    Documentation:        ${c_light_blue}https://cerebro.meta-gp.org${c_reset}
+
+    """.stripIndent()
+    System.exit(0)
+}
+

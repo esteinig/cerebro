@@ -30,7 +30,9 @@ pub enum FileTag {
     #[serde(rename = "TMP")]
     Tmp,
     #[serde(rename = "ENV")]
-    Env
+    Env,
+    #[serde(rename = "HOST")]
+    Host
 }
 
 pub type SeaweedFileId = String;

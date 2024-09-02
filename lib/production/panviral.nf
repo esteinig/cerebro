@@ -5,9 +5,9 @@
 
 
 
-process QualityControl {
+process ReadQuality {
 
-    label "fastp"
+    label "panviralReadQuality"
     tag { sampleID }
 
 
@@ -34,7 +34,7 @@ process QualityControl {
 
 process HostDepletion {
 
-    label "vircov_scrubby"
+    label "panviralHostDepletion"
     tag { sampleID }
 
 
@@ -55,14 +55,14 @@ process HostDepletion {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    scrubby reads -i $forward -i $reverse --index $alignmentIndex --aligner $aligner -o ${sampleID}__host__R1.fq.gz -o ${sampleID}__host__R2.fq.gz --json ${sampleID}.host.json
+    scrubby reads -i $forward -i $reverse --index $alignmentIndex --aligner $aligner --threads $task.cpus -o ${sampleID}__host__R1.fq.gz -o ${sampleID}__host__R2.fq.gz --json ${sampleID}.host.json
     """
 }
 
 
 process InternalControls {
     
-    label "vircov_scrubby"
+    label "panviralInternalControls"
     tag { sampleID }
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
@@ -92,7 +92,7 @@ process InternalControls {
 
 process VirusRecovery {
     
-    label "vircov"
+    label "panviralVirusRecovery"
     tag { sampleID }
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.viruses.tsv"
@@ -148,10 +148,10 @@ workflow PanviralEnrichment {
         controlDatabase
     main:
 
-        QualityControl(reads)
+        ReadQuality(reads)
 
         HostDepletion(
-            QualityControl.out.reads, 
+            ReadQuality.out.reads, 
             hostDatabase, 
             params.panviralEnrichment.hostAligner
         )
@@ -168,7 +168,7 @@ workflow PanviralEnrichment {
             params.panviralEnrichment.virusAligner
         )
 
-        results = QualityControl.out.results.mix(
+        results = ReadQuality.out.results.mix(
             HostDepletion.out.results, 
             InternalControls.out.results,
             VirusRecovery.out.results

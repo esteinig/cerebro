@@ -8,45 +8,67 @@ use serde::{Deserialize, Serialize, Serializer};
 use vircov::vircov::{VircovRecord, VircovSummary};
 
 use crate::error::WorkflowError;
+use crate::nextflow::pathogen::PathogenOutput;
 use crate::parsers::fastp::FastpReport;
 use crate::nextflow::panviral::PanviralOutput;
+use crate::tools::scan::ScanReport;
+use crate::tools::umi::DeduplicationReport;
 
 // Main module wrapper functions
 
-pub fn write_quality_tsv(qc_data: &Vec<QualityControl>, reads: &PathBuf, controls: &PathBuf) -> Result<(), WorkflowError> {
+pub fn write_quality_tsv(json: &Vec<PathBuf>, reads: &PathBuf, controls: &PathBuf, background: &PathBuf) -> Result<(), WorkflowError> {
     
+    let mut data = Vec::new();
+
+    for path in json {
+        data.push(QualityControl::from_json(&path)?)
+    }
+
     let mut reads_writer = WriterBuilder::new()
         .has_headers(true)
         .delimiter(b'\t')
         .from_writer(File::create(reads)?);
 
-    for qc in qc_data {
+    for qc in &data {
         reads_writer.serialize(&qc.reads)?;
     }
     
     reads_writer.flush()?;
     
-    let mut alignment_writer = WriterBuilder::new()
+    let mut controls_writer = WriterBuilder::new()
         .has_headers(true)
         .delimiter(b'\t')
-        .from_writer(File::create(controls)?);
+        .from_path(controls)?;
 
-    for qc in qc_data {
-        if let Some(controls) = &qc.controls {
-            if let Some(ercc) = &controls.ercc {
-                for record in &ercc.records {
-                    alignment_writer.serialize(record)?;
-                }
+    for qc in &data {
+        if let Some(ercc) = &qc.controls.ercc {
+            for record in &ercc.records {
+                controls_writer.serialize(record)?;
             }
-            if let Some(organism) = &controls.organism {
-                for record in &organism.records {
-                    alignment_writer.serialize(record)?;
-                }
+        }
+        if let Some(organism) = &qc.controls.organism {
+            for record in &organism.records {
+                controls_writer.serialize(record)?;
+            }
+        }
+    }
+
+    controls_writer.flush()?;
+    
+    let mut background_writer = WriterBuilder::new()
+        .has_headers(true)
+        .delimiter(b'\t')
+        .from_path(background)?;
+
+    for qc in &data {
+        if let Some(other) = &qc.background.other {
+            for record in &other.records {
+                background_writer.serialize(record)?;
             }
         }
     }
     
-    alignment_writer.flush()?;
+    background_writer.flush()?;
 
     Ok(())
 }
@@ -62,30 +84,33 @@ pub fn write_quality_json(qc_data: &Vec<QualityControl>, output: &PathBuf) -> Re
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityControl {
     pub id: String,
-    pub reads: Reads,
-    pub background: Option<Background>,
-    pub controls: Option<InternalControls>
+    pub reads: ReadQualityControl,
+    pub background: Background,
+    pub controls: Controls
 }
 impl QualityControl {
     pub fn from_panviral(output: &PanviralOutput) -> Self {
 
-        let controls = InternalControls::from(
+        let controls = Controls::from(
             &output.id,
             output.controls.clone(), 
-            InternalControlConfig::default()
+            ControlsConfig::default()
         );        
 
         let background = Background::from(
             &output.id,
             output.host.clone(),
+            None
         );
 
-        let reads = Reads::from(
+        let reads = ReadQualityControl::from(
             &output.id,
-            output.reads.clone(),
-            controls.as_ref().and_then(
-                |c| c.ercc.clone()
-            )
+            None,
+            Some(output.reads.clone()),
+            Some(controls.clone()),
+            Some(background.clone()),
+            None,
+            None
         );
 
         Self {
@@ -95,14 +120,57 @@ impl QualityControl {
             controls
         }
     }
-    pub fn to_json(&self, output: &PathBuf) -> Result<(), WorkflowError> {
-        let writer = BufWriter::new(File::create(output)?);
+    pub fn from_pathogen(output: &PathogenOutput) -> Self {
+        
+        let synthetic_controls = Controls::from(
+            &output.id,
+            output.qc.synthetic_controls.clone(), 
+            ControlsConfig::default()
+        );        
+
+        let internal_controls = Controls::from(
+            &output.id,
+            output.qc.internal_controls.clone(), 
+            ControlsConfig::default()
+        );        
+
+        let controls = Controls::new(
+            synthetic_controls.ercc, 
+            internal_controls.organism, 
+            ControlsConfig::default()
+        );
+
+        let background = Background::from(
+            &output.id,
+            output.qc.host_depletion.clone(),
+            output.qc.background_depletion.clone()
+        );
+
+        let reads = ReadQualityControl::from(
+            &output.id,
+            Some(output.qc.input_scan.clone()),
+            output.qc.reads_qc.clone(),
+            Some(controls.clone()),
+            Some(background.clone()),
+            output.qc.deduplication.clone(),
+            None
+        );
+
+        Self {
+            id: output.id.clone(),
+            reads,
+            background,
+            controls
+        }
+    }
+    pub fn to_json(&self, path: &PathBuf) -> Result<(), WorkflowError> {
+        let writer = BufWriter::new(File::create(path)?);
         serde_json::to_writer_pretty(writer, self)?;
         Ok(())
     }
 
-    pub fn from_json(input: &PathBuf) -> Result<Self, WorkflowError> {
-        let reader = BufReader::new(File::open(input)?);
+    pub fn from_json(path: &PathBuf) -> Result<Self, WorkflowError> {
+        let reader = BufReader::new(File::open(path)?);
         let quality_control = serde_json::from_reader(reader)?;
         Ok(quality_control)
     }
@@ -142,14 +210,17 @@ where
 pub trait ReadReport {
     fn input_reads(&self) -> u64;
     fn input_bases(&self) -> u64;
-    fn output_reads(&self) -> u64;
-    fn output_reads_percent(&self) -> f64;
-    fn output_bases(&self) -> u64;
-    fn output_bases_percent(&self) -> f64;
-    fn input_biomass(&self, ercc: Option<Ercc>) -> Option<f64>;
-    fn output_biomass(&self, ercc: Option<Ercc>) -> Option<f64>;
-    fn deduplicated_reads(&self) -> Option<u64>;
-    fn deduplicated_percent(&self) -> Option<f64>;
+    fn qc_reads(&self) -> u64;
+    fn qc_reads_percent(&self, total: u64) -> f64;
+    fn qc_bases(&self) -> u64;
+    fn qc_bases_percent(&self, total: u64) -> f64;
+    fn input_biomass(&self, ercc: Option<ErccControl>) -> Option<f64>;
+    fn host_biomass(&self, ercc: Option<ErccControl>, host: Option<HostBackground>) -> Option<f64>;
+    fn control_biomass(&self, ercc: Option<ErccControl>, controls: Option<OrganismControl>) -> Option<f64>;
+    fn background_biomass(&self, ercc: Option<ErccControl>, background: Option<OtherBackground>) -> Option<f64>;
+    fn output_biomass(&self, ercc: Option<ErccControl>) -> Option<f64>;
+    fn deduplicated_reads(&self, report: Option<DeduplicationReport>) -> Option<u64>;
+    fn deduplicated_percent(&self, report: Option<DeduplicationReport>) -> Option<f64>;
     fn adapter_trimmed_reads(&self) -> Option<u64>;
     fn adapter_trimmed_percent(&self) -> Option<f64>;
     fn low_complexity_reads(&self) -> Option<u64>;
@@ -171,37 +242,58 @@ impl ReadReport for FastpReport {
     fn input_bases(&self) -> u64 {
         self.summary.before.bases
     }
-    fn output_reads(&self) -> u64 {
+    fn qc_reads(&self) -> u64 {
         self.summary.after.reads
     }
-    fn output_reads_percent(&self) -> f64 {
-        if self.summary.before.reads == 0 {
-            0.0
+    fn qc_reads_percent(&self, total: u64) -> f64 {
+        if total > 0 {
+            (self.summary.after.reads as f64 / total as f64)*100.0
         } else {
-            (self.summary.after.reads as f64 / self.summary.before.reads as f64)*100.0
+            0.0
         }
     }
-    fn output_bases(&self) -> u64 {
+    fn qc_bases(&self) -> u64 {
         self.summary.after.bases
     }
-    fn output_bases_percent(&self) -> f64 {
-        if self.summary.before.bases == 0 {
-            0.0
+    fn qc_bases_percent(&self, total: u64) -> f64 {
+        if total > 0 {
+            (self.summary.after.bases as f64 / total as f64)*100.0
         } else {
-            (self.summary.after.bases as f64 / self.summary.before.bases as f64)*100.0
+            0.0
         }
     }
-    fn input_biomass(&self, ercc: Option<Ercc>) -> Option<f64> {
+    fn input_biomass(&self, ercc: Option<ErccControl>) -> Option<f64> {
         ercc.as_ref().map(|ercc| self.summary.before.reads as f64 * ercc.mass_per_read)
     }
-    fn output_biomass(&self, ercc: Option<Ercc>) -> Option<f64> {
+    fn host_biomass(&self, ercc: Option<ErccControl>, host: Option<HostBackground>) -> Option<f64> {
+        if let Some(ercc) = ercc {
+            host.as_ref().map(|host| host.alignments as f64 * ercc.mass_per_read)
+        } else {
+            None
+        }  
+    }
+    fn control_biomass(&self, ercc: Option<ErccControl>, controls: Option<OrganismControl>) -> Option<f64> {
+        if let Some(ercc) = ercc {
+            controls.as_ref().map(|organism| organism.alignments as f64 * ercc.mass_per_read)
+        } else {
+            None
+        }  
+    }
+    fn background_biomass(&self, ercc: Option<ErccControl>, background: Option<OtherBackground>) -> Option<f64> {
+        if let Some(ercc) = ercc {
+            background.as_ref().map(|background| background.alignments as f64 * ercc.mass_per_read)
+        } else {
+            None
+        }  
+    }
+    fn output_biomass(&self, ercc: Option<ErccControl>) -> Option<f64> {
         ercc.as_ref().map(|ercc| self.summary.after.reads as f64 * ercc.mass_per_read)
     }
-    fn deduplicated_reads(&self) -> Option<u64> {
-        self.duplication.as_ref().map(|dup| (self.summary.after.reads as f64 * dup.rate) as u64)
+    fn deduplicated_reads(&self, report: Option<DeduplicationReport>) -> Option<u64> {
+        report.as_ref().map(|dedup| dedup.deduplicated as u64)
     }
-    fn deduplicated_percent(&self) -> Option<f64> {
-        self.duplication.as_ref().map(|dup| dup.rate * 100.0)
+    fn deduplicated_percent(&self,  report: Option<DeduplicationReport>) -> Option<f64> {
+        report.as_ref().map(|dedup| dedup.deduplicated_percent)
     }
     fn adapter_trimmed_reads(&self) -> Option<u64> {
         self.adapter.as_ref().map(|adapter| adapter.total_reads)
@@ -246,114 +338,204 @@ impl ReadReport for FastpReport {
         Some((self.filter.low_quality as f64 / self.summary.before.reads as f64) * 100.0)
     }
     fn q20_percent(&self) -> Option<f64> {
-        Some(self.summary.after.q20)
+        Some(self.summary.after.q20*100.0)
     }
     fn q30_percent(&self) -> Option<f64> {
-        Some(self.summary.after.q30)
+        Some(self.summary.after.q30*100.0)
     }
 }
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Reads {
+pub struct ReadQualityControl {
     pub id: String,
 
     pub input_reads: u64,
     pub input_bases: u64,
 
-    pub qc_reads: u64,
-    #[serde(serialize_with = "round_two")]
-    pub qc_reads_percent: f64,
-    pub qc_bases: u64,
-    #[serde(serialize_with = "round_two")]
-    pub qc_bases_percent: f64,
-    
-    #[serde(skip_serializing_if = "Option::is_none")]
+    // ERCC
     pub ercc_constructs: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub ercc_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub ercc_reads_percent: Option<f64>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub organism_controls_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub organism_controls_reads_percent: Option<f64>,
-    
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub host_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub host_reads_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub other_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub other_reads_percent: Option<f64>,
-    
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub input_biomass: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub qc_biomass: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub host_biomass: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
-    pub other_biomass: Option<f64>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
+    // Deduplication
     pub deduplicated_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub deduplicated_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+
+    // Stages
+    pub qc_reads: Option<u64>,
+    pub qc_reads_percent: Option<f64>,
+    pub qc_bases: Option<u64>,
+    pub qc_bases_percent: Option<f64>,
+    pub host_reads: Option<u64>,
+    pub host_reads_percent: Option<f64>,
+    pub control_reads: Option<u64>,
+    pub control_reads_percent: Option<f64>,
+    pub background_reads: Option<u64>,
+    pub background_reads_percent: Option<f64>,
+    pub output_reads: u64,
+    pub output_reads_percent: f64,
+    pub output_bases: u64,
+    pub output_bases_percent: f64,
+    
+    // Biomass
+    pub input_biomass: Option<f64>,
+    pub host_biomass: Option<f64>,
+    pub control_biomass: Option<f64>,
+    pub background_biomass: Option<f64>,
+    pub output_biomass: Option<f64>,
+
+    // Fastp fields
     pub adapter_trimmed_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub adapter_trimmed_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub low_complexity_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub low_complexity_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub mean_read_length_r1: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub mean_read_length_r2: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub min_length_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub min_length_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub low_quality_reads: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub low_quality_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub q20_percent: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "round_two")]
     pub q30_percent: Option<f64>,
 }
-impl Reads {
-    pub fn from<R: ReadReport>(id: &str, report: R, ercc: Option<Ercc>) -> Self {
+impl ReadQualityControl {
+    pub fn from<R: ReadReport>(
+        id: &str, 
+        input_scan: Option<ScanReport>,
+        qc: Option<R>,
+        controls: Option<Controls>,
+        background: Option<Background>,
+        deduplication: Option<DeduplicationReport>,
+        output_scan: Option<ScanReport>
+    ) -> Self {
+
+        let (input_reads, input_bases) = match input_scan {
+            Some(scan_report) => (
+                scan_report.reads as u64, 
+                scan_report.bases as u64
+            ), 
+            None => {
+                match qc {
+                    Some(ref qc_report) => (
+                        qc_report.input_reads(), 
+                        qc_report.input_bases()
+                    ),
+                    None => (0, 0)
+                }
+            }
+        };
+
+        let (output_reads, output_reads_percent, output_bases, output_bases_percent) = match output_scan {
+            Some(scan_report) => (
+                scan_report.reads as u64, 
+                (scan_report.reads as f64 / input_reads as f64)*100.0, 
+                scan_report.bases as u64,
+                (scan_report.bases as f64 / input_bases as f64)*100.0, 
+            ), 
+            None => {
+                match qc {
+                    Some(ref qc_report) => (
+                        qc_report.qc_reads(), 
+                        qc_report.qc_reads_percent(input_reads), 
+                        qc_report.qc_bases(), 
+                        qc_report.qc_bases_percent(input_bases)
+                    ),
+                    None => (0, 0.0, 0, 0.0)
+                }
+            }
+        };
+
+        let ercc = controls.as_ref().map(|c| {
+            c.ercc.clone()
+        }).flatten();
+
+        let qc_reads = qc.as_ref().map(|r| {
+            r.qc_reads()
+        });
+        let qc_reads_percent = qc.as_ref().map(|r| {
+            r.qc_reads_percent(input_reads)
+        });
+        let qc_bases = qc.as_ref().map(|r| {
+            r.qc_bases()
+        });
+        let qc_bases_percent = qc.as_ref().map(|r| {
+            r.qc_bases_percent(input_bases)
+        });
+
+        let input_biomass = ercc.as_ref().map(|e| {
+            e.biomass(Some(input_reads))
+        }).flatten();
+        let host_biomass = ercc.as_ref().map(|e| {
+            e.biomass(
+                background.as_ref().map(|b| b.host_reads()).flatten()
+            )
+        }).flatten();
+        let control_biomass = ercc.as_ref().map(|e| {
+            e.biomass(
+                controls.as_ref().map(|c| c.organism_reads()).flatten()
+            )
+        }).flatten();
+        let background_biomass = ercc.as_ref().map(|e| {
+            e.biomass(
+                background.as_ref().map(|b| b.other_reads()).flatten()
+            )
+        }).flatten();
+        let output_biomass = ercc.as_ref().map(|e| {
+            e.biomass(Some(output_reads))
+        }).flatten();
+
+        let control_reads = controls.as_ref().map(|c| c.organism_reads()).flatten();
+        let control_reads_percent = controls.as_ref().map(|c| c.organism_reads_percent(input_reads)).flatten();
 
         Self {
             id: id.to_string(),
-            input_reads: report.input_reads(),
-            input_bases: report.input_reads(),
-            qc_reads: report.output_reads(),
-            qc_reads_percent: report.output_reads_percent(),
-            qc_bases: report.output_bases(),
-            qc_bases_percent: report.output_bases_percent(),
-            input_biomass: report.input_biomass(ercc.clone()),
-            qc_biomass: report.output_biomass(ercc.clone()),
-            deduplicated_reads: report.deduplicated_reads(),
-            deduplicated_percent: report.deduplicated_percent(),
-            adapter_trimmed_reads: report.adapter_trimmed_reads(),
-            adapter_trimmed_percent: report.adapter_trimmed_percent(),
-            low_complexity_reads: report.low_complexity_reads(),
-            low_complexity_percent: report.low_complexity_percent(),
-            mean_read_length_r1: report.mean_read_length_r1(),
-            mean_read_length_r2: report.mean_read_length_r2(),
-            min_length_reads: report.min_length_reads(),
-            min_length_percent: report.min_length_percent(),
-            low_quality_reads: report.low_quality_reads(),
-            low_quality_percent: report.low_quality_percent(),
-            q20_percent: report.q20_percent(),
-            q30_percent: report.q30_percent(),        
+
+            input_reads,
+            input_bases,
+
+            ercc_constructs: ercc.as_ref().map(|e| e.constructs as u64),
+            ercc_reads: ercc.as_ref().map(|e| e.alignments),
+            ercc_reads_percent: ercc.as_ref().map(|e| (e.alignments as f64 / input_reads as f64)*100.0),
+
+            qc_reads,
+            qc_reads_percent,
+            qc_bases,
+            qc_bases_percent,
+
+            host_reads: background.as_ref().map(|b| b.host_reads()).flatten(),
+            host_reads_percent: background.as_ref().map(|b| b.host_reads_percent(input_reads)).flatten(),
+            control_reads,
+            control_reads_percent,
+            background_reads: background.as_ref().map(|b| b.other_reads()).flatten(),
+            background_reads_percent: background.as_ref().map(|b| b.other_reads_percent(input_reads)).flatten(),
+
+            output_reads,
+            output_reads_percent,
+            output_bases,
+            output_bases_percent,
+
+            input_biomass,
+            host_biomass,
+            control_biomass,
+            background_biomass,
+            output_biomass,
+
+            deduplicated_reads: deduplication.as_ref().map(|dedup| dedup.deduplicated as u64),
+            deduplicated_percent: deduplication.as_ref().map(|dedup| (dedup.deduplicated as f64 / input_reads as f64)*100.0),
+
+            adapter_trimmed_reads: qc.as_ref().map(|r| r.adapter_trimmed_reads()).flatten(),
+            adapter_trimmed_percent: qc.as_ref().map(|r| r.adapter_trimmed_percent()).flatten(),
+            low_complexity_reads: qc.as_ref().map(|r| r.low_complexity_reads()).flatten(),
+            low_complexity_percent: qc.as_ref().map(|r| r.low_complexity_percent()).flatten(),
+            mean_read_length_r1: qc.as_ref().map(|r| r.mean_read_length_r1()).flatten(),
+            mean_read_length_r2: qc.as_ref().map(|r| r.mean_read_length_r2()).flatten(),
+            min_length_reads: qc.as_ref().map(|r| r.min_length_reads()).flatten(),
+            min_length_percent: qc.as_ref().map(|r| r.min_length_percent()).flatten(),
+            low_quality_reads: qc.as_ref().map(|r| r.low_quality_reads()).flatten(),
+            low_quality_percent: qc.as_ref().map(|r| r.low_quality_percent()).flatten(),
+            q20_percent: qc.as_ref().map(|r| r.q20_percent()).flatten(),
+            q30_percent: qc.as_ref().map(|r| r.q30_percent()).flatten(),        
         }
     }
 }
@@ -362,17 +544,286 @@ impl Reads {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Background {
-    host: Option<Host>
+    host: Option<HostBackground>,
+    other: Option<OtherBackground>,
+    config: BackgroundDepletionConfig
 }
 impl Background {
-    pub fn from(id: &str, host: Option<ScrubbyReport>) -> Option<Self> {
-        match host {
-            Some(ref report) => Some(
-                Self {
-                    host: Some(Host::from_scrubby(id, report)),
+    pub fn from(id: &str, host: Option<ScrubbyReport>, other: Option<VircovSummary>) -> Self {
+        let config = BackgroundDepletionConfig::default();
+        Self {
+            host: HostBackground::from_scrubby(id, host),
+            other: OtherBackground::from_vircov(id, other, &config),
+            config
+        }
+    }
+    pub fn host_reads(&self) -> Option<u64> {
+        self.host.as_ref().map(|b| b.alignments)
+    }
+    pub fn host_reads_percent(&self, total: u64) -> Option<f64> {
+        self.host.as_ref().map(|b| (b.alignments as f64 / total as f64)*100.0)
+    }
+    pub fn other_reads(&self) -> Option<u64> {
+        self.other.as_ref().map(|b| b.alignments)
+    }
+    pub fn other_reads_percent(&self, total: u64) -> Option<f64> {
+        self.other.as_ref().map(|b| (b.alignments as f64 / total as f64)*100.0)
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OtherBackground {
+    pub id: String,
+    pub alignments: u64,
+    pub records: Vec<AlignmentRecord>
+}
+
+// Requires zero-output option in Vircov
+pub trait BackgroundReport {
+    fn from_vircov(id: &str, summary: Option<VircovSummary>, config: &BackgroundDepletionConfig) -> Option<Self> where Self: Sized;
+}
+
+impl BackgroundReport for OtherBackground {
+    fn from_vircov(id: &str, summary: Option<VircovSummary>, config: &BackgroundDepletionConfig) -> Option<Self> {
+        match summary { 
+            None => return None, 
+            Some(summary) => {
+
+                let mut alignments = 0;
+
+                let mut records = Vec::new();
+                for record in &summary.records {
+                    records.push(AlignmentRecord::from(
+                        id, 
+                        &record, 
+                        RecordClass::from_background(&record, &config)
+                    ));
+                    alignments += record.scan_alignments;
                 }
-            ),
-            None => None
+
+                Some(Self {
+                    id: id.to_string(),
+                    alignments,
+                    records,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackgroundDepletionConfig {
+    plasmid_id: String,
+    univec_id: String,
+    phage_id: String,
+    rrna_id: String,
+}
+impl Default for BackgroundDepletionConfig {
+    fn default() -> Self {
+        Self {
+            plasmid_id: String::from("plasmid::"),
+            univec_id: String::from("univec::"),
+            phage_id: String::from("phage::"),
+            rrna_id: String::from("rrna::"),
+        }
+    }
+}
+
+
+pub trait BackgroundDepletionReport {
+    fn from_scrubby(id: &str, report: Option<ScrubbyReport>) -> Option<Self> where Self: Sized;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostBackground {
+    pub id: String,
+    pub alignments: u64 
+} 
+impl BackgroundDepletionReport for HostBackground {
+    fn from_scrubby(id: &str, report: Option<ScrubbyReport>) -> Option<Self> {
+        if let Some(report) = report {
+            Some(Self {
+                id: id.to_string(),
+                alignments: report.reads_removed
+            })
+        } else {
+            None
+        }  
+    }
+}
+
+// Internal controls
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Controls {
+    pub ercc: Option<ErccControl>,
+    pub organism: Option<OrganismControl>,
+    pub config: ControlsConfig
+}
+impl Controls {
+    pub fn new(ercc: Option<ErccControl>, organism: Option<OrganismControl>, config: ControlsConfig) -> Self {
+        Self { ercc, organism, config}
+    }
+    pub fn from(id: &str, summary: Option<VircovSummary>, config: ControlsConfig) -> Self {
+        Self {
+            ercc: ErccControl::from_vircov(id, summary.clone(), &config),
+            organism: OrganismControl::from_vircov(id, summary.clone(), &config),
+            config
+        }
+    }
+    pub fn organism_reads(&self) -> Option<u64> {
+        self.organism.as_ref().map(|o| o.alignments)
+    }
+    pub fn organism_reads_percent(&self, total: u64) -> Option<f64> {
+        self.organism.as_ref().map(|o| (o.alignments as f64 / total as f64)*100.0)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlsConfig {
+    ercc_id: String,
+    ercc_mass: f64
+}
+impl Default for ControlsConfig {
+    fn default() -> Self {
+        Self {
+            ercc_id: String::from("ERCC-"),
+            ercc_mass: 25.0
+        }
+    }
+}
+
+pub trait ControlReport {
+    fn from_vircov(id: &str, summary: Option<VircovSummary>, config: &ControlsConfig) -> Option<Self> where Self: Sized;
+}
+
+// Requires zero-output option in Vircov
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErccControl {
+    pub constructs: usize,
+    pub detected: usize,
+    pub alignments: u64,
+    pub reads: u64,
+    pub mass_per_read: f64,
+    pub records: Vec<AlignmentRecord>,
+} 
+impl ErccControl {
+    pub fn biomass(&self, reads: Option<u64>) -> Option<f64> {
+        reads.map(|reads| {
+            self.mass_per_read * reads as f64
+        })
+    }
+}
+impl ControlReport for ErccControl {
+    fn from_vircov(id: &str, summary: Option<VircovSummary>, config: &ControlsConfig) -> Option<Self> {
+
+        match summary { 
+            None => return None, 
+            Some(summary) => {
+
+                let mut constructs = 0;
+                let mut aligned = 0;
+                let mut reads = 0;
+                let mut alignments = 0;
+        
+                let mut records = Vec::new();
+                for record in &summary.records {
+                    if record.reference.starts_with(&config.ercc_id) {
+                        if record.scan_alignments > 0 {
+                            aligned += 1
+                        }
+                        constructs += 1;
+        
+                        reads += record.scan_reads;
+                        alignments += record.scan_alignments;
+                        records.push(AlignmentRecord::from(id, &record, RecordClass::ErccControl))
+                    }
+                }
+        
+                let mass_per_read = config.ercc_mass / alignments as f64;  // check if need to use reads?
+                
+                let ercc = Self {
+                    constructs, 
+                    detected: aligned, 
+                    reads, 
+                    alignments,
+                    mass_per_read,
+                    records,
+                };
+        
+                if constructs == 0 {
+                    None
+                } else {
+                    Some(ercc)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrganismControl {
+    pub id: String,
+    pub alignments: u64,
+    pub records: Vec<AlignmentRecord>
+}
+impl ControlReport for OrganismControl {
+    fn from_vircov(id: &str, summary: Option<VircovSummary>, config: &ControlsConfig) -> Option<Self> {
+
+        match summary { 
+            None => return None, 
+            Some(summary) => {
+                let mut organisms = 0;
+                let mut alignments = 0;
+
+                let mut records = Vec::new();
+                for record in &summary.records {
+                    if !record.reference.starts_with(&config.ercc_id) {
+                        records.push(AlignmentRecord::from(id, &record, RecordClass::OrganismControl));
+                        organisms += 1;
+                        alignments += record.scan_alignments;
+                    }
+                }
+                if organisms == 0 {
+                    None
+                } else {
+                    Some(Self { id: id.to_string(), alignments, records })
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RecordClass {
+    #[serde(rename = "ercc")]
+    ErccControl,
+    #[serde(rename = "organism")]
+    OrganismControl,
+    #[serde(rename = "rrna")]
+    RrnaBackground,
+    #[serde(rename = "plasmid")]
+    PlasmidBackground,
+    #[serde(rename = "univec")]
+    UnivecBackground,
+    #[serde(rename = "phage")]
+    PhageBackground,
+    #[serde(rename = "other")]
+    OtherBackground
+}
+impl RecordClass {
+    pub fn from_background(record: &VircovRecord, config: &BackgroundDepletionConfig) -> Self {
+        if record.reference.starts_with(&config.phage_id) {
+            return RecordClass::PhageBackground
+        } else if record.reference.starts_with(&config.plasmid_id) {
+            return RecordClass::PlasmidBackground
+        } else if record.reference.starts_with(&config.univec_id) {
+            return RecordClass::UnivecBackground
+        } else if record.reference.starts_with(&config.rrna_id) {
+            return RecordClass::RrnaBackground
+        } else {
+            return RecordClass::OtherBackground
         }
     }
 }
@@ -383,153 +834,18 @@ pub struct AlignmentRecord {
     pub reference: String,
     pub alignments: u64,
     pub reads: u64,
-    pub coverage: f64
+    pub coverage: f64,
+    pub class: RecordClass
 }
 impl AlignmentRecord {
-    pub fn from(id: &str, record: &VircovRecord) -> Self {
+    pub fn from(id: &str, record: &VircovRecord, class: RecordClass) -> Self {
         Self {
             id: id.to_string(),
             reference: record.reference.clone(),
             alignments: record.scan_alignments,
             reads: record.scan_reads,
-            coverage: record.scan_coverage
+            coverage: record.scan_coverage,
+            class
         }
     }
 }
-
-pub trait HostBackgroundReport {
-    fn from_scrubby(id: &str, report: &ScrubbyReport) -> Self;
-}
-
-// Requires zero-output option in Vircov
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Host {
-    pub id: String,
-    pub reads: u64 
-} 
-impl HostBackgroundReport for Host {
-    fn from_scrubby(id: &str, report: &ScrubbyReport) -> Self {
-        
-         Self {
-            id: id.to_string(),
-            reads: report.reads_removed
-        }
-    }
-}
-
-// Internal controls
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InternalControls {
-    pub ercc: Option<Ercc>,
-    pub organism: Option<Organism>,
-    pub config: InternalControlConfig
-}
-impl InternalControls {
-    pub fn from(id: &str, summary: Option<VircovSummary>, config: InternalControlConfig) -> Option<Self> {
-        match summary {
-            Some(ref summary) => Some(
-                Self {
-                    ercc: Ercc::from_vircov(id, summary, &config),
-                    organism: Organism::from_vircov(id, summary, &config),
-                    config
-                }
-            ),
-            None => None
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InternalControlConfig {
-    ercc_id: String,
-    ercc_mass: f64
-}
-impl Default for InternalControlConfig {
-    fn default() -> Self {
-        Self {
-            ercc_id: String::from("ERCC-"),
-            ercc_mass: 25.0
-        }
-    }
-}
-
-pub trait InternalControlReport {
-    fn from_vircov(id: &str, summary: &VircovSummary, config: &InternalControlConfig) -> Option<Self> where Self: Sized;
-}
-
-// Requires zero-output option in Vircov
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Ercc {
-    pub constructs: usize,
-    pub aligned: usize,
-    pub alignments: u64,
-    pub reads: u64,
-    pub mass_per_read: f64,
-    pub records: Vec<AlignmentRecord>,
-} 
-impl InternalControlReport for Ercc {
-    fn from_vircov(id: &str, summary: &VircovSummary, config: &InternalControlConfig) -> Option<Self> {
-
-        let mut constructs = 0;
-        let mut aligned = 0;
-        let mut reads = 0;
-        let mut alignments = 0;
-
-        let mut records = Vec::new();
-        for record in &summary.records {
-            if record.reference.starts_with(&config.ercc_id) {
-                if record.scan_alignments > 0 {
-                    aligned += 1
-                }
-                constructs += 1;
-
-                reads += record.scan_reads;
-                alignments += record.scan_alignments;
-                records.push(AlignmentRecord::from(id, &record))
-            }
-        }
-
-        let mass_per_read = config.ercc_mass / alignments as f64;  // check if need to use reads?
-        
-        let ercc = Self {
-            constructs, 
-            aligned, 
-            reads, 
-            alignments,
-            mass_per_read,
-            records,
-        };
-
-        if constructs == 0 {
-            None
-        } else {
-            Some(ercc)
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Organism {
-    records: Vec<AlignmentRecord>
-}
-impl InternalControlReport for Organism {
-    fn from_vircov(id: &str, summary: &VircovSummary, config: &InternalControlConfig) -> Option<Self> {
-
-        let mut organisms = 0;
-
-        let mut records = Vec::new();
-        for record in &summary.records {
-            if !record.reference.starts_with(&config.ercc_id) {
-                records.push(AlignmentRecord::from(id, &record));
-                organisms += 1;
-            }
-        }
-        if organisms == 0 {
-            None
-        } else {
-            Some(Self { records })
-        }
-    }
-}
-

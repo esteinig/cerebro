@@ -1788,7 +1788,8 @@ export enum FileTag {
     POS = "POS",
     NEG = "NEG",
     TMP = "TMP",
-    ENV = "ENV"
+    ENV = "ENV",
+    HOST = "HOST"
 }
 
 /**

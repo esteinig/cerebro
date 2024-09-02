@@ -1,24 +1,44 @@
 
-process ReadScan {
+process InputScan {
 
     label "pathogenReadScan"
     tag { sampleID }
 
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.scan.json"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.input.json"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
 
     output:
-    tuple (val(sampleID), path(forward), path(reverse), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.scan.json"), emit: results)
-   
+    tuple (val(sampleID), path("${sampleID}.input.json"), emit: results)
 
     script:
     
     """
-    cerebro-pipe tools scan -i $forward -i $reverse --threads $task.cpus --json ${sampleID}.scan.json
+    cerebro-pipe tools scan-reads -i $forward -i $reverse --json ${sampleID}.input.json
+    """
+
+}
+
+process OutputScan {
+
+    label "pathogenReadScan"
+    tag { sampleID }
+
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.output.json"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.output.json"), emit: results)
+
+    script:
+    
+    """
+    cerebro-pipe tools scan-reads -i $forward -i $reverse --json ${sampleID}.output.json
     """
 
 }
@@ -91,19 +111,18 @@ process Deduplication {
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
-    val(umi)
     val(head)
     val(deterministic)
 
     output:
     tuple (val(sampleID), path("${sampleID}__dedup__R1.fq.gz"), path("${sampleID}__dedup__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.reads.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.dedup.json"), emit: results)
    
 
     script:
     
     """
-    cerebro-pipe tools deduplicate -i $forward -i $reverse -o ${sampleID}__dedup__R1.fq.gz -o ${sampleID}__dedup__R2.fq.gz --umi $umi --head $head
+    cerebro-pipe tools umi-dedup-naive -i $forward -i $reverse -o ${sampleID}__dedup__R1.fq.gz -o ${sampleID}__dedup__R2.fq.gz --head $head --reads $forward --json ${sampleID}.dedup.json
     """
 
 }
@@ -131,7 +150,7 @@ process HostDepletion {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    scrubby reads -i $forward -i $reverse --index $alignmentIndex --aligner $aligner -o ${sampleID}__host__R1.fq.gz -o ${sampleID}__host__R2.fq.gz --json ${sampleID}.host.json
+    scrubby reads -i $forward -i $reverse --index $alignmentIndex --aligner $aligner --threads $task.cpus -o ${sampleID}__host__R1.fq.gz -o ${sampleID}__host__R2.fq.gz --json ${sampleID}.host.json
     """
 }
 
@@ -173,26 +192,29 @@ process BackgroundDepletion {
     label "pathogenBackgroundDepletion"
     tag { sampleID }
 
-
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.background.tsv"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.background.json"
-    
+
     input:
     tuple val(sampleID), path(forward), path(reverse)
-    path(index)
+    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
     val(aligner)
 
     output:
     tuple (val(sampleID), path("${sampleID}__background__R1.fq.gz"), path("${sampleID}__background__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.background.json"), emit: results)
-    
+    tuple (val(sampleID), path("${sampleID}.background.tsv"), emit: results)
+    path("${sampleID}.background.json")
+
     script:
 
     indexName = index[0].getSimpleName()
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    scrubby reads -i $forward -i $reverse --index $alignmentIndex --aligner $aligner -o ${sampleID}__background__R1.fq.gz -o ${sampleID}__background__R2.fq.gz --json ${sampleID}.background.json
+    vircov coverage -i $forward -i $reverse -o ${sampleID}.background.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
+    scrubby alignment -i $forward -i $reverse -a reads.txt -o ${sampleID}__background__R1.fq.gz -o ${sampleID}__background__R2.fq.gz --json ${sampleID}.controls.json
     """
+    
 }
 
 
@@ -213,6 +235,28 @@ process ProcessOutput {
 
     """
     cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json 
+    """
+    
+}
+
+
+process QualityControlTables {
+    
+    label "cerebro"
+    tag { sampleID }
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "*.tsv"
+
+    input:
+    path(result_files)
+
+    output:
+    tuple path("qc.tsv"), path("qc_bg.tsv"), path("qc_ctrl.tsv")
+
+    script:
+
+    """
+    cerebro-pipe tables qc --json *.qc.json --qc qc.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
     """
     
 }

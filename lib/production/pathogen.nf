@@ -4,13 +4,16 @@
 */
 
 include { 
-    ReadScan
+    InputScan
     SyntheticControls
     ReadQuality
     Deduplication
     HostDepletion
     InternalControls
     BackgroundDepletion
+    OutputScan
+    ProcessOutput
+    QualityControlTables
 } from "../processes/pathogen"
 
 
@@ -20,8 +23,17 @@ workflow PathogenDetection {
         reads
         qualityControlDatabases
     main:
+        qualityControl = QualityControl(reads, qualityControlDatabases)
 
-        QualityControl(reads, qualityControlDatabases) | view
+        qualityControlResults = qualityControl.results | groupTuple
+
+        qualityControlJson = qualityControlResults | ProcessOutput 
+        qualityControlJson | collect | QualityControlTables
+
+
+
+    emit:
+        qc = qualityControlResults
 
 }
 
@@ -34,89 +46,96 @@ workflow QualityControl {
         qualityControlParams = params.pathogenDetection.qualityControl
 
         // total read counts and table before depletions
+        InputScan(reads)
 
-        reads = ReadScan(reads).out.reads
-
-        if ( // first for synthetic controls for biomass estimates
-            params.pathogenDetection
-                .qualityControl
-                .syntheticControls
-        ) {
+        // first for synthetic controls for accurate biomass estimates
+        if (qualityControlParams.syntheticControls) {
             reads = SyntheticControls(
                 reads,
                 databases.syntheticControls,
                 qualityControlParams.syntheticControlsAligner
-            ).out.reads
+            ).reads
         }
 
-        if ( // second for read quality control and trimming
-            params.pathogenDetection
-                .qualityControl
-                .readQuality
-        ) {
-            reads = ReadQuality(reads).out.reads
+        // second for read quality control and trimming
+        if (qualityControlParams.readQuality) {
+            reads = ReadQuality(reads).reads
         }
 
-        if (  // third for read head + umi deduplication
-            params.pathogenDetection
-                .qualityControl
-                .readDeduplication
-        ) {
+        // third for read head + umi deduplication
+        if (qualityControlParams.readDeduplication) {
             reads = Deduplication(
                 reads,
-                qualityControlParams.readDeduplicationUmi,
                 qualityControlParams.readDeduplicationHead,
-                qualityControlParams.readDeduplicationDeterministic,
-            ) 
+                qualityControlParams.readDeduplicationDeterministic
+            ).reads
         }
         
-        if ( // host depletion is usually bulk of background
-            params.pathogenDetection
-                .qualityControl
-                .hostDepletion 
-        ) {
+        // host depletion is usually bulk of background
+        if (qualityControlParams.hostDepletion) {
             reads = HostDepletion(
                 reads, 
                 databases.hostDepletion, 
                 qualityControlParams.hostDepletionAligner
-            ).out.reads
+            ).reads
         }
 
-        if ( // internal controls for coverage before further depletions
-            params.pathogenDetection
-                .qualityControl
-                .internalControls 
-        ) {
+        // internal controls for coverage before further depletions
+        if (qualityControlParams.internalControls) {
             reads = InternalControls(
                 reads,
                 databases.internalControls,
                 qualityControlParams.internalControlsAligner
-            ).out.reads
+            ).reads
         }
-        
-        if ( // further background depletions of unwanted sequences
-            params.pathogenDetection
-                .qualityControl
-                .backgroundDepletion
-        ) {
+
+        // further background depletions of unwanted sequences
+        if (qualityControlParams.backgroundDepletion) {
             reads = BackgroundDepletion(
                 reads, 
                 databases.backgroundDepletion, 
                 qualityControlParams.backgroundDepletionAligner
-            ).out.reads
+            ).reads
         }
+
+        // total read counts and table after depletions
+        OutputScan(reads)
         
-        results = ReadScan.out.results.mix(
-            SyntheticControls.out.results ?? Channel.empty(), 
-            ReadQuality.out.results ?? Channel.empty(), 
-            Deduplication.out.results  ?? Channel.empty(), 
-            HostDepletion.out.results  ?? Channel.empty(), 
-            InternalControls.out.results ?? Channel.empty(),
-            BackgroundDepletion.out.results ?? Channel.empty()
-        ) 
-        | groupTuple
+        // collect results by sample id
+        results = InputScan.out.results.mix(
+            qualityControlParams.syntheticControls   ? SyntheticControls.out.results   : Channel.empty(), 
+            qualityControlParams.readQuality         ? ReadQuality.out.results         : Channel.empty(), 
+            qualityControlParams.readDeduplication   ? Deduplication.out.results       : Channel.empty(), 
+            qualityControlParams.hostDepletion       ? HostDepletion.out.results       : Channel.empty(), 
+            qualityControlParams.internalControl     ? InternalControls.out.results    : Channel.empty(),
+            qualityControlParams.backgroundDepletion ? BackgroundDepletion.out.results : Channel.empty(),
+            OutputScan.out.results
+        )
 
     emit:
         results = results
 
+}
+
+
+workflow TaxonomicProfile {
+    take:
+        reads
+        databases
+    main:
+        
+
+    emit:
+
+}
+
+
+workflow MetagenomeAssembly {
+    take:
+        reads
+        databases
+    main:
+
+
+    emit:
 }

@@ -10,6 +10,7 @@
 
     let nucleicAcidTag: FileTag | null = null;
     let controlTag: FileTag | null = null;
+    let analysisTag: FileTag | null = null;
 
     let nucleicAcidTags: FileTag[] = [
         FileTag.DNA, 
@@ -20,6 +21,10 @@
         FileTag.NEG,
         FileTag.TMP,
         FileTag.ENV
+    ];
+
+    let analysisTags: FileTag[] = [
+        FileTag.HOST,
     ];
 
     const updateFileTags = async() => {
@@ -33,6 +38,10 @@
         }
         if (controlTag !== null) {
             fileTagUpdateSchema.tags.push(controlTag)
+        }
+
+        if (analysisTag !== null) {
+            fileTagUpdateSchema.tags.push(analysisTag)
         }
 
         let _: ApiResponse = await publicApi.fetchWithRefresh(
@@ -64,9 +73,16 @@
                 break; // Stop checking if a match is found
             }
         }
+        // Check for control tags
+        for (const tag of file.tags) {
+            if (analysisTags.includes(tag)) {
+                analysisTag = tag;
+                break; // Stop checking if a match is found
+            }
+        }
 
         // If both tags are found, no need to continue
-        if (nucleicAcidTag && controlTag) {
+        if (nucleicAcidTag && controlTag && analysisTag) {
             break;
         }
     }
@@ -109,6 +125,17 @@
                 <button
                     class="chip {controlTag === tag ? 'variant-filled-primary' : 'variant-soft'} ml-2"
                     on:click={async() =>  { controlTag = controlTag === tag ? null : tag; updateFileTags() }}
+                    on:keypress
+                >
+                    <span>{tag}</span>
+                </button>
+            {/each}
+        </div>
+        <div class="col-span-2 flex justify-start">
+            {#each analysisTags as tag}
+                <button
+                    class="chip {controlTag === tag ? 'variant-filled-primary' : 'variant-soft'} ml-2"
+                    on:click={async() =>  { analysisTag = analysisTag === tag ? null : tag; updateFileTags() }}
                     on:keypress
                 >
                     <span>{tag}</span>

@@ -747,6 +747,7 @@ impl QualityControlSummary {
 
         let q20_percent = fastp.summary.after.q20*100.;
         let q30_percent = fastp.summary.after.q30*100.;
+        
         let mean_length_r1 = fastp.summary.after.mean_length_r1;
         let mean_length_r2 = fastp.summary.after.mean_length_r2;
 
