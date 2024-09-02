@@ -245,7 +245,7 @@ process QualityControlTables {
     label "cerebro"
     tag { sampleID }
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "*.tsv"
+    publishDir "$params.outputDirectory/pathogen", mode: "copy", pattern: "*.tsv"
 
     input:
     path(result_files)
@@ -256,7 +256,7 @@ process QualityControlTables {
     script:
 
     """
-    cerebro-pipe tables qc --json *.qc.json --qc qc.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe tables quality-control --json *.qc.json --qc qc.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
     """
     
 }

@@ -118,24 +118,24 @@ workflow QualityControl {
 }
 
 
-workflow TaxonomicProfile {
-    take:
-        reads
-        databases
-    main:
+// workflow TaxonomicProfile {
+//     take:
+//         reads
+//         databases
+//     main:
         
 
-    emit:
+//     emit:
 
-}
-
-
-workflow MetagenomeAssembly {
-    take:
-        reads
-        databases
-    main:
+// }
 
 
-    emit:
-}
+// workflow MetagenomeAssembly {
+//     take:
+//         reads
+//         databases
+//     main:
+
+
+//     emit:
+// }
