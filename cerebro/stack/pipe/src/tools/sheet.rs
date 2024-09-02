@@ -81,15 +81,29 @@ impl SampleSheet {
         
 
         let mut entries = Vec::new();
+
+        
+        let prefix_subset = match prefixes {
+            Some(ref path) => get_prefixes(path)?,
+            None => Vec::new()
+        };
+
+        let mut prefixes_detected = Vec::new();
+
         for directory in directories {
-            let sample_files = get_files(
+
+            let (sample_files, prefix_detected) = get_files(
                 directory, 
                 paired_glob, 
                 allow_single, 
                 symlinks, 
                 recursive, 
-                prefixes.clone()
+                &prefix_subset
             )?;
+
+            for prefix in prefix_detected {
+                prefixes_detected.push(prefix)
+            }
         
             let entries_directory = sample_files.iter().map(|(sample_id, file_paths)| -> Result<SampleSheetEntry, WorkflowError> {
                 
@@ -127,6 +141,13 @@ impl SampleSheet {
         // Check if all sample identifiers are unique - otherwise spooky things may happen!
         if !not_unique {
             check_unique_sample_id(&entries)?;
+        }
+
+        if let Some(_) = prefixes {
+            let counts = sample_prefix_summary(&prefix_subset, &prefixes_detected);
+            for (prefix, count) in counts {
+                log::info!("Prefix '{prefix}' => {count}")
+            }
         }
 
         // Sort by sample identifier
@@ -249,13 +270,8 @@ fn check_unique_sample_id(entries: &Vec<SampleSheetEntry>) -> Result<(), Workflo
 }
 
 // A helper function to get paired files from a suitable glob match
-pub fn get_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool, recursive: bool, prefixes: Option<PathBuf>) -> Result<HashMap<String, Vec<PathBuf>>, WorkflowError> {
+pub fn get_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bool, recursive: bool, prefix_subset: &Vec<String>) -> Result<(HashMap<String, Vec<PathBuf>>, Vec<String>), WorkflowError> {
    
-    let prefix_subset = match prefixes {
-        Some(ref path) => get_prefixes(path)?,
-        None => Vec::new()
-    };
-
     let glob = Glob::new(paired_glob).map_err(|_| WorkflowError::GlobCreate(paired_glob.to_string()))?;
 
     let mut walk_behaviour = wax::WalkBehavior::default();
@@ -310,15 +326,8 @@ pub fn get_files(directory: &Path, paired_glob: &str, single: bool, symlinks: bo
     };
 
     log::info!("{:#?}", paired_files);
-
-    if let Some(_) = prefixes {
-        let counts = sample_prefix_summary(&prefix_subset, &prefix_detected);
-        for (prefix, count) in counts {
-            log::info!("Prefix '{prefix}' => {count}")
-        }
-    }
     
-    Ok(paired_files)
+    Ok((paired_files, prefix_detected))
 }
 
 fn to_lexical_absolute(path: &PathBuf) -> std::io::Result<PathBuf> {
