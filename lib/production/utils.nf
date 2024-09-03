@@ -212,7 +212,7 @@ def getReads(String fastq, String sampleSheet, Boolean paired) {
 def getPairedReads(String fastq, String sampleSheet) {
 
     if (sampleSheet){
-        reads = sampleSheetPairedEnd(sampleSheet, production)
+        reads = sampleSheetPairedEnd(sampleSheet, false)
     } else if (fastq) {
         reads = channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
     } else {
