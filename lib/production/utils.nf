@@ -212,7 +212,7 @@ def getReads(String fastq, String sampleSheet, Boolean paired) {
 def getPairedReads(String fastq, String sampleSheet) {
 
     if (sampleSheet){
-        reads = sampleSheetPairedEnd(sample_sheet, production)
+        reads = sampleSheetPairedEnd(sampleSheet, production)
     } else if (fastq) {
         reads = channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
     } else {
@@ -237,7 +237,7 @@ def sampleSheetPairedEnd(file, production){
 
     def row_number = 2 // with header
 
-    fastq_files = channel.fromPath("$file") | splitCsv(header:true, strip:true) | map { row -> 
+    fastqFiles = channel.fromPath("$file") | splitCsv(header:true, strip:true) | map { row -> 
 
         // Check that required columns are present
         if (row.sample_id === null || row.forward_path === null || row.reverse_path === null) {
@@ -280,9 +280,9 @@ def sampleSheetPairedEnd(file, production){
 
     }
 
-    fastq_files | ifEmpty { exit 1, "Could not find read files specified in sample sheet." }
+    fastqFiles | ifEmpty { exit 1, "Could not find read files specified in sample sheet." }
 
-    return fastq_files | map { tuple(it[0], it[1], it[2]) }
+    return fastqFiles | map { tuple(it[0], it[1], it[2]) }
 
     // return [
     //     aneuploidy: fastq_files | filter { it[3] } | map { tuple(it[0], it[1], it[2]) },
@@ -308,7 +308,6 @@ c_light_blue = params.monochrome ? '' : "\033[38;5;33m";
 
 def initMessage(){
 
-    production_msg = params.production ? "${c_light_blue}Production mode active.${c_reset}" : ""
 
     log.info """
     ${c_indigo}=====================
@@ -325,8 +324,6 @@ def initMessage(){
 
     Profiles:             ${c_white}${workflow.profile}${c_reset}
     Working directory:    ${c_white}${workflow.workDir}${c_reset}
-
-    ${production_msg}
 
     """.stripIndent()
 }
