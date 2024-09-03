@@ -284,11 +284,6 @@ def sampleSheetPairedEnd(file, production){
 
     return fastqFiles | map { tuple(it[0], it[1], it[2]) }
 
-    // return [
-    //     aneuploidy: fastq_files | filter { it[3] } | map { tuple(it[0], it[1], it[2]) },
-    //     pathogen: fastq_files | map { tuple(it[0], it[1], it[2]) }
-    // ]
-
 }
 
 
