@@ -28,7 +28,7 @@ workflow PathogenDetection {
         qualityControlResults = qualityControl.results | groupTuple
 
         qualityControlJson = qualityControlResults | ProcessOutput 
-        qualityControlJson | collect | view
+        qualityControlJson | collect | QualityControlTables
 
 
 

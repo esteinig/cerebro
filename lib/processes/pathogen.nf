@@ -229,7 +229,7 @@ process ProcessOutput {
     tuple val(sampleID), path(result_files)
 
     output:
-    tuple val(sampleID), path("${sampleID}.qc.json")
+    path("${sampleID}.qc.json")
 
     script:
 
