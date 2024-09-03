@@ -251,12 +251,12 @@ process QualityControlTables {
     path(result_files)
 
     output:
-    tuple path("qc.tsv"), path("qc_bg.tsv"), path("qc_ctrl.tsv")
+    tuple path("qc_reads.tsv"), path("qc_bg.tsv"), path("qc_ctrl.tsv")
 
     script:
 
     """
-    cerebro-pipe tables quality-control --json *.qc.json --qc qc.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe tables quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
     """
     
 }
