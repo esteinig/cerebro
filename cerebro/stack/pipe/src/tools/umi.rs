@@ -488,8 +488,8 @@ impl DeduplicationReport {
         output_reads: usize
     ) -> Self {
 
-        let deduplicated = if output_reads - input_reads >= 0 {
-            output_reads - input_reads
+        let deduplicated = if input_reads - output_reads > 0 {
+            input_reads - output_reads 
         } else {
             0
         };

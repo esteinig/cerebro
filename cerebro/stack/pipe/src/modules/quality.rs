@@ -153,7 +153,7 @@ impl QualityControl {
             Some(controls.clone()),
             Some(background.clone()),
             output.qc.deduplication.clone(),
-            None
+            Some(output.qc.output_scan.clone())
         );
 
         Self {
@@ -494,7 +494,7 @@ impl ReadQualityControl {
             input_reads,
             input_bases,
 
-            ercc_constructs: ercc.as_ref().map(|e| e.constructs as u64),
+            ercc_constructs: ercc.as_ref().map(|e| e.detected as u64),
             ercc_reads: ercc.as_ref().map(|e| e.alignments),
             ercc_reads_percent: ercc.as_ref().map(|e| (e.alignments as f64 / input_reads as f64)*100.0),
 
