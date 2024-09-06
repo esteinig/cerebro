@@ -258,7 +258,7 @@ process QualityControlTables {
     script:
 
     """
-    cerebro-pipe tables quality --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe tables quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
     """
     
 }
