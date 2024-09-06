@@ -4,15 +4,8 @@
 */
 
 
-include { 
-    QualityControl
-} from "./quality";
-
-
-include { 
-    VirusRecovery
-    ProcessOutput
-} from "./panviral";
+include { QualityControl } from "./quality";
+include { VirusRecovery; ProcessOutput } from "../processes/panviral";
 
 
 workflow PanviralEnrichment {
