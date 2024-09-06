@@ -80,7 +80,7 @@ process ReadQuality {
     label "qualityReadQuality"
 
 
-    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.reads.json"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.reads.json"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -107,7 +107,7 @@ process Deduplication {
     label "qualityDeduplication"
 
 
-    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.dedup.json"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.dedup.json"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)

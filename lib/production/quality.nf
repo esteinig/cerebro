@@ -116,7 +116,7 @@ workflow QualityControl {
             params.qualityControl.readQuality         ? ReadQuality.out.results         : Channel.empty(), 
             params.qualityControl.readDeduplication   ? Deduplication.out.results       : Channel.empty(), 
             params.qualityControl.hostDepletion       ? HostDepletion.out.results       : Channel.empty(), 
-            params.qualityControl.internalControl     ? InternalControls.out.results    : Channel.empty(),
+            params.qualityControl.internalControls    ? InternalControls.out.results    : Channel.empty(),
             params.qualityControl.backgroundDepletion ? BackgroundDepletion.out.results : Channel.empty(),
             OutputScan.out.results
         )

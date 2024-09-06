@@ -109,6 +109,7 @@ impl QualityControl {
             ControlsConfig::default()
         );        
 
+
         let controls = Controls::new(
             synthetic_controls.ercc, 
             internal_controls.organism, 
