@@ -24,7 +24,7 @@ Production pipeline operate as follows:
 
 // include { CultureIdentification } from './lib/production/culture';
 // include { BacterialEnrichment } from './lib/production/bacterial';
-include { QualityControl } from './lib/production/quality';
+// include { QualityControl } from './lib/production/quality';
 include { PathogenDetection } from './lib/production/pathogen';
 include { PanviralEnrichment } from './lib/production/panviral';
 
@@ -78,12 +78,12 @@ workflow production {
 
     def panviralDB = getPanviralEnrichmentDatabases();
 
-    // PanviralEnrichment(
-    //     pairedReadsFromStage(pipelines.panviral),
-    //     panviralDB.host, 
-    //     panviralDB.virus, 
-    //     panviralDB.control,
-    // )
+    PanviralEnrichment(
+        pairedReadsFromStage(pipelines.panviral),
+        panviralDB.host, 
+        panviralDB.virus, 
+        panviralDB.control,
+    )
 
     /* Pathogen detection */
     
@@ -125,37 +125,37 @@ workflow panviral {
 
     def panviralDB = getPanviralEnrichmentDatabases();
 
-    // PanviralEnrichment(
-    //     getReads(
-    //         params.fastqPaired, 
-    //         params.fastqNanopore, 
-    //         params.sampleSheet, 
-    //         params.sampleSheetProduction
-    //     ),
-    //     panviralDB.virus, 
-    //     panviralDB.qualityControl,
-    // )
-
-}
-
-
-workflow quality {
-
-    /* Read quality control and background coverage + depletion  (host, controls, other) */
-
-    def qualityControlDatabases = getQualityControlDatabases();
-
-    QualityControl(
+    PanviralEnrichment(
         getReads(
             params.fastqPaired, 
             params.fastqNanopore, 
             params.sampleSheet, 
             params.sampleSheetProduction
         ),
-        qualityControlDatabases,
+        panviralDB.virus, 
+        panviralDB.qualityControl,
     )
 
 }
+
+
+// workflow quality {
+
+//     /* Read quality control and background coverage + depletion  (host, controls, other) */
+
+//     def qualityControlDatabases = getQualityControlDatabases();
+
+//     QualityControl(
+//         getReads(
+//             params.fastqPaired, 
+//             params.fastqNanopore, 
+//             params.sampleSheet, 
+//             params.sampleSheetProduction
+//         ),
+//         qualityControlDatabases,
+//     )
+
+// }
 
 
 // workflow bacterial {
