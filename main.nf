@@ -31,6 +31,7 @@ include { PathogenDetection } from './lib/production/pathogen';
 
 
 include { getReads } from './lib/production/utils'; 
+include { getQualityControlDatabases } from './lib/production/utils'; 
 include { getPanviralEnrichmentDatabases } from './lib/production/utils'; 
 include { getPathogenDetectionDatabases } from './lib/production/utils'; 
 
