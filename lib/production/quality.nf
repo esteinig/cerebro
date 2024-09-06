@@ -42,8 +42,20 @@ workflow QualityControl {
             }
         }
 
+
+        if (params.cerebroConfig.qualityControlInternalControlsBefore) {
+
+            if (params.qualityControl.internalControls) {
+                reads = InternalControls(
+                    reads,
+                    databases.internalControls,
+                    params.qualityControl.internalControlsAligner
+                ).reads
+            }
+        }
+
         // Deduplicate before read quality control or not
-        if (params.cerebroConfig.qualityControlDeduplicateFirst) {
+        if (params.cerebroConfig.qualityControlDeduplicateBefore) {
 
             if (params.qualityControl.readDeduplication) {
                 reads = Deduplication(
@@ -79,7 +91,7 @@ workflow QualityControl {
                 ).reads
             }
 
-            if (params.qualityControl.internalControls) {
+            if (params.qualityControl.internalControls && !params.cerebroConfig.qualityControlInternalControlsBefore) {
                 reads = InternalControls(
                     reads,
                     databases.internalControls,
