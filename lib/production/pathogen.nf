@@ -39,10 +39,6 @@ workflow PathogenDetection {
 
         /* Metagenome assembly and profiling module */
 
-
-
-    emit:
-
 }
 
 
