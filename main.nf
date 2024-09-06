@@ -22,8 +22,12 @@ Production pipeline operate as follows:
 */
 
 
+// include { CultureIdentification } from './lib/production/culture';
+// include { BacterialEnrichment } from './lib/production/bacterial';
 include { PanviralEnrichment } from './lib/production/panviral';
+include { QualityControl } from './lib/production/quality';
 include { PathogenDetection } from './lib/production/pathogen';
+
 
 include { getReads } from './lib/production/utils'; 
 include { getPanviralEnrichmentDatabases } from './lib/production/utils'; 
@@ -91,32 +95,108 @@ workflow production {
 
 }
 
+
+workflow pathogen {
+
+    /* Metagenomic diagnostics workflow for pathogen detection and profiling */
+
+    def pathogenDB = getPathogenDetectionDatabases();
+
+    PathogenDetection(
+        getReads(
+            params.fastqPaired, 
+            params.fastqNanopore, 
+            params.sampleSheet, 
+            params.sampleSheetProduction
+        ),
+        pathogenDB.qualityControl,
+    )   
+
+}
+
+
 workflow panviral {
 
-    /* Panviral enrichment */
+    /* Panviral enrichment probe hybridisation capture panels (e.g. Agilent or Twist) 
+       with specific consideration for automated consensus genome assembly and species
+       to lineage subtyping schemes.
+    */
 
     def panviralDB = getPanviralEnrichmentDatabases();
 
     PanviralEnrichment(
-        getReads(params.fastq, params.sampleSheet),
-        panviralDB.host, 
+        getReads(
+            params.fastqPaired, 
+            params.fastqNanopore, 
+            params.sampleSheet, 
+            params.sampleSheetProduction
+        ),
         panviralDB.virus, 
-        panviralDB.control,
+        panviralDB.qualityControl,
     )
 
 }
 
 
-workflow pathogen {
+workflow quality {
 
-    /* Pathogen detection */
+    /* Read quality control and background coverage + depletion  (host, controls, other) */
 
-    def pathogenDB = getPathogenDetectionDatabases();
+    def qualityControlDatabases = getQualityControlDatabases();
 
-    PathogenDetection(
-        getReads(params.fastqPaired, params.sampleSheet, true),
-        pathogenDB.qualityControl,
-    )   
+    QualityControl(
+        getReads(
+            params.fastqPaired, 
+            params.fastqNanopore, 
+            params.sampleSheet, 
+            params.sampleSheetProduction
+        ),
+        qualityControlDatabases,
+    )
 
 }
+
+
+// workflow bacterial {
+
+//     /* Bacterial enrichment probe hybridisation capture panels (e.g. Agilent or Twist) 
+//        with specific consideration for mapped read retention instead of host depletion 
+//        and targeted species assembly for antimicrobial resistance or plasmid typing. 
+//     */
+
+//     def bacterialDB = getBacterialEnrichmentDatabases();
+
+//     BacterialEnrichment(
+//         getReads(
+//             params.fastqPaired, 
+//             params.fastqNanopore, 
+//             params.sampleSheet, 
+//             params.sampleSheetProduction
+//         ),
+//         bacterialDB.host, 
+//         bacterialDB.panel, 
+//         bacterialDB.control
+//     )
+
+// }
+
+
+
+// workflow culture {
+
+//     /* Bacterial culture identification (hybrid-) assembly and taxonomic profiling */
+
+//     def pathogenDB = getPathogenDetectionDatabases();
+
+//     CultureIdentification(
+//         getReads(
+//             params.fastqPaired, 
+//             params.fastqNanopore, 
+//             params.sampleSheet, 
+//             params.sampleSheetProduction
+//         ),
+//         pathogenDB.qualityControl,
+//     )   
+
+// }
 

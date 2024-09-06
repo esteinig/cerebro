@@ -40,7 +40,6 @@ pub enum SheetCommands {
 
 #[derive(Debug, Subcommand)]
 pub enum TablesCommands {
-
     /// Quality control tables
     QualityControl(QualityControlTableArgs),
 }
@@ -253,12 +252,14 @@ pub enum ProcessCommands {
     Panviral(ProcessArgs),
     /// Process pathogen detection outputs
     Pathogen(ProcessArgs),
+    /// Process quality control outputs
+    Quality(ProcessArgs),
 }
 
 
 #[derive(Debug, Args)]
 pub struct ProcessArgs {
-    /// Input directory containing the output files for the panviral pipeline
+    /// Input directory containing the output files for the pathogen pipeline
     #[clap(long, short = 'i', default_value=".")]
     pub input: PathBuf,
     /// Sample identifier to parse, directory basename by default
@@ -267,6 +268,13 @@ pub struct ProcessArgs {
     /// Output file of processed quality control data
     #[clap(long, short = 'q')]
     pub qc: PathBuf,
+    /// Parse the background alignment from the quality control module variant
+    /// 
+    /// Combined reference for detecting organism, synthetic, internal controls 
+    /// and other relevant background and deplete in a single alignment before
+    /// other quality control steps
+    #[clap(long, short = 'a')]
+    pub background: bool,
 
 }
 

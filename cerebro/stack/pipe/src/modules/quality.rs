@@ -9,8 +9,9 @@ use vircov::vircov::{VircovRecord, VircovSummary};
 
 use crate::error::WorkflowError;
 use crate::nextflow::pathogen::PathogenOutput;
-use crate::parsers::fastp::FastpReport;
 use crate::nextflow::panviral::PanviralOutput;
+use crate::nextflow::quality::QualityControlOutput;
+use crate::parsers::fastp::FastpReport;
 use crate::tools::scan::ScanReport;
 use crate::tools::umi::DeduplicationReport;
 
@@ -90,47 +91,21 @@ pub struct QualityControl {
 }
 impl QualityControl {
     pub fn from_panviral(output: &PanviralOutput) -> Self {
-
-        let controls = Controls::from(
-            &output.id,
-            output.controls.clone(), 
-            ControlsConfig::default()
-        );        
-
-        let background = Background::from(
-            &output.id,
-            output.host.clone(),
-            None
-        );
-
-        let reads = ReadQualityControl::from(
-            &output.id,
-            None,
-            Some(output.reads.clone()),
-            Some(controls.clone()),
-            Some(background.clone()),
-            None,
-            None
-        );
-
-        Self {
-            id: output.id.clone(),
-            reads,
-            background,
-            controls
-        }
+        Self::from_quality(&output.qc)
     }
     pub fn from_pathogen(output: &PathogenOutput) -> Self {
-        
+        Self::from_quality(&output.qc)
+    }
+    pub fn from_quality(output: &QualityControlOutput) -> Self {
         let synthetic_controls = Controls::from(
             &output.id,
-            output.qc.synthetic_controls.clone(), 
+            output.synthetic_controls.clone(), 
             ControlsConfig::default()
         );        
 
         let internal_controls = Controls::from(
             &output.id,
-            output.qc.internal_controls.clone(), 
+            output.internal_controls.clone(), 
             ControlsConfig::default()
         );        
 
@@ -142,18 +117,19 @@ impl QualityControl {
 
         let background = Background::from(
             &output.id,
-            output.qc.host_depletion.clone(),
-            output.qc.background_depletion.clone()
+            output.host_depletion.clone(),
+            output.background_alignment.clone(),
+            BackgroundDepletionConfig::default()
         );
 
         let reads = ReadQualityControl::from(
             &output.id,
-            Some(output.qc.input_scan.clone()),
-            output.qc.reads_qc.clone(),
+            Some(output.input_scan.clone()),
+            output.reads_qc.clone(),
             Some(controls.clone()),
             Some(background.clone()),
-            output.qc.deduplication.clone(),
-            Some(output.qc.output_scan.clone())
+            output.deduplication.clone(),
+            Some(output.output_scan.clone())
         );
 
         Self {
@@ -194,7 +170,7 @@ impl IntoOptionF64 for Option<f64> {
     }
 }
 
-fn round_two<T, S>(x: &T, s: S) -> Result<S::Ok, S::Error>
+fn _round_two<T, S>(x: &T, s: S) -> Result<S::Ok, S::Error>
 where
     T: IntoOptionF64,
     S: Serializer,
@@ -549,8 +525,7 @@ pub struct Background {
     config: BackgroundDepletionConfig
 }
 impl Background {
-    pub fn from(id: &str, host: Option<ScrubbyReport>, other: Option<VircovSummary>) -> Self {
-        let config = BackgroundDepletionConfig::default();
+    pub fn from(id: &str, host: Option<ScrubbyReport>, other: Option<VircovSummary>, config: BackgroundDepletionConfig) -> Self {
         Self {
             host: HostBackground::from_scrubby(id, host),
             other: OtherBackground::from_vircov(id, other, &config),
@@ -614,6 +589,8 @@ impl BackgroundReport for OtherBackground {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackgroundDepletionConfig {
+    host_id: String,
+    control_id: String,
     plasmid_id: String,
     univec_id: String,
     phage_id: String,
@@ -622,6 +599,8 @@ pub struct BackgroundDepletionConfig {
 impl Default for BackgroundDepletionConfig {
     fn default() -> Self {
         Self {
+            host_id: String::from("host::"),
+            control_id: String::from("control::"),
             plasmid_id: String::from("plasmid::"),
             univec_id: String::from("univec::"),
             phage_id: String::from("phage::"),
@@ -780,7 +759,7 @@ impl ControlReport for OrganismControl {
                 let mut records = Vec::new();
                 for record in &summary.records {
                     if !record.reference.starts_with(&config.ercc_id) {
-                        records.push(AlignmentRecord::from(id, &record, RecordClass::OrganismControl));
+                        records.push(AlignmentRecord::from(id, &record, RecordClass::InternalControl));
                         organisms += 1;
                         alignments += record.scan_alignments;
                     }
@@ -799,8 +778,10 @@ impl ControlReport for OrganismControl {
 pub enum RecordClass {
     #[serde(rename = "ercc")]
     ErccControl,
-    #[serde(rename = "organism")]
-    OrganismControl,
+    #[serde(rename = "control")]
+    InternalControl,
+    #[serde(rename = "host")]
+    HostBackground,
     #[serde(rename = "rrna")]
     RrnaBackground,
     #[serde(rename = "plasmid")]
@@ -818,6 +799,10 @@ impl RecordClass {
             return RecordClass::PhageBackground
         } else if record.reference.starts_with(&config.plasmid_id) {
             return RecordClass::PlasmidBackground
+        } else if record.reference.starts_with(&config.host_id) {
+            return RecordClass::HostBackground
+        } else if record.reference.starts_with(&config.control_id) {
+            return RecordClass::InternalControl
         } else if record.reference.starts_with(&config.univec_id) {
             return RecordClass::UnivecBackground
         } else if record.reference.starts_with(&config.rrna_id) {

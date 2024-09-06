@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::quality::{write_quality_tsv, QualityControl}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput}, terminal::{App, Commands, ProcessCommands, TablesCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipe::{modules::quality::{write_quality_tsv, QualityControl}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TablesCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
                 ProcessCommands::Panviral(args) => {
                     
                     let output = PanviralOutput::from(
-                        &args.input, args.id.clone()
+                        &args.input, args.id.clone(), args.background
                     )?;
 
                     QualityControl::from_panviral(&output).to_json(&args.qc)?;
@@ -25,12 +25,22 @@ fn main() -> anyhow::Result<()> {
                 }
 
                 ProcessCommands::Pathogen(args) => {
-
+                    
                     let output = PathogenOutput::from(
-                        &args.input, args.id.clone()
+                        &args.input, args.id.clone(), args.background
                     )?;
 
                     QualityControl::from_pathogen(&output).to_json(&args.qc)?;
+
+                }
+
+                ProcessCommands::Quality(args) => {
+                    
+                    let output = QualityControlOutput::from(
+                        &args.input, args.id.clone(), args.background
+                    )?;
+
+                    QualityControl::from_quality(&output).to_json(&args.qc)?;
 
                 }
             }

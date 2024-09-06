@@ -69,7 +69,6 @@ impl ScanReads {
                             };
                         }
                     } else {
-                        
                         log::warn!(
                             "Input file is empty: {}", 
                             path.display()

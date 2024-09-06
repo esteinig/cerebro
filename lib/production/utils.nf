@@ -3,22 +3,10 @@
 
 def getPanviralEnrichmentDatabases() {
     return [
-        host: getPanviralEnrichmentHostDatabase(),
         virus: getPanviralEnrichmentVirusDatabase(),
-        control:  getPanviralEnrichmentControlDatabase()
+        qualityControl: getQualityControlDatabases()
     ]
 }
-
-
-def getPanviralEnrichmentHostDatabase() {
-
-    return getAlignmentIndex(
-        params.panviralEnrichment.hostIndex, 
-        params.panviralEnrichment.hostAligner,
-        "panviral enrichment :: quality control :: host"
-    )
-}
-
 
 def getPanviralEnrichmentVirusDatabase() {
 
@@ -45,23 +33,75 @@ def getPanviralEnrichmentControlDatabase() {
 
 def getPathogenDetectionDatabases() {
     return [
-        qualityControl: getPathogenDetectionQualityDatabases(),
+        qualityControl: getQualityControlDatabases(),
+        taxonomicProfile: getTaxonomicProfileDatabases(),
     ]
 }
 
-def getPathogenDetectionQualityDatabases() {
 
-    def qualityControlParams = params.pathogenDetection.qualityControl;
-    
+def getQualityControlDatabases() {
+
     return [
-        hostDepletion:       qualityControlParams.hostDepletion       ? getPathogenDetectionHostDatabase(qualityControlParams) : Channel.empty(),
-        internalControls:    qualityControlParams.internalControls    ? getPathogenDetectionInternalControls(qualityControlParams) : Channel.empty(),
-        syntheticControls:   qualityControlParams.syntheticControls   ? getPathogenDetectionSyntheticControls(qualityControlParams) : Channel.empty(),
-        backgroundDepletion: qualityControlParams.backgroundDepletion ? getPathogenDetectionBackgroundDatabase(qualityControlParams) : Channel.empty(),
+        hostDepletion:       params.qualityControl.hostDepletion       ? getQualityHostDatabase(params.qualityControl) : Channel.empty(),
+        internalControls:    params.qualityControl.internalControls    ? getQualityInternalControls(params.qualityControl) : Channel.empty(),
+        syntheticControls:   params.qualityControl.syntheticControls   ? getQualitySyntheticControls(params.qualityControl) : Channel.empty(),
+        backgroundDepletion: params.qualityControl.backgroundDepletion ? getQualityBackgroundDatabase(params.qualityControl) : Channel.empty(),
     ]
 }
 
-def getPathogenDetectionHostDatabase(qualityControlParams) {
+
+def getTaxonomicProfileDatabases() {
+
+    def profileParams = params.pathogenDetection.taxonomicProfile;
+
+    return [
+        krakenDatabase:     profileParams.classifier.contains("kraken2")  ?  getPathogenKrakenDatabase(profileParams) : Channel.empty(),
+        metabuliDatabase:   profileParams.classifier.contains("metabuli") ?  getPathogenMetabuliDatabase(profileParams) : Channel.empty(),
+        sylphDatabase:      profileParams.classifier.contains("sylph")    ?  getPathogenSylphDatabase(profileParams) : Channel.empty(),
+        kmcpDatabase:       profileParams.classifier.contains("kmcp")     ?  getPathogenKmcpDatabase(profileParams) : Channel.empty(),
+    ]
+}
+
+
+def getPathogenKrakenDatabase(profileParams) {
+
+    return getClassifierReferenceIndex(
+        profileParams.krakenIndex, 
+        profileParams.krakenReference,
+        "pathogen detection :: tax profile :: kraken"
+    )
+}
+def getPathogenMetabuliDatabase(profileParams) {
+
+    return getClassifierReferenceIndex(
+        profileParams.metabuliIndex, 
+        profileParams.metabuliReference,
+        "pathogen detection :: tax profile :: metabuli"
+    )
+}
+def getPathogenSylphDatabase(profileParams) {
+
+    return getClassifierReferenceIndex(
+        profileParams.sylphIndex, 
+        profileParams.sylphReference,
+        "pathogen detection :: tax profile :: sylph"
+    )
+}
+def getPathogenKmcpDatabase(profileParams) {
+
+    return getClassifierReferenceIndex(
+        profileParams.kmcpIndex, 
+        profileParams.kmcpReference,
+        "pathogen detection :: tax profile :: kmcp"
+    )
+}
+
+
+
+
+
+
+def getQualityHostDatabase(qualityControlParams) {
 
     return getAlignmentIndex(
         qualityControlParams.hostDepletionIndex, 
@@ -69,7 +109,7 @@ def getPathogenDetectionHostDatabase(qualityControlParams) {
         "pathogen detection :: quality control :: host"
     )
 }
-def getPathogenDetectionBackgroundDatabase(qualityControlParams) {
+def getQualityBackgroundDatabase(qualityControlParams) {
 
     return getAlignmentReferenceIndex(
         qualityControlParams.backgroundDepletionReference, 
@@ -78,8 +118,7 @@ def getPathogenDetectionBackgroundDatabase(qualityControlParams) {
         "pathogen detection :: quality control :: background"
     )
 }
-
-def getPathogenDetectionInternalControls(qualityControlParams) {
+def getQualityInternalControls(qualityControlParams) {
 
     return getAlignmentReferenceIndex(
         qualityControlParams.internalControlsReference, 
@@ -88,8 +127,7 @@ def getPathogenDetectionInternalControls(qualityControlParams) {
         "pathogen detection :: quality control :: internal controls"
     )
 }
-
-def getPathogenDetectionSyntheticControls(qualityControlParams) {
+def getQualitySyntheticControls(qualityControlParams) {
 
     return getAlignmentReferenceIndex(
         qualityControlParams.syntheticControlsReference, 
@@ -97,16 +135,6 @@ def getPathogenDetectionSyntheticControls(qualityControlParams) {
         qualityControlParams.syntheticControlsAligner,
         "pathogen detection :: quality control :: synthetic controls"
     )
-}
-
-def getAlignmentReference(String, reference, String description) {
-
-    referenceFile = new File(reference)
-    if (!referenceFile.exists()) {
-        throw new RuntimeException("Reference sequence file for ${description} database does not exist: ${referenceFile}")
-    }
-    return referenceFile.absolutePath
-
 }
 
 
@@ -151,7 +179,7 @@ def getBowtie2IndexFiles(String index) {
         
         // If any Bowtie21 file is missing, throw an exception
         if (bowtie2Files.any { it == null }) {
-            throw new RuntimeException("Neither Bowtie2 nor Bowtie21 index files exist for: ${index}")
+            error "Neither Bowtie2 nor Bowtie21 index files exist for: ${index}"
         }
     }
 
@@ -163,7 +191,7 @@ def getBowtie2IndexFiles(String index) {
 def getAlignmentIndex(String index, String aligner, String description) {
 
     if (index == null) {
-        throw new RuntimeException("Index path for ${description} cannot be null")
+        error "Index path for ${description} cannot be null"
     }
 
     // Check if the aligner is Bowtie2 and retrieve the appropriate index files
@@ -171,14 +199,30 @@ def getAlignmentIndex(String index, String aligner, String description) {
         try {
             indexPaths = getBowtie2IndexFiles(index)
         } catch (RuntimeException e) {
-            throw new RuntimeException("Error retrieving Bowtie2 index files for ${description} database: ${e.message}")
+            error "Error retrieving Bowtie2 index files for ${description} database: ${e.message}"
         }
     } else {
         // For other aligners, simply use the index as a single file path
         indexPaths = [new File(index).absolutePath]
         if (!new File(index).exists()) {
-            throw new RuntimeException("Index file for ${description} database does not exist: ${hostIndex}")
+            error "Index file for ${description} database does not exist: ${index}"
         }
+    }
+    return indexPaths
+    
+}
+
+
+def getClassifierIndex(String index, String description) {
+
+    if (index == null) {
+        error "Index path for ${description} cannot be null"
+    }
+
+    // For other aligners, simply use the index as a single file path
+    indexPaths = [new File(index).absolutePath]
+    if (!new File(index).exists()) {
+        error "Index file for ${description} database does not exist: ${index}"
     }
     return indexPaths
     
@@ -192,48 +236,44 @@ def getAlignmentReferenceIndex(String reference, String index, String aligner, S
 
     referenceFile = new File(reference)
     if (!referenceFile.exists()) {
-        throw new RuntimeException("Reference sequence file for ${description} database does not exist: ${referenceFile}")
+        error "Reference sequence file for ${description} database does not exist: ${referenceFile}"
     }
     
     return [indexPaths, referenceFile.absolutePath]
 
 }
 
-def getReads(String fastq, String sampleSheet, Boolean paired) {
+
+def getClassifierReferenceIndex(String reference, String index, String description) {
+
+    indexPaths = getClassifierIndex(index, description)
+
+    referenceFile = new File(reference)
+    if (!referenceFile.exists()) {
+        error "Reference sequence file for ${description} database does not exist: ${referenceFile}"
+    }
     
-    if (paired) {
-        return getPairedReads(fastq, sampleSheet)
-    } else {
-        return getSingleReads(fastq, sampleSheet)
-    }
+    return [indexPaths, referenceFile.absolutePath]
+
 }
 
+/* Reads and sample sheet inputs */
 
-def getPairedReads(String fastq, String sampleSheet) {
+def getReads(String fastqPaired, String fastqNanopore, String sampleSheet, Boolean sampleSheetProduction) {
 
     if (sampleSheet){
-        reads = sampleSheetPairedEnd(sampleSheet, false)
-    } else if (fastq) {
-        reads = channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
+        return readSampleSheet(sampleSheet, false)
+    } else if (fastqPaired) {
+        return channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
+    } else if (fastqNanopore) {
+        return channel.fromPath(params.fastqNanopore, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
     } else {
-        error "Either `--fastqPaired` or `--sampleSheet` have to be specified for paired-end reads"
+        error "Either one or both of '--fastqPaired' and '--fastqNanopore' or '--sampleSheet' have to be specified for read input"
     }
-    return reads
 }
 
-def getSingleReads(String fastq, String sampleSheet) {
 
-    if (sampleSheet){
-        error "Not supported"
-    } else if (fastq) {
-        reads = channel.fromPath(params.fastqSingle, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
-    } else {
-        error "Either `--fastqSingle` or `--sampleSheet` have to be specified for nanopore reads"
-    }
-    return reads
-}
-
-def sampleSheetPairedEnd(file, production){
+def readSampleSheet(file, production){
 
     def row_number = 2 // with header
 
@@ -245,19 +285,22 @@ def sampleSheetPairedEnd(file, production){
         }
 
         // Check that required values for this row are set
-        if (row.sample_id.isEmpty() || row.forward_path.isEmpty() || row.reverse_path.isEmpty() ) {
-            error "Sample sheet did not contain required values (sample_id, forward_path, reverse_path) in row: ${row_number}"
+        if (row.sample_id.isEmpty() || row.forward_path.isEmpty() ) {
+            error "Sample sheet did not contain required values (sample_id, forward_path) in row: ${row_number}"
         }
 
         forward = new File(row.forward_path)
-        reverse = new File(row.reverse_path)
-
         if (!forward.exists()){
             error "Forward read file does not exist: ${forward}"
         }
-        if (!reverse.exists()){
-            error "Reverse read file does not exist: ${reverse}"
+
+        if (!row.reverse_path.isEmpty()) {
+            reverse = new File(row.reverse_path)
+            if (!reverse.exists()){
+                error "Reverse read file does not exist: ${reverse}"
+            }
         }
+
 
         if (production) {
              // Check that required columns are present
@@ -286,6 +329,7 @@ def sampleSheetPairedEnd(file, production){
 
 }
 
+/* Formatted messages for users */
 
 c_reset = params.monochrome ? '' : "\033[0m";
 c_dim = params.monochrome ? '' : "\033[2m";
@@ -340,7 +384,6 @@ def completionMessage(){
     Please cite the following tools if used in the pipeline:
 
         - cerebro        0.7.0      https://github.com/esteinig/cerebro
-        - umi-tools      1.1.4      https://github.com/CGATOxford/UMI-tools
         - calib          0.3.4      https://github.com/vpc-ccg/calib
         - covtobed       1.3.5      https://github.com/telatin/covtobed       
         - minimap2       2.24       https://github.com/lh3/minimap2          
@@ -352,7 +395,7 @@ def completionMessage(){
         - spades         3.15.5     https://github.com/ablab/spades           
         - strobealign    0.13.0     https://github.com/ksahlin/strobealign    
         - blast          2.13.0     https://github.com/ncbi                   
-        - mash           2.3        https://github.com/marbl/Mash             
+        - mash           2.3        https://github.com/marbl/mash             
         - diamond        2.1.4      https://github.com/bbuchfink/diamond      
         - vircov         0.6.0      https://github.com/esteinig/vircov        
         - scrubby        0.3.0      https://github.com/esteinig/scrubby 

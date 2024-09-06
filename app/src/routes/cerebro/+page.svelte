@@ -29,18 +29,18 @@
         </div>
         <div class="md:col-span-4">
             <div class="grid grid-rows-1 md:grid-rows-1 gap-y-8 h-full">
-                <div class="row-span-1">
+                <div class="row-span-1 blur-sm">
                     <TeamActivity></TeamActivity>
                 </div>
             </div>
         </div>
 
         <div class="md:col-span-2">
-            <div class="grid grid-rows-2 md:grid-rows-2 gap-y-8">
-                <div class="row-span-1">
+            <div class="grid grid-rows-2 md:grid-rows-2 gap-y-8 ">
+                <div class="row-span-1 blur-sm">
                     <Announcements></Announcements>
                 </div>
-                <div class="row-span-1">
+                <div class="row-span-1 blur-sm">
                     <ChangeLog></ChangeLog>
                 </div>
             </div>

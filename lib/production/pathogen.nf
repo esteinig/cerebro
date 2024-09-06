@@ -3,18 +3,18 @@
  * ==================================
 */
 
+
 include { 
-    InputScan
-    SyntheticControls
-    ReadQuality
-    Deduplication
-    HostDepletion
-    InternalControls
-    BackgroundDepletion
-    OutputScan
-    ProcessOutput
-    QualityControlTables
-} from "../processes/pathogen"
+    QualityControl
+} from "./quality";
+
+include { 
+    Kraken2,
+    Bracken,
+    Metabuli,
+    Sylph,
+    Kmcp
+} from "../processes/pathogen";
 
 
 workflow PathogenDetection {
@@ -22,120 +22,83 @@ workflow PathogenDetection {
     take:
         reads
         qualityControlDatabases
+        taxonomicProfileDatabases
     main:
-        qualityControl = QualityControl(reads, qualityControlDatabases)
 
-        qualityControlResults = qualityControl.results | groupTuple
+        /* Read and background control module */
 
-        qualityControlJson = qualityControlResults | ProcessOutput 
-        qualityControlJson | collect | QualityControlTables
+        QualityControl(
+            reads, 
+            qualityControlDatabases
+        )
+
+        /* Taxonomic classification and profiling module */
+
+        TaxonomicProfile(
+            QualityControl.out.reads, 
+            taxonomicProfileDatabases
+        )
+
+        /* Metagenome assembly and profiling module */
 
 
 
     emit:
-        qc = qualityControlResults
 
 }
 
-workflow QualityControl {
+
+workflow TaxonomicProfile {
     take:
         reads
         databases
     main:
 
-        qualityControlParams = params.pathogenDetection.qualityControl
+        profileParams = params.pathogenDetection.taxonomicProfile
 
-        // total read counts and table before depletions
-        InputScan(reads)
-
-        // first for synthetic controls for accurate biomass estimates
-        if (qualityControlParams.syntheticControls) {
-            reads = SyntheticControls(
+        if (profileParams.classifier.contains("kraken2")) {
+            Kraken2(
                 reads,
-                databases.syntheticControls,
-                qualityControlParams.syntheticControlsAligner
-            ).reads
-        }
-
-        // second for read quality control and trimming
-        if (qualityControlParams.readQuality) {
-            reads = ReadQuality(reads).reads
-        }
-
-        // third for read head + umi deduplication
-        if (qualityControlParams.readDeduplication) {
-            reads = Deduplication(
-                reads,
-                qualityControlParams.readDeduplicationHead,
-                qualityControlParams.readDeduplicationDeterministic
-            ).reads
+                databases.krakenDatabase,
+                profileParams.krakenConfidence
+            )
+            if (profileParams.classifierBrackenProfile) {
+                Bracken(
+                    Kraken2.out.bracken,
+                    profileParams.brackenReadLength,
+                    profileParams.brackenRank,
+                    profileParams.brackenReads,
+                )
+            }
         }
         
-        // host depletion is usually bulk of background
-        if (qualityControlParams.hostDepletion) {
-            reads = HostDepletion(
-                reads, 
-                databases.hostDepletion, 
-                qualityControlParams.hostDepletionAligner
-            ).reads
-        }
-
-        // internal controls for coverage before further depletions
-        if (qualityControlParams.internalControls) {
-            reads = InternalControls(
+        if (profileParams.classifier.contains("metabuli")) {
+            Metabuli(
                 reads,
-                databases.internalControls,
-                qualityControlParams.internalControlsAligner
-            ).reads
+                databases.metabuliDatabase,
+                profileParams.krakenConfidence,
+                profileParams.brackenReadLength
+            )
         }
 
-        // further background depletions of unwanted sequences
-        if (qualityControlParams.backgroundDepletion) {
-            reads = BackgroundDepletion(
-                reads, 
-                databases.backgroundDepletion, 
-                qualityControlParams.backgroundDepletionAligner
-            ).reads
+        if (profileParams.classifier.contains("sylph")) {
+            Sylph(
+                reads,
+                databases.sylphDatabase,
+                profileParams.krakenConfidence,
+                profileParams.brackenReadLength
+            )
         }
 
-        // total read counts and table after depletions
-        OutputScan(reads)
+        if (profileParams.classifier.contains("kmcp")) {
+            Kmcp(
+                reads,
+                databases.kmcpDatabase,
+                profileParams.kmcpMode
+            )
+        }
+
         
-        // collect results by sample id
-        results = InputScan.out.results.mix(
-            qualityControlParams.syntheticControls   ? SyntheticControls.out.results   : Channel.empty(), 
-            qualityControlParams.readQuality         ? ReadQuality.out.results         : Channel.empty(), 
-            qualityControlParams.readDeduplication   ? Deduplication.out.results       : Channel.empty(), 
-            qualityControlParams.hostDepletion       ? HostDepletion.out.results       : Channel.empty(), 
-            qualityControlParams.internalControl     ? InternalControls.out.results    : Channel.empty(),
-            qualityControlParams.backgroundDepletion ? BackgroundDepletion.out.results : Channel.empty(),
-            OutputScan.out.results
-        )
-
     emit:
-        results = results
 
 }
-
-
-// workflow TaxonomicProfile {
-//     take:
-//         reads
-//         databases
-//     main:
-        
-
-//     emit:
-
-// }
-
-
-// workflow MetagenomeAssembly {
-//     take:
-//         reads
-//         databases
-//     main:
-
-
-//     emit:
-// }
