@@ -4,9 +4,7 @@
 */
 
 
-include { 
-    QualityControl
-} from "./quality";
+include { QualityControl } from "./quality";
 
 include { 
     Kraken2,
