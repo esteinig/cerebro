@@ -242,7 +242,7 @@ process ProcessOutput {
 }
 
 
-process QcTables {
+process QualityControlTables {
     
     tag { sampleID }
     label "cerebro"
