@@ -5,14 +5,7 @@
 
 
 include { QualityControl } from "./quality";
-
-// include { 
-//     Kraken2,
-//     Bracken,
-//     Metabuli,
-//     Sylph,
-//     Kmcp
-// } from "../processes/pathogen";
+include { Kraken2; Bracken; Metabuli; Sylph; Kmcp } from "../processes/pathogen";
 
 
 workflow PathogenDetection {
@@ -32,67 +25,61 @@ workflow PathogenDetection {
 
         /* Taxonomic classification and profiling module */
 
-        // TaxonomicProfile(
-        //     QualityControl.out.reads, 
-        //     taxonomicProfileDatabases
-        // )
+        TaxonomicProfile(
+            QualityControl.out.reads, 
+            taxonomicProfileDatabases
+        )
 
         /* Metagenome assembly and profiling module */
+
 
 }
 
 
-// workflow TaxonomicProfile {
-//     take:
-//         reads
-//         databases
-//     main:
+workflow TaxonomicProfile {
+    take:
+        reads
+        databases
+    main:
+        profileParams = params.pathogenDetection.taxonomicProfile
 
-//         profileParams = params.pathogenDetection.taxonomicProfile
+        if (profileParams.classifier.contains("kraken2")) {
+            Kraken2(
+                reads,
+                databases.krakenDatabase,
+                profileParams.krakenConfidence
+            )
 
-//         if (profileParams.classifier.contains("kraken2")) {
-//             Kraken2(
-//                 reads,
-//                 databases.krakenDatabase,
-//                 profileParams.krakenConfidence
-//             )
-//             if (profileParams.classifierBrackenProfile) {
-//                 Bracken(
-//                     Kraken2.out.bracken,
-//                     profileParams.brackenReadLength,
-//                     profileParams.brackenRank,
-//                     profileParams.brackenReads,
-//                 )
-//             }
-//         }
+            if (profileParams.classifierBrackenProfile) {
+                Bracken(
+                    Kraken2.out.bracken,
+                    profileParams.brackenReadLength,
+                    profileParams.brackenRank,
+                    profileParams.brackenMinReads
+                )
+            }
+        }
         
-//         if (profileParams.classifier.contains("metabuli")) {
-//             Metabuli(
-//                 reads,
-//                 databases.metabuliDatabase,
-//                 profileParams.krakenConfidence,
-//                 profileParams.brackenReadLength
-//             )
-//         }
+        if (profileParams.classifier.contains("metabuli")) {
+            Metabuli(
+                reads,
+                databases.metabuliDatabase
+            )
+        }
 
-//         if (profileParams.classifier.contains("sylph")) {
-//             Sylph(
-//                 reads,
-//                 databases.sylphDatabase,
-//                 profileParams.krakenConfidence,
-//                 profileParams.brackenReadLength
-//             )
-//         }
+        if (profileParams.classifier.contains("sylph")) {
+            Sylph(
+                reads,
+                databases.sylphDatabase,
+                databases.sylphMetadata
+            )
+        }
 
-//         if (profileParams.classifier.contains("kmcp")) {
-//             Kmcp(
-//                 reads,
-//                 databases.kmcpDatabase,
-//                 profileParams.kmcpMode
-//             )
-//         }
-
-        
-//     emit:
-
-// }
+        if (profileParams.classifier.contains("kmcp")) {
+            Kmcp(
+                reads,
+                databases.kmcpDatabase,
+                profileParams.kmcpMode
+            )
+        }
+}

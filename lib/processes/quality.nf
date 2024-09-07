@@ -244,7 +244,6 @@ process ProcessOutput {
 
 process QualityControlTables {
     
-    tag { sampleID }
     label "cerebro"
 
     publishDir "$params.outputDirectory/quality", mode: "copy", pattern: "*.tsv"

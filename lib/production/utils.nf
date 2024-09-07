@@ -34,7 +34,7 @@ def getPanviralEnrichmentControlDatabase() {
 def getPathogenDetectionDatabases() {
     return [
         qualityControl: getQualityControlDatabases(),
-        taxonomicProfile: getTaxonomicProfileDatabases(),
+        taxonomicProfile: getPathogenTaxonomicProfileDatabases(),
     ]
 }
 
@@ -42,63 +42,68 @@ def getPathogenDetectionDatabases() {
 def getQualityControlDatabases() {
 
     return [
-        hostDepletion:       params.qualityControl.hostDepletion       ? getQualityHostDatabase(params.qualityControl) : Channel.empty(),
-        internalControls:    params.qualityControl.internalControls    ? getQualityInternalControls(params.qualityControl) : Channel.empty(),
-        syntheticControls:   params.qualityControl.syntheticControls   ? getQualitySyntheticControls(params.qualityControl) : Channel.empty(),
-        backgroundDepletion: params.qualityControl.backgroundDepletion ? getQualityBackgroundDatabase(params.qualityControl) : Channel.empty(),
+        hostDepletion:       params.qualityControl.hostDepletion       ? getQualityHostDatabase(params.qualityControl) :        Channel.empty(),
+        internalControls:    params.qualityControl.internalControls    ? getQualityInternalControls(params.qualityControl) :    Channel.empty(),
+        syntheticControls:   params.qualityControl.syntheticControls   ? getQualitySyntheticControls(params.qualityControl) :   Channel.empty(),
+        backgroundDepletion: params.qualityControl.backgroundDepletion ? getQualityBackgroundDatabase(params.qualityControl) :  Channel.empty(),
     ]
 }
 
+/* Pathogen taxonomic profiling databases */
 
-def getTaxonomicProfileDatabases() {
+
+def getPathogenTaxonomicProfileDatabases() {
 
     def profileParams = params.pathogenDetection.taxonomicProfile;
 
     return [
-        krakenDatabase:     profileParams.classifier.contains("kraken2")  ?  getPathogenKrakenDatabase(profileParams) : Channel.empty(),
-        metabuliDatabase:   profileParams.classifier.contains("metabuli") ?  getPathogenMetabuliDatabase(profileParams) : Channel.empty(),
-        sylphDatabase:      profileParams.classifier.contains("sylph")    ?  getPathogenSylphDatabase(profileParams) : Channel.empty(),
-        kmcpDatabase:       profileParams.classifier.contains("kmcp")     ?  getPathogenKmcpDatabase(profileParams) : Channel.empty(),
+        krakenDatabase:     profileParams.classifier.contains("kraken2")  ?  getPathogenKrakenDatabase(profileParams) :         Channel.empty(),
+        metabuliDatabase:   profileParams.classifier.contains("metabuli") ?  getPathogenMetabuliDatabase(profileParams) :       Channel.empty(),
+        sylphDatabase:      profileParams.classifier.contains("sylph")    ?  getPathogenSylphDatabase(profileParams) :          Channel.empty(),
+        sylphMetadata:      profileParams.classifier.contains("sylph")    ?  getPathogenSylphDatabaseMetadata(profileParams) :  Channel.empty(),
+        kmcpDatabase:       profileParams.classifier.contains("kmcp")     ?  getPathogenKmcpDatabase(profileParams) :           Channel.empty(),
     ]
 }
 
 
 def getPathogenKrakenDatabase(profileParams) {
 
-    return getClassifierReferenceIndex(
+    return getFilePath(
         profileParams.krakenIndex, 
-        profileParams.krakenReference,
         "pathogen detection :: tax profile :: kraken"
     )
 }
 def getPathogenMetabuliDatabase(profileParams) {
 
-    return getClassifierReferenceIndex(
+    return getFilePath(
         profileParams.metabuliIndex, 
-        profileParams.metabuliReference,
         "pathogen detection :: tax profile :: metabuli"
     )
 }
 def getPathogenSylphDatabase(profileParams) {
 
-    return getClassifierReferenceIndex(
+    return getFilePath(
         profileParams.sylphIndex, 
-        profileParams.sylphReference,
         "pathogen detection :: tax profile :: sylph"
+    )
+}
+
+def getPathogenSylphDatabaseMetadata(profileParams) {
+
+    return getFilePath(
+        profileParams.sylphMetadata,
+        "pathogen detection :: tax profile :: sylph meta"
     )
 }
 def getPathogenKmcpDatabase(profileParams) {
 
-    return getClassifierReferenceIndex(
+    return getFilePath(
         profileParams.kmcpIndex, 
-        profileParams.kmcpReference,
         "pathogen detection :: tax profile :: kmcp"
     )
 }
 
-
-
-
+/* Quality control databases */
 
 
 def getQualityHostDatabase(qualityControlParams) {
@@ -191,7 +196,7 @@ def getBowtie2IndexFiles(String index) {
 def getAlignmentIndex(String index, String aligner, String description) {
 
     if (index == null) {
-        error "Index path for ${description} cannot be null"
+        error "Index path for '${description}' cannot be null"
     }
 
     // Check if the aligner is Bowtie2 and retrieve the appropriate index files
@@ -199,13 +204,13 @@ def getAlignmentIndex(String index, String aligner, String description) {
         try {
             indexPaths = getBowtie2IndexFiles(index)
         } catch (RuntimeException e) {
-            error "Error retrieving Bowtie2 index files for ${description} database: ${e.message}"
+            error "Error retrieving Bowtie2 index files for '${description}' database: ${e.message}"
         }
     } else {
         // For other aligners, simply use the index as a single file path
         indexPaths = [new File(index).absolutePath]
         if (!new File(index).exists()) {
-            error "Index file for ${description} database does not exist: ${index}"
+            error "Index file for '${description}' database does not exist: ${index}"
         }
     }
     return indexPaths
@@ -213,16 +218,29 @@ def getAlignmentIndex(String index, String aligner, String description) {
 }
 
 
+def getFilePath(String file, String description) {
+
+    if (file == null) {
+        error "File path for '${description}' cannot be null"
+    }
+    filePath = new File(file).absolutePath
+    if (!new File(file).exists()) {
+        error "File for '${description}' database does not exist: ${file}"
+    }
+    return filePath
+    
+}
+
 def getClassifierIndex(String index, String description) {
 
     if (index == null) {
-        error "Index path for ${description} cannot be null"
+        error "Index path for '${description}' cannot be null"
     }
 
     // For other aligners, simply use the index as a single file path
     indexPaths = [new File(index).absolutePath]
     if (!new File(index).exists()) {
-        error "Index file for ${description} database does not exist: ${index}"
+        error "Index file for '${description}' database does not exist: ${index}"
     }
     return indexPaths
     
@@ -236,7 +254,7 @@ def getAlignmentReferenceIndex(String reference, String index, String aligner, S
 
     referenceFile = new File(reference)
     if (!referenceFile.exists()) {
-        error "Reference sequence file for ${description} database does not exist: ${referenceFile}"
+        error "Reference sequence file for '${description}' database does not exist: ${referenceFile}"
     }
     
     return [indexPaths, referenceFile.absolutePath]
@@ -250,7 +268,7 @@ def getClassifierReferenceIndex(String reference, String index, String descripti
 
     referenceFile = new File(reference)
     if (!referenceFile.exists()) {
-        error "Reference sequence file for ${description} database does not exist: ${referenceFile}"
+        error "Reference sequence file for '${description}' database does not exist: ${referenceFile}"
     }
     
     return [indexPaths, referenceFile.absolutePath]
@@ -300,7 +318,6 @@ def readSampleSheet(file, production){
                 error "Reverse read file does not exist: ${reverse}"
             }
         }
-
 
         if (production) {
              // Check that required columns are present

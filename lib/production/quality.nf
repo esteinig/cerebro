@@ -54,7 +54,7 @@ workflow QualityControl {
             }
         }
 
-        // Deduplicate before read quality control or not
+        // Deduplicate before read quality control or after
         if (params.cerebroConfig.qualityControlDeduplicateBefore) {
 
             if (params.qualityControl.readDeduplication) {
@@ -126,8 +126,8 @@ workflow QualityControl {
         tables  = json    | collect    | QualityControlTables
 
     emit:
+        reads   = reads
+        results = results
         tables  = tables
         json    = json
-        results = results
-        reads   = reads
 }

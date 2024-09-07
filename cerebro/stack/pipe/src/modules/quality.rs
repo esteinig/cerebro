@@ -720,8 +720,13 @@ impl ControlReport for ErccControl {
                         records.push(AlignmentRecord::from(id, &record, RecordClass::ErccControl))
                     }
                 }
-        
-                let mass_per_read = config.ercc_mass / alignments as f64;  // check if need to use reads?
+                
+                let mass_per_read = if alignments == 0 {
+                    0.0
+                } else {
+                    config.ercc_mass / alignments as f64 // check if need to use reads?
+                };
+                 
                 
                 let ercc = Self {
                     constructs, 

@@ -39,7 +39,7 @@ process Bracken {
     tuple val(sampleID), path(krakenDatabase), path(krakenReport)
     val(brackenReadLength)
     val(brackenRank)
-    val(brackenReads)
+    val(brackenMinReads)
 
     output:
     tuple (val(sampleID), path("${sampleID}.bracken.report"), emit: results)
@@ -47,7 +47,7 @@ process Bracken {
     script:
 
     """
-    bracken -d $kraken2_db -i $krakenReport -r $brackenReadLength -l $brackenTaxRank -t $brackenMinReads -o ${sampleID}.bracken.report
+    bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.report
     """
 
 }
@@ -59,21 +59,22 @@ process Sylph {
     label "pathogenProfileSylph"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylphmpa"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.mpa"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(sylphDatabase)
-    path(sylphDatabaseMetadata)
+    path(sylphMetadata)
 
     output:
-    tuple (path("${sampleID}.sylph.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.mpa"), emit: results)
 
     script:
 
     """
-    sylph profile $sylphDatabase -1 $forward -2 $reverse -c 100 --min-number-kmers 20 -t $task.cpu > ${sampleID}.sylph.tsv
-    sylph_to_taxprof.py -m $sylphDatabaseMetadata -s ${sampleID}.sylph.tsv -o ${sampleID}.sylphmpa
+    sylph profile $sylphDatabase -1 $forward -2 $reverse -c 100 --min-number-kmers 20 -t $task.cpus > ${sampleID}.sylph.tsv
+    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
+    mv ${forward}.sylphmpa ${sampleID}.sylph.mpa
     """
 
 }
@@ -92,14 +93,15 @@ process Metabuli {
     path(metabuliDatabase)
 
     output:
-    tuple (path("${sampleID}.metabuli.report"), path("${sampleID}.metabuli.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.metabuli.report"), path("${sampleID}.metabuli.tsv"), emit: results)
 
     script:
 
-    memoryLimit = task.memory.split()[0]
+    memoryLimit = "$task.memory".split()[0]
 
     """
     metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
+
     cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.tsv
     rm classified/${sampleID}_classifications.tsv
     cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.report
@@ -118,12 +120,15 @@ process Kmcp {
     path(kmcpDatabase)
     val(kmcpMode)
 
+    output:
+    tuple (val(sampleID), path("${sampleID}.kmcp.profile"), emit: results)
+
 
     script:
 
     """
-    kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleId}.reads.tsv.gz --threads ${task.cpus}
-    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $kmcpMode
+    kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
+    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $kmcpMode -o ${sampleID}.kmcp.profile ${sampleID}.reads.tsv.gz
     """
 
 }
