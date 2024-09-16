@@ -110,7 +110,7 @@ process Metabuli {
 }
 
 
-process Kmcp {
+process Kmcp { 
 
     tag { sampleID }
     label "pathogenProfileKmcp"

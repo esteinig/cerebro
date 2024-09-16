@@ -30,7 +30,9 @@ workflow PathogenDetection {
             taxonomicProfileDatabases
         )
 
-        /* Metagenome assembly and profiling module */
+        /* Metagenome assembly and taxonomic profiling module */
+
+
 
 
 }
@@ -82,4 +84,30 @@ workflow TaxonomicProfile {
                 profileParams.kmcpMode
             )
         }
+}
+
+workflow MetagenomeAssembly {
+    take:
+        reads
+        databases
+    main:
+        magParams = params.pathogenDetection.metagenomeAssembly
+
+        if (magParams.assembler.contains("metaspades")) {
+            contigs = MetaSpades(
+                reads,
+                magParams.metaspadesKmer
+            ).contigs
+        } else if (magParams.assembler.contains("megahit") {
+            contigs = Megahit(
+                reads,
+                magParams.megahitKmer
+            ).contigs
+        } else {
+            contigs = Channel.empty()
+        }
+
+        
+
+        
 }
