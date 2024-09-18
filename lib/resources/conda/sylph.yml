@@ -1,0 +1,6 @@
+name: cerebro-sylph
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - sylph=0.6.1

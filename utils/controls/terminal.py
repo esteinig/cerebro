@@ -28,8 +28,11 @@ def map_taxon(taxon):
 
 @app.command()
 def summarize(
-    table: Path = typer.Option(
+    controls: Path = typer.Option(
         ..., help="Controls record table"
+    ),
+    quality: Path = typer.Option(
+        ..., help="Quality control table"
     ),
     output: Path = typer.Option(
         ..., help="Output summary table"
@@ -37,9 +40,13 @@ def summarize(
 ):
     """ Summarize controls per sample"""
 
-    df = pandas.read_csv(table, sep="\t", header=0)
+    df = pandas.read_csv(controls, sep="\t", header=0)
+    qc = pandas.read_csv(quality, sep="\t", header=0)
 
     df['control_group'] = df['reference'].apply(map_taxon)
     df = df.groupby(['id', 'control_group'])['alignments'].sum().reset_index()
+
+    df = df.merge(qc[['id', 'input_reads']], on='id', how='left')
+    df['rpm'] = (df['alignments'] / df['input_reads']) * 1e6
 
     df.to_csv(output, sep="\t", index=False)

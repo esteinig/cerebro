@@ -15,39 +15,36 @@ fn main() -> anyhow::Result<()> {
             match subcommand {
 
                 ProcessCommands::Panviral(args) => {
-                    
                     let output = PanviralOutput::from(
                         &args.input, args.id.clone(), args.background
                     )?;
-
                     QualityControl::from_panviral(&output).to_json(&args.qc)?;
                     
                 }
 
                 ProcessCommands::Pathogen(args) => {
-                    
                     let output = PathogenOutput::from(
                         &args.input, args.id.clone(), args.background
                     )?;
 
                     QualityControl::from_pathogen(&output).to_json(&args.qc)?;
-
                 }
 
                 ProcessCommands::Quality(args) => {
-                    
                     let output = QualityControlOutput::from(
                         &args.input, args.id.clone(), args.background
                     )?;
-
                     QualityControl::from_quality(&output).to_json(&args.qc)?;
-
                 }
             }
         },
         Commands::Tools(subcommand) => {
             match subcommand {
-
+                ToolsCommands::Download( args ) => {
+                    let dl = args.clone().validate_and_build()?;
+        
+                    if args.list { dl.list(); } else { dl.download_index()?; }
+                }
                 ToolsCommands::ScanReads(args) => {
                     let scanner = ScanReads::new(&args.input);
                     let report = scanner.report()?;
@@ -58,7 +55,6 @@ fn main() -> anyhow::Result<()> {
                     }
                 },
                 ToolsCommands::SampleSheet( args ) => {
-
                     let sample_sheet = SampleSheet::new(
                         &args.directory, 
                         args.prefix.clone(),
@@ -73,6 +69,7 @@ fn main() -> anyhow::Result<()> {
                         args.recursive,
                         args.not_unique
                     )?;
+
                     sample_sheet.write(&args.output)?;
                     
                 }
@@ -90,7 +87,16 @@ fn main() -> anyhow::Result<()> {
                 },
                 ToolsCommands::UmiDedupNaive( args ) => {
                     let umi_tool = Umi::new(None, None);
-                    let report = umi_tool.naive_dedup(&args.input, &args.output, &args.reads, &args.clusters,  !&args.no_umi, &args.delim, args.head)?;
+
+                    let report = umi_tool.naive_dedup(
+                        &args.input, 
+                        &args.output, 
+                        &args.reads, 
+                        &args.clusters,  
+                        !&args.no_umi, 
+                        &args.delim, 
+                        args.head
+                    )?;
                     
                     if let Some(path) = &args.json {
                         report.to_json(path)?;
@@ -98,7 +104,14 @@ fn main() -> anyhow::Result<()> {
                 },
                 ToolsCommands::UmiDedupCalib( args ) => {
                     let umi_tool = Umi::new(None, None);
-                    umi_tool.calib_dedup(&args.input, &args.output, &args.clusters, args.summary.clone(), args.identifiers.clone())?;
+
+                    umi_tool.calib_dedup(
+                        &args.input, 
+                        &args.output, 
+                        &args.clusters, 
+                        args.summary.clone(), 
+                        args.identifiers.clone()
+                    )?;
                 },
             }
         },
@@ -111,7 +124,6 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        _ => {}
     }
 
 

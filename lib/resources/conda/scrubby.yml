@@ -1,0 +1,7 @@
+name: cerebro-scrubby
+channels:
+  - esteinig
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - scrubby

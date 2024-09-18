@@ -91,6 +91,7 @@ workflow MetagenomeAssembly {
         reads
         databases
     main:
+    
         magParams = params.pathogenDetection.metagenomeAssembly
 
         if (magParams.assembler.contains("metaspades")) {
@@ -98,7 +99,7 @@ workflow MetagenomeAssembly {
                 reads,
                 magParams.metaspadesKmer
             ).contigs
-        } else if (magParams.assembler.contains("megahit") {
+        } else if (magParams.assembler.contains("megahit")) {
             contigs = Megahit(
                 reads,
                 magParams.megahitKmer

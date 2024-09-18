@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+use crate::{error::WorkflowError, modules::pathogen::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
+
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -31,13 +33,6 @@ pub enum Commands {
 }
 
 
-
-
-#[derive(Debug, Subcommand)]
-pub enum SheetCommands {
-}
-
-
 #[derive(Debug, Subcommand)]
 pub enum TablesCommands {
     /// Quality control tables
@@ -62,6 +57,8 @@ pub struct QualityControlTableArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum ToolsCommands {
+    /// List available indices and download files for aligners and classfiers.
+    Download(DownloadArgs),
     /// Scan read files and compute summary metrics
     ScanReads(ScanReadArgs),
     /// Create a sample-sheet for read input to pipelines
@@ -243,6 +240,68 @@ pub struct SampleSheetArgs {
     /// Single reads for Oxford Nanopore Technology 
     #[clap(long)]
     pub ont: bool
+}
+
+
+#[derive(Args, Debug, Clone)]
+pub struct DownloadArgs {
+    /// List available index names and exit
+    #[arg(short, long)]
+    pub list: bool,
+    /// Index name to download
+    #[arg(short, long, num_args(0..))]
+    pub index: Vec<CerebroIndex>,
+    /// Output directory for index download
+    #[arg(short, long, default_value=".")]
+    pub outdir: PathBuf,
+    /// Download index for one or more aligners 
+    #[arg(short, long, num_args(0..))]
+    pub aligner: Option<Vec<Aligner>>,
+    /// Download index for one or more classifiers 
+    #[arg(short, long, num_args(0..))]
+    pub classfier: Option<Vec<Classifier>>,
+    /// Download timeout in minutes - increase for large files and slow connections
+    #[arg(short, long, default_value="360")]
+    pub timeout: u64,
+    /// Download a specific version of the database, no version downloads latest
+    #[arg(short, long)]
+    pub version: Option<String>,
+    /// Include reference sequences (.fasta) for the selected indices
+    #[arg(short, long)]
+    pub reference: bool,
+}
+impl DownloadArgs {
+    /// Validates the provided arguments and builds a `CerebroDownloader` instance.
+    ///
+    /// This method checks the provided arguments for consistency and constructs 
+    /// a `CerebroDownloader` instance based on the validated arguments.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<CerebroDownloader, WorkflowError>` - Ok with the constructed CerebroDownloader instance, otherwise an error.
+    /// 
+    /// # Example
+    ///
+    /// ```
+    /// use clap::Parser;
+    /// 
+    /// let dl_args = Download::parse();
+    /// let dl = dl_args.validate_and_build().unwrap();
+    /// ```
+    pub fn validate_and_build(self) -> Result<CerebroDownloader, WorkflowError> {
+        
+        let downloader = CerebroDownloaderBuilder::new(
+            self.outdir, self.index
+        )
+        .classifier(self.classfier)
+        .aligner(self.aligner)
+        .timeout(self.timeout)
+        .reference(self.reference)
+        .version(self.version)
+        .build()?;
+
+        Ok(downloader)
+    }
 }
 
 

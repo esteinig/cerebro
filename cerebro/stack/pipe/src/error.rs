@@ -17,6 +17,9 @@ pub enum WorkflowError {
     ScrubbyError(#[from] scrubby::error::ScrubbyError),
     #[error(transparent)]
     VircovError(#[from] vircov::error::VircovError),
+    /// Represents all other cases of `reqwest::Error`.
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
     IoError(#[from] std::io::Error),
     /// Represents errors from building a Rayon thread pool.
@@ -26,6 +29,13 @@ pub enum WorkflowError {
     #[error(transparent)]
     NifflerError(#[from] niffler::Error),
 
+    /// Failed to make the download request
+    #[error("failed to execute request: {0}")]
+    DownloadFailedRequest(reqwest::StatusCode),
+    /// Failed to configure the downloader through the builder pattern due to missing field
+    #[error("failed to configure the output directory field for the downloader")]
+    DownloaderMissingOutdir,
+    
     #[error("Failed to convert OsString to String")]
     FileNameConversionError,
 
