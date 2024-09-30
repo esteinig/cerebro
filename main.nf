@@ -113,6 +113,7 @@ workflow pathogen {
         ),
         pathogenDB.qualityControl,
         pathogenDB.taxonomicProfile,
+        pathogenDB.metagenomeAssembly,
     )   
 
 }
@@ -145,7 +146,7 @@ workflow quality {
 
     /* Read quality control and background coverage + depletion  (host, controls, other) */
 
-    def qualityControlDatabases = getQualityControlDatabases();
+    def qualityDB = getQualityControlDatabases();
 
     QualityControl(
         getReads(
@@ -154,7 +155,7 @@ workflow quality {
             params.sampleSheet, 
             params.sampleSheetProduction
         ),
-        qualityControlDatabases,
+        qualityDB,
     )
 
 }

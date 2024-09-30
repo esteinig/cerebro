@@ -34,7 +34,8 @@ def getPanviralEnrichmentControlDatabase() {
 def getPathogenDetectionDatabases() {
     return [
         qualityControl: getQualityControlDatabases(),
-        taxonomicProfile: getPathogenTaxonomicProfileDatabases(),
+        taxonomicProfile: getTaxonomicProfileDatabases(),
+        metagenomeAssembly: getMetagenomeAssemblyDatabases(),
     ]
 }
 
@@ -42,60 +43,86 @@ def getPathogenDetectionDatabases() {
 def getQualityControlDatabases() {
 
     return [
-        hostDepletion:       params.qualityControl.hostDepletion       ? getQualityHostDatabase(params.qualityControl) :        Channel.empty(),
-        internalControls:    params.qualityControl.internalControls    ? getQualityInternalControls(params.qualityControl) :    Channel.empty(),
-        syntheticControls:   params.qualityControl.syntheticControls   ? getQualitySyntheticControls(params.qualityControl) :   Channel.empty(),
-        backgroundDepletion: params.qualityControl.backgroundDepletion ? getQualityBackgroundDatabase(params.qualityControl) :  Channel.empty(),
+        hostDepletion:       params.qualityControl.hostDepletion       ? getQualityHostDatabase(params.qualityControl)          :  Channel.empty(),
+        internalControls:    params.qualityControl.internalControls    ? getQualityInternalControls(params.qualityControl)      :  Channel.empty(),
+        syntheticControls:   params.qualityControl.syntheticControls   ? getQualitySyntheticControls(params.qualityControl)     :  Channel.empty(),
+        backgroundDepletion: params.qualityControl.backgroundDepletion ? getQualityBackgroundDatabase(params.qualityControl)    :  Channel.empty(),
     ]
+}
+
+/* Pathogen metagenome assembly profiling databases */
+
+def getMetagenomeAssemblyDatabases() {
+
+    def magParams = params.pathogenDetection.metagenomeAssembly;
+
+    return [
+        sylphDatabase:      magParams.contigProfile   ?  getPathogenProfileSylphDatabase(magParams)          :  Channel.empty(),
+        sylphMetadata:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabaseMetadata(magParams) :  Channel.empty(),
+    ]
+}
+
+
+def getPathogenAssemblySylphDatabase(magParams) {
+
+    return getFilePath(
+        magParams.contigProfileIndex, 
+        "pathogen detection :: tax profile :: sylph"
+    )
+}
+def getPathogenAssemblySylphDatabaseMetadata(magParams) {
+
+    return getFilePath(
+        magParams.contigProfileMetadata,
+        "pathogen detection :: tax profile :: sylph meta"
+    )
 }
 
 /* Pathogen taxonomic profiling databases */
 
 
-def getPathogenTaxonomicProfileDatabases() {
+def getTaxonomicProfileDatabases() {
 
     def profileParams = params.pathogenDetection.taxonomicProfile;
 
     return [
-        krakenDatabase:     profileParams.classifier.contains("kraken2")  ?  getPathogenKrakenDatabase(profileParams) :         Channel.empty(),
-        metabuliDatabase:   profileParams.classifier.contains("metabuli") ?  getPathogenMetabuliDatabase(profileParams) :       Channel.empty(),
-        sylphDatabase:      profileParams.classifier.contains("sylph")    ?  getPathogenSylphDatabase(profileParams) :          Channel.empty(),
-        sylphMetadata:      profileParams.classifier.contains("sylph")    ?  getPathogenSylphDatabaseMetadata(profileParams) :  Channel.empty(),
-        kmcpDatabase:       profileParams.classifier.contains("kmcp")     ?  getPathogenKmcpDatabase(profileParams) :           Channel.empty(),
+        krakenDatabase:     profileParams.classifierMethod.contains("kraken2")  ?  getPathogenProfileKrakenDatabase(profileParams)        :  Channel.empty(),
+        metabuliDatabase:   profileParams.classifierMethod.contains("metabuli") ?  getPathogenProfileMetabuliDatabase(profileParams)      :  Channel.empty(),
+        sylphDatabase:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
+        sylphMetadata:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
+        kmcpDatabase:       profileParams.classifierMethod.contains("kmcp")     ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
     ]
 }
 
-
-def getPathogenKrakenDatabase(profileParams) {
+def getPathogenProfileKrakenDatabase(profileParams) {
 
     return getFilePath(
         profileParams.krakenIndex, 
         "pathogen detection :: tax profile :: kraken"
     )
 }
-def getPathogenMetabuliDatabase(profileParams) {
+def getPathogenProfileMetabuliDatabase(profileParams) {
 
     return getFilePath(
         profileParams.metabuliIndex, 
         "pathogen detection :: tax profile :: metabuli"
     )
 }
-def getPathogenSylphDatabase(profileParams) {
+def getPathogenProfileSylphDatabase(profileParams) {
 
     return getFilePath(
         profileParams.sylphIndex, 
         "pathogen detection :: tax profile :: sylph"
     )
 }
-
-def getPathogenSylphDatabaseMetadata(profileParams) {
+def getPathogenProfileSylphDatabaseMetadata(profileParams) {
 
     return getFilePath(
         profileParams.sylphMetadata,
         "pathogen detection :: tax profile :: sylph meta"
     )
 }
-def getPathogenKmcpDatabase(profileParams) {
+def getPathogenProfileKmcpDatabase(profileParams) {
 
     return getFilePath(
         profileParams.kmcpIndex, 
@@ -400,23 +427,24 @@ def completionMessage(){
 
     Please cite the following tools if used in the pipeline:
 
-        - cerebro        0.7.0      https://github.com/esteinig/cerebro
-        - calib          0.3.4      https://github.com/vpc-ccg/calib
-        - covtobed       1.3.5      https://github.com/telatin/covtobed       
-        - minimap2       2.24       https://github.com/lh3/minimap2          
+        - cerebro        1.0.0      https://github.com/esteinig/cerebro      
+        - minimap2       2.24       https://github.com/lh3/minimap2         
+        - bowtie2        2.24       https://github.com/        
         - samtools                  https://github.com/samtools/samtools      
         - kraken2        2.1.2      https://github.com/DerrickWood/kraken2    
+        - bracken        3.0.0      https://github.com/
         - fastp          0.23.2     https://github.com/OpenGene/fastp         
         - nextflow       24.04      https://github.com/nextflow-io/nextflow  
-        - ivar           1.3.1      https://github.com/andersen-lab/ivar      
-        - spades         3.15.5     https://github.com/ablab/spades           
+        - ivar           1.3.1      https://github.com/andersen-lab/ivar    
+        - megahit        2.1.3      https://github.com/ksahlin/megahit     
+        - spades         4.0.0      https://github.com/ablab/spades           
         - strobealign    0.13.0     https://github.com/ksahlin/strobealign    
         - blast          2.13.0     https://github.com/ncbi                   
-        - mash           2.3        https://github.com/marbl/mash             
+        - mash           2.3        https://github.com/marbl/Mash             
         - diamond        2.1.4      https://github.com/bbuchfink/diamond      
-        - vircov         0.6.0      https://github.com/esteinig/vircov        
-        - scrubby        0.3.0      https://github.com/esteinig/scrubby 
-        - rasusa         0.7.1      https://github.com/mbhall88/rasusa
+        - vircov         1.0.0      https://github.com/esteinig/vircov        
+        - scrubby        1.0.0      https://github.com/esteinig/scrubby 
+        - rasusa         2.0.0      https://github.com/mbhall88/rasusa
         - cnvkit         0.9.10     https://github.com/etal/cnvkit
         - nanoq          0.10.0     https://github.com/esteinig/nanoq
 

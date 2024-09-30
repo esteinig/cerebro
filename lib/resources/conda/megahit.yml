@@ -1,8 +1,6 @@
-name: cerebro-sylph
+name: cerebro-megahit
 channels:
   - conda-forge        
   - bioconda    
 dependencies:
-  - sylph=0.6.1
-  - python
-  - pandas
+  - megahit=1.2.9

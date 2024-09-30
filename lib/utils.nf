@@ -75,24 +75,24 @@ def complete_msg(){
 
     Please cite the following tools if used in the pipeline:
 
-        - cerebro        0.7.0      https://github.com/esteinig/cerebro
-        - umi-tools      1.1.4      https://github.com/CGATOxford/UMI-tools
-        - calib          0.3.4      https://github.com/vpc-ccg/calib
-        - covtobed       1.3.5      https://github.com/telatin/covtobed       
-        - minimap2       2.24       https://github.com/lh3/minimap2          
+        - cerebro        1.0.0      https://github.com/esteinig/cerebro      
+        - minimap2       2.24       https://github.com/lh3/minimap2         
+        - bowtie2        2.24       https://github.com/        
         - samtools                  https://github.com/samtools/samtools      
         - kraken2        2.1.2      https://github.com/DerrickWood/kraken2    
+        - bracken        3.0.0      https://github.com/
         - fastp          0.23.2     https://github.com/OpenGene/fastp         
         - nextflow       24.04      https://github.com/nextflow-io/nextflow  
-        - ivar           1.3.1      https://github.com/andersen-lab/ivar      
-        - spades         3.15.5     https://github.com/ablab/spades           
+        - ivar           1.3.1      https://github.com/andersen-lab/ivar    
+        - megahit        2.1.3      https://github.com/ksahlin/megahit     
+        - spades         4.0.0      https://github.com/ablab/spades           
         - strobealign    0.13.0     https://github.com/ksahlin/strobealign    
         - blast          2.13.0     https://github.com/ncbi                   
         - mash           2.3        https://github.com/marbl/Mash             
         - diamond        2.1.4      https://github.com/bbuchfink/diamond      
-        - vircov         0.6.0      https://github.com/esteinig/vircov        
-        - scrubby        0.3.0      https://github.com/esteinig/scrubby 
-        - rasusa         0.7.1      https://github.com/mbhall88/rasusa
+        - vircov         1.0.0      https://github.com/esteinig/vircov        
+        - scrubby        1.0.0      https://github.com/esteinig/scrubby 
+        - rasusa         2.0.0      https://github.com/mbhall88/rasusa
         - cnvkit         0.9.10     https://github.com/etal/cnvkit
         - nanoq          0.10.0     https://github.com/esteinig/nanoq
 

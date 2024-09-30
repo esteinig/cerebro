@@ -97,7 +97,7 @@ process Metabuli {
 
     script:
 
-    memoryLimit = "$task.memory".split()[0]
+    memoryLimit = "${task.memory}".split()[0]
 
     """
     metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
@@ -115,6 +115,8 @@ process Kmcp {
     tag { sampleID }
     label "pathogenProfileKmcp"
 
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.profile"
+
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(kmcpDatabase)
@@ -129,6 +131,123 @@ process Kmcp {
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
     kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $kmcpMode -o ${sampleID}.kmcp.profile ${sampleID}.reads.tsv.gz
+    """
+
+}
+
+process MetaSpades {
+
+    tag { sampleID }
+    label "pathogenAssemblyMetaspades"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metaspades.fasta"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    val(kmerList)
+    val(minContigLength)
+    val(args)
+
+    output:
+    tuple(val(sampleID), val("metaspades"), path("${sampleID}.metaspades.fasta"), emit: contigs)
+    tuple(val(sampleID), path(forward), path(reverse), emit: reads)
+
+    script:
+
+    """
+    spades.py --meta -t $task.cpus -1 $forward -2 $reverse -o assembly/ -k $kmerList $args
+    mv assembly/contigs.fasta ${sampleID}.metaspades.fasta
+    """
+
+}
+
+process Megahit {
+
+    tag { sampleID }
+    label "pathogenAssemblyMegahit"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.megahit.fasta"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    val(kmerList)
+    val(minContigLength)
+    val(args)
+
+    output:
+    tuple(val(sampleID), val("megahit"), path("${sampleID}.megahit.fasta"), emit: contigs)
+    tuple(val(sampleID), path(forward), path(reverse), emit: reads)
+
+    script:
+
+    """
+    megahit -t $task.cpus -1 $forward -2 $reverse -o assembly --k-list $kmerList --min-contig-len $minContigLength $args
+    mv assembly/final.contigs.fa ${sampleID}.megahit.fasta
+    """
+}
+
+process ContigCoverage {
+    
+    tag { sampleID }
+    label "pathogenAssemblyContigCoverage"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    tuple val(sampleID), path(forward), path(reverse)
+
+    output:
+    tuple(val(sampleID), val(assembler), path(contigs), emit: contigs)
+    tuple(val(sampleID), path("${sampleID}.contigs.bam"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
+
+    """
+    minimap2 -ax sr -t $task.cpus $contigs $forward $reverse | samtools view -@ $task.cpus -hbF 12 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
+    samtools index ${sampleID}.contigs.bam
+    """
+}
+
+process Concoct {
+    
+    tag { sampleID }
+    label "pathogenAssemblyConcoct"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    tuple val(sampleID), path(contigBam), path(contigBai)
+    val(chunkSize)
+    val(readLength)
+    val(minBinSize)
+    val(minContigLength)
+
+    output:
+    tuple(val(sampleID), path("concoct/fasta_bins_min"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
+
+    """
+    cut_up_fasta.py $contigs -c $chunkSize -o 0 --merge_last -b contigs_${chunkSize}.bed > contigs_${chunkSize}.fasta
+    concoct_coverage_table.py contigs_${chunkSize}.bed $contigBam > coverage_table.tsv
+    concoct --read_length $readLength --length_threshold $minContigLength --threads $task.cpus --composition_file contigs_${chunkSize}.fasta --coverage_file coverage_table.tsv -b concoct/
+    merge_cutup_clustering.py concoct/clustering_gt${minContigLength}.csv > concoct/clustering_merged.csv
+
+    mkdir -p concoct/fasta_bins && extract_fasta_bins.py $contigs concoct/clustering_merged.csv --output_path concoct/fasta_bins  
+
+    mkdir -p concoct/fasta_bin_min
+    for   
+    """
+}
+
+
+process Metabat2 {
+    
+    tag { sampleID }
+    label "pathogenAssemblyMetabat2"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    tuple val(sampleID), path(contigBam), path(contigBai)
+    val(minBinSize)
+    val(minContigLength)
+
+    """
+    runMetaBat.sh --numThreads $task.cpus --minContig $minContigLength --minClsSize $minBinSize $contigs $contigBam
     """
 
 }

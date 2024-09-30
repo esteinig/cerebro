@@ -1,8 +1,7 @@
-name: cerebro-sylph
+name: cerebro-minimap2
 channels:
   - conda-forge        
   - bioconda    
 dependencies:
-  - sylph=0.6.1
-  - python
-  - pandas
+  - minimap2=2.28
+  - samtools=1.21
