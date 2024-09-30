@@ -1,6 +1,4 @@
-FROM rust:1.70.0
-
-RUN groupadd -r cerebro-api && useradd -r -g cerebro-api cerebro-api
+FROM rust:1.76.0
 
 # Dependencies for Tectonic LaTeX compiler library
 # TODO: add versions for all system packages
@@ -14,31 +12,42 @@ RUN apt-get update && apt-get install -y \
     libfontconfig-dev \
     && apt-get clean all
 
-# Replace with `git clone` for the current release version and
-# enable features for Tectonic so the default version ships
-# without the Latex compiler (system-dependencies)
+# Define build arguments
+ARG UID=1000
+ARG GID=1000
 
-WORKDIR /usr/src/cerebro
-
-{{#if dev }}
-RUN cargo install cargo-watch 
+{{#if dev}}
+# Host user for development mode should have UID and GID set
+RUN groupadd -g ${GID} cerebro-api && useradd -u ${UID} -g cerebro-api -m cerebro-api
+{{else}}
+RUN groupadd -r cerebro-api && useradd -r -g cerebro-api cerebro-api
 {{/if}}
 
-COPY ./src src
+# Dependencies and build
+WORKDIR /usr/src/cerebro
+
+COPY ./cerebro cerebro
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 
-# Generate the test report with Tectonic so that all LaTeX packages are downloaded prior to 
-# launching the container and using the reporting functions for the first time - otherwise
-# the first request for a report will take a long time to complete
+{{#if dev}}
+# For cargo-watch mode...
+RUN cargo install cargo-watch 
+{{else}}
+ENV PATH="${PATH}:/opt/cerebro/bin"
+RUN cargo build --release -p cerebro-server && \
+    mkdir -p /opt/cerebro/bin && \
+    cp target/release/cerebro-server /opt/cerebro/bin
+{{/if}}
+
+# Change ownership of the relevant directories to the new user
+RUN chown -R cerebro-api:cerebro-api /usr/src/cerebro
 
 {{#unless dev}}
-ENV PATH="${PATH}:/opt/cerebro/bin"
-RUN cargo build --release --features pdf && \
-    mkdir -p /opt/cerebro/bin && \
-    cp target/release/cerebro /opt/cerebro/bin
-RUN cerebro report compile --base-config /usr/src/cerebro/templates/report/test.toml --output test.pdf --pdf && rm test.pdf
+RUN chown -R cerebro-api:cerebro-api /opt/cerebro
 WORKDIR /opt/cerebro
-{{/unless}}
+{{/if}}
 
-# USER cerebro-api
+# Switch to non-root user
+USER cerebro-api
+

@@ -4,7 +4,7 @@
 	import { Tab, TabGroup } from "@skeletonlabs/skeleton";
 
     export let selectedQualityControlSummary: QualityControlSummary;
-    export let selectedStageParams: WorkflowParamsQcHostDepletion;
+    export let selectedStageParams: WorkflowParamsQcHostDepletion | undefined;
     export let selectedStage: string = "Host Depletion";
 
     let tabSet: number = 0;
@@ -109,25 +109,25 @@
                                 </p>
                                 <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">databases</span></div>
-                                    <div>{selectedStageParams.databases.split(",").join(", ")}</div>
+                                    <div>{selectedStageParams?.databases.split(",").join(", ")}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">references</span></div>
-                                    <div>{selectedStageParams.references.split(",").join(", ")}</div>
+                                    <div>{selectedStageParams?.references.split(",").join(", ")}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">taxa</span></div>
-                                    <div>{selectedStageParams.taxa.split(" ").join(", ")}</div>
+                                    <div>{selectedStageParams?.taxa.split(" ").join(", ")}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">direct</span></div>
-                                    <div>{selectedStageParams.direct.split(" ").join(", ")}</div>
+                                    <div>{selectedStageParams?.direct.split(" ").join(", ")}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">min_cov</span></div>
-                                    <div>{selectedStageParams.min_cov}</div>
+                                    <div>{selectedStageParams?.min_cov}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">min_len</span></div>
-                                    <div class="text-sm">{selectedStageParams.min_len}</div>
+                                    <div class="text-sm">{selectedStageParams?.min_len}</div>
 
                                     <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">min_mapq</span></div>
-                                    <div class="text-sm">{selectedStageParams.min_mapq}</div>
+                                    <div class="text-sm">{selectedStageParams?.min_mapq}</div>
                                     
                                 </div>
                             </div>

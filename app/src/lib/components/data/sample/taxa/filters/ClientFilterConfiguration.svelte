@@ -1,15 +1,14 @@
 <script lang="ts">
-	import type { Cerebro, ClientFilterConfig, Taxon } from "$lib/utils/types";
+	import type { ClientFilterConfig } from "$lib/utils/types";
 	import { Autocomplete, InputChip } from "@skeletonlabs/skeleton";
-    import type { AutocompleteOption, PopupSettings } from "@skeletonlabs/skeleton";
+    import type { AutocompleteOption } from "@skeletonlabs/skeleton";
 
     export let clientFilterConfig: ClientFilterConfig;
-    export let selectedModels: Cerebro[] = [];
 
     let numericInputClass: string = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
     const domainOptions: AutocompleteOption<string, null>[] = [
-        { label: 'Eukaryota', value: 'Eukaryota', keywords: 'eukaryotes, protozoan, fungus' },
+        { label: 'Eukaryota', value: 'Eukaryota', keywords: 'eukaryotes, protozoan, fungus, amoeba, worms' },
         { label: 'Bacteria', value: 'Bacteria', keywords: 'bacteria' },
         { label: 'Viruses', value: 'Viruses', keywords: 'viruses' },
         { label: 'Archaea', value: 'Archaea', keywords: 'archaea' }
@@ -46,8 +45,6 @@
 </script>
 
 <div>
-    
-
     <p class=""><span class="opacity-40">Taxonomy filters</span></p>
     <div class="p-4 w-full">
         <p class="text-xs opacity-40"></p>

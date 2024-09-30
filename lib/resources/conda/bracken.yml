@@ -1,0 +1,6 @@
+name: cerebro-bracken
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - bracken=3.0       

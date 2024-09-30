@@ -1,0 +1,6 @@
+name: cerebro-kmcp
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - kmcp=0.9.4 

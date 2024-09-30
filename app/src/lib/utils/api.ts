@@ -225,7 +225,21 @@ interface CerebroRoutes {
 interface LogsRoutes {
     admin: string
 }
+interface FilesRoutes {
+    getFiles: string,
+    updateTags: string
+}
+interface PipelineRoutes {
+    getPipelines: string
+}
 
+interface WatcherRoutes {
+    getWatchers: string
+}
+
+interface StageRoutes {
+    registerSamples: string
+}
 
 
 /**
@@ -242,6 +256,10 @@ export class Routes {
     users: UserRoutes;
     teams: TeamRoutes;
     logs: LogsRoutes;
+    files: FilesRoutes;
+    towers: PipelineRoutes;
+    watchers: WatcherRoutes;
+    stage: StageRoutes;
     cerebro: CerebroRoutes;
 
     constructor(apiUrl: string) {
@@ -250,6 +268,10 @@ export class Routes {
         let userRoute = `${apiUrl}/users`;
         let teamRoute = `${apiUrl}/teams`;
         let logsRoute = `${apiUrl}/logs`;
+        let filesRoute = `${apiUrl}/files`;
+        let towersRoute = `${apiUrl}/tower`;
+        let watcherRoute = `${apiUrl}/watcher`;
+        let stageRoute = `${apiUrl}/stage`;
         let cerebroRoute = `${apiUrl}/cerebro`;
 
         this.auth = {
@@ -302,7 +324,21 @@ export class Routes {
         this.logs = {
             admin: `${logsRoute}/admin`
         }
+        this.files = {
+            getFiles: `${filesRoute}`,
+            updateTags: `${filesRoute}/tags`
+        }
+        this.towers = {
+            getPipelines: `${towersRoute}`
+        }
+        this.watchers = {
+            getWatchers: `${watcherRoute}`
+        }
+        this.stage = {
+            registerSamples: `${stageRoute}/register`
+        }
     }
 }
+
 
 export default CerebroApi;

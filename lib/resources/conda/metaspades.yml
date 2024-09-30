@@ -1,0 +1,6 @@
+name: cerebro-metaspades
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - spades=4.0.0

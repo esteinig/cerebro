@@ -35,6 +35,10 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
 
     if (sampleOverviewWorkflowResponse.ok) {
         let sampleOverviewResponseData: SampleOverviewWorkflowsResponseData = await sampleOverviewWorkflowResponse.json();
+        
+        // DEBUGGING
+        console.log(sampleOverviewResponseData)
+
         sampleWorkflows = sampleOverviewResponseData.data.sample_overview[0]?.workflows
     } else {
         throw error(sampleOverviewWorkflowResponse.status, "Failed to retrieve workflow overview")
@@ -98,7 +102,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
                 method: 'POST', 
                 mode: 'cors', 
                 credentials: 'include', 
-                body: JSON.stringify({sample_id: [], cerebro_id: cerebroIdentifiers} satisfies SampleSummarySchema),
+                body: JSON.stringify({sample_ids: [], cerebro_ids: cerebroIdentifiers} satisfies SampleSummarySchema),
                 headers:  { 'Content-Type': 'application/json' }
             } as RequestInit
         );

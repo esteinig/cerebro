@@ -1,98 +1,14 @@
-[package]
-name = "cerebro"
-version = "0.2.0"
-authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
-description = "Cerebro: metagenomic diagnostics for clinical production"
-documentation = "https://github.com/esteinig/cerebro"
-homepage = "https://github.com/esteinig/cerebro"
-repository = "https://github.com/esteinig/cerebro"
-readme = "README.md"
-keywords = ["meta-gp", "cerebro", "clinical", "pathogen", "metagenomics"]
-categories = ["science"]
-license = "GPL-3"
-edition = "2021"
-include = [
-    "**/*.rs",
-    "src/data/*",
-    "Cargo.toml"
+[workspace]
+members = [
+    "cerebro/cerebro",
+    "cerebro/lib/model",
+    "cerebro/stack/report",
+    "cerebro/stack/pipeline",
+    "cerebro/stack/server",
+    "cerebro/stack/client",
+    "cerebro/stack/watcher",
+    "cerebro/stack/fs",
+    "cerebro/stack/tower",
+    "cerebro/stack/pipe",
 ]
-
-# Required system dependences for compilation; example install Debian:
-# sudo apt install cmake build-essentials
-
-[dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-crossterm = "0.23.0"
-itertools = "0.10.3"
-tabled = { version = "0.9.0", features = ["color"] }
-indicatif = "0.16.2"
-env_logger = "0.9.0"
-rust-htslib = "0.38"
-needletail = "0.4.1"
-niffler = "2.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-log = "0.4"
-chrono = { version = "0.4", features = ["serde", "rustc-serialize"] }
-rand = "0.8.5"
-csv = "1.2"
-colored = "2.0"
-uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
-taxonomy = "0.10.0"
-globwalk = "0.8.1"
-thousands = "0.2.0"
-ansi_term = "0.12"
-rayon = "1.7"
-actix-web = "4"
-actix-cors = "0.6"
-regex = "1"
-fancy-regex = "0.11.0"
-mongodb = "2.4.0"
-futures = "0.3.0"
-wax = "0.5.0"
-reqwest = { version = "0.11.16", features = ["blocking", "json"] }
-jsonwebtoken = "8.3.0"
-argon2 = "0.5.0"
-rand_core = { version = "0.6.4", features = ["std"] }
-base64 = "0.21.2"
-redis = { version = "0.23.0", features = ["tokio-comp"] }
-lettre = { version = "0.10.4", features = ["tokio1", "tokio1-native-tls"] }
-tokio = { version = "1.28.2", features = ["full"] }
-handlebars = "4.3.7"
-dirs = "5.0.1"
-actix-governor = "0.4.0"
-governor = "0.5.1"
-toml = "0.7.6"
-statistical = "1.0.0"
-rpassword = "7.2.0"
-clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
-rust-embed = { version = "6.8.1", features = ["compression"] }
-bcrypt = "0.15.0"
-rcgen = "0.11.1"
-rsa = "0.9.2"
-anstyle = "1.0.1"
-actix-web-httpauth = "0.8.0"
-memchr = "2.6.2"
-notify = { version = "6.1.1", features = ["serde"] }
-
-# Optional dependencies for features
-tectonic = { version = "0.14.1", optional = true }
-git2 = { version = "0.18.1", optional = true} 
-
-[dev-dependencies]
-assert_cmd = "2.0.1"
-predicates = "1"
-float_eq = "0.6.1"
-tempfile = "3.5"
-
-[[bin]]
-name = "cerebro"
-path = "src/main.rs"
-
-[features]
-# PDF feature includes `Tectonic` for LaTeX template compilation
-# which has additional system dependencies; example install on Debian:
-# sudo apt install libgraphite2-dev fonts-lato libfreetype6-dev libicu-dev libfontconfig-dev 
-pdf = ["dep:tectonic"]
-libgit = ["dep:git2"]
+resolver = "2"

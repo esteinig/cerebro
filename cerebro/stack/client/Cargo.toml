@@ -1,0 +1,55 @@
+[package]
+name = "cerebro-client"
+version = "0.8.0"
+authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
+description = "Cerebro: server and client modules for API"
+documentation = "https://github.com/esteinig/cerebro"
+homepage = "https://github.com/esteinig/cerebro"
+repository = "https://github.com/esteinig/cerebro"
+readme = "README.md"
+keywords = ["meta-gp", "cerebro", "clinical", "pathogen", "metagenomics"]
+categories = ["science"]
+license = "GPL-3"
+edition = "2021"
+include = [
+    "**/*.rs",
+    "src/data/*",
+    "Cargo.toml"
+]
+
+[[bin]]
+name = "cerebro-client"
+path = "src/cli.rs"
+
+[lib]
+name = "cerebro_client"
+
+[dependencies]
+# Workflow library dependency to access module structs and definitions
+# to use in endpoints e.g. to generate quality control summary tables  
+# for the user from models in the database
+cerebro-pipeline = { path = "../pipeline" }
+
+# Model library dependency to access shared module structs and definitions
+# to use in endpoints and client responses
+cerebro-model = { path = "../../lib/model" }
+
+
+anyhow = "1.0"
+thiserror = "1.0"
+itertools = "0.10.3"
+env_logger = "0.9.0"
+niffler = "2.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+csv = "1.2"
+uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+reqwest = { version = "0.11.16", features = ["blocking", "json"] }
+toml = "0.7.6"
+clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
+anstyle = "1.0.1"
+rpassword = "7.2.0"
+actix-web-httpauth = "0.8.0"
+dialoguer = "0.11.0"

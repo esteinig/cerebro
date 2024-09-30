@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [sveltekit(), purgeCss()],
+	publicDir: 'static',
 	optimizeDeps: {
 		include: ['@carbon/charts'],
 	},

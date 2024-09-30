@@ -4,7 +4,7 @@
 	import WorkflowSelection from "$lib/components/data/sample/selections/WorkflowSelection.svelte";
 	import SampleSelection from "$lib/components/data/sample/selections/SampleSelection.svelte";
     import QualityControl from "$lib/components/data/sample/QualityControl.svelte";
-	import type { Cerebro, CerebroFilterConfig, ClientFilterConfig, ClientFilterMinimum, ClientFilterModules, QualityControlSummary, WorkflowConfig } from "$lib/utils/types";
+	import type { Cerebro, CerebroFilterConfig, ClientFilterConfig, ClientFilterMinimum, ClientFilterModules, HighlightConfig, QualityControlSummary, TaxonHighlightConfig, WorkflowConfig } from "$lib/utils/types";
 	import CommentBox from "$lib/components/data/sample/CommentBox.svelte";
 	import { getToastStore, SlideToggle } from "@skeletonlabs/skeleton";
     import type { ToastSettings } from "@skeletonlabs/skeleton";
@@ -13,6 +13,8 @@
     import ClientFilterConfiguration from "$lib/components/data/sample/taxa/filters/ClientFilterConfiguration.svelte";
 	import Candidates from "$lib/components/data/sample/Candidates.svelte";
 	import Reports from "$lib/components/data/sample/Reports.svelte";
+	import ContamHighlights from "$lib/components/data/sample/taxa/filters/TaxonomyHighlights.svelte";
+	import TaxonomyHighlights from "$lib/components/data/sample/taxa/filters/TaxonomyHighlights.svelte";
 
     let toastStore = getToastStore();
 
@@ -97,7 +99,7 @@
             assembly: false
         } satisfies ClientFilterModules,
         minimum: {
-            rpm: 0,
+            rpm: 10,
             rpm_kmer: 0,
             rpm_alignment: 0,
             contigs: 0,
@@ -118,11 +120,64 @@
         alignment_min_regions: 0,
         alignment_min_coverage: 0,
         // General alignment section of the pipeline
-        alignment_min_ref_length: 100,
+        alignment_min_ref_length: 2000,
         // LCA BLAST/Diamond on assembled contigs
         assembly_min_contig_length: 200,
-        assembly_min_contig_identity: 0.0,
-        assembly_min_contig_coverage: 0.0
+        assembly_min_contig_identity: 60.0,
+        assembly_min_contig_coverage: 60.0
+    }
+
+    // Contamination highlights
+
+    let contamHighlightConfig: HighlightConfig = {
+        species: [
+            "Herbaspirillum huttiense",
+            "Stutzerimonas stutzeri",
+            "Cutibacterium acnes",
+            "Delftia acidovorans",
+            "Micrococcus luteus",
+            "Ralstonia insidiosa",
+            "Tepidimonas taiwanensis",
+            "Eimeria maxima",
+            "Babesia bigemina",
+            "Nannochloropsis gaditana",
+            "Pseudomonas brenneri",
+            "Methylorubrum populi",
+            "Pseudomonas alcaligenes",
+            "Corynebacterium kefirresidentii",
+            "Malassezia restricta",
+            "Cutibacterium",
+            "Corynebacterium",
+            "Geobacillus",
+            "Cloacibacterium",
+            "Bifidobacterium",
+            "Delftia",
+            "Finegoldia",
+            "Cupriavidus"
+
+
+        ],
+        taxid: [],
+        color: "secondary"
+    }
+
+    let syndromeHighlightConfig: HighlightConfig = {
+        species: [
+            "Cryptococcus",
+            "Neisseria",
+            "Human betaherpesvirus",
+            "Streptococcus",
+            "Streptococcus",
+            "Haemophilus",
+
+        ],
+        taxid: [],
+        color: "tertiary"
+    }
+
+    let taxonHighlightConfig: TaxonHighlightConfig = {
+        contamination: contamHighlightConfig,
+        syndrome: syndromeHighlightConfig
     }
 
    $: serverFiltersActive = serverFilterConfig.domains.length > 0 ||
@@ -190,7 +245,7 @@
         </div>
         {#if selectedView === "classification"}
             <p class="mb-1 mt-4">
-                <span class="opacity-60">Classification filters</span>
+                <span class="opacity-60">Taxonomy filters</span>
             </p>
             <div class="w-full border border-primary-500 rounded-md p-4" >
                 
@@ -220,10 +275,21 @@
                         </button>
                     </div>
                 {:else}
-                    <ClientFilterConfiguration bind:clientFilterConfig={clientFilterConfig}  selectedModels={selectedModels}></ClientFilterConfiguration>
+                    <ClientFilterConfiguration bind:clientFilterConfig={clientFilterConfig}></ClientFilterConfiguration>
                 {/if}
                 
             </div>
+
+            <p class="mb-1 mt-4">
+                <span class="opacity-60">Taxonomy highlights</span>
+            </p>
+            <div class="w-full border border-primary-500 rounded-md p-4" >
+                
+                <TaxonomyHighlights title="Common contamination" bind:highlightConfig={contamHighlightConfig}></TaxonomyHighlights>
+                <TaxonomyHighlights title="Syndromic pathogens" bind:highlightConfig={syndromeHighlightConfig}></TaxonomyHighlights>
+
+            </div>
+
         {/if}
     </div>
     {#if selectedView === "qc"}
@@ -255,7 +321,7 @@
                         {/if}
                     </div>
                     <div class="mb-4 border border-primary-500 p-4 rounded-md">
-                        <Classification selectedIdentifiers={selectedIdentifiers} selectedModels={selectedModels} clientFilterConfig={clientFilterConfig} serverFilterConfig={serverFilterConfig}></Classification>
+                        <Classification selectedIdentifiers={selectedIdentifiers} selectedModels={selectedModels} clientFilterConfig={clientFilterConfig} serverFilterConfig={serverFilterConfig} taxonHighlightConfig={taxonHighlightConfig}></Classification>
                     </div>
                 </div>
             </div>

@@ -1,6 +1,6 @@
 /** @type {import('./$types').LayoutServerLoad} */
 export async function load({ fetch, cookies, locals }) {
     return { 
-        theme: cookies.get("skeletonTheme") ?? "wintry"
+        theme: cookies.get("skeletonTheme") ?? "dali"
      }
 }

@@ -11,13 +11,17 @@ redis_auth_onetime_uri          = 'redis://cerebro-auth-onetime:6380'
 
 [database.names]
 
-admin_database_name               = 'cerebro'  # fixed for docker env init
-admin_database_user_collection    = 'users'    # fixed for docker env init
-admin_database_team_collection    = 'teams'
-admin_database_logs_collection    = 'logs'    
+admin_database_name                 = 'cerebro'  # fixed for docker env init
+admin_database_user_collection      = 'users'    # fixed for docker env init
+admin_database_team_collection      = 'teams'
+admin_database_logs_collection      = 'logs'    
 
-team_database_logs_collection     = 'logs'
-team_database_reports_collection  = 'reports'
+team_database_logs_collection       = 'logs'
+team_database_reports_collection    = 'reports'
+team_database_files_collection      = 'files'
+team_database_stage_collection      = 'stage'
+team_database_watcher_collection    = 'watchers'
+team_database_pipelines_collection  = 'pipelines'
 
 [security.components]
 email                           = false
@@ -40,8 +44,8 @@ refresh_private_key             = ''
 refresh_public_key              = ''
 
 [security.token.expiration]
-access_max_age                  = 30
-refresh_max_age                 = 720
+access_max_age                  = 720
+refresh_max_age                 = 1440
 access_max_age_bot              = 43800
 refresh_max_age_bot             = 43800
 onetime_max_age_email           = 720

@@ -1,0 +1,7 @@
+name: cerebro-vircov
+channels:
+  - esteinig
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - vircov

@@ -1,0 +1,7 @@
+name: cerebro
+channels:
+  - esteinig
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - cerebro

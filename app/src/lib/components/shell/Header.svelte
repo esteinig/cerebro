@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { navigating, page } from '$app/stores';
     import { env } from '$env/dynamic/public';
 	import { storeTheme } from '$lib/stores/stores';
 
-    import { AppBar, popup } from '@skeletonlabs/skeleton';
+    import { AppBar, popup, ProgressBar } from '@skeletonlabs/skeleton';
     import { LightSwitch } from '@skeletonlabs/skeleton';
     import { getToastStore } from '@skeletonlabs/skeleton';
     import type { ToastSettings } from '@skeletonlabs/skeleton';
@@ -52,6 +52,7 @@
         { type: 'skeleton', name: 'Skeleton', icon: '💀' },
 		{ type: 'seafoam', name: 'Seafoam', icon: '🧜‍♀️' },
 		{ type: 'sahara', name: 'Sahara', icon: '🏜️' },
+		{ type: 'dali', name: 'Dali', icon: '🎨' },
 	];
 
 	const setTheme: SubmitFunction = ({ formData }) => {
@@ -67,7 +68,7 @@
 
 <AppBar>
 	<svelte:fragment slot="lead">
-        <h2 class="h2">Cerebro</h2>
+        <h2 class="h2"><a href="/cerebro">Cerebro</a></h2>
     </svelte:fragment>
 
 	<svelte:fragment slot="trail">
@@ -136,7 +137,7 @@
 
 
     <!-- User Profile -->
-    <a href="/cerebro/profile" class="btn-icon btn-icon-sm variant-filled">
+    <a href="/cerebro/user" class="btn-icon btn-icon-sm variant-filled">
         <div class="h-5 w-5">
             <svg aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z"></path>

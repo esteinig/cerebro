@@ -1,0 +1,70 @@
+[package]
+name = "cerebro-server"
+version = "0.8.0"
+authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
+description = "Cerebro: server and client modules for API"
+documentation = "https://github.com/esteinig/cerebro"
+homepage = "https://github.com/esteinig/cerebro"
+repository = "https://github.com/esteinig/cerebro"
+readme = "README.md"
+keywords = ["meta-gp", "cerebro", "clinical", "pathogen", "metagenomics"]
+categories = ["science"]
+license = "GPL-3"
+edition = "2021"
+include = [
+    "**/*.rs",
+    "src/data/*",
+    "Cargo.toml"
+]
+
+[[bin]]
+name = "cerebro-server"
+path = "src/cli.rs"
+
+[dependencies]
+# Workflow library dependency to access module structs and definitions
+# to use in endpoints e.g. to generate quality control summary tables  
+# for the user from models in the database
+cerebro-pipeline = { path = "../pipeline" }
+
+
+# Report library dependency to access module structs and definitions
+# to use in endpoints e.g. to generate the report template
+cerebro-report = { path = "../report" }
+
+# Model library dependency to access shared module structs and definitions
+# to use in endpoints and client responses
+cerebro-model = { path = "../../lib/model" }
+
+anyhow = "1.0"
+thiserror = "1.0"
+itertools = "0.10.3"
+env_logger = "0.9.0"
+niffler = "2.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+csv = "1.2"
+uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+actix-web = "4"
+actix-cors = "0.6"
+fancy-regex = "0.11.0"
+mongodb = "2.4.0"
+futures = "0.3.0"
+reqwest = { version = "0.11.16", features = ["blocking", "json"] }
+jsonwebtoken = "8.3.0"
+argon2 = "0.5.0"
+rand_core = { version = "0.6.4", features = ["std"] }
+base64 = "0.21.2"
+redis = { version = "0.23.0", features = ["tokio-comp"] }
+lettre = { version = "0.10.4", features = ["tokio1", "tokio1-native-tls"] }
+handlebars = "4.3.7"
+actix-governor = "0.4.0"
+governor = "0.5.1"
+toml = "0.7.6"
+clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
+anstyle = "1.0.1"
+
+
+

@@ -9,7 +9,6 @@ import {
     type AuthRefreshErrorResponseData,
     type AuthRefreshResponseData,
     type UserTeamsResponseData,
-    type ErrorResponseData 
 } from '$lib/utils/types';
 
 import { CerebroApi } from '$lib/utils/api';
@@ -34,7 +33,7 @@ export async function handle({ event, resolve }) {
         // or password reset pages, don't modify the request and 
         // return response
         const response = await resolve(event, {
-            transformPageChunk: ({ html }) => html.replace('%skeletonTheme%', cookies.get("skeletonTheme") ?? "wintry"),
+            transformPageChunk: ({ html }) => html.replace('%skeletonTheme%', cookies.get("skeletonTheme") ?? "dali"),
         });
         return response;
     }
@@ -179,7 +178,7 @@ export async function handle({ event, resolve }) {
     // }
 
     let response = await resolve(event, {
-        transformPageChunk: ({ html }) => html.replace('%skeletonTheme%', cookies.get("skeletonTheme") ?? "wintry"),
+        transformPageChunk: ({ html }) => html.replace('%skeletonTheme%', cookies.get("skeletonTheme") ?? "dali"),
     });
 
     return response;

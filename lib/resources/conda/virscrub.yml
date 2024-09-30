@@ -1,0 +1,8 @@
+name: cerebro-virscrub
+channels:
+  - esteinig
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - scrubby
+  - vircov

@@ -1,6 +1,7 @@
 <script lang="ts">
-	import '../app.postcss';
 
+	import '../app.postcss';
+	
 	// Highlight JS
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/github-dark.css';
@@ -25,7 +26,6 @@
 	}
 
 	storeTheme.subscribe(setBodyThemeAttribute);
-	
 
 </script>
 

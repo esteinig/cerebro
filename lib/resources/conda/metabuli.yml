@@ -1,0 +1,6 @@
+name: cerebro-metabuli
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - metabuli=1.0.5

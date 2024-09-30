@@ -378,12 +378,12 @@ export type SampleDeleteSchema = {
  * Sample summary schema to submit array of either sample identifiers or model identifiers to get quality control sumamries for: /cerebro/samples/summary/qc
  * 
  * @file lib/utils/types
- * @param {string[]} sample_id - Sample identifiers
- * @param {string[]} cerebro_id - Cerebro identifiers
+ * @param {string[]} sample_ids - Sample identifiers
+ * @param {string[]} cerebro_ids - Cerebro identifiers
  */
 export type SampleSummarySchema = {
-    sample_id: string[],         
-    cerebro_id: string[]           
+    sample_ids: string[],         
+    cerebro_ids: string[]           
 }
 
 
@@ -664,7 +664,6 @@ export type ProjectCollection = {
     name: string,
     collection: string,
     description: string,
-    projects: Array<ProjectCollection>
 }
 
 
@@ -1326,6 +1325,18 @@ export type ClientFilterMinimum = {
 }
 
 
+// Contamination highlights
+
+export type TaxonHighlightConfig = {
+    contamination: HighlightConfig,
+    syndrome: HighlightConfig
+}
+
+export type HighlightConfig = {
+    species: Array<string>,
+    taxid: Array<string>,
+    color: string
+}
 
 /*
 ===========================
@@ -1384,7 +1395,7 @@ export type WorkflowConfig = {          // parsed from `config.json` nextflow ou
     started: string,                    // datetime of workflow run start 
     completed: string,                  // datetime of workflow run end 
     description: string,                // description of workflow
-    params: WorkflowParams              // workflow parameters from 
+    params: WorkflowParams | undefined  // workflow parameters from 
 }
 
 export type WorkflowParams = {
@@ -1646,4 +1657,226 @@ export type PatientResultSchema = {
 
 export type TimelineField = {
     
+}
+
+/**
+ * 
+ * Cerebro watcher configuration model
+ * 
+ * @file lib/utils/types
+ */
+export type WatcherConfig = {
+    id: string,
+    name: string,
+    location: string,
+    team_name: string,
+    db_name: string
+}
+
+
+/**
+ * 
+ * Cerebro FS file type enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum SeaweedFileType {
+    ReadsPaired = "ReadsPaired",
+    ReadsSingle = "ReadsSingle"
+}
+
+
+/**
+ * 
+ * Cerebro FS file model
+ * 
+ * @file lib/utils/types
+ */
+export type SeaweedFile = {
+    id: string,
+    run_id: string | null,
+    sample_id: string | null,
+    date: string,
+    name: string,
+    hash: string,
+    fid: string,
+    ftype: SeaweedFileType | null,
+    size: number,
+    tags: FileTag[],
+    watcher: WatcherConfig | null,
+}
+
+/**
+ * 
+ * Cerebro pipeline enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum Pipeline {
+    PathogenDetection = "Metagenomics: Pathogen Detection",
+    PanviralEnrichment = "Metagenomics: Panviral Enrichment",
+    CultureIdentification = "Metagenomics: Culture Identification"
+}
+
+
+export const parsePipeline = (pipeline: string): Pipeline => {
+    switch (pipeline) {
+        case "pathogen-detection":
+            return Pipeline.PathogenDetection;
+        case "panviral-enrichment":
+            return Pipeline.PanviralEnrichment;
+        case "culture-identification":
+            return Pipeline.CultureIdentification;
+        default:
+            throw new Error(`Unknown Pipeline enumeration: ${pipeline}`);
+    }
+}
+
+/**
+ * 
+ * Watcher input format enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum WatcherFormat {
+    Fastq = "Reads (single-end)",
+    FastqPe = "Reads (paired-end)",
+    Iseq = "Illumina iSeq",
+    Nextseq = "Illumina NextSeq"
+}
+
+export const parseWatcherFormat = (format: string): WatcherFormat => {
+    switch (format) {
+        case "Fastq":
+            return WatcherFormat.Fastq;
+        case "FastqPe":
+            return WatcherFormat.FastqPe;
+        case "Iseq":
+            return WatcherFormat.Iseq;
+        case "Nextseq":
+            return WatcherFormat.Nextseq;
+        default:
+            throw new Error(`Unknown WatcherFormat enumeration: ${format}`);
+    }
+}
+
+
+/**
+ * 
+ * Watcher file grouping enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum WatcherFileGrouping {
+    RunId = "Run ID",
+    WatcherLocation = "Watcher Location",
+    WatcherName = "Watcher Name",
+    SampleId = "Sample ID",
+    Date = "File Date"
+}
+
+
+/**
+ * 
+ * File tag enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum FileTag {
+    DNA = "DNA",
+    RNA = "RNA",
+    POS = "POS",
+    NEG = "NEG",
+    TMP = "TMP",
+    ENV = "ENV",
+    HOST = "HOST"
+}
+
+/**
+ * 
+ * Cerebro production tower model
+ * 
+ * @file lib/utils/types
+ */
+export type ProductionTower = {
+    id: string,
+    date: string,
+    name: string,
+    location: string,
+    last_ping: string,
+    pipelines: Pipeline[],
+    stage: string
+}
+
+/**
+ * 
+ * Cerebro production watcher model
+ * 
+ * @file lib/utils/types
+ */
+export type ProductionWatcher = {
+    id: string,
+    date: string,
+    name: string,
+    location: string,
+    last_ping: string,
+    format: WatcherFormat,
+    glob: string
+}
+
+/**
+ * Status and data returned in successful files endpoint response
+ * 
+ * @file lib/utils/types
+ * @param {Array<SeaweedFile>} data - Response data with files
+ */
+export type FileResponseData = {
+    data: SeaweedFile[]
+} & ErrorResponseData
+
+/**
+ * Status and data returned in successful tower endpoint response 
+ * 
+ * @file lib/utils/types
+ * @param {Array<ProductionTower>} data - Response data with towers
+ */
+export type TowerResponseData = {
+    data: ProductionTower[]
+} & ErrorResponseData
+
+/**
+ * Status and data returned in successful watcher endpoint response 
+ * 
+ * @file lib/utils/types
+ * @param {Array<ProductionWatcher>} data - Response data with watchers
+ */
+export type WatcherResponseData = {
+    data: ProductionWatcher[]
+} & ErrorResponseData
+
+
+/**
+ * 
+ * Cerebro file (Cerebro FS) tag update model
+ * 
+ * @file lib/utils/types
+ */
+export type FileTagUpdateSchema = {
+    ids: string[],
+    tags: FileTag[]
+}
+
+type TowerId = string;
+
+/**
+ * 
+ * Cerebro staged file registration model
+ * 
+ * @file lib/utils/types
+ */
+export type RegisterStagedSampleSchema = {
+    tower_id: TowerId,
+    pipeline: Pipeline,
+    file_ids: string[] | null,
+    run_id: string | null
 }

@@ -26,12 +26,11 @@ WORKDIR /home/node/app
 COPY --from=builder /app/package.json .
 
 {{#if dev}}
-COPY --from=builder /app/node_modules /app/node_modules
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 {{else}}
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
 {{/if}}
-
 
 ENV PORT=8000
 ENV PROTOCOL_HEADER=x-forwarded-proto

@@ -5,24 +5,83 @@ export const getDateTime = (isoString: string): [string, string] => {
     return [data[0], data[1].split("Z")[0].substring(0,8)]
 }
 
-export const getDateTimeString = (isoString: string, time: boolean = true, sep: string = " "): string => {
-    // No sub-seconds 
-    let data = isoString.split("T");
-    if (time) {
-        return [data[0], data[1].split("Z")[0].substring(0,8)].join(sep)
+export const getDateTimeString = (
+    isoString: string, 
+    time: boolean = true, 
+    sep: string = " ", 
+    localeString: boolean = false
+): string => {
+    const date = new Date(isoString);
+
+    if (localeString) {
+        const options: Intl.DateTimeFormatOptions = {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            ...(time && { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        };
+        return date.toLocaleString(undefined, options).replace(',', sep);
     } else {
-        return data[0]
+        const datePart = date.toISOString().split("T")[0];
+        const timePart = date.toISOString().split("T")[1].substring(0, 8);
+        return time ? `${datePart}${sep}${timePart}` : datePart;
+    }
+};
+
+export const getDateTimeStringUtc = (
+    utcString: string, 
+    time: boolean = true, 
+    localeString: boolean = false,
+    sep: string = " ", 
+): string => {
+    const date = new Date(utcString);
+
+    if (localeString) {
+        const options: Intl.DateTimeFormatOptions = {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            ...(time && { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit', 
+                hour12: false // Use 24-hour format
+            }),
+        };
+        let formattedString = date.toLocaleString(undefined, options);
+        
+        if (time) {
+            formattedString = formattedString.replace(' at ', " @ ");
+        }
+        return formattedString;
+        
+    } else {
+        const datePart = date.toISOString().split("T")[0];
+        const timePart = date.toISOString().split("T")[1].substring(0, 8);
+        return time ? `${datePart}${sep}${timePart} UTC` : datePart;
     }
 }
 
-export const getDateTimeStringUtc = (utcString: string, time: boolean = true, sep: string = " "): string => {
-    // No sub-seconds included
-    let data = utcString.split(" ");
-    if (time) {
-        return [data[0], data[1].substring(0,8), "UTC"].join(sep)
-    } else {
-        return data[0]
+export const isWithinTimeLimit = (datetimeStr: string | undefined, minutes: number): boolean => {
+
+    if (datetimeStr === undefined) {
+        return false
     }
+
+    // Parse the datetime string to a Date object
+    const parsedDate = new Date(datetimeStr);
+
+    // Get the current UTC time
+    const currentTime = new Date();
+
+    // Calculate the difference in milliseconds
+    const timeDifference = currentTime.getTime() - parsedDate.getTime();
+
+    // Convert the time difference from milliseconds to minutes
+    const differenceInMinutes = timeDifference / (1000 * 60);
+
+    // Check if the difference is within the given limit
+    return differenceInMinutes <= minutes;
 }
 
 
@@ -71,7 +130,7 @@ export const formatAsThousands = (num: number | null): string => {
 }
 
 
-export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = ["DNA", "RNA", "NTC"]): string[] => {
+export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = ["DNA", "RNA"]): string[] => {
     if (tags === undefined) {
         return []
     }
@@ -148,6 +207,8 @@ export const getInitials = (name: string): string => {
     }
     return initials;
 }
+
+
 
 
 export const ERCC_CONCENTRATIONS: Map<string, number> = new Map([
