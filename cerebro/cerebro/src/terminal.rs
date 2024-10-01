@@ -104,7 +104,7 @@ STACK CONFIGURATION AND DEPLOYMENT
 
 #[derive(Debug, Subcommand)]
 pub enum StackCommands {
-    /// Deploy a stack configuration
+    /// Deploy a stack configuration from file
     Deploy(StackDeployArgs),
     /// Hash a password using the stack hash function
     HashPassword(StackHashPasswordArgs)
@@ -141,9 +141,17 @@ pub struct StackDeployArgs {
     /// for example to `app.dev.cerebro.localhost` or `app.demo.cerebro.localhost`
     #[clap(long, short = 's')]
     pub subdomain: Option<String>,
+
     /// Public or SSH-like repository URL for cloning into deployment
     #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
     pub git_url: String,
+
+    /// Primary file system path if using Cerebro FS
+    #[clap(long)]
+    pub fs_primary: Option<PathBuf>,
+    /// Secondary file system path if using Cerebro FS
+    #[clap(long)]
+    pub fs_secondary: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]

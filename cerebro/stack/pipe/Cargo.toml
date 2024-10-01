@@ -23,6 +23,7 @@ path = "src/cli.rs"
 
 [lib]
 name = "cerebro_pipe"
+path = "src/lib.rs"
 
 [dependencies]
 

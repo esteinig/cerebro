@@ -1,6 +1,6 @@
-//! Utility function to generate a hashed password for 
-//! the admin user initialisation environment variable
-//! used in the `docker-compose` init script for MongoDB 
+// Utility function to generate a hashed password for 
+// the admin user initialisation environment variable
+// used in the `docker-compose` init script for MongoDB 
 
 use argon2::{password_hash::SaltString, PasswordHasher, Argon2};
 use rand_core::OsRng;

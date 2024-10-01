@@ -52,8 +52,17 @@ fn main() -> anyhow::Result<()> {
         Commands::Stack( subcommand ) => {
             match subcommand {
                 StackCommands::Deploy( args ) => {
-                    let mut stack = cerebro::stack::deploy::Stack::from_toml(&args.config)?;
-                    stack.configure( &args.outdir, args.dev, args.subdomain.clone(), args.trigger )?;
+                    
+                    let mut stack = cerebro::stack::deploy::StackConfig::from_toml(&args.config)?;
+
+                    stack.configure( 
+                        &args.outdir, 
+                        args.dev, 
+                        args.subdomain.clone(), 
+                        args.trigger, 
+                        args.fs_primary.clone(), 
+                        args.fs_secondary.clone()
+                    )?;
 
                     stack.clone_and_checkout_repository_process(
                         &args.git_url, 

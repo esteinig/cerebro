@@ -429,10 +429,10 @@ impl StackConfigTree {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataCenterConfig {
-    enabled: bool,
-    center: String,
-    rack: String,
-    path: PathBuf 
+    pub enabled: bool,
+    pub center: String,
+    pub rack: String,
+    pub path: PathBuf 
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -476,7 +476,7 @@ pub fn write_rendered_template(buf: &[u8], path: &PathBuf) -> Result<(), StackCo
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Stack {
+pub struct StackConfig {
     #[serde(skip_deserializing)]
     name: String,
     #[serde(skip_deserializing)]
@@ -494,7 +494,7 @@ pub struct Stack {
     fs: FileSystemConfig
     
 }
-impl Stack {
+impl StackConfig {
     pub fn from_toml(path: &PathBuf) -> Result<Self, StackConfigError> {
 
         log::info!("Read stack config from file: {}", path.display());
@@ -523,6 +523,14 @@ impl Stack {
     pub fn to_toml(&self, path: &PathBuf) -> Result<(), StackConfigError> {
         let config = toml::to_string_pretty(&self).map_err(|err| StackConfigError::ConfigFileNotSerialized(err))?;
         std::fs::write(path, config).map_err(|_| StackConfigError::ConfigFileOutputInvalid)
+    }
+    pub fn default_localhost(
+    ) -> () {
+
+    }
+    pub fn default_web(
+    ) -> () {
+        
     }
     pub fn create_certs_and_keys(&self, dir_tree: &StackConfigTree) -> Result<TokenEncryptionConfig, StackConfigError> {
 
@@ -586,7 +594,15 @@ impl Stack {
         })
 
     }
-    pub fn configure(&mut self, outdir: &PathBuf, dev: bool, subdomain: Option<String>, trigger: bool) -> Result<(), StackConfigError> {
+    pub fn configure(
+        &mut self, 
+        outdir: &PathBuf, 
+        dev: bool, 
+        subdomain: Option<String>, 
+        trigger: bool, 
+        fs_primary: Option<PathBuf>, 
+        fs_secondary: Option<PathBuf>
+    ) -> Result<(), StackConfigError> {
 
         self.name = match outdir.file_name() {
             Some(os_str) => match os_str.to_str() {
@@ -708,6 +724,21 @@ impl Stack {
             self.mongodb.admin_password
         );
 
+        if let Some(path) = fs_primary {
+            if let Some(ref mut config) = self.fs.primary {
+                log::info!("Configure primary file system path: {}", path.display().to_string().blue());
+                config.path = path;
+            };
+        };
+
+        if let Some(path) = fs_secondary {
+            if let Some(ref mut config) = self.fs.secondary {
+                log::info!("Configure backup file system path: {}", path.display().to_string().blue());
+                config.path = path;
+            };
+        };
+
+
         log::info!("Write modified server config to: {}", &dir_tree.cerebro_api.join("server.toml").display()); 
         // Write the modified server config
         server_config.to_toml(&dir_tree.cerebro_api.join("server.toml")).map_err(|_: ConfigError| StackConfigError::ConfigFileOutputInvalid)?;
@@ -785,6 +816,7 @@ impl Stack {
                 log::error!("Failed to checkout repository for deployment: {}", stderr);
             }
         }
+
             
         Ok(())
     }
