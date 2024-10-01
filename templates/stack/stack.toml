@@ -1,4 +1,6 @@
-# Cerebro configuration
+# Cerebro stack configuration with required input fields
+
+# Cerebro application configuration
 
 [cerebro.components]
 email                           = false
@@ -28,10 +30,10 @@ cerebro_admin_password          = "admin"
 
 [traefik]
 deploy                          = "localhost"    # localhost | web
-launch                          = true      
+launch                          = false      
 
 [traefik.network]
-name                            = "proxy"
+name                            = "cerebro-proxy"
 external                        = true
 
 [traefik.localhost]
@@ -47,6 +49,8 @@ email                           = "example@cerebro.io"
 domain                          = "example.org"
 username                        = "example"
 password                        = "example"
+
+# Cerebro FS configuration
 
 [fs]
 enabled                         = true
