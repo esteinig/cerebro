@@ -58,14 +58,14 @@ workflow TaxonomicProfile {
             Kraken2(
                 reads,
                 databases.krakenDatabase,
-                profileParams.krakenConfidence
+                profileParams.classifierKrakenConfidence
             )
             if (profileParams.profilerMethod.contains("bracken")) {
                 Bracken(
                     Kraken2.out.bracken,
-                    profileParams.brackenReadLength,
-                    profileParams.brackenRank,
-                    profileParams.brackenMinReads
+                    profileParams.profilerBrackenReadLength,
+                    profileParams.profilerBrackenRank,
+                    profileParams.profilerBrackenMinReads
                 )
             }
         }
@@ -81,7 +81,7 @@ workflow TaxonomicProfile {
             Sylph(
                 reads,
                 databases.sylphDatabase,
-                databases.sylphMetadata
+                databases.profilerSylphMetadata
             )
         }
 
@@ -89,7 +89,7 @@ workflow TaxonomicProfile {
             Kmcp(
                 reads,
                 databases.kmcpDatabase,
-                profileParams.kmcpMode
+                profileParams.profilerKmcpMode
             )
         }
 }

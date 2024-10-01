@@ -12,7 +12,7 @@ process Kraken2 {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(krakenDatabase)
-    val(krakenConfidence)
+    val(classifierKrakenConfidence)
 
     output:
 
@@ -22,7 +22,7 @@ process Kraken2 {
     script:
 
     """
-    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report --paired $forward $reverse
+    kraken2 --db $krakenDatabase --confidence $classifierKrakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report --paired $forward $reverse
     """
 
 }
@@ -37,9 +37,9 @@ process Bracken {
 
     input:
     tuple val(sampleID), path(krakenDatabase), path(krakenReport)
-    val(brackenReadLength)
-    val(brackenRank)
-    val(brackenMinReads)
+    val(profilerBrackenReadLength)
+    val(profilerBrackenRank)
+    val(profilerBrackenMinReads)
 
     output:
     tuple (val(sampleID), path("${sampleID}.bracken.report"), emit: results)
@@ -47,7 +47,7 @@ process Bracken {
     script:
 
     """
-    bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.report
+    bracken -d $krakenDatabase -i $krakenReport -r $profilerBrackenReadLength -l $profilerBrackenRank -t $profilerBrackenMinReads -o ${sampleID}.bracken.report
     """
 
 }
@@ -64,7 +64,7 @@ process Sylph {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(sylphDatabase)
-    path(sylphMetadata)
+    path(profilerSylphMetadata)
 
     output:
     tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.mpa"), emit: results)
@@ -73,7 +73,7 @@ process Sylph {
 
     """
     sylph profile $sylphDatabase -1 $forward -2 $reverse -c 100 --min-number-kmers 20 -t $task.cpus > ${sampleID}.sylph.tsv
-    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
+    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     mv ${forward}.sylphmpa ${sampleID}.sylph.mpa
     """
 
@@ -120,7 +120,7 @@ process Kmcp {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(kmcpDatabase)
-    val(kmcpMode)
+    val(profilerKmcpMode)
 
     output:
     tuple (val(sampleID), path("${sampleID}.kmcp.profile"), emit: results)
@@ -130,7 +130,7 @@ process Kmcp {
 
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
-    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $kmcpMode -o ${sampleID}.kmcp.profile ${sampleID}.reads.tsv.gz
+    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $profilerKmcpMode -o ${sampleID}.kmcp.profile ${sampleID}.reads.tsv.gz
     """
 
 }

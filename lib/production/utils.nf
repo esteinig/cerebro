@@ -58,7 +58,7 @@ def getMetagenomeAssemblyDatabases() {
 
     return [
         sylphDatabase:      magParams.contigProfile   ?  getPathogenProfileSylphDatabase(magParams)          :  Channel.empty(),
-        sylphMetadata:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabaseMetadata(magParams) :  Channel.empty(),
+        profilerSylphMetadata:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabaseMetadata(magParams) :  Channel.empty(),
     ]
 }
 
@@ -89,7 +89,7 @@ def getTaxonomicProfileDatabases() {
         krakenDatabase:     profileParams.classifierMethod.contains("kraken2")  ?  getPathogenProfileKrakenDatabase(profileParams)        :  Channel.empty(),
         metabuliDatabase:   profileParams.classifierMethod.contains("metabuli") ?  getPathogenProfileMetabuliDatabase(profileParams)      :  Channel.empty(),
         sylphDatabase:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
-        sylphMetadata:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
+        profilerSylphMetadata:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
         kmcpDatabase:       profileParams.classifierMethod.contains("kmcp")     ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
     ]
 }
@@ -97,35 +97,35 @@ def getTaxonomicProfileDatabases() {
 def getPathogenProfileKrakenDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.krakenIndex, 
+        profileParams.classifierKrakenIndex, 
         "pathogen detection :: tax profile :: kraken"
     )
 }
 def getPathogenProfileMetabuliDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.metabuliIndex, 
+        profileParams.classifierMetabuliIndex, 
         "pathogen detection :: tax profile :: metabuli"
     )
 }
 def getPathogenProfileSylphDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.sylphIndex, 
+        profileParams.profilerSylphIndex, 
         "pathogen detection :: tax profile :: sylph"
     )
 }
 def getPathogenProfileSylphDatabaseMetadata(profileParams) {
 
     return getFilePath(
-        profileParams.sylphMetadata,
+        profileParams.profilerSylphMetadata,
         "pathogen detection :: tax profile :: sylph meta"
     )
 }
 def getPathogenProfileKmcpDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.kmcpIndex, 
+        profileParams.profilerKmcpIndex, 
         "pathogen detection :: tax profile :: kmcp"
     )
 }
