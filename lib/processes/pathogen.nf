@@ -219,7 +219,7 @@ process Concoct {
     val(minContigLength)
 
     output:
-    tuple(val(sampleID), path("concoct/fasta_bins_min"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
+    tuple(val(sampleID), path("concoct/fasta_bins"), emit: bins)
 
     """
     cut_up_fasta.py $contigs -c $chunkSize -o 0 --merge_last -b contigs_${chunkSize}.bed > contigs_${chunkSize}.fasta
@@ -227,10 +227,8 @@ process Concoct {
     concoct --read_length $readLength --length_threshold $minContigLength --threads $task.cpus --composition_file contigs_${chunkSize}.fasta --coverage_file coverage_table.tsv -b concoct/
     merge_cutup_clustering.py concoct/clustering_gt${minContigLength}.csv > concoct/clustering_merged.csv
 
-    mkdir -p concoct/fasta_bins && extract_fasta_bins.py $contigs concoct/clustering_merged.csv --output_path concoct/fasta_bins  
-
-    mkdir -p concoct/fasta_bin_min
-    for   
+    mkdir -p concoct/fasta_bins 
+    extract_fasta_bins.py $contigs concoct/clustering_merged.csv --output_path concoct/fasta_bins  
     """
 }
 
@@ -250,4 +248,34 @@ process Metabat2 {
     runMetaBat.sh --numThreads $task.cpus --minContig $minContigLength --minClsSize $minBinSize $contigs $contigBam
     """
 
+}
+
+process Vircov {
+    
+    label "pathogenProfileVircov"
+    tag { sampleID }
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.alignment.tsv"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    val(aligner)
+    val(remapThreads)
+    val(remapParallel)
+
+    output:
+    tuple (val(sampleID), path(forward), path(reverse), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.alignment.tsv"), emit: results)
+
+    script:
+
+    indexName = index[0].getSimpleName()
+    alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
+
+    """
+    vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --workdir data/ \
+    --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel 
+    """
+    
 }

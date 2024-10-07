@@ -58,7 +58,7 @@ def getMetagenomeAssemblyDatabases() {
 
     return [
         sylphDatabase:      magParams.contigProfile   ?  getPathogenProfileSylphDatabase(magParams)          :  Channel.empty(),
-        profilerSylphMetadata:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabaseMetadata(magParams) :  Channel.empty(),
+        sylphMetadata:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabaseMetadata(magParams) :  Channel.empty(),
     ]
 }
 
@@ -86,14 +86,24 @@ def getTaxonomicProfileDatabases() {
     def profileParams = params.pathogenDetection.taxonomicProfile;
 
     return [
-        krakenDatabase:     profileParams.classifierMethod.contains("kraken2")  ?  getPathogenProfileKrakenDatabase(profileParams)        :  Channel.empty(),
-        metabuliDatabase:   profileParams.classifierMethod.contains("metabuli") ?  getPathogenProfileMetabuliDatabase(profileParams)      :  Channel.empty(),
-        sylphDatabase:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
-        profilerSylphMetadata:      profileParams.classifierMethod.contains("sylph")    ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
-        kmcpDatabase:       profileParams.classifierMethod.contains("kmcp")     ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
+        vircovDatabase:     profileParams.alignment                                                         ?  getPathogenProfileVircovDatabase(profileParams)        :  Channel.empty(),
+        krakenDatabase:     profileParams.classifier && profileParams.classifierMethod.contains("kraken2")  ?  getPathogenProfileKrakenDatabase(profileParams)        :  Channel.empty(),
+        metabuliDatabase:   profileParams.classifier && profileParams.classifierMethod.contains("metabuli") ?  getPathogenProfileMetabuliDatabase(profileParams)      :  Channel.empty(),
+        sylphDatabase:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")        ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
+        sylphMetadata:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")        ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
+        kmcpDatabase:       profileParams.profiler && profileParams.profilerMethod.contains("kmcp")         ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
     ]
 }
 
+def getPathogenProfileVircovDatabase(profileParams) {
+
+    return getAlignmentReferenceIndex(
+        profileParams.alignmentReference, 
+        profileParams.alignmentIndex, 
+        profileParams.alignmentMethod,
+        "pathofen detection :: tax profile :: vircov"
+    )
+}
 def getPathogenProfileKrakenDatabase(profileParams) {
 
     return getFilePath(

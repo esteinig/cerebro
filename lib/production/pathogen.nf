@@ -5,6 +5,7 @@
 
 
 include { QualityControl } from "./quality";
+include { Vircov } from "../processes/pathogen";
 include { Kraken2; Bracken; Metabuli; Sylph; Kmcp } from "../processes/pathogen";
 include { MetaSpades; Megahit } from "../processes/pathogen";
 include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverage } from "../processes/pathogen";
@@ -54,13 +55,24 @@ workflow TaxonomicProfile {
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
 
-        if (profileParams.classifierMethod.contains("kraken2")) {
+
+        if (profileParams.alignment) {
+            Vircov(
+                reads,
+                databases.vircovDatabase,
+                profileParams.alignmentMethod,
+                profileParams.alignmentRemapThreads,
+                profileParams.alignmentRemapParallel
+            )
+        }
+
+        if (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) {
             Kraken2(
                 reads,
                 databases.krakenDatabase,
                 profileParams.classifierKrakenConfidence
             )
-            if (profileParams.profilerMethod.contains("bracken")) {
+            if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
                 Bracken(
                     Kraken2.out.bracken,
                     profileParams.profilerBrackenReadLength,
@@ -70,22 +82,22 @@ workflow TaxonomicProfile {
             }
         }
         
-        if (profileParams.classifierMethod.contains("metabuli")) {
+        if (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) {
             Metabuli(
                 reads,
                 databases.metabuliDatabase
             )
         }
 
-        if (profileParams.profilerMethod.contains("sylph")) {
+        if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
             Sylph(
                 reads,
                 databases.sylphDatabase,
-                databases.profilerSylphMetadata
+                databases.sylphMetadata
             )
         }
 
-        if (profileParams.profilerMethod.contains("kmcp")) {
+        if (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) {
             Kmcp(
                 reads,
                 databases.kmcpDatabase,
@@ -123,8 +135,6 @@ workflow MetagenomeAssembly {
             if (magParams.binningMethod.contains("metabat2")) {
                 MetaSpadesMetabat2(
                     metaspadesAssemblyCoverage,
-                    magParams.binningChunkSize,
-                    magParams.binningReadLength,
                     magParams.binningMinBinSize,
                     magParams.binningMinContigLength
                 )
@@ -153,8 +163,6 @@ workflow MetagenomeAssembly {
             if (magParams.binningMethod.contains("metabat2")) {
                 MegahitMetabat2(
                     megahitAssemblyCoverage,
-                    magParams.binningChunkSize,
-                    magParams.binningReadLength,
                     magParams.binningMinBinSize,
                     magParams.binningMinContigLength,
                 )

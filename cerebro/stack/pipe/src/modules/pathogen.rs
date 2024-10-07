@@ -2,6 +2,8 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::WorkflowError;
+
 
 /// Enum representing the available classifiers.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
@@ -10,10 +12,19 @@ pub enum Classifier {
     Kraken2,
     #[serde(rename="metabuli")]
     Metabuli,
+}
+
+
+/// Enum representing the available profilers.
+#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+pub enum Profiler {
     #[serde(rename="sylph")]
     Sylph,
     #[serde(rename="kmcp")]
     Kmcp,
+    #[serde(rename="bracken")]
+    Bracken,
+
 }
 
 /// Enum representing the available aligners.
@@ -55,18 +66,73 @@ impl Classifier {
         match self {
             Classifier::Kraken2 => "kraken2",
             Classifier::Metabuli => "metabuli",
-            Classifier::Sylph => "sylph",
-            Classifier::Kmcp => "kmcp",
         }
     }
 }
 impl fmt::Display for Classifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Classifier::Kraken2 => write!(f, "k2"),
-            Classifier::Metabuli => write!(f, "mt"),
-            Classifier::Sylph => write!(f, "sy"),
-            Classifier::Kmcp => write!(f, "kp"),
+            Classifier::Kraken2 => write!(f, "kraken2"),
+            Classifier::Metabuli => write!(f, "metabuli"),
         }
     }
 }
+
+
+impl Profiler {
+    // Used for identification of pre-built-indices
+    pub fn short_name(&self) -> &str {
+        match self {
+            Profiler::Sylph => "sylph",
+            Profiler::Kmcp => "kmcp",
+            Profiler::Bracken => "bracken",
+        }
+    }
+}
+impl fmt::Display for Profiler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Profiler::Sylph => write!(f, "sylph"),
+            Profiler::Bracken => write!(f, "bracken"),
+            Profiler::Kmcp  =>  write!(f, "kmcp")
+        }
+    }
+}
+
+
+pub struct KrakenReport {
+    records: Vec<KrakenReportRecord>
+}
+impl KrakenReport {
+    pub fn from_report() -> Result<Self, WorkflowError> {
+
+    }
+}
+
+pub struct MetabuliReport {
+    records: Vec<MetabuliReportRecord>
+}
+impl MetabuliReport {
+    pub fn from_report() -> Result<Self, WorkflowError> {
+
+    }
+}
+
+pub struct KmcpReport {
+    records: Vec<KmcpReportRecord>
+}
+impl KmcpReport {
+    pub fn from_report() -> Result<Self, WorkflowError> {
+
+    }
+}
+
+pub struct BrackenReport {
+    records: Vec<BrackenReportRecord>
+}
+impl BrackenReport {
+    pub fn from_report() -> Result<Self, WorkflowError> {
+
+    }
+}
+

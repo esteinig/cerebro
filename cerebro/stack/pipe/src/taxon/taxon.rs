@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
 use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
-use crate::filters::{apply_filters, TaxonFilterConfig};
+use crate::taxon::filters::{apply_filters, TaxonFilterConfig};
 use crate::terminal::PipelineTaxaArgs;
 use crate::{
     error::WorkflowError, record::{BlastLcaRecord, Kraken2UniqRecord, VircovScanRemapRecord}, sample::WorkflowSample, utils::get_colored_string
