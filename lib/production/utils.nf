@@ -142,7 +142,6 @@ def getPathogenProfileKmcpDatabase(profileParams) {
 
 /* Quality control databases */
 
-
 def getQualityHostDatabase(qualityControlParams) {
 
     return getAlignmentIndex(

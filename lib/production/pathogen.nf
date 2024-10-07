@@ -31,18 +31,21 @@ workflow PathogenDetection {
 
         /* Taxonomic read classification and profiling module */
 
-        TaxonomicProfile(
-            QualityControl.out.reads, 
-            taxonomicProfileDatabases
-        )
-
+        if (params.pathogenDetection.taxonomicProfile.enabled) {
+            TaxonomicProfile(
+                QualityControl.out.reads, 
+                taxonomicProfileDatabases
+            )
+        }
+        
         /* Metagenome assembly and taxonomic profiling module */
 
-        MetagenomeAssembly(
-            QualityControl.out.reads,
-            metagenomeAssemblyDatabases
-        )
-
+        if (params.pathogenDetection.metagenomeAssembly.enabled) {
+            MetagenomeAssembly(
+                QualityControl.out.reads,
+                metagenomeAssemblyDatabases
+            )
+        }
 
 
 }

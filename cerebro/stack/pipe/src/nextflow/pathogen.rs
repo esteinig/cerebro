@@ -94,11 +94,11 @@ impl PathogenProfileOutput {
                 None => None
             },
             kraken2: match files.kraken2 {
-                Some(ref path) => Some(KrakenReport::from_report(path, true)?), 
+                Some(ref path) => Some(KrakenReport::from_report(path)?), 
                 None => None
             },
             metabuli: match files.metabuli {
-                Some(ref path) => Some(MetabuliReport::from_report(path, true)?), 
+                Some(ref path) => Some(MetabuliReport::from_report(path)?), 
                 None => None
             },
         })

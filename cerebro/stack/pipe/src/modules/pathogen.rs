@@ -1,4 +1,5 @@
 use core::fmt;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -100,12 +101,18 @@ impl fmt::Display for Profiler {
 }
 
 
+struct KrakenReportRecord {}
+struct MetabuliReportRecord {}
+struct KmcpReportRecord {}
+struct BrackenReportRecord {}
+
+
 pub struct KrakenReport {
     records: Vec<KrakenReportRecord>
 }
 impl KrakenReport {
-    pub fn from_report() -> Result<Self, WorkflowError> {
-
+    pub fn from_report(path: &Path) -> Result<Self, WorkflowError> {
+        Ok(Self { records: Vec:: new() })
     }
 }
 
@@ -113,8 +120,8 @@ pub struct MetabuliReport {
     records: Vec<MetabuliReportRecord>
 }
 impl MetabuliReport {
-    pub fn from_report() -> Result<Self, WorkflowError> {
-
+    pub fn from_report(path: &Path) -> Result<Self, WorkflowError> {
+        Ok(Self { records: Vec:: new() })
     }
 }
 
@@ -122,8 +129,8 @@ pub struct KmcpReport {
     records: Vec<KmcpReportRecord>
 }
 impl KmcpReport {
-    pub fn from_report() -> Result<Self, WorkflowError> {
-
+    pub fn from_report(path: &Path) -> Result<Self, WorkflowError> {
+        Ok(Self { records: Vec:: new() })
     }
 }
 
@@ -131,8 +138,8 @@ pub struct BrackenReport {
     records: Vec<BrackenReportRecord>
 }
 impl BrackenReport {
-    pub fn from_report() -> Result<Self, WorkflowError> {
-
+    pub fn from_report(path: &Path) -> Result<Self, WorkflowError> {
+        Ok(Self { records: Vec:: new() })
     }
 }
 
