@@ -64,6 +64,7 @@ workflow TaxonomicProfile {
                 reads,
                 databases.vircovDatabase,
                 profileParams.alignmentMethod,
+                profileParams.alignmentSecondary,
                 profileParams.alignmentRemapThreads,
                 profileParams.alignmentRemapParallel
             )

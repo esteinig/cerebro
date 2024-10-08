@@ -261,6 +261,7 @@ process Vircov {
     tuple val(sampleID), path(forward), path(reverse)
     tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
     val(aligner)
+    val(secondary)
     val(remapThreads)
     val(remapParallel)
 
@@ -273,9 +274,11 @@ process Vircov {
     indexName = index[0].getSimpleName()
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
+    secondaryFlag = secondary ? "--secondary" : "" 
+
     """
     vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --workdir data/ \
-    --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel 
+    --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel $secondaryFlag
     """
     
 }

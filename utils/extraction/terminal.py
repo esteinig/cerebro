@@ -55,8 +55,6 @@ def stdin_callback(value: Optional[Path]) -> Path:
 
 app = typer.Typer(add_completion=False)
 
-app = typer.Typer(add_completion=False)
-
 @app.command()
 def plot_experiment(
     taxa_data: Path = typer.Option(
@@ -264,16 +262,7 @@ def plot_comparison_v1(target_classifications: List[LibraryResult], panel: str =
                     "beads_tanbead",
                     "baseline_tanbead",
                 ]
-                palette = [
-                    "#444E7E",
-                    "#8087AA",
-                    "#B7ABBC",
-                    "#F9ECE8",
-                    "#D8511D",
-                    "#FD8700",
-                    "#FEB424",
-                    "#FCC893"
-                ]
+                44
             else:
                 hue_order = None
                 palette = YESTERDAY_MEDIUM
