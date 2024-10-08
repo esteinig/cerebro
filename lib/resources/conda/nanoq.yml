@@ -1,0 +1,6 @@
+name: cerebro-nanoq
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - nanoq=0.10.0

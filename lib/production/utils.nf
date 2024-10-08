@@ -320,7 +320,7 @@ def getReads(String fastqPaired, String fastqNanopore, String sampleSheet, Boole
     } else if (fastqPaired) {
         return channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
     } else if (fastqNanopore) {
-        return channel.fromPath(params.fastqNanopore, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
+        return channel.fromPath(params.fastqNanopore, checkIfExists: true) | map { tuple(it.getSimpleName(), it, null) } 
     } else {
         error "Either one or both of '--fastqPaired' and '--fastqNanopore' or '--sampleSheet' have to be specified for read input"
     }

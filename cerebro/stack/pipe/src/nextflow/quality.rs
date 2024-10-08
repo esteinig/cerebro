@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::error::WorkflowError;
+use crate::parsers::nanoq::NanoqReport;
 use crate::tools::scan::ScanReport;
 use crate::parsers::fastp::FastpReport;
 
@@ -15,7 +16,8 @@ use vircov::vircov::VircovSummary;
 #[derive(Debug, Clone)]
 pub struct QualityControlFiles {
     pub input_scan: Option<PathBuf>,
-    pub reads_qc: Option<PathBuf>,
+    pub reads_qc_fastp: Option<PathBuf>,
+    pub reads_qc_nanoq: Option<PathBuf>,
     pub deduplication: Option<PathBuf>,
     pub internal_controls: Option<PathBuf>,
     pub synthetic_controls: Option<PathBuf>,
@@ -28,7 +30,8 @@ impl QualityControlFiles {
         
         Ok(Self{
             input_scan: get_file_by_name(&path, &id, ".input.json")?,
-            reads_qc: get_file_by_name(&path, &id, ".reads.json")?,
+            reads_qc_fastp: get_file_by_name(&path, &id, ".fastp.json")?,
+            reads_qc_nanoq: get_file_by_name(&path, &id, ".nanoq.json")?,
             deduplication: get_file_by_name(&path, &id, ".dedup.json")?,
             internal_controls: get_file_by_name(&path, &id, ".controls.tsv")?,
             synthetic_controls: get_file_by_name(&path, &id, ".synthetic.tsv")?,
@@ -42,7 +45,8 @@ impl QualityControlFiles {
 pub struct QualityControlOutput {
     pub id: String,
     pub input_scan: ScanReport,
-    pub reads_qc: Option<FastpReport>,
+    pub reads_qc_fastp: Option<FastpReport>,
+    pub reads_qc_nanoq: Option<NanoqReport>,
     pub deduplication: Option<DeduplicationReport>,
     pub internal_controls: Option<VircovSummary>,
     pub synthetic_controls: Option<VircovSummary>,
@@ -87,8 +91,12 @@ impl QualityControlOutput {
                     return Err(WorkflowError::PipelineOutputNotFound)
                 }
             },
-            reads_qc: match qc_files.reads_qc { 
+            reads_qc_fastp: match qc_files.reads_qc_fastp { 
                 Some(ref path) => Some(FastpReport::from_json(path)?), 
+                None => None
+            },
+            reads_qc_nanoq: match qc_files.reads_qc_nanoq { 
+                Some(ref path) => Some(NanoqReport::from_json(path)?), 
                 None => None
             },
             deduplication: match qc_files.deduplication { 
@@ -130,8 +138,12 @@ impl QualityControlOutput {
                     return Err(WorkflowError::PipelineOutputNotFound)
                 }
             },
-            reads_qc: match qc_files.reads_qc { 
+            reads_qc_fastp: match qc_files.reads_qc_fastp { 
                 Some(ref path) => Some(FastpReport::from_json(path)?), 
+                None => None
+            },
+            reads_qc_nanoq: match qc_files.reads_qc_nanoq { 
+                Some(ref path) => Some(NanoqReport::from_json(path)?), 
                 None => None
             },
             deduplication: match qc_files.deduplication { 

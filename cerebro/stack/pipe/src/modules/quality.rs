@@ -12,6 +12,7 @@ use crate::nextflow::pathogen::PathogenOutput;
 use crate::nextflow::panviral::PanviralOutput;
 use crate::nextflow::quality::QualityControlOutput;
 use crate::parsers::fastp::FastpReport;
+use crate::parsers::nanoq::NanoqReport;
 use crate::tools::scan::ScanReport;
 use crate::tools::umi::DeduplicationReport;
 
@@ -97,6 +98,7 @@ impl QualityControl {
         Self::from_quality(&output.qc)
     }
     pub fn from_quality(output: &QualityControlOutput) -> Self {
+
         let synthetic_controls = Controls::from(
             &output.id,
             output.synthetic_controls.clone(), 
@@ -122,11 +124,19 @@ impl QualityControl {
             output.background_alignment.clone(),
             BackgroundDepletionConfig::default()
         );
-
+        
+        let qc: Option<Box<dyn ReadReport>> = if let Some(fastp) = output.reads_qc_fastp.clone() {
+            Some(Box::new(fastp))
+        } else if let Some(nanoq) = output.reads_qc_nanoq.clone() {
+            Some(Box::new(nanoq))
+        } else {
+            None
+        };
+    
         let reads = ReadQualityControl::from(
             &output.id,
             Some(output.input_scan.clone()),
-            output.reads_qc.clone(),
+            qc,
             Some(controls.clone()),
             Some(background.clone()),
             output.deduplication.clone(),
@@ -323,6 +333,106 @@ impl ReadReport for FastpReport {
 }
 
 
+impl ReadReport for NanoqReport {
+    fn input_reads(&self) -> u64 {
+        0
+    }
+    fn input_bases(&self) -> u64 {
+        0
+    }
+    fn qc_reads(&self) -> u64 {
+        self.reads
+    }
+    fn qc_reads_percent(&self, total: u64) -> f64 {
+        if total > 0 {
+            (self.reads as f64 / total as f64)*100.0
+        } else {
+            0.0
+        }
+    }
+    fn qc_bases(&self) -> u64 {
+        self.bases
+    }
+    fn qc_bases_percent(&self, total: u64) -> f64 {
+        if total > 0 {
+            (self.bases as f64 / total as f64)*100.0
+        } else {
+            0.0
+        }
+    }
+    fn input_biomass(&self, _: Option<ErccControl>) -> Option<f64> {
+        None
+    }
+    fn host_biomass(&self, ercc: Option<ErccControl>, host: Option<HostBackground>) -> Option<f64> {
+        if let Some(ercc) = ercc {
+            host.as_ref().map(|host| host.alignments as f64 * ercc.mass_per_read)
+        } else {
+            None
+        }  
+    }
+    fn control_biomass(&self, ercc: Option<ErccControl>, controls: Option<OrganismControl>) -> Option<f64> {
+        if let Some(ercc) = ercc {
+            controls.as_ref().map(|organism| organism.alignments as f64 * ercc.mass_per_read)
+        } else {
+            None
+        }  
+    }
+    fn background_biomass(&self, ercc: Option<ErccControl>, background: Option<OtherBackground>) -> Option<f64> {
+        if let Some(ercc) = ercc {
+            background.as_ref().map(|background| background.alignments as f64 * ercc.mass_per_read)
+        } else {
+            None
+        }  
+    }
+    fn output_biomass(&self, ercc: Option<ErccControl>) -> Option<f64> {
+        ercc.as_ref().map(|ercc| self.reads as f64 * ercc.mass_per_read)
+    }
+    fn deduplicated_reads(&self, report: Option<DeduplicationReport>) -> Option<u64> {
+        report.as_ref().map(|dedup| dedup.deduplicated as u64)
+    }
+    fn deduplicated_percent(&self,  report: Option<DeduplicationReport>) -> Option<f64> {
+        report.as_ref().map(|dedup| dedup.deduplicated_percent)
+    }
+    fn adapter_trimmed_reads(&self) -> Option<u64> {
+        None
+    }
+    fn adapter_trimmed_percent(&self) -> Option<f64> {
+        None
+    }
+    fn low_complexity_reads(&self) -> Option<u64> {
+        None
+    }
+    fn low_complexity_percent(&self) -> Option<f64> {
+        None
+    }
+    fn mean_read_length_r1(&self) -> Option<u64> {
+        Some(self.mean_length)
+    }
+    fn mean_read_length_r2(&self) -> Option<u64> {
+        None
+    }
+    fn min_length_reads(&self) -> Option<u64> {
+        None
+    }
+    fn min_length_percent(&self) -> Option<f64> {
+        None
+    }
+    fn low_quality_reads(&self) -> Option<u64> {
+        None
+    }
+    fn low_quality_percent(&self) -> Option<f64> {
+        None
+    }
+    fn q20_percent(&self) -> Option<f64> {
+        None
+    }
+    fn q30_percent(&self) -> Option<f64> {
+        None
+    }
+}
+
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReadQualityControl {
     pub id: String,
@@ -377,10 +487,10 @@ pub struct ReadQualityControl {
     pub q30_percent: Option<f64>,
 }
 impl ReadQualityControl {
-    pub fn from<R: ReadReport>(
+    pub fn from(
         id: &str, 
         input_scan: Option<ScanReport>,
-        qc: Option<R>,
+        qc:  Option<Box<dyn ReadReport>>,  // Dynamic dispatch of reports implementing ReadReport trait
         controls: Option<Controls>,
         background: Option<Background>,
         deduplication: Option<DeduplicationReport>,

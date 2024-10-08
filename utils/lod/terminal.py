@@ -138,8 +138,10 @@ def create_dilution_plot(taxid_data, ax, title, aligner, dilution_order, log_sca
 
     print(taxid_data)
 
-    p = sns.barplot(taxid_data, x="dilution", y="rpm_scan_total", ax=ax, palette="BuGn", order=dilution_order)
-    p1 = sns.stripplot(taxid_data, x="dilution", y="rpm_scan_total", ax=ax, palette="BuGn", edgecolor="black", linewidth=2, legend=None, order=dilution_order)
+    reversed_palette = sns.color_palette("BuGn", 11)[::-1]
+
+    p = sns.barplot(taxid_data, x="dilution", y="rpm_scan_total", ax=ax, palette=reversed_palette, order=dilution_order)
+    p1 = sns.stripplot(taxid_data, x="dilution", y="rpm_scan_total", ax=ax, palette=reversed_palette, edgecolor="black", linewidth=2, legend=None, order=dilution_order)
 
     if log_scale:
         p.set_yscale('log')

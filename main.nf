@@ -25,7 +25,7 @@ Production pipeline operate as follows:
 // include { CultureIdentification } from './lib/production/culture';
 // include { BacterialEnrichment } from './lib/production/bacterial';
 
-include { QualityControl } from './lib/production/quality';
+include { QualityControl; QualityControlNanopore } from './lib/production/quality';
 include { PathogenDetection } from './lib/production/pathogen';
 include { PanviralEnrichment } from './lib/production/panviral';
 
@@ -148,15 +148,28 @@ workflow quality {
 
     def qualityDB = getQualityControlDatabases();
 
-    QualityControl(
-        getReads(
-            params.fastqPaired, 
-            params.fastqNanopore, 
-            params.sampleSheet, 
-            params.sampleSheetProduction
-        ),
-        qualityDB,
-    )
+    if (params.nanopore) {
+        QualityControlNanopore(
+            getReads(
+                null, 
+                params.fastqNanopore, 
+                params.sampleSheet, 
+                params.sampleSheetProduction
+            ),
+            qualityDB,
+        )
+    } else {
+        QualityControl(
+            getReads(
+                params.fastqPaired, 
+                null, 
+                params.sampleSheet, 
+                params.sampleSheetProduction
+            ),
+            qualityDB,
+        )
+    }
+   
 
 }
 
