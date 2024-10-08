@@ -179,10 +179,10 @@ workflow QualityControlNanopore {
         OutputScanNanopore(reads)
 
         results = InputScanNanopore.out.results.mix(
-            params.qualityControl.readQuality         ? ReadQuality.out.results         : Channel.empty(), 
-            params.qualityControl.hostDepletion       ? HostDepletion.out.results       : Channel.empty(), 
-            params.qualityControl.internalControls    ? InternalControls.out.results    : Channel.empty(),
-            params.qualityControl.backgroundDepletion ? BackgroundDepletion.out.results : Channel.empty(),
+            params.qualityControl.readQuality         ? ReadQualityNanopore.out.results         : Channel.empty(), 
+            params.qualityControl.hostDepletion       ? HostDepletionNanopore.out.results       : Channel.empty(), 
+            params.qualityControl.internalControls    ? InternalControlsNanopore.out.results    : Channel.empty(),
+            params.qualityControl.backgroundDepletion ? BackgroundDepletionNanopore.out.results : Channel.empty(),
             OutputScanNanopore.out.results
         )
 
