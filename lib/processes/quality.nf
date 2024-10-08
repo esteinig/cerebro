@@ -236,7 +236,7 @@ process HostDepletionNanopore {
     path(index)
 
     output:
-    tuple (val(sampleID), path("${sampleID}__host__R1.fq.gz"), path("${sampleID}__host.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}__host.fq.gz"), emit: reads)
     tuple (val(sampleID), path("${sampleID}.host.json"), emit: results)
     
     script:
