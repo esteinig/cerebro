@@ -241,6 +241,8 @@ process HostDepletionNanopore {
     
     script:
 
+    alignmentIndex = index[0]
+
     """
     scrubby reads -i $reads --index $alignmentIndex --aligner minimap2 --preset map-ont --threads $task.cpus -o ${sampleID}__host.fq.gz -o --json ${sampleID}.host.json
     """
@@ -296,6 +298,8 @@ process InternalControlsNanopore {
     path("${sampleID}.controls.json")
 
     script:
+
+    alignmentIndex = index[0]
 
     """
     vircov coverage -i $reads -o ${sampleID}.controls.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
@@ -356,6 +360,7 @@ process BackgroundDepletionNanopore {
 
     script:
 
+    alignmentIndex = index[0]
 
     """
     vircov coverage -i $reads -o ${sampleID}.background.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
