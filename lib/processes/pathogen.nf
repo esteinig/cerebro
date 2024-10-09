@@ -50,7 +50,6 @@ process Kraken2Nanopore {
     """
     kraken2 --db $krakenDatabase --confidence $classifierKrakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report $reads
     
-    
     if [ ! -f "${sampleID}.kraken2.tsv" ]; then
         touch "${sampleID}.kraken2.tsv"
     fi
@@ -77,10 +76,15 @@ process Bracken {
 
     script:
 
-    """
-    bracken -d $krakenDatabase -i $krakenReport -r $profilerBrackenReadLength -l $profilerBrackenRank -t $profilerBrackenMinReads -o ${sampleID}.bracken.report
-    """
-
+    if krakenReport.size() == 0 {
+        """
+        touch ${sampleID}.bracken.report
+        """
+    } else {
+        """
+        bracken -d $krakenDatabase -i $krakenReport -r $profilerBrackenReadLength -l $profilerBrackenRank -t $profilerBrackenMinReads -o ${sampleID}.bracken.report
+        """
+    }
 }
 
 
