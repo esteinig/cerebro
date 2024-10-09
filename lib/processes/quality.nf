@@ -163,7 +163,7 @@ process ReadQualityNanopore {
     script:
     
     """
-    nanoq -i $reads -l 100 -q 5 --report ${sampleID}.nanoq.json --json > ${sampleID}__reads.fq.gz
+    nanoq -i $reads -l 100 -q 5 --report ${sampleID}.nanoq.json --json -O g > ${sampleID}__reads.fq.gz
     """
 
 }
