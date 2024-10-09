@@ -270,7 +270,7 @@ process MetaSpadesNanopore {
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metaspades.fasta"
 
     input:
-    tuple val(sampleID), path(forward), path(reverse)
+    tuple val(sampleID), path(reads)
     val(kmerList)
     val(minContigLength)
     val(args)
