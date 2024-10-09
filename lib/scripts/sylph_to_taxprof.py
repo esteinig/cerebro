@@ -24,8 +24,11 @@ args = parser.parse_args()
 annotate_virus = args.annotate_virus_hosts
 
 # Read sylph's output TSV file into a Pandas DataFrame
-df = pd.read_csv(args.sylph, sep='\t')
-
+try:
+    df = pd.read_csv(args.sylph, sep='\t')
+except pd.errors.EmptyDataError:
+    df = pd.DataFrame()
+    
 ### This is a dictionary that contains the genome_file 
 ### to taxonomy string mapping. It should be like
 ### {'my_genome.fna.gz' : b__Bacteria;...}
