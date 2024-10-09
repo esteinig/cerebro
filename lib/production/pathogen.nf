@@ -228,14 +228,14 @@ workflow MetagenomeAssemblyNanopore {
                     magParams.binningChunkSize,
                     magParams.binningReadLength,
                     magParams.binningMinBinSize,
-                    magParams.binningMinContigLength
+                    0
                 )
             }
             if (magParams.binningMethod.contains("metabat2")) {
                 MetaSpadesMetabat2(
                     metaspadesAssemblyCoverage,
                     magParams.binningMinBinSize,
-                    magParams.binningMinContigLength
+                    1500
                 )
             }
         }
@@ -255,7 +255,7 @@ workflow MetagenomeAssemblyNanopore {
                     magParams.binningChunkSize,
                     magParams.binningReadLength,
                     magParams.binningMinBinSize,
-                    magParams.binningMinContigLength
+                    0
                 )
             }
 
@@ -263,7 +263,7 @@ workflow MetagenomeAssemblyNanopore {
                 MegahitMetabat2(
                     megahitAssemblyCoverage,
                     magParams.binningMinBinSize,
-                    magParams.binningMinContigLength,
+                    1500
                 )
             }
         }
