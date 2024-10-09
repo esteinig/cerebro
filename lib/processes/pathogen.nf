@@ -127,7 +127,13 @@ process SylphNanopore {
     """
     sylph profile $sylphDatabase $reads -t $task.cpus > ${sampleID}.sylph.tsv
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
-    mv ${reads}.sylphmpa ${sampleID}.sylph.mpa
+    
+    if [ -f "${reads}.sylphmpa" ]; then
+        mv ${reads}.sylphmpa ${sampleID}.sylph.mpa
+    else
+        touch "${sampleID}.sylph.mpa"
+    fi
+    
     """
 
 }

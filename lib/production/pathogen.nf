@@ -199,10 +199,6 @@ workflow TaxonomicProfileNanopore {
                 databases.sylphMetadata
             )
         }
-
-        if (profileParams.profiler && profileParams.profilerMethod.contains("melon")) {
-            // TBD
-        }
 }
 
 

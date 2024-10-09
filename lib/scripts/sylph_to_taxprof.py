@@ -27,8 +27,8 @@ annotate_virus = args.annotate_virus_hosts
 try:
     df = pd.read_csv(args.sylph, sep='\t')
 except pd.errors.EmptyDataError:
-    df = pd.DataFrame()
-    
+    return
+
 ### This is a dictionary that contains the genome_file 
 ### to taxonomy string mapping. It should be like
 ### {'my_genome.fna.gz' : b__Bacteria;...}
