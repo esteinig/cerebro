@@ -76,7 +76,7 @@ process Bracken {
 
     script:
 
-    if krakenReport.size() == 0 {
+    if (krakenReport.size() == 0) {
         """
         touch ${sampleID}.bracken.report
         """
