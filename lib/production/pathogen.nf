@@ -176,7 +176,7 @@ workflow TaxonomicProfileNanopore {
                 profileParams.classifierKrakenConfidence
             )
             if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
-                Bracken(
+                BrackenNanopore(
                     Kraken2Nanopore.out.bracken,
                     profileParams.profilerBrackenReadLength,
                     profileParams.profilerBrackenRank,
