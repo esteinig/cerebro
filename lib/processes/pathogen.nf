@@ -49,6 +49,11 @@ process Kraken2Nanopore {
 
     """
     kraken2 --db $krakenDatabase --confidence $classifierKrakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report $reads
+    
+    
+    if [ ! -f "${sampleID}.kraken2.tsv" ]; then
+        touch "${sampleID}.kraken2.tsv"
+    fi
     """
 
 }
@@ -133,7 +138,7 @@ process SylphNanopore {
     else
         touch "${sampleID}.sylph.mpa"
     fi
-    
+
     """
 
 }
