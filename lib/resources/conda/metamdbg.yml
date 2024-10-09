@@ -1,6 +1,6 @@
-name: cerebro-metabuli
+name: cerebro-metadbg
 channels:
   - conda-forge        
   - bioconda    
 dependencies:
-  - metabuli=1.0.7
+  - metamdbg=1.0

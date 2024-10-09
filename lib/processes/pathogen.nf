@@ -27,6 +27,32 @@ process Kraken2 {
 
 }
 
+process Kraken2Nanopore {
+
+    tag { sampleID }
+    label "pathogenProfileKraken2"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.report"
+
+    input:
+    tuple val(sampleID), path(reads)
+    path(krakenDatabase)
+    val(classifierKrakenConfidence)
+
+    output:
+
+    tuple (val(sampleID), path(krakenDatabase), path("${sampleID}.kraken2.report"), emit: bracken)
+    tuple (val(sampleID), path("${sampleID}.kraken2.report"), path("${sampleID}.kraken2.tsv"), emit: results)
+
+    script:
+
+    """
+    kraken2 --db $krakenDatabase --confidence $classifierKrakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report --paired $reads
+    """
+
+}
+
 
 process Bracken {
 
@@ -80,6 +106,33 @@ process Sylph {
 }
 
 
+process SylphNanopore {
+
+    tag { sampleID }
+    label "pathogenProfileSylph"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.mpa"
+
+    input:
+    tuple val(sampleID), path(reads)
+    path(sylphDatabase)
+    path(profilerSylphMetadata)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.mpa"), emit: results)
+
+    script:
+
+    """
+    sylph profile $sylphDatabase -1 $reads -t $task.cpus > ${sampleID}.sylph.tsv
+    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
+    mv ${forward}.sylphmpa ${sampleID}.sylph.mpa
+    """
+
+}
+
+
 process Metabuli {
 
     tag { sampleID }
@@ -110,6 +163,37 @@ process Metabuli {
 }
 
 
+process MetabuliNanopore {
+
+    tag { sampleID }
+    label "pathogenProfileMetabuli"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.report"
+
+    input:
+    tuple val(sampleID), path(reads)
+    path(metabuliDatabase)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.metabuli.report"), path("${sampleID}.metabuli.tsv"), emit: results)
+
+    script:
+
+    memoryLimit = "${task.memory}".split()[0]
+
+    """
+    metabuli classify --max-ram $memoryLimit --threads $task.cpus --seq-mode 3 $reads $metabuliDatabase classified/ $sampleID
+
+    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.tsv
+    rm classified/${sampleID}_classifications.tsv
+    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.report
+    """
+
+}
+
+
+
 process Kmcp { 
 
     tag { sampleID }
@@ -134,6 +218,7 @@ process Kmcp {
     """
 
 }
+
 
 process MetaSpades {
 
@@ -278,6 +363,39 @@ process Vircov {
 
     """
     vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --workdir data/ \
+    --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel $secondaryFlag
+    """
+    
+}
+
+
+process VircovNanopore {
+    
+    label "pathogenProfileVircov"
+    tag { sampleID }
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.alignment.tsv"
+
+    input:
+    tuple val(sampleID), path(reads)
+    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    val(aligner)
+    val(secondary)
+    val(remapThreads)
+    val(remapParallel)
+
+    output:
+    tuple (val(sampleID), path(reads), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.alignment.tsv"), emit: results)
+
+    script:
+
+    alignmentIndex = index[0]
+
+    secondaryFlag = secondary ? "--secondary" : "" 
+
+    """
+    vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --workdir data/ \
     --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel $secondaryFlag
     """
     

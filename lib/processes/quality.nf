@@ -244,7 +244,7 @@ process HostDepletionNanopore {
     alignmentIndex = index[0]
 
     """
-    scrubby reads -i $reads --index $alignmentIndex --aligner minimap2 --preset map-ont --threads $task.cpus -o ${sampleID}__host.fq.gz -o --json ${sampleID}.host.json
+    scrubby reads -i $reads --index $alignmentIndex --aligner minimap2 --preset map-ont --threads $task.cpus -o ${sampleID}__host.fq.gz --json ${sampleID}.host.json
     """
 }
 

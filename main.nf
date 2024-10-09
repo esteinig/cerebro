@@ -104,17 +104,32 @@ workflow pathogen {
 
     def pathogenDB = getPathogenDetectionDatabases();
 
-    PathogenDetection(
-        getReads(
-            params.fastqPaired, 
-            params.fastqNanopore, 
-            params.sampleSheet, 
-            params.sampleSheetProduction
-        ),
-        pathogenDB.qualityControl,
-        pathogenDB.taxonomicProfile,
-        pathogenDB.metagenomeAssembly,
-    )   
+    if (params.nanopore) {
+        PathogenDetection(
+            getReads(
+                params.null, 
+                params.fastqNanopore, 
+                params.sampleSheet, 
+                params.sampleSheetProduction
+            ),
+            pathogenDB.qualityControl,
+            pathogenDB.taxonomicProfile,
+            pathogenDB.metagenomeAssembly,
+        )   
+    } else {
+        PathogenDetection(
+            getReads(
+                params.fastqPaired, 
+                null, 
+                params.sampleSheet, 
+                params.sampleSheetProduction
+            ),
+            pathogenDB.qualityControl,
+            pathogenDB.taxonomicProfile,
+            pathogenDB.metagenomeAssembly,
+        )   
+    }
+    
 
 }
 

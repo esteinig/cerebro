@@ -5,8 +5,10 @@
 
 
 include { QualityControl } from "./quality";
-include { Vircov } from "../processes/pathogen";
+include { Vircov; VircovNanopore } from "../processes/pathogen";
 include { Kraken2; Bracken; Metabuli; Sylph; Kmcp } from "../processes/pathogen";
+include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore } from "../processes/pathogen";
+
 include { MetaSpades; Megahit } from "../processes/pathogen";
 include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverage } from "../processes/pathogen";
 include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../processes/pathogen";
@@ -50,6 +52,43 @@ workflow PathogenDetection {
 
 }
 
+workflow PathogenDetectionNanopore {
+
+    take:
+        reads
+        qualityControlDatabases
+        taxonomicProfileDatabases
+        metagenomeAssemblyDatabases
+    main:
+
+        /* Read and background controls module */
+
+        QualityControlNanopore(
+            reads, 
+            qualityControlDatabases
+        )
+
+        /* Taxonomic read classification and profiling module */
+
+        if (params.pathogenDetection.taxonomicProfile.enabled) {
+            TaxonomicProfileNanopore(
+                QualityControlNanopore.out.reads, 
+                taxonomicProfileDatabases
+            )
+        }
+        
+        /* Metagenome assembly and taxonomic profiling module */
+
+        if (params.pathogenDetection.metagenomeAssembly.enabled) {
+            MetagenomeAssemblyNanopore(
+                QualityControlNanopore.out.reads,
+                metagenomeAssemblyDatabases
+            )
+        }
+
+
+}
+
 
 workflow TaxonomicProfile {
     take:
@@ -65,8 +104,8 @@ workflow TaxonomicProfile {
                 databases.vircovDatabase,
                 profileParams.alignmentMethod,
                 profileParams.alignmentSecondary,
-                profileParams.alignmentRemapThreads,
-                profileParams.alignmentRemapParallel
+                params.resources.threads.vircovRemap,
+                params.resources.threads.vircovParallel
             )
         }
 
@@ -108,6 +147,78 @@ workflow TaxonomicProfile {
                 profileParams.profilerKmcpMode
             )
         }
+}
+
+
+
+workflow TaxonomicProfileNanopore {
+    take:
+        reads
+        databases
+    main:
+        profileParams = params.pathogenDetection.taxonomicProfile
+
+        if (profileParams.alignment) {
+            VircovNanopore(
+                reads,
+                databases.vircovDatabase,
+                profileParams.alignmentMethod,
+                profileParams.alignmentSecondary,
+                params.resources.threads.vircovRemap,
+                params.resources.threads.vircovParallel
+            )
+        }
+
+        if (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) {
+            Kraken2Nanopore(
+                reads,
+                databases.krakenDatabase,
+                profileParams.classifierKrakenConfidence
+            )
+            if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
+                Bracken(
+                    Kraken2Nanopore.out.bracken,
+                    profileParams.profilerBrackenReadLength,
+                    profileParams.profilerBrackenRank,
+                    profileParams.profilerBrackenMinReads
+                )
+            }
+        }
+        
+        if (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) {
+            MetabuliNanopore(
+                reads,
+                databases.metabuliDatabase
+            )
+        }
+
+        if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
+            SylphNanopore(
+                reads,
+                databases.sylphDatabase,
+                databases.sylphMetadata
+            )
+        }
+
+        if (profileParams.profiler && profileParams.profilerMethod.contains("melon")) {
+            // TBD
+        }
+}
+
+
+
+workflow MetagenomeAssemblyNanopore {
+    take:
+        reads
+        databases
+    main:
+
+        magParams = params.pathogenDetection.metagenomeAssembly
+
+        if (magParams.assemblyMethod.contains("metamdbg")) {
+            // TBD
+        }
+
 }
 
 workflow MetagenomeAssembly {
