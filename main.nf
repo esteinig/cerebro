@@ -26,7 +26,7 @@ Production pipeline operate as follows:
 // include { BacterialEnrichment } from './lib/production/bacterial';
 
 include { QualityControl; QualityControlNanopore } from './lib/production/quality';
-include { PathogenDetection } from './lib/production/pathogen';
+include { PathogenDetection; PathogenDetectionNanopore } from './lib/production/pathogen';
 include { PanviralEnrichment } from './lib/production/panviral';
 
 
@@ -105,9 +105,9 @@ workflow pathogen {
     def pathogenDB = getPathogenDetectionDatabases();
 
     if (params.nanopore) {
-        PathogenDetection(
+        PathogenDetectionNanopore(
             getReads(
-                params.null, 
+                null, 
                 params.fastqNanopore, 
                 params.sampleSheet, 
                 params.sampleSheetProduction
