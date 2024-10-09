@@ -282,7 +282,7 @@ process MetaSpadesNanopore {
     script:
 
     """
-    spades.py --meta -t $task.cpus --nanopore $reads -o assembly/ -k $kmerList $args
+    spades.py --meta -t $task.cpus -s $reads -o assembly/ -k $kmerList $args
     mv assembly/contigs.fasta ${sampleID}.metaspades.fasta
     """
 
