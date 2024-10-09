@@ -261,6 +261,33 @@ process MetaSpades {
 
 }
 
+
+process MetaSpadesNanopore {
+
+    tag { sampleID }
+    label "pathogenAssemblyMetaspades"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metaspades.fasta"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    val(kmerList)
+    val(minContigLength)
+    val(args)
+
+    output:
+    tuple(val(sampleID), val("metaspades"), path("${sampleID}.metaspades.fasta"), emit: contigs)
+    tuple(val(sampleID), path(reads), emit: reads)
+
+    script:
+
+    """
+    spades.py --meta -t $task.cpus --nanopore $reads -o assembly/ -k $kmerList $args
+    mv assembly/contigs.fasta ${sampleID}.metaspades.fasta
+    """
+
+}
+
 process Megahit {
 
     tag { sampleID }
@@ -286,6 +313,57 @@ process Megahit {
     """
 }
 
+
+process MegahitNanopore {
+
+    tag { sampleID }
+    label "pathogenAssemblyMegahit"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.megahit.fasta"
+
+    input:
+    tuple val(sampleID), path(reads)
+    val(kmerList)
+    val(minContigLength)
+    val(args)
+
+    output:
+    tuple(val(sampleID), val("megahit"), path("${sampleID}.megahit.fasta"), emit: contigs)
+    tuple(val(sampleID), path(reads), emit: reads)
+
+    script:
+
+    """
+    megahit -t $task.cpus -r $reads -o assembly --k-list $kmerList --min-contig-len $minContigLength $args
+    mv assembly/final.contigs.fa ${sampleID}.megahit.fasta
+    """
+}
+
+
+process MetaMdbgNanopore {
+
+    tag { sampleID }
+    label "pathogenAssemblyMetaMdbg"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metamdbg.fasta"
+
+    input:
+    tuple val(sampleID), path(reads)
+    val(minReadOverlap)
+
+    output:
+    tuple(val(sampleID), val("metamdbg"), path("${sampleID}.metamdbg.fasta"), emit: contigs)
+    tuple(val(sampleID), path(forward), path(reverse), emit: reads)
+
+    script:
+
+    """
+    metaMDBG --out-dir assembly/ --in-ont $reads --threads $task.cpus
+    mv assembly/contigs.fasta ${sampleID}.metamdbg.fasta
+    """
+
+}
+
 process ContigCoverage {
     
     tag { sampleID }
@@ -305,10 +383,34 @@ process ContigCoverage {
     """
 }
 
+
+process ContigCoverageNanopore {
+    
+    tag { sampleID }
+    label "pathogenAssemblyContigCoverage"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    tuple val(sampleID), path(reads)
+
+    output:
+    tuple(val(sampleID), val(assembler), path(contigs), emit: contigs)
+    tuple(val(sampleID), path("${sampleID}.contigs.bam"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
+
+    """
+    minimap2 -ax map-ont -t $task.cpus $contigs $reads| samtools view -@ $task.cpus -hbF 12 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
+    samtools index ${sampleID}.contigs.bam
+    """
+}
+
+
 process Concoct {
     
     tag { sampleID }
     label "pathogenAssemblyConcoct"
+
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "concoct_bins"
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
@@ -319,7 +421,7 @@ process Concoct {
     val(minContigLength)
 
     output:
-    tuple(val(sampleID), path("concoct/fasta_bins"), emit: bins)
+    tuple(val(sampleID), path("concoct_bins"), emit: bins)
 
     """
     cut_up_fasta.py $contigs -c $chunkSize -o 0 --merge_last -b contigs_${chunkSize}.bed > contigs_${chunkSize}.fasta
@@ -327,8 +429,8 @@ process Concoct {
     concoct --read_length $readLength --length_threshold $minContigLength --threads $task.cpus --composition_file contigs_${chunkSize}.fasta --coverage_file coverage_table.tsv -b concoct/
     merge_cutup_clustering.py concoct/clustering_gt${minContigLength}.csv > concoct/clustering_merged.csv
 
-    mkdir -p concoct/fasta_bins 
-    extract_fasta_bins.py $contigs concoct/clustering_merged.csv --output_path concoct/fasta_bins  
+    mkdir -p concoct_bins
+    extract_fasta_bins.py $contigs concoct/clustering_merged.csv --output_path concoct_bins
     """
 }
 
@@ -338,11 +440,17 @@ process Metabat2 {
     tag { sampleID }
     label "pathogenAssemblyMetabat2"
 
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "metabat_bins"
+
     input:
     tuple val(sampleID), val(assembler), path(contigs)
     tuple val(sampleID), path(contigBam), path(contigBai)
     val(minBinSize)
     val(minContigLength)
+
+    output:
+
 
     """
     runMetaBat.sh --numThreads $task.cpus --minContig $minContigLength --minClsSize $minBinSize $contigs $contigBam

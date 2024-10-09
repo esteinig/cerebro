@@ -7,10 +7,12 @@
 include { QualityControl; QualityControlNanopore } from "./quality";
 include { Vircov; VircovNanopore } from "../processes/pathogen";
 include { Kraken2; Bracken; Metabuli; Sylph; Kmcp } from "../processes/pathogen";
+
 include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore } from "../processes/pathogen";
 
-include { MetaSpades; Megahit } from "../processes/pathogen";
+include { MetaSpades; Megahit; MetaSpadesNanopore; MegahitNanopore } from "../processes/pathogen";
 include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverage } from "../processes/pathogen";
+include { ContigCoverageNanopore as MetaSpadesCoverageNanopore; ContigCoverageNanopore as MegahitCoverageNanopore } from "../processes/pathogen";
 include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../processes/pathogen";
 include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "../processes/pathogen";
 
@@ -211,8 +213,59 @@ workflow MetagenomeAssemblyNanopore {
 
         magParams = params.pathogenDetection.metagenomeAssembly
 
-        if (magParams.assemblyMethod.contains("metamdbg")) {
-            // TBD
+        if (magParams.assemblyMethod.contains("metaspades")) {
+            
+            metaspadesAssemblyCoverage = MetaSpadesNanopore(
+                reads,
+                magParams.assemblyKmerList,
+                magParams.assemblyMinContigLength,
+                magParams.assemblyArgs
+            ) | MetaSpadesCoverageNanopore
+            
+            if (magParams.binningMethod.contains("concoct")) {
+                MetaSpadesConcoct(
+                    metaspadesAssemblyCoverage,
+                    magParams.binningChunkSize,
+                    magParams.binningReadLength,
+                    magParams.binningMinBinSize,
+                    magParams.binningMinContigLength
+                )
+            }
+            if (magParams.binningMethod.contains("metabat2")) {
+                MetaSpadesMetabat2(
+                    metaspadesAssemblyCoverage,
+                    magParams.binningMinBinSize,
+                    magParams.binningMinContigLength
+                )
+            }
+        }
+
+        if (magParams.assemblyMethod.contains("megahit")) {
+            
+            megahitAssemblyCoverage = MegahitNanopore(
+                reads,
+                magParams.assemblyKmerList,
+                magParams.assemblyMinContigLength,
+                magParams.assemblyArgs
+            ) | MegahitCoverageNanopore
+            
+            if (magParams.binningMethod.contains("concoct")) {
+                MegahitConcoct(
+                    megahitAssemblyCoverage,
+                    magParams.binningChunkSize,
+                    magParams.binningReadLength,
+                    magParams.binningMinBinSize,
+                    magParams.binningMinContigLength
+                )
+            }
+
+            if (magParams.binningMethod.contains("metabat2")) {
+                MegahitMetabat2(
+                    megahitAssemblyCoverage,
+                    magParams.binningMinBinSize,
+                    magParams.binningMinContigLength,
+                )
+            }
         }
 
 }
