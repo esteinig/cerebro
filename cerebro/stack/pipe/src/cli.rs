@@ -47,10 +47,10 @@ fn main() -> anyhow::Result<()> {
                             )?
                         };
 
+                        log::info!("{:#?}", filter);
+
                         let filtered_records = pathogen_detection.filter_by_taxonomy(
-                            filter.taxids, 
-                            filter.names,
-                            filter.ranks
+                            filter.taxids, filter.names, filter.ranks
                         );
                         PathogenDetection::write_records(&filtered_records, path)?;
                     }
