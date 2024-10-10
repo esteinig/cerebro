@@ -1,11 +1,15 @@
+use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::{fmt::Color, Builder};
 use log::{Level, LevelFilter};
 use needletail::{parse_fastx_file, FastxReader};
+use niffler::get_writer;
+use niffler::seek::compression::ReadSeek;
 use niffler::seek::get_reader;
+use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::io::Write;
+use std::io::{BufReader, BufWriter, Read, Write};
 
 use crate::error::WorkflowError;
 
@@ -220,7 +224,7 @@ pub fn get_files_from_patterns(path: &PathBuf, patterns: &[&str]) -> Result<Opti
 ///
 /// # Returns
 ///
-/// * `Result<String, ScrubbyError>` - The extracted ID as a string on success, otherwise an error.
+/// * `Result<String, WorkflowError>` - The extracted ID as a string on success, otherwise an error.
 ///
 /// # Example
 ///
@@ -239,4 +243,59 @@ pub fn get_id(id: &[u8]) -> Result<String, WorkflowError> {
     let id = header_components[0].to_string();
 
     Ok(id)
+}
+
+
+
+pub fn get_tsv_reader(file: &Path, flexible: bool, header: bool) -> Result<Reader<Box<dyn ReadSeek>>, WorkflowError> {
+
+    let buf_reader = BufReader::new(File::open(&file)?);
+    let (reader, _format) = get_reader(Box::new(buf_reader))?;
+
+    let tsv_reader = ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(header)
+        .flexible(flexible) // Allows records with a different number of fields
+        .from_reader(reader);
+
+    Ok(tsv_reader)
+}
+
+pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>>, WorkflowError> {
+    
+    let buf_writer = BufWriter::new(File::create(&file)?);
+    let writer = get_writer(Box::new(buf_writer), niffler::Format::from_path(file), niffler::compression::Level::Six)?;
+
+    let csv_writer = WriterBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(header)
+        .from_writer(writer);
+
+    Ok(csv_writer)
+}
+
+pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Result<(), WorkflowError> {
+
+    let mut writer = get_tsv_writer(file, header)?;
+
+    for value in data {
+        // Serialize each value in the vector into the writer
+        writer.serialize(&value)?;
+    }
+
+    // Flush and complete writing
+    writer.flush()?;
+    Ok(())
+}
+
+pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header: bool) -> Result<Vec<T>, WorkflowError> {
+
+    let mut reader = get_tsv_reader(file, flexible, header)?;
+
+    let mut records = Vec::new();
+    for record in reader.deserialize() {
+        records.push(record?)
+    }
+
+    Ok(records)
 }

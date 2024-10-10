@@ -94,7 +94,7 @@ process Sylph {
     label "pathogenProfileSylph"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.mpa"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -102,14 +102,20 @@ process Sylph {
     path(profilerSylphMetadata)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.mpa"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
 
     script:
 
     """
     sylph profile $sylphDatabase -1 $forward -2 $reverse -c 100 --min-number-kmers 20 -t $task.cpus > ${sampleID}.sylph.tsv
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
-    mv ${forward}.sylphmpa ${sampleID}.sylph.mpa
+    
+    if [ -f "${reads}.sylphmpa" ]; then
+        mv ${reads}.sylphmpa ${sampleID}.sylph.report
+    else
+        touch "${sampleID}.sylph.report"
+    fi
+
     """
 
 }
@@ -121,7 +127,7 @@ process SylphNanopore {
     label "pathogenProfileSylph"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.mpa"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.report"
 
     input:
     tuple val(sampleID), path(reads)
@@ -129,7 +135,7 @@ process SylphNanopore {
     path(profilerSylphMetadata)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.mpa"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
 
     script:
 
@@ -138,9 +144,9 @@ process SylphNanopore {
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${reads}.sylphmpa" ]; then
-        mv ${reads}.sylphmpa ${sampleID}.sylph.mpa
+        mv ${reads}.sylphmpa ${sampleID}.sylph.report
     else
-        touch "${sampleID}.sylph.mpa"
+        touch "${sampleID}.sylph.report"
     fi
 
     """
@@ -214,7 +220,7 @@ process Kmcp {
     tag { sampleID }
     label "pathogenProfileKmcp"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.profile"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -222,14 +228,14 @@ process Kmcp {
     val(profilerKmcpMode)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.kmcp.profile"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.kmcp.report"), emit: results)
 
 
     script:
 
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
-    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $profilerKmcpMode -o ${sampleID}.kmcp.profile ${sampleID}.reads.tsv.gz
+    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $profilerKmcpMode -o ${sampleID}.kmcp.report ${sampleID}.reads.tsv.gz
     """
 
 }
@@ -337,6 +343,7 @@ process MegahitNanopore {
     megahit -t $task.cpus -r $reads -o assembly --k-list $kmerList --min-contig-len $minContigLength $args
     mv assembly/final.contigs.fa ${sampleID}.megahit.fasta
     """
+    
 }
 
 

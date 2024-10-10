@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::{error::WorkflowError, modules::pathogen::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
+use crate::{error::WorkflowError, nextflow::pathogen::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
 
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]
@@ -327,6 +327,9 @@ pub struct ProcessArgs {
     /// Output file of processed quality control data
     #[clap(long, short = 'q')]
     pub qc: PathBuf,
+    /// Output file of processed pathogen detection data
+    #[clap(long, short = 'p')]
+    pub pathogen: PathBuf,
     /// Parse the background alignment from the quality control module variant
     /// 
     /// Combined reference for detecting organism, synthetic, internal controls 

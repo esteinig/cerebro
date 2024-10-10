@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tar::Archive;
 
 use crate::error::WorkflowError;
-use crate::modules::pathogen::{Aligner, Classifier};
+use crate::nextflow::pathogen::{Aligner, Classifier};
 
 
 /// Represents different indices available for Cerebro.
