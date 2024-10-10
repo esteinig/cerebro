@@ -34,18 +34,23 @@ impl PathogenDetection {
                 let entry = detection_map.entry(taxid.clone())
                     .or_insert(PathogenDetectionRecord {
                         taxid,
-                        kraken_reads: Some(record.reads_direct),
-                        kraken_rpm: compute_rpm(record.reads_direct, input_reads),
+                        kraken_reads: Some(record.reads),
+                        kraken_rpm: compute_rpm(record.reads, input_reads),
                         kraken_name: Some(record.taxname.trim().to_string()),
+                        kraken_rank: Some(record.tax_level.clone()),
                         metabuli_reads: None,
                         metabuli_rpm: None,
                         metabuli_name: None,
+                        metabuli_rank: None,
                         bracken_reads: None,
                         bracken_rpm: None,
-                        bracken_name: None
+                        bracken_name: None,
+                        bracken_rank: None
                     });
-                entry.kraken_reads = Some(record.reads_direct);
+                entry.kraken_reads = Some(record.reads);
                 entry.kraken_name = Some(record.taxname.trim().to_string());
+                entry.kraken_rpm = compute_rpm(record.reads_direct, input_reads);
+                entry.kraken_rank = Some(record.tax_level.clone())
             }
         }
 
@@ -58,18 +63,23 @@ impl PathogenDetection {
                     .or_insert(PathogenDetectionRecord {
                         taxid,
                         kraken_reads: None,
+                        kraken_rank: None,
                         kraken_name: None,
                         kraken_rpm: None,
-                        metabuli_reads: Some(record.reads_direct),
-                        metabuli_rpm: compute_rpm(record.reads_direct, input_reads),
+                        metabuli_reads: Some(record.reads),
+                        metabuli_rpm: compute_rpm(record.reads, input_reads),
                         metabuli_name: Some(record.taxname.trim().to_string()),
+                        metabuli_rank: Some(record.tax_level.clone()),
                         bracken_reads: None,
                         bracken_rpm: None,
                         bracken_name: None,
+                        bracken_rank: None
                         
                     });
-                entry.metabuli_reads = Some(record.reads_direct);
+                entry.metabuli_reads = Some(record.reads);
                 entry.metabuli_name = Some(record.taxname.trim().to_string());
+                entry.metabuli_rpm = compute_rpm(record.reads_direct, input_reads);
+                entry.metabuli_rank = Some(record.tax_level.clone());
             }
         }
 
@@ -81,17 +91,22 @@ impl PathogenDetection {
                     .or_insert(PathogenDetectionRecord {
                         taxid,
                         kraken_reads: None,
+                        kraken_rank: None,
                         kraken_name: None,
                         kraken_rpm: None,
                         metabuli_reads: None,
                         metabuli_rpm: None,
                         metabuli_name: None,
+                        metabuli_rank: None,
                         bracken_reads: Some(record.reads),
                         bracken_rpm: compute_rpm(record.reads, input_reads),
-                        bracken_name: Some(record.taxname.trim().to_string())
+                        bracken_name: Some(record.taxname.trim().to_string()),
+                        bracken_rank: Some(record.tax_level.clone())
                     });
                 entry.bracken_reads = Some(record.reads);
                 entry.bracken_name = Some(record.taxname.trim().to_string());
+                entry.bracken_rpm = compute_rpm(record.reads, input_reads);
+                entry.bracken_rank = Some(record.tax_level.clone());
             }
         }
 
@@ -131,12 +146,15 @@ pub struct PathogenDetectionRecord {
     // pub input_reads: u64,
     // pub qc_reads: u64,
     pub kraken_name: Option<String>,
+    pub kraken_rank: Option<String>,
     pub kraken_reads: Option<u64>,
     pub kraken_rpm: Option<f64>,
     pub bracken_name: Option<String>,
+    pub bracken_rank: Option<String>,
     pub bracken_reads: Option<u64>,
     pub bracken_rpm: Option<f64>,
     pub metabuli_name: Option<String>,
+    pub metabuli_rank: Option<String>,
     pub metabuli_reads: Option<u64>,
     pub metabuli_rpm: Option<f64>,
     // pub kmcp_reads: Option<u64>,
