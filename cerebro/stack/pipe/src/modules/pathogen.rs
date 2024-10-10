@@ -117,6 +117,54 @@ impl PathogenDetection {
 
         Self { id: output.id.to_string(), records }
     }
+    pub fn filter_by_taxonomy(
+        &self,
+        taxids: Option<Vec<String>>, 
+        names: Option<Vec<String>>, 
+        ranks: Option<Vec<String>>
+    ) -> Vec<PathogenDetectionRecord> {
+        // Filter records by taxid, name, or rank
+        self.records.iter().filter(|record| {
+            // Check if the taxid matches
+            let taxid_match = if let Some(taxids) = &taxids {
+                taxids.contains(&record.taxid)
+            } else {
+                true
+            };
+
+            // Check if any name matches (from kraken, bracken, or metabuli)
+            let name_match = if let Some(names) = &names {
+                let kraken_name_match = record.kraken_name.as_ref().map_or(false, |name| names.contains(name));
+                let bracken_name_match = record.bracken_name.as_ref().map_or(false, |name| names.contains(name));
+                let metabuli_name_match = record.metabuli_name.as_ref().map_or(false, |name| names.contains(name));
+                kraken_name_match || bracken_name_match || metabuli_name_match
+            } else {
+                true
+            };
+
+            // Check if any rank matches (from kraken, bracken, or metabuli)
+            let rank_match = if let Some(ranks) = &ranks {
+                let kraken_rank_match = record.kraken_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let bracken_rank_match = record.bracken_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let metabuli_rank_match = record.metabuli_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                kraken_rank_match || bracken_rank_match || metabuli_rank_match
+            } else {
+                true
+            };
+
+            // Record should be included if it matches taxid, name, or rank criteria
+            taxid_match && name_match && rank_match
+        })
+        .cloned()
+        .collect()
+    }
+
+    pub fn write_records(records: &Vec<PathogenDetectionRecord>, path: &Path) -> Result<(), WorkflowError> {
+        write_tsv(&records, path, true)
+    }
+    pub fn read_records(path: &Path) -> Result<Vec<PathogenDetectionRecord>, WorkflowError> {
+        read_tsv(path, false, true)
+    }
     pub fn to_tsv(&self, path: &Path) -> Result<(), WorkflowError> {
         write_tsv(&self.records, path, true)
     }

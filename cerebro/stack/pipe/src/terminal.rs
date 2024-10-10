@@ -330,6 +330,18 @@ pub struct ProcessArgs {
     /// Output file of processed pathogen detection data
     #[clap(long, short = 'p')]
     pub pathogen: PathBuf,
+    /// Output file of processed and filtered pathogen detection data
+    #[clap(long, short = 'f')]
+    pub filter_pathogen: Option<PathBuf>,
+    /// Filter the output by taxids
+    #[clap(long, short = 't')]
+    pub filter_taxids: Option<Vec<String>>,
+    /// Filter the output by taxnames
+    #[clap(long, short = 'n')]
+    pub filter_names: Option<Vec<String>>,
+    /// Filter the output by taxranks
+    #[clap(long, short = 'r')]
+    pub filter_ranks: Option<Vec<String>>,
     /// Parse the background alignment from the quality control module variant
     /// 
     /// Combined reference for detecting organism, synthetic, internal controls 

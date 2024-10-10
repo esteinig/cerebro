@@ -36,6 +36,14 @@ fn main() -> anyhow::Result<()> {
                     quality_control.to_json(&args.qc)?;
                     pathogen_detection.to_tsv(&args.pathogen)?;
                     
+                    if let Some(path) = &args.filter_pathogen {
+                        let filtered_records = pathogen_detection.filter_by_taxonomy(
+                            args.filter_taxids.clone(), 
+                            args.filter_names.clone(),
+                            args.filter_ranks.clone()
+                        );
+                        PathogenDetection::write_records(&filtered_records, path)?;
+                    }
                 }
 
                 ProcessCommands::Quality(args) => {
