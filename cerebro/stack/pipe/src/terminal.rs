@@ -333,6 +333,9 @@ pub struct ProcessArgs {
     /// Output file of processed and filtered pathogen detection data
     #[clap(long, short = 'f')]
     pub filter_pathogen: Option<PathBuf>,
+    /// Provide filters as JSON
+    #[clap(long, short = 'j')]
+    pub filter_json: Option<PathBuf>,
     /// Filter the output by taxids
     #[clap(long, short = 't')]
     pub filter_taxids: Option<Vec<String>>,

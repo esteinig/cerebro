@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::{pathogen::PathogenDetection, quality::{write_quality_tsv, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TablesCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipe::{modules::{pathogen::{PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_tsv, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TablesCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -37,10 +37,20 @@ fn main() -> anyhow::Result<()> {
                     pathogen_detection.to_tsv(&args.pathogen)?;
                     
                     if let Some(path) = &args.filter_pathogen {
+
+                        let filter = match &args.filter_json {
+                            Some(path) => PathogenDetectionFilter::from_json(path)?,
+                            None => PathogenDetectionFilter::new(
+                                args.filter_taxids.clone(), 
+                                args.filter_names.clone(),
+                                args.filter_ranks.clone()
+                            )?
+                        };
+
                         let filtered_records = pathogen_detection.filter_by_taxonomy(
-                            args.filter_taxids.clone(), 
-                            args.filter_names.clone(),
-                            args.filter_ranks.clone()
+                            filter.taxids, 
+                            filter.names,
+                            filter.ranks
                         );
                         PathogenDetection::write_records(&filtered_records, path)?;
                     }

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::Path
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::WorkflowError, nextflow::pathogen::PathogenOutput, utils::{get_file_component, read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::PathogenOutput, utils::{read_tsv, write_tsv}};
 
 use super::quality::QualityControl;
 
@@ -14,6 +14,28 @@ fn compute_rpm(reads: u64, input_reads: u64) -> Option<f64> {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathogenDetectionFilter {
+    pub taxids: Option<Vec<String>>,
+    pub names: Option<Vec<String>>,
+    pub ranks: Option<Vec<String>>
+}
+impl PathogenDetectionFilter {
+    pub fn new(
+        taxids: Option<Vec<String>>,
+        names: Option<Vec<String>>,
+        ranks: Option<Vec<String>>
+    ) -> Result<Self, WorkflowError> {
+        Ok(Self {
+            taxids, names, ranks
+        })
+    }
+    pub fn from_json(path: &Path) -> Result<Self, WorkflowError> {
+        let reader = BufReader::new(File::open(path)?);
+        let pathogen = serde_json::from_reader(reader)?;
+        Ok(pathogen)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathogenDetection {
