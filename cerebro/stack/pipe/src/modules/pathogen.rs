@@ -71,7 +71,7 @@ impl PathogenDetection {
                     });
                 entry.kraken_reads = Some(record.reads);
                 entry.kraken_name = Some(record.taxname.trim().to_string());
-                entry.kraken_rpm = compute_rpm(record.reads_direct, input_reads);
+                entry.kraken_rpm = compute_rpm(record.reads, input_reads);
                 entry.kraken_rank = Some(record.tax_level.clone())
             }
         }
@@ -100,7 +100,7 @@ impl PathogenDetection {
                     });
                 entry.metabuli_reads = Some(record.reads);
                 entry.metabuli_name = Some(record.taxname.trim().to_string());
-                entry.metabuli_rpm = compute_rpm(record.reads_direct, input_reads);
+                entry.metabuli_rpm = compute_rpm(record.reads, input_reads);
                 entry.metabuli_rank = Some(record.tax_level.clone());
             }
         }
