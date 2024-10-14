@@ -231,3 +231,14 @@ pub struct PathogenDetectionRecord {
     // pub scan_reads: Option<u64>,
     // pub remap_reads: Option<u64>
 }
+impl PathogenDetectionRecord {
+    pub fn from_bracken() -> () {
+
+    }
+    pub fn from_kraken() -> () {
+
+    }
+    pub fn from_metabuli() -> () {
+        
+    }
+}

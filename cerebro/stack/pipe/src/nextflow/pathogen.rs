@@ -29,8 +29,8 @@ impl PathogenProfileFiles {
             kraken2: get_file_by_name(&path, &id, ".kraken2.report")?,
             bracken: get_file_by_name(&path, &id, ".bracken.report")?,
             metabuli: get_file_by_name(&path, &id, ".metabuli.report")?,
-            sylph: get_file_by_name(&path, &id, ".sylph.report")?,
             kmcp: get_file_by_name(&path, &id, ".kmcp.report")?,
+            sylph: get_file_by_name(&path, &id, ".sylph.report")?,
         })
 
     }

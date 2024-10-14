@@ -160,7 +160,7 @@
                             </select>
                             <div class="my-2 ml-1 inline-flex items-center">
                                 <ActiveIndicator size=0.6 divClass="mt-0.5" active={towerIsActive}></ActiveIndicator>
-                                <span class="text-sm opacity-60 ml-1.5">{selectedTower ?getDateTimeStringUtc(selectedTower.last_ping, true, true) : "No towers selected"}</span>
+                                <span class="text-sm opacity-60 ml-1.5">{selectedTower ? getDateTimeStringUtc(selectedTower.last_ping, true, true) : "No towers selected"}</span>
                             </div>
                         </div>
                     </div>
@@ -168,7 +168,7 @@
                         <div class="w-full">
                             <p class="mb-1"><span class="opacity-60">Pipeline</span></p>
                             <select id="pipelineSelect" class="select" bind:value={selectedPipeline}>
-                                {#each pipelineSelection as pipeline}
+                                {#each pipelineSelection ?? [] as pipeline}
                                     <option value={pipeline}>{pipeline}</option>
                                 {/each}
                             </select>
