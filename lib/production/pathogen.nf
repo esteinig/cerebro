@@ -137,6 +137,7 @@ workflow TaxonomicProfile {
             GanonReads(
                 reads,
                 databases.ganonDatabase,
+                profileParams.ganonDatabasePrefix,
                 profileParams.ganonMultipleMatches
             )
         }
@@ -155,6 +156,7 @@ workflow TaxonomicProfile {
             GanonProfile(
                 reads,
                 databases.ganonDatabase,
+                profileParams.ganonDatabasePrefix,
                 profileParams.ganonMultipleMatches
             )
         }

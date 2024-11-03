@@ -257,6 +257,7 @@ process GanonReads {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(ganonDatabase)
+    val(ganonDatabasePrefix)
     val(ganonMultipleMatches)
 
     output:
@@ -268,7 +269,7 @@ process GanonReads {
     // Sequence abundance configuration for report (--binning
 
     """
-    ganon classify --db-prefix $ganonDatabase --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches 
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches 
     mv ${sampleID}.rep ${sampleID}.reads.ganon.report
     """
 
@@ -284,6 +285,7 @@ process GanonProfile {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(ganonDatabase)
+    val(ganonDatabasePrefix)
     val(ganonMultipleMatches)
 
     output:
@@ -295,7 +297,7 @@ process GanonProfile {
     // Taxonomic abundance configuration for report (default)
 
     """
-    ganon classify --db-prefix $ganonDatabase --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
     mv ${sampleID}.rep ${sampleID}.abundance.ganon.report
     """
 
