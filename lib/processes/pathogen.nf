@@ -225,7 +225,7 @@ process Kmcp {
     label "pathogenProfileKmcp"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.abundance.report"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.tsv"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -234,15 +234,16 @@ process Kmcp {
     val(kmcpLevel)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.reads.kmcp.report"), path("${sampleID}.abundance.kmcp.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.reads.kmcp.tsv"), path("${sampleID}.abundance.kmcp.report"), emit: results)
 
 
     script:
 
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
-    kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -B ${sampleID} -C ${sampleID}.abundance.kmcp.report ${sampleID}.reads.tsv.gz
-    mv ${sampleID}.binning.gz ${sampleID}.reads.kmcp.report
+    kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
+    mv ${sampleID}.binning.gz ${sampleID}.reads.kmcp.tsv
+    mv ${sampleID}.profile ${sampleID}.abundance.kmcp.report
     """
 
 }
