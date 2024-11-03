@@ -281,7 +281,7 @@ process GanonProfile {
     tag { sampleID }
     label "pathogenProfileGanon"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.rep", saveAs: "${sampleID}.abundance.ganon.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.abundance.ganon.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
