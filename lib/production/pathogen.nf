@@ -141,15 +141,15 @@ workflow TaxonomicProfile {
             )
         }
 
-        // if (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || 
-        //    (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) {
-        //     Kmcp(
-        //         reads,
-        //         databases.kmcpDatabase,
-        //         profileParams.kmcpMode,
-        //         profileParams.kmcpLevel
-        //     )
-        // }
+        if ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || 
+           (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) {
+            Kmcp(
+                reads,
+                databases.kmcpDatabase,
+                profileParams.kmcpMode,
+                profileParams.kmcpLevel
+            )
+        }
 
         if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
             GanonProfile(
