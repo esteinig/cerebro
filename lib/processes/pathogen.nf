@@ -296,7 +296,7 @@ process GanonProfile {
 
     """
     ganon classify --db-prefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
-     mv ${sampeleID}.rep ${sampleID}.abundance.ganon.report
+    mv ${sampleID}.rep ${sampleID}.abundance.ganon.report
     """
 
 }
