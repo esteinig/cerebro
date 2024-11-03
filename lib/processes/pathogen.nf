@@ -266,10 +266,10 @@ process GanonReads {
     script:
 
     // Sequence abundance configuration for report (--binning
-    
+
     """
     ganon classify --db-prefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches
-    mv ${sampeleID}.rep ${sampleID}.reads.ganon.report
+    mv ${sampleID}.rep ${sampleID}.reads.ganon.report
     """
 
 }
