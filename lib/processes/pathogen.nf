@@ -6,8 +6,8 @@ process Kraken2 {
     tag { sampleID }
     label "pathogenProfileKraken2"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.reads.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.reads.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -16,13 +16,18 @@ process Kraken2 {
 
     output:
 
-    tuple (val(sampleID), path(krakenDatabase), path("${sampleID}.kraken2.report"), emit: bracken)
-    tuple (val(sampleID), path("${sampleID}.kraken2.report"), path("${sampleID}.kraken2.tsv"), emit: results)
+    tuple (val(sampleID), path(krakenDatabase), path("${sampleID}.kraken2.reads.report"), emit: bracken)
+    tuple (val(sampleID), path("${sampleID}.kraken2.reads.report"), path("${sampleID}.kraken2.reads.tsv"), emit: results)
 
     script:
 
     """
-    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report --paired $forward $reverse
+    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.reads.tsv --report ${sampleID}.kraken2.reads.report --paired $forward $reverse
+
+    if [ ! -f "${sampleID}.kraken2.reads.tsv" ]; then
+        touch "${sampleID}.kraken2.reads.tsv"
+    fi
+    
     """
 
 }
@@ -32,8 +37,8 @@ process Kraken2Nanopore {
     tag { sampleID }
     label "pathogenProfileKraken2"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.reads.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kraken2.reads.report"
 
     input:
     tuple val(sampleID), path(reads)
@@ -42,16 +47,16 @@ process Kraken2Nanopore {
 
     output:
 
-    tuple (val(sampleID), path(krakenDatabase), path("${sampleID}.kraken2.report"), emit: bracken)
-    tuple (val(sampleID), path("${sampleID}.kraken2.report"), path("${sampleID}.kraken2.tsv"), emit: results)
+    tuple (val(sampleID), path(krakenDatabase), path("${sampleID}.kraken2.reads.report"), emit: bracken)
+    tuple (val(sampleID), path("${sampleID}.kraken2.reads.report"), path("${sampleID}.kraken2.reads.tsv"), emit: results)
 
     script:
 
     """
-    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report $reads
+    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.reads.tsv --report ${sampleID}.kraken2.reads.report $reads
     
-    if [ ! -f "${sampleID}.kraken2.tsv" ]; then
-        touch "${sampleID}.kraken2.tsv"
+    if [ ! -f "${sampleID}.kraken2.reads.tsv" ]; then
+        touch "${sampleID}.kraken2.reads.tsv"
     fi
     """
 
@@ -63,7 +68,7 @@ process Bracken {
     tag { sampleID }
     label "pathogenProfileBracken"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.bracken.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.bracken.abundance.report"
 
     input:
     tuple val(sampleID), path(krakenDatabase), path(krakenReport)
@@ -72,17 +77,17 @@ process Bracken {
     val(brackenMinReads)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.bracken.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.bracken.abundance.report"), emit: results)
 
     script:
 
     if (krakenReport.size() == 0) {
         """
-        touch ${sampleID}.bracken.report
+        touch ${sampleID}.bracken.abundance.report
         """
     } else {
         """
-        bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.report
+        bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.abundance.report
         """
     }
 }
@@ -93,8 +98,7 @@ process Sylph {
     tag { sampleID }
     label "pathogenProfileSylph"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.abundance.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -104,7 +108,7 @@ process Sylph {
     val(sylphQueryCompression)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.sylph.abundance.report"), emit: results)
 
     script:
 
@@ -113,9 +117,9 @@ process Sylph {
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${forward}.sylphmpa" ]; then
-        mv ${forward}.sylphmpa ${sampleID}.sylph.report
+        mv ${forward}.sylphmpa ${sampleID}.sylph.abundance.report
     else
-        touch "${sampleID}.sylph.report"
+        touch "${sampleID}.sylph.abundance.report"
     fi
 
     """
@@ -128,8 +132,7 @@ process SylphNanopore {
     tag { sampleID }
     label "pathogenProfileSylph"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.abundance.report"
 
     input:
     tuple val(sampleID), path(reads)
@@ -139,7 +142,7 @@ process SylphNanopore {
     val(sylphQueryCompression)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.sylph.abundance.report"), emit: results)
 
     script:
 
@@ -148,9 +151,9 @@ process SylphNanopore {
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${reads}.sylphmpa" ]; then
-        mv ${reads}.sylphmpa ${sampleID}.sylph.report
+        mv ${reads}.sylphmpa ${sampleID}.sylph.abundance.report
     else
-        touch "${sampleID}.sylph.report"
+        touch "${sampleID}.sylph.abundance.report"
     fi
 
     """
@@ -163,15 +166,15 @@ process Metabuli {
     tag { sampleID }
     label "pathogenProfileMetabuli"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.reads.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.reads.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(metabuliDatabase)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.metabuli.report"), path("${sampleID}.metabuli.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.metabuli.reads.report"), path("${sampleID}.metabuli.reads.tsv"), emit: results)
 
     script:
 
@@ -180,9 +183,9 @@ process Metabuli {
     """
     metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
 
-    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.tsv
+    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
     rm classified/${sampleID}_classifications.tsv
-    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.report
+    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
     """
 
 }
@@ -193,15 +196,15 @@ process MetabuliNanopore {
     tag { sampleID }
     label "pathogenProfileMetabuli"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.tsv"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.reads.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.metabuli.reads.report"
 
     input:
     tuple val(sampleID), path(reads)
     path(metabuliDatabase)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.metabuli.report"), path("${sampleID}.metabuli.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.metabuli.reads.report"), path("${sampleID}.metabuli.reads.tsv"), emit: results)
 
     script:
 
@@ -210,9 +213,9 @@ process MetabuliNanopore {
     """
     metabuli classify --max-ram $memoryLimit --threads $task.cpus --seq-mode 3 $reads $metabuliDatabase classified/ $sampleID
 
-    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.tsv
+    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
     rm classified/${sampleID}_classifications.tsv
-    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.report
+    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
     """
 
 }
@@ -234,7 +237,7 @@ process Kmcp {
     val(kmcpLevel)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.reads.kmcp.tsv"), path("${sampleID}.abundance.kmcp.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.kmcp.reads.tsv"), path("${sampleID}.kmcp.abundance.report"), emit: results)
 
 
     script:
@@ -242,8 +245,8 @@ process Kmcp {
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
     kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
-    mv ${sampleID}.binning.gz ${sampleID}.reads.kmcp.tsv
-    mv ${sampleID}.profile ${sampleID}.abundance.kmcp.report
+    mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv
+    mv ${sampleID}.profile ${sampleID}.kmcp.abundance.report
     """
 
 }
@@ -253,7 +256,8 @@ process GanonReads {
     tag { sampleID }
     label "pathogenProfileGanon"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.reads.ganon.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.tsv"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -262,16 +266,16 @@ process GanonReads {
     val(ganonMultipleMatches)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.reads.ganon.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.ganon.reads.report"), path("${sampleID}.ganon.reads.tsv"), emit: results)
 
 
     script:
 
-    // Sequence abundance configuration for report (--binning
+    // Sequence abundance configuration for report (--binning)
 
     """
-    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches 
-    mv ${sampleID}.rep ${sampleID}.reads.ganon.report
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one ${sampleID}.ganon.reads.tsv
+    mv ${sampleID}.rep ${sampleID}.ganon.reads.report
     """
 
 }
@@ -281,7 +285,7 @@ process GanonProfile {
     tag { sampleID }
     label "pathogenProfileGanon"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.abundance.ganon.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.abundance.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -290,7 +294,7 @@ process GanonProfile {
     val(ganonMultipleMatches)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.abundance.ganon.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.ganon.abundance.report"), emit: results)
 
 
     script:
@@ -299,7 +303,7 @@ process GanonProfile {
 
     """
     ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
-    mv ${sampleID}.rep ${sampleID}.abundance.ganon.report
+    mv ${sampleID}.rep ${sampleID}.ganon.abundance.report
     """
 
 }
