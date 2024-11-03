@@ -27,7 +27,7 @@ process Kraken2 {
     if [ ! -f "${sampleID}.kraken2.reads.tsv" ]; then
         touch "${sampleID}.kraken2.reads.tsv"
     fi
-    
+
     """
 
 }
@@ -274,8 +274,9 @@ process GanonReads {
     // Sequence abundance configuration for report (--binning)
 
     """
-    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one ${sampleID}.ganon.reads.tsv
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one
     mv ${sampleID}.rep ${sampleID}.ganon.reads.report
+    mv ${sampleID}.one ${sampleID}.ganon.reads.tsv
     """
 
 }
