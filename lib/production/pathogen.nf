@@ -6,7 +6,7 @@
 
 include { QualityControl; QualityControlNanopore } from "./quality";
 include { Vircov; VircovNanopore } from "../processes/pathogen";
-include { Kraken2; Bracken; Metabuli; Sylph; Kmcp } from "../processes/pathogen";
+include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile } from "../processes/pathogen";
 
 include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore } from "../processes/pathogen";
 
