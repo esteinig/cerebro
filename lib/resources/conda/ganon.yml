@@ -1,0 +1,6 @@
+name: cerebro-ganon
+channels:
+  - conda-forge        
+  - bioconda    
+dependencies:
+  - ganon=2.1.0

@@ -99,7 +99,6 @@ workflow TaxonomicProfile {
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
 
-
         if (profileParams.alignment) {
             Vircov(
                 reads,
@@ -115,14 +114,14 @@ workflow TaxonomicProfile {
             Kraken2(
                 reads,
                 databases.krakenDatabase,
-                profileParams.classifierKrakenConfidence
+                profileParams.krakenConfidence
             )
             if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
                 Bracken(
                     Kraken2.out.bracken,
-                    profileParams.profilerBrackenReadLength,
-                    profileParams.profilerBrackenRank,
-                    profileParams.profilerBrackenMinReads
+                    profileParams.brackenReadLength,
+                    profileParams.brackenRank,
+                    profileParams.brackenMinReads
                 )
             }
         }
@@ -134,19 +133,40 @@ workflow TaxonomicProfile {
             )
         }
 
+        if (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) {
+            GanonReads(
+                reads,
+                databases.ganonDatabase,
+                profileParams.ganonMultipleMatches
+            )
+        }
+
+        if (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || 
+           (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) {
+            Kmcp(
+                reads,
+                databases.kmcpDatabase,
+                profileParams.kmcpMode,
+                profileParams.kmcpLevel
+            )
+        }
+
+        if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
+            GanonProfile(
+                reads,
+                databases.ganonDatabase,
+                profileParams.ganonMultipleMatches
+            )
+        }
+
+
         if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
             Sylph(
                 reads,
                 databases.sylphDatabase,
-                databases.sylphMetadata
-            )
-        }
-
-        if (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) {
-            Kmcp(
-                reads,
-                databases.kmcpDatabase,
-                profileParams.profilerKmcpMode
+                databases.sylphMetadata,
+                profileParams.sylphMinNumberKmers,
+                profileParams.sylphQueryCompression
             )
         }
 }
@@ -175,14 +195,14 @@ workflow TaxonomicProfileNanopore {
             Kraken2Nanopore(
                 reads,
                 databases.krakenDatabase,
-                profileParams.classifierKrakenConfidence
+                profileParams.krakenConfidence
             )
             if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
                 BrackenNanopore(
                     Kraken2Nanopore.out.bracken,
-                    profileParams.profilerBrackenReadLength,
-                    profileParams.profilerBrackenRank,
-                    profileParams.profilerBrackenMinReads
+                    profileParams.brackenReadLength,
+                    profileParams.brackenRank,
+                    profileParams.brackenMinReads
                 )
             }
         }
@@ -198,7 +218,9 @@ workflow TaxonomicProfileNanopore {
             SylphNanopore(
                 reads,
                 databases.sylphDatabase,
-                databases.sylphMetadata
+                databases.sylphMetadata,
+                profileParams.sylphMinNumberKmers,
+                profileParams.sylphQueryCompression
             )
         }
 }

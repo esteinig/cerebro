@@ -86,13 +86,14 @@ def getTaxonomicProfileDatabases() {
     def profileParams = params.pathogenDetection.taxonomicProfile;
 
     return [
-        vircovDatabase:     profileParams.alignment                                                         ?  getPathogenProfileVircovDatabase(profileParams)        :  Channel.empty(),
-        krakenDatabase:     profileParams.classifier && profileParams.classifierMethod.contains("kraken2")  ?  getPathogenProfileKrakenDatabase(profileParams)        :  Channel.empty(),
-        metabuliDatabase:   profileParams.classifier && profileParams.classifierMethod.contains("metabuli") ?  getPathogenProfileMetabuliDatabase(profileParams)      :  Channel.empty(),
-        sylphDatabase:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")        ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
-        sylphMetadata:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")        ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
-        kmcpDatabase:       profileParams.profiler && profileParams.profilerMethod.contains("kmcp")         ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
-    ]
+        vircovDatabase:     profileParams.alignment                                                                                                         ?  getPathogenProfileVircovDatabase(profileParams)        :  Channel.empty(),
+        krakenDatabase:     profileParams.classifier && profileParams.classifierMethod.contains("kraken2")                                                  ?  getPathogenProfileKrakenDatabase(profileParams)        :  Channel.empty(),
+        metabuliDatabase:   profileParams.classifier && profileParams.classifierMethod.contains("metabuli")                                                 ?  getPathogenProfileMetabuliDatabase(profileParams)      :  Channel.empty(),
+        sylphDatabase:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")                                                        ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
+        sylphMetadata:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")                                                        ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
+        kmcpDatabase:       profileParams.profiler && (profileParams.classifierMethod.contains("kmcp") || profileParams.profilerMethod.contains("kmcp"))    ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
+        ganonDatabase:      profileParams.profiler && (profileParams.classifierMethod.contains("ganon") || profileParams.profilerMethod.contains("ganon"))  ?  getPathogenProfileGanonDatabase(profileParams)          :  Channel.empty(),
+  ]
 }
 
 def getPathogenProfileVircovDatabase(profileParams) {
@@ -107,36 +108,43 @@ def getPathogenProfileVircovDatabase(profileParams) {
 def getPathogenProfileKrakenDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.classifierKrakenIndex, 
+        profileParams.krakenIndex, 
         "pathogen detection :: tax profile :: kraken"
     )
 }
 def getPathogenProfileMetabuliDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.classifierMetabuliIndex, 
+        profileParams.metabuliIndex, 
         "pathogen detection :: tax profile :: metabuli"
     )
 }
 def getPathogenProfileSylphDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.profilerSylphIndex, 
+        profileParams.sylphIndex, 
         "pathogen detection :: tax profile :: sylph"
     )
 }
 def getPathogenProfileSylphDatabaseMetadata(profileParams) {
 
     return getFilePath(
-        profileParams.profilerSylphMetadata,
+        profileParams.sylphMetadata,
         "pathogen detection :: tax profile :: sylph meta"
     )
 }
 def getPathogenProfileKmcpDatabase(profileParams) {
 
     return getFilePath(
-        profileParams.profilerKmcpIndex, 
+        profileParams.kmcpIndex, 
         "pathogen detection :: tax profile :: kmcp"
+    )
+}
+def getPathogenProfileGanonDatabase(profileParams) {
+
+    return getFilePath(
+        profileParams.ganonIndex, 
+        "pathogen detection :: tax profile :: ganon"
     )
 }
 

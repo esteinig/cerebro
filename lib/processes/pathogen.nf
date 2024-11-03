@@ -12,7 +12,7 @@ process Kraken2 {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(krakenDatabase)
-    val(classifierKrakenConfidence)
+    val(krakenConfidence)
 
     output:
 
@@ -22,7 +22,7 @@ process Kraken2 {
     script:
 
     """
-    kraken2 --db $krakenDatabase --confidence $classifierKrakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report --paired $forward $reverse
+    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report --paired $forward $reverse
     """
 
 }
@@ -38,7 +38,7 @@ process Kraken2Nanopore {
     input:
     tuple val(sampleID), path(reads)
     path(krakenDatabase)
-    val(classifierKrakenConfidence)
+    val(krakenConfidence)
 
     output:
 
@@ -48,7 +48,7 @@ process Kraken2Nanopore {
     script:
 
     """
-    kraken2 --db $krakenDatabase --confidence $classifierKrakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report $reads
+    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.tsv --report ${sampleID}.kraken2.report $reads
     
     if [ ! -f "${sampleID}.kraken2.tsv" ]; then
         touch "${sampleID}.kraken2.tsv"
@@ -67,9 +67,9 @@ process Bracken {
 
     input:
     tuple val(sampleID), path(krakenDatabase), path(krakenReport)
-    val(profilerBrackenReadLength)
-    val(profilerBrackenRank)
-    val(profilerBrackenMinReads)
+    val(brackenReadLength)
+    val(brackenRank)
+    val(brackenMinReads)
 
     output:
     tuple (val(sampleID), path("${sampleID}.bracken.report"), emit: results)
@@ -82,7 +82,7 @@ process Bracken {
         """
     } else {
         """
-        bracken -d $krakenDatabase -i $krakenReport -r $profilerBrackenReadLength -l $profilerBrackenRank -t $profilerBrackenMinReads -o ${sampleID}.bracken.report
+        bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.report
         """
     }
 }
@@ -99,7 +99,9 @@ process Sylph {
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(sylphDatabase)
-    path(profilerSylphMetadata)
+    path(sylphMetadata)
+    path(sylphMinNumberKmers)
+    path(sylphQueryCompression)
 
     output:
     tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
@@ -107,8 +109,8 @@ process Sylph {
     script:
 
     """
-    sylph profile $sylphDatabase -1 $forward -2 $reverse -c 100 --min-number-kmers 20 -t $task.cpus > ${sampleID}.sylph.tsv
-    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
+    sylph profile $sylphDatabase -1 $forward -2 $reverse -c $sylphQueryCompression --min-number-kmers $sylphMinNumberKmers -t $task.cpus > ${sampleID}.sylph.tsv
+    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${reads}.sylphmpa" ]; then
         mv ${reads}.sylphmpa ${sampleID}.sylph.report
@@ -132,7 +134,9 @@ process SylphNanopore {
     input:
     tuple val(sampleID), path(reads)
     path(sylphDatabase)
-    path(profilerSylphMetadata)
+    path(sylphMetadata)
+    path(sylphMinNumberKmers)
+    path(sylphQueryCompression)
 
     output:
     tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
@@ -140,8 +144,8 @@ process SylphNanopore {
     script:
 
     """
-    sylph profile $sylphDatabase $reads -t $task.cpus > ${sampleID}.sylph.tsv
-    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $profilerSylphMetadata -s ${sampleID}.sylph.tsv -o "" 
+    sylph profile $sylphDatabase $reads -c $sylphQueryCompression --min-number-kmers $sylphMinNumberKmers -t $task.cpus > ${sampleID}.sylph.tsv
+    python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${reads}.sylphmpa" ]; then
         mv ${reads}.sylphmpa ${sampleID}.sylph.report
@@ -220,22 +224,79 @@ process Kmcp {
     tag { sampleID }
     label "pathogenProfileKmcp"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.abundance.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.report"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(kmcpDatabase)
-    val(profilerKmcpMode)
+    val(kmcpMode)
+    val(kmcpLevel)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.kmcp.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.reads.kmcp.report"), path("${sampleID}.abundance.kmcp.report"), emit: results)
 
 
     script:
 
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
-    kmcp profile --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxdump --mode $profilerKmcpMode -o ${sampleID}.kmcp.report ${sampleID}.reads.tsv.gz
+    kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -B ${sampleID} -C ${sampleID}.abundance.kmcp.report ${sampleID}.reads.tsv.gz
+    mv ${sampleID}.binning.gz ${sampleID}.reads.kmcp.report
+    """
+
+}
+
+process GanonReads { 
+
+    tag { sampleID }
+    label "pathogenProfileGanon"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.reads.ganon.report"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    path(ganonDatabase)
+    val(ganonMultipleMatches)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.reads.ganon.report"), emit: results)
+
+
+    script:
+
+    // Sequence abundance configuration for report (--binning
+    
+    """
+    ganon classify --db-prefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches
+    mv ${sampeleID}.rep ${sampleID}.reads.ganon.report
+    """
+
+}
+
+process GanonProfile { 
+
+    tag { sampleID }
+    label "pathogenProfileGanon"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.rep", saveAs: "${sampleID}.abundance.ganon.report"
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    path(ganonDatabase)
+    val(ganonMultipleMatches)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.abundance.ganon.report"), emit: results)
+
+
+    script:
+
+    // Taxonomic abundance configuration for report (default)
+
+    """
+    ganon classify --db-prefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
+     mv ${sampeleID}.rep ${sampleID}.abundance.ganon.report
     """
 
 }
