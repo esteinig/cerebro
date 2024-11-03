@@ -112,8 +112,8 @@ process Sylph {
     sylph profile $sylphDatabase -1 $forward -2 $reverse -c $sylphQueryCompression --min-number-kmers $sylphMinNumberKmers -t $task.cpus > ${sampleID}.sylph.tsv
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
-    if [ -f "${reads}.sylphmpa" ]; then
-        mv ${reads}.sylphmpa ${sampleID}.sylph.report
+    if [ -f "${forward}.sylphmpa" ]; then
+        mv ${forward}.sylphmpa ${sampleID}.sylph.report
     else
         touch "${sampleID}.sylph.report"
     fi
