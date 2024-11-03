@@ -100,8 +100,8 @@ process Sylph {
     tuple val(sampleID), path(forward), path(reverse)
     path(sylphDatabase)
     path(sylphMetadata)
-    path(sylphMinNumberKmers)
-    path(sylphQueryCompression)
+    val(sylphMinNumberKmers)
+    val(sylphQueryCompression)
 
     output:
     tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
@@ -135,8 +135,8 @@ process SylphNanopore {
     tuple val(sampleID), path(reads)
     path(sylphDatabase)
     path(sylphMetadata)
-    path(sylphMinNumberKmers)
-    path(sylphQueryCompression)
+    val(sylphMinNumberKmers)
+    val(sylphQueryCompression)
 
     output:
     tuple (val(sampleID), path("${sampleID}.sylph.tsv"), path("${sampleID}.sylph.report"), emit: results)
