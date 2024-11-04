@@ -316,6 +316,8 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     // Join filtered lines into a single String, separated by newlines
     let filtered_content = filtered_lines.join("\n");
 
+    log::info!("Filtered content: {filtered_content}");
+
     // Use a Cursor to read this content as CSV input
     let mut csv_reader = ReaderBuilder::new()
         .has_headers(header)
