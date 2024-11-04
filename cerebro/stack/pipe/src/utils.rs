@@ -307,7 +307,6 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     let file = File::open(file)?;
     let reader = BufReader::new(file);
 
-    // Filter lines starting with '#'
     let filtered_lines: Vec<String> = reader.lines()
         .filter_map(Result::ok)
         .filter(|line| !line.starts_with(skip))
@@ -316,7 +315,6 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     // Join filtered lines into a single String, separated by newlines
     let filtered_content = filtered_lines.join("\n");
 
-    log::info!("Filtered content: {filtered_content}");
 
     // Use a Cursor to read this content as CSV input
     let mut csv_reader = ReaderBuilder::new()
@@ -329,7 +327,6 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     for result in csv_reader.deserialize() {
         let record = result?;
         records.push(record);
-        log::info!("Pushed record");
     }
 
     Ok(records)

@@ -389,7 +389,7 @@ impl KmcpReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv_skip(path, false, false, '@')? 
+            records: read_tsv(path, false, false)? 
         })
     }
 }
@@ -441,7 +441,7 @@ impl SylphReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv_skip(path, false, true, '#')? 
+            records: read_tsv(path, false, true)? 
         })
     }
 }
