@@ -322,11 +322,7 @@ pub struct GanonReportRecord {
 pub struct SylphReportRecord {
     pub clade_name: String,
     pub relative_abundance: f64,
-    pub sequence_abundance: f64,
-    #[serde(rename(deserialize = "ANI (if strain-level)"))]
-    pub ani: f64,
-    #[serde(rename(deserialize = "Coverage (if strain-level)"))]
-    pub coverage: f64
+    pub sequence_abundance: f64
 }
 
 #[derive(Serialize, Deserialize)]
