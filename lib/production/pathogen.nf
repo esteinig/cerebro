@@ -148,7 +148,8 @@ workflow TaxonomicProfile {
                 reads,
                 databases.kmcpDatabase,
                 profileParams.kmcpMode,
-                profileParams.kmcpLevel
+                profileParams.kmcpLevel,
+                profileParams.kmcpMinQueryCoverage
             )
         }
 

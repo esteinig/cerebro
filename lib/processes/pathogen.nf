@@ -224,14 +224,16 @@ process Kmcp {
     tag { sampleID }
     label "pathogenProfileKmcp"
 
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.report"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.abundance.report"
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.tsv.gz"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
     path(kmcpDatabase)
     val(kmcpMode)
     val(kmcpLevel)
+    val(kmcpMinQueryCoverage)
 
     output:
     tuple (val(sampleID), path("${sampleID}.kmcp.reads.tsv"), path("${sampleID}.kmcp.abundance.report"), emit: results)
@@ -241,9 +243,10 @@ process Kmcp {
 
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
-    kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
-    mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv
+    kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -t $kmcpMinQueryCoverage -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
+    mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv.gz
     tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
+    tail -n +6 ${sampleID}.k.report > ${sampleID}.kmcp.reads.report
     """
 
 }
