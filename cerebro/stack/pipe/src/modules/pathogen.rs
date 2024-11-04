@@ -46,6 +46,8 @@ impl PathogenDetection {
     pub fn from_pathogen(output: &PathogenOutput, quality: &QualityControl) -> Result<Self, WorkflowError> {
 
         let input_reads = quality.reads.input_reads;
+        let classifier_reads = quality.reads.output_reads;
+
         let mut detection_map: HashMap<String, PathogenDetectionRecord> = HashMap::new();
 
         // Process KrakenReport
@@ -55,7 +57,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
                     .or_insert(PathogenDetectionRecord::default());
-                entry.set_kraken(taxid, record, input_reads); 
+                entry.set_kraken(taxid, record, input_reads, classifier_reads); 
             }
         }
 
@@ -66,7 +68,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
                     .or_insert(PathogenDetectionRecord::default());
-                entry.set_metabuli(taxid, record, input_reads); 
+                entry.set_metabuli(taxid, record, input_reads, classifier_reads); 
             }
         }
 
@@ -76,7 +78,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
                 .or_insert(PathogenDetectionRecord::default());
-                entry.set_bracken(taxid, record, input_reads); 
+                entry.set_bracken(taxid, record, input_reads, classifier_reads); 
             }
         }
 
@@ -87,7 +89,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
                 .or_insert(PathogenDetectionRecord::default());
-                entry.set_kmcp(taxid, record, input_reads); 
+                entry.set_kmcp(taxid, record, input_reads, classifier_reads); 
             }
         }
         
@@ -99,10 +101,10 @@ impl PathogenDetection {
                 if rank == PathogenDetectionRank::Strain {
                     continue;
                 }
-                
+
                 let entry = detection_map.entry(taxid.to_string())
                     .or_insert(PathogenDetectionRecord::default());
-                entry.set_sylph(taxid, rank, record, input_reads);
+                entry.set_sylph(taxid, rank, record, input_reads, classifier_reads);
             }
         }
 
@@ -123,7 +125,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.to_string())
                     .or_insert(PathogenDetectionRecord::default());
-                entry.set_ganon_profile(taxid, record, input_reads);
+                entry.set_ganon_profile(taxid, record, input_reads, classifier_reads);
             }
         }
 
@@ -372,9 +374,9 @@ impl PathogenDetectionRecord {
             ..Default::default()
         }
     }
-    pub fn set_kraken(&mut self, taxid: String, record: &KrakenReportRecord, input_reads: u64) -> () {
+    pub fn set_kraken(&mut self, taxid: String, record: &KrakenReportRecord, input_reads: u64, classifier_reads: u64) -> () {
         
-        let sequence_abundance = (record.reads as f64 / input_reads as f64)*100.0;
+        let sequence_abundance = (record.reads as f64 / classifier_reads as f64)*100.0;
 
         self.taxid = taxid;
         self.kraken_sequence_reads = Some(record.reads);
@@ -383,9 +385,9 @@ impl PathogenDetectionRecord {
         self.kraken_sequence_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
         self.kraken_sequence_abundance = Some(sequence_abundance);
     }
-    pub fn set_bracken(&mut self, taxid: String, record: &BrackenReportRecord, input_reads: u64) -> () {
+    pub fn set_bracken(&mut self, taxid: String, record: &BrackenReportRecord, input_reads: u64, classifier_reads: u64) -> () {
 
-        let profile_abundance = (record.reads as f64 / input_reads as f64)*100.0;
+        let profile_abundance = (record.reads as f64 / classifier_reads as f64)*100.0;
 
         self.taxid = taxid;
         self.bracken_profile_reads = Some(record.reads);
@@ -395,9 +397,9 @@ impl PathogenDetectionRecord {
 
         self.bracken_profile_abundance = Some(profile_abundance);
     }
-    pub fn set_metabuli(&mut self, taxid: String, record: &MetabuliReportRecord, input_reads: u64) -> () {
+    pub fn set_metabuli(&mut self, taxid: String, record: &MetabuliReportRecord, input_reads: u64, classifier_reads: u64) -> () {
 
-        let sequence_abundance = (record.reads as f64 / input_reads as f64)*100.0;
+        let sequence_abundance = (record.reads as f64 / classifier_reads as f64)*100.0;
 
         self.taxid = taxid;
         self.metabuli_sequence_reads = Some(record.reads);
@@ -406,11 +408,11 @@ impl PathogenDetectionRecord {
         self.metabuli_sequence_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
         self.metabuli_sequence_abundance = Some(sequence_abundance);
     }
-    pub fn set_kmcp(&mut self, taxid: String, record: &KmcpReportRecord, input_reads: u64) -> () {
+    pub fn set_kmcp(&mut self, taxid: String, record: &KmcpReportRecord, input_reads: u64, classifier_reads: u64) -> () {
         
         self.taxid = taxid;
 
-        let estimated_reads = ((record.abundance/100.0)*input_reads as f64) as u64;
+        let estimated_reads = ((record.abundance/100.0)*classifier_reads as f64) as u64;
         let taxname = record.taxname_lineage.split("|").last();
 
         self.kmcp_profile_reads = Some(estimated_reads);
@@ -430,11 +432,11 @@ impl PathogenDetectionRecord {
         self.ganon_sequence_abundance = Some(record.cumulative_percent);
 
     }
-    pub fn set_ganon_profile(&mut self, taxid: String, record: &GanonReportRecord, input_reads: u64) -> () {
+    pub fn set_ganon_profile(&mut self, taxid: String, record: &GanonReportRecord, input_reads: u64, classifier_reads: u64) -> () {
         
         self.taxid = taxid;
 
-        let estimated_reads = ((record.cumulative_percent/100.0)*input_reads as f64) as u64;
+        let estimated_reads = ((record.cumulative_percent/100.0)*classifier_reads as f64) as u64;
 
         self.ganon_profile_reads = Some(estimated_reads);
         self.ganon_profile_rpm = compute_rpm(estimated_reads, input_reads);
@@ -443,11 +445,11 @@ impl PathogenDetectionRecord {
         self.ganon_profile_abundance = Some(record.cumulative_percent);
 
     }
-    pub fn set_sylph(&mut self, taxid: String, tax_level: PathogenDetectionRank, record: &SylphReportRecord, input_reads: u64) -> () {
+    pub fn set_sylph(&mut self, taxid: String, tax_level: PathogenDetectionRank, record: &SylphReportRecord, input_reads: u64, classifier_reads: u64) -> () {
         
         self.taxid = taxid.clone();
 
-        let estimated_sequence_reads = ((record.sequence_abundance/100.0)*input_reads as f64) as u64;
+        let estimated_sequence_reads = ((record.sequence_abundance/100.0)*classifier_reads as f64) as u64;
 
         self.sylph_sequence_reads = Some(estimated_sequence_reads);
         self.sylph_sequence_rpm = compute_rpm(estimated_sequence_reads, input_reads);
@@ -455,7 +457,7 @@ impl PathogenDetectionRecord {
         self.sylph_sequence_rank = Some(tax_level.clone());
         self.sylph_sequence_abundance = Some(record.sequence_abundance);
 
-        let estimated_abundance_reads = ((record.relative_abundance/100.0)*input_reads as f64) as u64;
+        let estimated_abundance_reads = ((record.relative_abundance/100.0)*classifier_reads as f64) as u64;
 
         self.sylph_profile_reads = Some(estimated_abundance_reads);
         self.sylph_profile_rpm = compute_rpm(estimated_abundance_reads, input_reads);

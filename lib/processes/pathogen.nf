@@ -1,6 +1,3 @@
-
-
-
 process Kraken2 {
 
     tag { sampleID }
