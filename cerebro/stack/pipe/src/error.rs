@@ -43,6 +43,9 @@ pub enum WorkflowError {
 
     #[error("Failed to detect required output file")]
     PipelineOutputNotFound,
+    #[error("lineage string is too short: {0}")]
+    LineageStringTooShort(String),
+
 
     /// Represents an error when failing to extract a sequence record header.
     #[error("failed to extract sequence record header")]

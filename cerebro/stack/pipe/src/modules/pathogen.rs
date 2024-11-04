@@ -1,8 +1,7 @@
 use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 
-use env_logger::filter;
 use serde::{Deserialize, Serialize};
-use taxonomy::{ncbi, GeneralTaxonomy, TaxRank};
+use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
 
 use crate::{error::WorkflowError, nextflow::pathogen::{BrackenReportRecord, GanonReportRecord, KmcpAbundanceReportRecord, KmcpReadsReportRecord, KrakenReportRecord, MetabuliReportRecord, PathogenOutput, SylphReportRecord}, utils::{read_tsv, write_tsv}};
 
@@ -15,6 +14,7 @@ pub struct PathogenDetectionTableRecord {
     taxid: String,
     rank: Option<TaxRank>,
     name: Option<String>,
+    lineage: Option<String>,
     kraken_reads: Option<u64>,
     kraken_rpm: Option<f64>,
     bracken_reads: Option<u64>,
@@ -26,15 +26,38 @@ pub struct PathogenDetectionTableRecord {
     kmcp_reads: Option<u64>,
     kmcp_rpm: Option<f64>,
     sylph_reads: Option<u64>,
-    sylph_rpm: Option<f64>
+    sylph_rpm: Option<f64>,
 }
 impl PathogenDetectionTableRecord {
-    pub fn from_pathogen_detection_record(id: &str, record: &PathogenDetectionRecord, taxonomy: Option<&GeneralTaxonomy>) -> Self {
-        Self {
+    pub fn from_record(id: &str, record: &PathogenDetectionRecord, taxonomy: Option<&GeneralTaxonomy>) -> Result<Self, WorkflowError> {
+        let taxid = record.taxid.as_str();
+
+        let (rank, name, lineage) = match taxonomy {
+            Some(taxonomy) => {
+                let rank = taxonomy.rank(record.taxid.as_str())?;
+                let name = taxonomy.name(record.taxid.as_str())?.to_string();
+                
+                let lineage = vec![
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Superkingdom)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Phylum)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Class)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Order)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Family)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Genus)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                    taxonomy.name(taxonomy.parent_at_rank(taxid, TaxRank::Species)?.unwrap_or(("", 0.0)).0).unwrap_or(""),
+                ].into_iter().map(String::from).collect::<Vec<_>>();
+
+                (Some(rank), Some(name), Some(Self::lineage_to_str(lineage)?))
+            },
+            None => (None, None, None)
+        };
+
+        Ok(Self {
             id: id.to_string(),
             taxid: record.taxid.clone(),
-            rank: None,
-            name: None,
+            rank,
+            name,
+            lineage,
             kraken_reads: record.kraken_sequence_reads,
             kraken_rpm: record.kraken_sequence_rpm,
             bracken_reads: record.bracken_profile_reads,
@@ -47,6 +70,18 @@ impl PathogenDetectionTableRecord {
             kmcp_rpm: record.kmcp_sequence_rpm,
             sylph_reads: record.sylph_sequence_reads,
             sylph_rpm: record.sylph_sequence_rpm
+        })
+    }
+
+    pub fn lineage_to_str(lineage: Vec<String>) -> Result<String, WorkflowError> {
+        if lineage.len() >= 7 {
+            let base_lineage = format!(
+                "d__{};p__{};c__{};o__{};f__{};g__{};s__{}",
+                lineage[0], lineage[1], lineage[2], lineage[3], lineage[4], lineage[5], lineage[6]
+            );
+            Ok(base_lineage)
+        } else {
+            Err(WorkflowError::LineageStringTooShort(lineage.join(", ")))
         }
     }
 }
@@ -75,7 +110,13 @@ pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory
             None => pd.records,
         };
         for record in records {
-            table_records.push(PathogenDetectionTableRecord::from_pathogen_detection_record(&pd.id, &record, taxonomy.as_ref()))
+            table_records.push(
+                PathogenDetectionTableRecord::from_record(
+                    &pd.id, 
+                    &record, 
+                    taxonomy.as_ref()
+                )
+            ?)
         }
     }
 
