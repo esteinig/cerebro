@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use vircov::vircov::VircovSummary;
@@ -312,7 +313,7 @@ pub struct KmcpAbundanceReportRecord {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct KmcpReadsReportRecord {
     pub taxid: String,
     pub rank: String,
@@ -405,7 +406,6 @@ impl KmcpAbundanceReport {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct KmcpReadsReport {
     pub id: String,
@@ -418,6 +418,30 @@ impl KmcpReadsReport {
             id: id.to_string(), 
             path: path.to_path_buf(), 
             records: read_tsv(path, false, true)? 
+        })
+    }
+    
+    pub fn get_taxid_report(&self) -> Result<KmcpReadsReport, WorkflowError> {
+        let mut grouped_records: HashMap<String, KmcpReadsReportRecord> = HashMap::new();
+
+        for record in &self.records {
+            let taxid = &record.taxid;
+            if let Some(existing_record) = grouped_records.get_mut(taxid) {
+                // Sum the reads
+                existing_record.reads += record.reads;
+            } else {
+                // Insert a clone of the record
+                grouped_records.insert(taxid.clone(), record.clone());
+            }
+        }
+
+        // Collect the grouped records into a vector
+        let new_records: Vec<KmcpReadsReportRecord> = grouped_records.into_values().collect();
+
+        Ok(KmcpReadsReport {
+            id: self.id.clone(),
+            path: self.path.clone(),
+            records: new_records,
         })
     }
 }

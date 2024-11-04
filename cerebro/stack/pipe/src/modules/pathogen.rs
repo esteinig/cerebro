@@ -96,7 +96,11 @@ impl PathogenDetection {
 
         // Process KmcpReadsReport
         if let Some(kmcp_report) = &output.profile.kmcp_reads {
-            for record in &kmcp_report.records {
+            
+            // Group records by taxonomic identifier and sum the read counts
+            let kmcp_taxid_report = kmcp_report.get_taxid_report()?;
+
+            for record in &kmcp_taxid_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
                 .or_insert(PathogenDetectionRecord::default());
@@ -128,7 +132,6 @@ impl PathogenDetection {
                 entry.set_ganon_sequence(taxid, record, input_reads, classifier_reads, paired_end);
             }
         }
-
 
         // Process GanonAbundanceReport
         if let Some(ganon_profile_report) = &output.profile.ganon_abundance {
