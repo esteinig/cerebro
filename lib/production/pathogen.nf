@@ -6,7 +6,7 @@
 
 include { QualityControl; QualityControlNanopore } from "./quality";
 include { Vircov; VircovNanopore } from "../processes/pathogen";
-include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile } from "../processes/pathogen";
+include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile, ProcessOutput, PathogenDetectionTable } from "../processes/pathogen";
 
 include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore } from "../processes/pathogen";
 
@@ -38,7 +38,8 @@ workflow PathogenDetection {
         if (params.pathogenDetection.taxonomicProfile.enabled) {
             TaxonomicProfile(
                 QualityControl.out.reads, 
-                taxonomicProfileDatabases
+                taxonomicProfileDatabases,
+                QualityControl.out.results
             )
         }
         
@@ -95,7 +96,8 @@ workflow PathogenDetectionNanopore {
 workflow TaxonomicProfile {
     take:
         reads
-        databases
+        databases,
+        qualityControlResults
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
 
@@ -142,8 +144,10 @@ workflow TaxonomicProfile {
             )
         }
 
-        if ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || 
-           (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) {
+        if (
+            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || 
+            (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))
+        ) {
             Kmcp(
                 reads,
                 databases.kmcpDatabase,
@@ -172,6 +176,31 @@ workflow TaxonomicProfile {
                 profileParams.sylphQueryCompression
             )
         }
+
+
+        vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty();
+
+        results = vircovResults.mix(
+            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || 
+            (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? Kmcp.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && 
+            (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? Bracken.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
+        )
+
+        // process results to json and get tables
+        json = results.mix(qualityControlResults) | groupTuple | ProcessOutput
+        tables = json | collect | PathogenDetectionTable
+    
+    emit:
+        reads   = reads
+        results = results
+        tables  = tables
+
 }
 
 

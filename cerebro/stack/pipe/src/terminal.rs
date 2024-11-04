@@ -25,7 +25,7 @@ pub enum Commands {
 
     #[clap(subcommand)]
     /// Pipeline output summary tables
-    Tables(TablesCommands),
+    Table(TableCommands),
 
     #[clap(subcommand)]
     /// Internal pipeline utilities and sample sheets
@@ -34,9 +34,13 @@ pub enum Commands {
 
 
 #[derive(Debug, Subcommand)]
-pub enum TablesCommands {
+pub enum TableCommands {
     /// Quality control tables
     QualityControl(QualityControlTableArgs),
+    /// Pathogen detection (profiling) tables
+    PathogenDetection(PathogenDetectionTableArgs),
+    /// Filter a pathogen detection table
+    FilterTable(FilterTableArgs),
 }
 
 #[derive(Debug, Args)]
@@ -53,6 +57,37 @@ pub struct QualityControlTableArgs {
     /// Background alignment table
     #[clap(long, short = 'b')]
     pub background: PathBuf,
+}
+
+
+#[derive(Debug, Args)]
+pub struct PathogenDetectionTableArgs {
+    /// Pathogen detection summaries (.json)
+    #[clap(long, short = 'j', num_args(0..))]
+    pub json: Vec<PathBuf>,
+    /// Reference taxonomy to extract rank and name for taxonomic identifiers
+    #[clap(long, short = 'x')]
+    pub taxonomy: Option<PathBuf>,
+    /// Output table for aggregated taxon reads per million
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+    /// Provide filters as JSON
+    #[clap(long, short = 'f')]
+    pub filter_json: Option<PathBuf>
+}
+
+
+#[derive(Debug, Args)]
+pub struct FilterTableArgs {
+    /// Pathogen detection summaries (.json)
+    #[clap(long, short = 't', num_args(0..))]
+    pub table: Vec<PathBuf>,
+    /// Output table for aggregated taxon reads per million
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+    /// Provide filters as JSON
+    #[clap(long, short = 'f')]
+    pub filter_json: Option<PathBuf>
 }
 
 #[derive(Debug, Subcommand)]

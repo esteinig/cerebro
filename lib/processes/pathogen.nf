@@ -601,3 +601,47 @@ process VircovNanopore {
     """
     
 }
+
+// Illumina PE
+process ProcessOutput {
+    
+    tag { sampleID }
+    label "cerebro"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
+
+    input:
+    tuple val(sampleID), path(result_files)
+
+    output:
+    tuple (path("${sampleID}.qc.json"), path("${sampleID}.pd.json"), emit: results)
+
+    script:
+
+    """
+    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end
+    """
+    
+}
+
+// Illumina PE
+process PathogenDetectionTable {
+    
+    label "cerebro"
+
+    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "pd_rpm.tsv"
+
+    input:
+    path(result_files)
+    path(taxonomy_directory)
+
+    output:
+    tuple path("pd_rpm.tsv")
+
+    script:
+
+    """
+    cerebro-pipe table pathogen-detection --json *.pd.json --output pd_rpm.tsv --taxonomy $taxonomy_directory
+    """
+    
+}

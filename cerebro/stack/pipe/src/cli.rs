@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::{pathogen::{PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_tsv, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TablesCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipe::{modules::{pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
                     let pathogen_detection = PathogenDetection::from_pathogen(&output, &quality_control, args.paired_end)?;
 
                     quality_control.to_json(&args.qc)?;
-                    pathogen_detection.to_tsv(&args.pathogen)?;
+                    pathogen_detection.to_json(&args.pathogen)?;
                     
                     if let Some(path) = &args.filter_pathogen {
 
@@ -142,11 +142,29 @@ fn main() -> anyhow::Result<()> {
             }
         },
 
-        Commands::Tables(subcommand) => {
+        Commands::Table(subcommand) => {
             match subcommand {
 
-                TablesCommands::QualityControl(args) => {
-                    write_quality_tsv(&args.json, &args.reads, &args.controls, &args.background)?
+                TableCommands::QualityControl(args) => {
+                    write_quality_table(
+                        &args.json, 
+                        &args.reads, 
+                        &args.controls, 
+                        &args.background
+                    )?
+                },
+
+                TableCommands::PathogenDetection(args) => {
+                    write_pathogen_table(
+                        &args.json, 
+                        &args.output, 
+                        args.taxonomy.clone(), 
+                        args.filter_json.clone()
+                    )?
+                }
+
+                TableCommands::FilterTable(args) => {
+                    
                 }
             }
         }

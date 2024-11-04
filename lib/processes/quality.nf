@@ -420,7 +420,7 @@ process QualityControlTables {
     
     label "cerebro"
 
-    publishDir "$params.outputDirectory/quality", mode: "copy", pattern: "*.tsv"
+    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "*.tsv"
 
     input:
     path(result_files)
@@ -431,7 +431,7 @@ process QualityControlTables {
     script:
 
     """
-    cerebro-pipe tables quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
     """
     
 }
@@ -442,7 +442,7 @@ process QualityControlTablesNanopore {
     
     label "cerebro"
 
-    publishDir "$params.outputDirectory/quality", mode: "copy", pattern: "*.tsv"
+    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "*.tsv"
 
     input:
     path(result_files)
@@ -453,7 +453,7 @@ process QualityControlTablesNanopore {
     script:
 
     """
-    cerebro-pipe tables quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
     """
     
 }

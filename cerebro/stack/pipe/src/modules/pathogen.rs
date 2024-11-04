@@ -1,10 +1,76 @@
-use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::Path};
+use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 
+use env_logger::filter;
 use serde::{Deserialize, Serialize};
+use taxonomy::{ncbi, GeneralTaxonomy, TaxRank};
 
 use crate::{error::WorkflowError, nextflow::pathogen::{BrackenReportRecord, GanonReportRecord, KmcpAbundanceReportRecord, KmcpReadsReportRecord, KrakenReportRecord, MetabuliReportRecord, PathogenOutput, SylphReportRecord}, utils::{read_tsv, write_tsv}};
 
 use super::quality::QualityControl;
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathogenDetectionTableRecord {
+    id: String,
+    taxid: String,
+    rank: Option<TaxRank>,
+    name: Option<String>,
+    rpm_kraken: Option<f64>,
+    rpm_bracken: Option<f64>,
+    rpm_metabuli: Option<f64>,
+    rpm_ganon: Option<f64>,
+    rpm_kmcp: Option<f64>,
+    rpm_sylph: Option<f64>
+}
+impl PathogenDetectionTableRecord {
+    pub fn from_pathogen_detection_record(id: &str, record: &PathogenDetectionRecord, taxonomy: Option<&GeneralTaxonomy>) -> Self {
+        Self {
+            id: id.to_string(),
+            taxid: record.taxid.clone(),
+            rank: None,
+            name: None,
+            rpm_kraken: record.kraken_sequence_rpm,
+            rpm_bracken: record.bracken_profile_rpm,
+            rpm_metabuli: record.metabuli_sequence_rpm,
+            rpm_ganon: record.ganon_sequence_rpm,
+            rpm_kmcp: record.kmcp_sequence_rpm,
+            rpm_sylph: record.sylph_sequence_rpm
+        }
+    }
+}
+
+// Write the evidence table for multiple samples
+pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory: Option<PathBuf>, filter_json: Option<PathBuf>) -> Result<(), WorkflowError> {
+
+    let taxonomy = match taxonomy_directory {
+        Some(dir) => {
+            let tax = ncbi::load(&dir)?;
+            Some(tax)
+        },
+        None => None
+    };
+
+    let pd_filter = match filter_json {
+        Some(path) => Some(PathogenDetectionFilter::from_json(&path)?),
+        None => None
+    };
+
+    let mut table_records = Vec::new();
+    for file in json {
+        let pd = PathogenDetection::from_json(file)?;
+        let records = match pd_filter {
+            Some(ref f) => pd.filter_by_taxonomy(f.taxids.clone(), f.names.clone(), f.ranks.clone()),
+            None => pd.records,
+        };
+        for record in records {
+            table_records.push(PathogenDetectionTableRecord::from_pathogen_detection_record(&pd.id, &record, taxonomy.as_ref()))
+        }
+    }
+
+    write_tsv(&table_records, path, true)?;
+
+    Ok(())
+}
 
 fn compute_rpm(reads: u64, input_reads: u64) -> Option<f64> {
     if input_reads == 0 {
@@ -40,6 +106,7 @@ impl PathogenDetectionFilter {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathogenDetection {
     pub id: String,
+    pub paired_end: bool,
     pub records: Vec<PathogenDetectionRecord>
 }
 impl PathogenDetection {
@@ -96,7 +163,7 @@ impl PathogenDetection {
 
         // Process KmcpReadsReport
         if let Some(kmcp_report) = &output.profile.kmcp_reads {
-            
+
             // Group records by taxonomic identifier and sum the read counts
             let kmcp_taxid_report = kmcp_report.get_taxid_report()?;
 
@@ -148,7 +215,7 @@ impl PathogenDetection {
             .map(|(_, record)| record)
             .collect();
 
-        Ok(Self { id: output.id.to_string(), records })
+        Ok(Self { id: output.id.to_string(), paired_end, records })
     }
     fn get_sylph_taxinfo(record: &SylphReportRecord) -> Result<(String, PathogenDetectionRank), WorkflowError> {
 
@@ -236,9 +303,10 @@ impl PathogenDetection {
     pub fn to_tsv(&self, path: &Path) -> Result<(), WorkflowError> {
         write_tsv(&self.records, path, true)
     }
-    pub fn from_tsv(&self, path: &Path, id: &str) -> Result<Self, WorkflowError> {
+    pub fn from_tsv(&self, path: &Path, id: &str, paired_end: bool) -> Result<Self, WorkflowError> {
         Ok(Self {
             id: id.to_string(),
+            paired_end,
             records: read_tsv(path, false, true)?
         })
     }

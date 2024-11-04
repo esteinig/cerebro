@@ -17,6 +17,8 @@ pub enum WorkflowError {
     ScrubbyError(#[from] scrubby::error::ScrubbyError),
     #[error(transparent)]
     VircovError(#[from] vircov::error::VircovError),
+    #[error(transparent)]
+    TaxonomyError(#[from] taxonomy::Error),
     /// Represents all other cases of `reqwest::Error`.
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),

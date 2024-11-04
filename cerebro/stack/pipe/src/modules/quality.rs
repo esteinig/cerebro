@@ -18,7 +18,7 @@ use crate::tools::umi::DeduplicationReport;
 
 // Main module wrapper functions
 
-pub fn write_quality_tsv(json: &Vec<PathBuf>, reads: &PathBuf, controls: &PathBuf, background: &PathBuf) -> Result<(), WorkflowError> {
+pub fn write_quality_table(json: &Vec<PathBuf>, reads: &PathBuf, controls: &PathBuf, background: &PathBuf) -> Result<(), WorkflowError> {
     
     let mut data = Vec::new();
 
