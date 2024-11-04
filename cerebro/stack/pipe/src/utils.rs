@@ -312,6 +312,8 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
 
     let filtered_lines = filtered_lines.collect::<Vec<_>>().join("\n");
 
+    log::info!("{:#?}", filtered_lines);
+
     // Create CSV reader without headers, as headers are manually handled
     let mut csv_reader = ReaderBuilder::new()
         .has_headers(header) 
