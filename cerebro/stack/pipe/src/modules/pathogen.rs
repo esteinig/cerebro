@@ -170,7 +170,7 @@ impl PathogenDetection {
 
         let mut detection_map: HashMap<String, PathogenDetectionRecord> = HashMap::new();
 
-        // Process KrakenReport
+        // KrakenReport
         if let Some(kraken_report) = &output.profile.kraken2 {
             for record in &kraken_report.records {
 
@@ -181,7 +181,7 @@ impl PathogenDetection {
             }
         }
 
-        // Process MetabuliReport
+        // MetabuliReport
         if let Some(metabuli_report) = &output.profile.metabuli {
             for record in &metabuli_report.records {
 
@@ -192,7 +192,7 @@ impl PathogenDetection {
             }
         }
 
-        // Process BrackenReport
+        // BrackenReport
         if let Some(bracken_report) = &output.profile.bracken {
             for record in &bracken_report.records {
                 let taxid = record.taxid.trim().to_string();
@@ -203,7 +203,7 @@ impl PathogenDetection {
         }
 
 
-        // Process KmcpAbundanceReport
+        // KmcpAbundanceReport
         if let Some(kmcp_report) = &output.profile.kmcp_abundance {
             for record in &kmcp_report.records {
                 let taxid = record.taxid.trim().to_string();
@@ -214,7 +214,7 @@ impl PathogenDetection {
         }
 
 
-        // Process KmcpReadsReport
+        // KmcpReadsReport
         if let Some(kmcp_report) = &output.profile.kmcp_reads {
 
             // Group records by taxonomic identifier and sum the read counts
@@ -228,7 +228,7 @@ impl PathogenDetection {
             }
         }
         
-        // Process SylphReport
+        // SylphReport
         if let Some(sylph_report) = &output.profile.sylph {
             for record in &sylph_report.records {
                 let (taxid, rank) = Self::get_sylph_taxinfo(record)?;
@@ -243,7 +243,7 @@ impl PathogenDetection {
             }
         }
 
-        // Process GanonReadsReport
+        // GanonReadsReport
         if let Some(ganon_reads_report) = &output.profile.ganon_reads {
             for record in &ganon_reads_report.records {
                 let taxid = record.taxid.trim().to_string();
@@ -253,7 +253,7 @@ impl PathogenDetection {
             }
         }
 
-        // Process GanonAbundanceReport
+        // GanonAbundanceReport
         if let Some(ganon_profile_report) = &output.profile.ganon_abundance {
             for record in &ganon_profile_report.records {
                 let taxid = record.taxid.trim().to_string();
@@ -321,10 +321,19 @@ impl PathogenDetection {
 
             // Check if any name matches (from kraken, bracken, or metabuli)
             let name_match = if let Some(names) = &names {
+
                 let kraken_name_match = record.kraken_sequence_name.as_ref().map_or(false, |name| names.contains(name));
                 let bracken_name_match = record.bracken_profile_name.as_ref().map_or(false, |name| names.contains(name));
                 let metabuli_name_match = record.metabuli_sequence_name.as_ref().map_or(false, |name| names.contains(name));
-                kraken_name_match || bracken_name_match || metabuli_name_match
+                let kmcp_sequence_name_match = record.kmcp_sequence_name.as_ref().map_or(false, |name| names.contains(name));
+                let kmcp_profile_name_match = record.kmcp_profile_name.as_ref().map_or(false, |name| names.contains(name));
+                let ganon_sequence_name_match = record.ganon_sequence_name.as_ref().map_or(false, |name| names.contains(name));
+                let ganon_profile_name_match = record.ganon_profile_name.as_ref().map_or(false, |name| names.contains(name));
+                let sylph_sequence_name_match = record.sylph_sequence_name.as_ref().map_or(false, |name| names.contains(name));
+                let sylph_profile_name_match = record.sylph_profile_name.as_ref().map_or(false, |name| names.contains(name));
+
+                kraken_name_match || bracken_name_match || metabuli_name_match || kmcp_sequence_name_match || kmcp_profile_name_match || 
+                ganon_sequence_name_match || ganon_profile_name_match || sylph_sequence_name_match || sylph_profile_name_match
             } else {
                 true
             };
@@ -335,7 +344,15 @@ impl PathogenDetection {
                 let kraken_rank_match = record.kraken_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
                 let bracken_rank_match = record.bracken_profile_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
                 let metabuli_rank_match = record.metabuli_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
-                kraken_rank_match || bracken_rank_match || metabuli_rank_match
+                let kmcp_sequence_rank_match = record.kmcp_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let kmcp_profile_rank_match = record.kmcp_profile_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let ganon_sequence_rank_match = record.ganon_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let ganon_profile_rank_match = record.ganon_profile_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let sylph_sequence_rank_match = record.sylph_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let sylph_profile_rank_match = record.sylph_profile_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+
+                kraken_rank_match || bracken_rank_match || metabuli_rank_match || kmcp_sequence_rank_match || kmcp_profile_rank_match || 
+                ganon_sequence_rank_match || ganon_profile_rank_match || sylph_sequence_rank_match || sylph_profile_rank_match
             } else {
                 true
             };
