@@ -15,12 +15,18 @@ pub struct PathogenDetectionTableRecord {
     taxid: String,
     rank: Option<TaxRank>,
     name: Option<String>,
-    rpm_kraken: Option<f64>,
-    rpm_bracken: Option<f64>,
-    rpm_metabuli: Option<f64>,
-    rpm_ganon: Option<f64>,
-    rpm_kmcp: Option<f64>,
-    rpm_sylph: Option<f64>
+    kraken_reads: Option<u64>,
+    kraken_rpm: Option<f64>,
+    bracken_reads: Option<u64>,
+    bracken_rpm: Option<f64>,
+    metabuli_reads: Option<u64>,
+    metabuli_rpm: Option<f64>,
+    ganon_reads: Option<u64>,
+    ganon_rpm: Option<f64>,
+    kmcp_reads: Option<u64>,
+    kmcp_rpm: Option<f64>,
+    sylph_reads: Option<u64>,
+    sylph_rpm: Option<f64>
 }
 impl PathogenDetectionTableRecord {
     pub fn from_pathogen_detection_record(id: &str, record: &PathogenDetectionRecord, taxonomy: Option<&GeneralTaxonomy>) -> Self {
@@ -29,12 +35,18 @@ impl PathogenDetectionTableRecord {
             taxid: record.taxid.clone(),
             rank: None,
             name: None,
-            rpm_kraken: record.kraken_sequence_rpm,
-            rpm_bracken: record.bracken_profile_rpm,
-            rpm_metabuli: record.metabuli_sequence_rpm,
-            rpm_ganon: record.ganon_sequence_rpm,
-            rpm_kmcp: record.kmcp_sequence_rpm,
-            rpm_sylph: record.sylph_sequence_rpm
+            kraken_reads: record.kraken_sequence_reads,
+            kraken_rpm: record.kraken_sequence_rpm,
+            bracken_reads: record.bracken_profile_reads,
+            bracken_rpm: record.bracken_profile_rpm,
+            metabuli_reads: record.metabuli_sequence_reads,
+            metabuli_rpm: record.metabuli_sequence_rpm,
+            ganon_reads: record.ganon_sequence_reads,
+            ganon_rpm: record.ganon_sequence_rpm,
+            kmcp_reads: record.kmcp_sequence_reads,
+            kmcp_rpm: record.kmcp_sequence_rpm,
+            sylph_reads: record.sylph_sequence_reads,
+            sylph_rpm: record.sylph_sequence_rpm
         }
     }
 }
