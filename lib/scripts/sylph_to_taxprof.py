@@ -46,7 +46,7 @@ for file in args.metadata:
 
     ### Tag each taxonomy string with a t__ strain level identifier
     for row in f:
-        spl = row.rstrip().split('\t');
+        spl = row.rstrip().split('\t')
         accession = spl[0]
         taxonomy = spl[1].rstrip() + ';t__' + accession
         if len(spl) > 2:

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::Path
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::WorkflowError, nextflow::pathogen::{BrackenReportRecord, GanonReportRecord, KmcpReportRecord, KrakenReportRecord, MetabuliReportRecord, PathogenOutput}, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{BrackenReportRecord, GanonReportRecord, KmcpReportRecord, KrakenReportRecord, MetabuliReportRecord, PathogenOutput, SylphReport, SylphReportRecord}, utils::{read_tsv, write_tsv}};
 
 use super::quality::QualityControl;
 
@@ -43,7 +43,7 @@ pub struct PathogenDetection {
     pub records: Vec<PathogenDetectionRecord>
 }
 impl PathogenDetection {
-    pub fn from_pathogen(output: &PathogenOutput, quality: &QualityControl) -> Self {
+    pub fn from_pathogen(output: &PathogenOutput, quality: &QualityControl) -> Result<Self, WorkflowError> {
 
         let input_reads = quality.reads.input_reads;
         let mut detection_map: HashMap<String, PathogenDetectionRecord> = HashMap::new();
@@ -54,12 +54,8 @@ impl PathogenDetection {
 
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                    .or_insert(PathogenDetectionRecord::from_kraken(taxid, record, input_reads));
-                
-                entry.kraken_reads = Some(record.reads);
-                entry.kraken_name = Some(record.taxname.trim().to_string());
-                entry.kraken_rpm = compute_rpm(record.reads, input_reads);
-                entry.kraken_rank = Some(record.tax_level.clone())
+                    .or_insert(PathogenDetectionRecord::default());
+                entry.set_kraken(taxid, record, input_reads); 
             }
         }
 
@@ -69,11 +65,8 @@ impl PathogenDetection {
 
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                    .or_insert(PathogenDetectionRecord::from_metabuli(taxid, record, input_reads));
-                entry.metabuli_reads = Some(record.reads);
-                entry.metabuli_name = Some(record.taxname.trim().to_string());
-                entry.metabuli_rpm = compute_rpm(record.reads, input_reads);
-                entry.metabuli_rank = Some(record.tax_level.clone());
+                    .or_insert(PathogenDetectionRecord::default());
+                entry.set_metabuli(taxid, record, input_reads); 
             }
         }
 
@@ -82,11 +75,50 @@ impl PathogenDetection {
             for record in &bracken_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                    .or_insert(PathogenDetectionRecord::from_bracken(taxid, record, input_reads));
-                entry.bracken_reads = Some(record.reads);
-                entry.bracken_name = Some(record.taxname.trim().to_string());
-                entry.bracken_rpm = compute_rpm(record.reads, input_reads);
-                entry.bracken_rank = Some(record.tax_level.clone());
+                .or_insert(PathogenDetectionRecord::default());
+                entry.set_bracken(taxid, record, input_reads); 
+            }
+        }
+
+
+        // Process KmcpReport
+        if let Some(kmcp_report) = &output.profile.kmcp {
+            for record in &kmcp_report.records {
+                let taxid = record.taxid.trim().to_string();
+                let entry = detection_map.entry(taxid.clone())
+                .or_insert(PathogenDetectionRecord::default());
+                entry.set_kmcp(taxid, record, input_reads); 
+            }
+        }
+        
+        // Process SylphReport
+        if let Some(sylph_report) = &output.profile.sylph {
+            for record in &sylph_report.records {
+                let (taxid, rank) = Self::get_sylph_taxinfo(record)?;
+                let entry = detection_map.entry(taxid.to_string())
+                    .or_insert(PathogenDetectionRecord::default());
+                entry.set_sylph(taxid, rank, record, input_reads);
+            }
+        }
+
+        // Process GanonReadsReport
+        if let Some(ganon_reads_report) = &output.profile.ganon_reads {
+            for record in &ganon_reads_report.records {
+                let taxid = record.taxid.trim().to_string();
+                let entry = detection_map.entry(taxid.to_string())
+                    .or_insert(PathogenDetectionRecord::default());
+                entry.set_ganon_sequence(taxid, record, input_reads);
+            }
+        }
+
+
+        // Process GanonAbundanceReport
+        if let Some(ganon_reads_report) = &output.profile.ganon_reads {
+            for record in &ganon_reads_report.records {
+                let taxid = record.taxid.trim().to_string();
+                let entry = detection_map.entry(taxid.to_string())
+                    .or_insert(PathogenDetectionRecord::default());
+                entry.set_ganon_sequence(taxid, record, input_reads);
             }
         }
 
@@ -95,7 +127,31 @@ impl PathogenDetection {
             .map(|(_, record)| record)
             .collect();
 
-        Self { id: output.id.to_string(), records }
+        Ok(Self { id: output.id.to_string(), records })
+    }
+    fn get_sylph_taxinfo(record: &SylphReportRecord) -> Result<(String, PathogenDetectionRank), WorkflowError> {
+
+        let tax_str = record.clade_name.trim().to_string();
+        let tax_str = tax_str.split("|").last();
+
+        let (taxid, taxlevel) = match tax_str {
+            Some(tax_str) => { 
+                let taxid_str_split = tax_str.split("__").collect::<Vec<_>>();
+                if taxid_str_split.len() != 2 {
+                    log::warn!("Failed to recover taxinfo from Sylph output");
+                    return Err(WorkflowError::SylphTaxInfoRecoveryFailure(record.clade_name.clone()))
+                } else {
+                    (taxid_str_split[0], taxid_str_split[1])
+                }
+            },
+            None => { 
+                log::warn!("Failed to recover taxid from Sylph output");
+                return Err(WorkflowError::SylphTaxInfoRecoveryFailure(record.clade_name.clone()))
+            }
+        };
+        
+        Ok((taxid.to_string(), PathogenDetectionRank::from_str(taxlevel)))
+
     }
     pub fn filter_by_taxonomy(
         &self,
@@ -103,6 +159,16 @@ impl PathogenDetection {
         names: Option<Vec<String>>, 
         ranks: Option<Vec<String>>
     ) -> Vec<PathogenDetectionRecord> {
+
+        let ranks = match ranks {
+            Some(ranks) => {
+                let transformed_ranks = ranks.into_iter().map(|r| PathogenDetectionRank::from_str(&r)).collect::<Vec<_>>();
+                log::info!("Transformed ranks: {:?}", transformed_ranks);
+                Some(transformed_ranks)
+            },
+            None => None
+        };
+
         // Filter records by taxid, name, or rank
         self.records.iter().filter(|record| {
             // Check if the taxid matches
@@ -114,9 +180,9 @@ impl PathogenDetection {
 
             // Check if any name matches (from kraken, bracken, or metabuli)
             let name_match = if let Some(names) = &names {
-                let kraken_name_match = record.kraken_name.as_ref().map_or(false, |name| names.contains(name));
-                let bracken_name_match = record.bracken_name.as_ref().map_or(false, |name| names.contains(name));
-                let metabuli_name_match = record.metabuli_name.as_ref().map_or(false, |name| names.contains(name));
+                let kraken_name_match = record.kraken_sequence_name.as_ref().map_or(false, |name| names.contains(name));
+                let bracken_name_match = record.bracken_profile_name.as_ref().map_or(false, |name| names.contains(name));
+                let metabuli_name_match = record.metabuli_sequence_name.as_ref().map_or(false, |name| names.contains(name));
                 kraken_name_match || bracken_name_match || metabuli_name_match
             } else {
                 true
@@ -124,9 +190,10 @@ impl PathogenDetection {
 
             // Check if any rank matches (from kraken, bracken, or metabuli)
             let rank_match = if let Some(ranks) = &ranks {
-                let kraken_rank_match = record.kraken_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
-                let bracken_rank_match = record.bracken_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
-                let metabuli_rank_match = record.metabuli_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+
+                let kraken_rank_match = record.kraken_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let bracken_rank_match = record.bracken_profile_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
+                let metabuli_rank_match = record.metabuli_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
                 kraken_rank_match || bracken_rank_match || metabuli_rank_match
             } else {
                 true
@@ -166,6 +233,36 @@ impl PathogenDetection {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PathogenDetectionRank {
+    Superkingdom,
+    Phylum,
+    Class,
+    Order,
+    Family,
+    Genus,
+    Species,
+    NoRank,
+    Other(String)
+}
+impl PathogenDetectionRank {
+    pub fn from_str(rank_str: &str) -> Self {
+        match rank_str {
+            "d" | "D" | "d__" | "superkingdom"  => Self::Superkingdom,
+            "p" | "P" | "p__" | "phylum"  => Self::Phylum,
+            "c" | "C" | "c__" | "class"  => Self::Class,
+            "o" | "O" | "o__" | "order"  => Self::Order,
+            "f" | "F" | "f__" | "family"  => Self::Family,
+            "g" | "G" | "g__" | "genus"  => Self::Genus,
+            "s" | "S" | "s__" | "species" => Self::Species,
+            "r" | "R" | "root" | "no rank" |  ""  => Self::NoRank,
+            _ => Self::Other(rank_str.to_string())
+        }
+    }
+}
+
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathogenDetectionRecord {
     // pub id: String,
@@ -173,59 +270,91 @@ pub struct PathogenDetectionRecord {
     pub taxid: String,
     // pub input_reads: u64,
     // pub qc_reads: u64,
-    pub kraken_name: Option<String>,
-    pub kraken_rank: Option<String>,
-    pub kraken_reads: Option<u64>,
-    pub kraken_rpm: Option<f64>,
-    pub bracken_name: Option<String>,
-    pub bracken_rank: Option<String>,
-    pub bracken_reads: Option<u64>,
-    pub bracken_rpm: Option<f64>,
-    pub metabuli_name: Option<String>,
-    pub metabuli_rank: Option<String>,
-    pub metabuli_reads: Option<u64>,
-    pub metabuli_rpm: Option<f64>,
-    pub kmcp_name: Option<String>,
-    pub kmcp_rank: Option<String>,
-    pub kmcp_reads: Option<u64>,
-    pub kmcp_rpm: Option<f64>,
-    pub ganon_reads_name: Option<String>,
-    pub ganon_reads_rank: Option<String>,
-    pub ganon_reads_reads: Option<u64>,
-    pub ganon_reads_rpm: Option<f64>,
-    pub ganon_abundance_name: Option<String>,
-    pub ganon_abundance_rank: Option<String>,
-    pub ganon_abundance_reads: Option<u64>,
-    pub ganon_abundance_rpm: Option<f64>,
+    pub kraken_sequence_name: Option<String>,
+    pub kraken_sequence_rank: Option<PathogenDetectionRank>,
+    pub kraken_sequence_reads: Option<u64>,
+    pub kraken_sequence_rpm: Option<f64>,
+    pub kraken_sequence_abundance: Option<f64>,
+    pub metabuli_sequence_name: Option<String>,
+    pub metabuli_sequence_rank: Option<PathogenDetectionRank>,
+    pub metabuli_sequence_reads: Option<u64>,
+    pub metabuli_sequence_rpm: Option<f64>,
+    pub metabuli_sequence_abundance: Option<f64>,
+    pub ganon_sequence_name: Option<String>,
+    pub ganon_sequence_rank: Option<PathogenDetectionRank>,
+    pub ganon_sequence_reads: Option<u64>,
+    pub ganon_sequence_rpm: Option<f64>,
+    pub ganon_sequence_abundance: Option<f64>,
+    pub sylph_sequence_name: Option<String>,
+    pub sylph_sequence_rank: Option<PathogenDetectionRank>,
+    pub sylph_sequence_reads: Option<u64>,
+    pub sylph_sequence_rpm: Option<f64>,
+    pub sylph_sequence_abundance: Option<f64>,
+    pub bracken_profile_name: Option<String>,
+    pub bracken_profile_rank: Option<PathogenDetectionRank>,
+    pub bracken_profile_reads: Option<u64>,
+    pub bracken_profile_rpm: Option<f64>,
+    pub bracken_profile_abundance: Option<f64>,
+    pub kmcp_profile_name: Option<String>,
+    pub kmcp_profile_rank: Option<PathogenDetectionRank>,
+    pub kmcp_profile_reads: Option<u64>,
+    pub kmcp_profile_rpm: Option<f64>,
+    pub kmcp_profile_abundance: Option<f64>,
+    pub ganon_profile_name: Option<String>,
+    pub ganon_profile_rank: Option<PathogenDetectionRank>,
+    pub ganon_profile_reads: Option<u64>,
+    pub ganon_profile_rpm: Option<f64>,
+    pub ganon_profile_abundance: Option<f64>,
+    pub sylph_profile_name: Option<String>,
+    pub sylph_profile_rank: Option<PathogenDetectionRank>,
+    pub sylph_profile_reads: Option<u64>,
+    pub sylph_profile_rpm: Option<f64>,
+    pub sylph_profile_abundance: Option<f64>,
 }
 impl Default for PathogenDetectionRecord {
     fn default() -> Self {
         Self {
             taxid: String::from(""),
-            kraken_reads: None,
-            kraken_name: None,
-            kraken_rank: None,
-            kraken_rpm: None,
-            metabuli_reads: None,
-            metabuli_rpm: None,
-            metabuli_name: None,
-            metabuli_rank: None,
-            bracken_reads: None,
-            bracken_rpm: None,
-            bracken_name: None,
-            bracken_rank: None,
-            kmcp_reads: None,
-            kmcp_rpm: None,
-            kmcp_name: None,
-            kmcp_rank: None,
-            ganon_reads_reads: None,
-            ganon_reads_rpm: None,
-            ganon_reads_name: None,
-            ganon_reads_rank: None,
-            ganon_abundance_reads: None,
-            ganon_abundance_rpm: None,
-            ganon_abundance_name: None,
-            ganon_abundance_rank: None
+            kraken_sequence_reads: None,
+            kraken_sequence_name: None,
+            kraken_sequence_rank: None,
+            kraken_sequence_rpm: None,
+            kraken_sequence_abundance: None,
+            metabuli_sequence_reads: None,
+            metabuli_sequence_rpm: None,
+            metabuli_sequence_name: None,
+            metabuli_sequence_rank: None,
+            metabuli_sequence_abundance: None,
+            ganon_sequence_reads: None,
+            ganon_sequence_rpm: None,
+            ganon_sequence_name: None,
+            ganon_sequence_rank: None,
+            ganon_sequence_abundance: None,
+            sylph_sequence_reads: None,
+            sylph_sequence_rpm: None,
+            sylph_sequence_name: None,
+            sylph_sequence_rank: None,
+            sylph_sequence_abundance: None,
+            bracken_profile_reads: None,
+            bracken_profile_rpm: None,
+            bracken_profile_name: None,
+            bracken_profile_rank: None,
+            bracken_profile_abundance: None,
+            kmcp_profile_reads: None,
+            kmcp_profile_rpm: None,
+            kmcp_profile_name: None,
+            kmcp_profile_rank: None,
+            kmcp_profile_abundance: None,
+            ganon_profile_reads: None,
+            ganon_profile_rpm: None,
+            ganon_profile_name: None,
+            ganon_profile_rank: None,
+            ganon_profile_abundance: None,
+            sylph_profile_reads: None,
+            sylph_profile_rpm: None,
+            sylph_profile_name: None,
+            sylph_profile_rank: None,
+            sylph_profile_abundance: None,
         }
     }
 }
@@ -236,71 +365,96 @@ impl PathogenDetectionRecord {
             ..Default::default()
         }
     }
-    pub fn from_bracken(taxid: String, record: &BrackenReportRecord, input_reads: u64) -> Self {
-        PathogenDetectionRecord {
-            taxid,
-            bracken_reads: Some(record.reads),
-            bracken_rpm: compute_rpm(record.reads, input_reads),
-            bracken_name: Some(record.taxname.trim().to_string()),
-            bracken_rank: Some(record.tax_level.clone()),
-            ..Default::default()
-        }
-    }
-    pub fn from_kraken(taxid: String, record: &KrakenReportRecord, input_reads: u64) -> Self {
-        PathogenDetectionRecord {
-            taxid,
-            kraken_reads: Some(record.reads),
-            kraken_rpm: compute_rpm(record.reads, input_reads),
-            kraken_name: Some(record.taxname.trim().to_string()),
-            kraken_rank: Some(record.tax_level.clone()),
-            ..Default::default()
-        }
-    }
-    pub fn from_metabuli(taxid: String, record: &MetabuliReportRecord, input_reads: u64) -> Self {
-        PathogenDetectionRecord {
-            taxid,
-            metabuli_reads: Some(record.reads),
-            metabuli_rpm: compute_rpm(record.reads, input_reads),
-            metabuli_name: Some(record.taxname.trim().to_string()),
-            metabuli_rank: Some(record.tax_level.clone()),
-            ..Default::default()
-        }
-    }
-    pub fn from_kmcp(taxid: String, record: &KmcpReportRecord, input_reads: u64) -> Self {
+    pub fn set_kraken(&mut self, taxid: String, record: &KrakenReportRecord, input_reads: u64) -> () {
         
-        let estimated_reads = (record.abundance*input_reads as f64) as u64;
-        let name = record.taxname_lineage.split("|").last();
+        let sequence_abundance = (record.reads as f64 / input_reads as f64)*100.0;
 
-        PathogenDetectionRecord {
-            taxid,
-            kmcp_reads: Some(estimated_reads),
-            kmcp_rpm: compute_rpm(estimated_reads, input_reads),
-            kmcp_name: name.map(|s| s.to_string()),
-            kmcp_rank: Some(record.tax_level.clone()),
-            ..Default::default()
-        }
+        self.taxid = taxid;
+        self.kraken_sequence_reads = Some(record.reads);
+        self.kraken_sequence_rpm = compute_rpm(record.reads, input_reads);
+        self.kraken_sequence_name = Some(record.taxname.trim().to_string());
+        self.kraken_sequence_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
+        self.kraken_sequence_abundance = Some(sequence_abundance);
     }
-    pub fn from_ganon_reads(taxid: String, record: &GanonReportRecord, input_reads: u64) -> Self {
-        
-        PathogenDetectionRecord {
-            taxid,
-            ganon_reads_reads: Some(record.reads),
-            ganon_reads_rpm: compute_rpm(record.reads, input_reads),
-            ganon_reads_name: Some(record.taxname.trim().to_string()),
-            ganon_reads_rank: Some(record.tax_level.clone()),
-            ..Default::default()
-        }
+    pub fn set_bracken(&mut self, taxid: String, record: &BrackenReportRecord, input_reads: u64) -> () {
+
+        let profile_abundance = (record.reads as f64 / input_reads as f64)*100.0;
+
+        self.taxid = taxid;
+        self.bracken_profile_reads = Some(record.reads);
+        self.bracken_profile_name = Some(record.taxname.trim().to_string());
+        self.bracken_profile_rpm = compute_rpm(record.reads, input_reads);
+        self.bracken_profile_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
+
+        self.bracken_profile_abundance = Some(profile_abundance);
     }
-    pub fn from_ganon_abundance(taxid: String, record: &GanonReportRecord, input_reads: u64) -> Self {
+    pub fn set_metabuli(&mut self, taxid: String, record: &MetabuliReportRecord, input_reads: u64) -> () {
+
+        let sequence_abundance = (record.reads as f64 / input_reads as f64)*100.0;
+
+        self.taxid = taxid;
+        self.metabuli_sequence_reads = Some(record.reads);
+        self.metabuli_sequence_rpm = compute_rpm(record.reads, input_reads);
+        self.metabuli_sequence_name = Some(record.taxname.trim().to_string());
+        self.metabuli_sequence_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
+        self.metabuli_sequence_abundance = Some(sequence_abundance);
+    }
+    pub fn set_kmcp(&mut self, taxid: String, record: &KmcpReportRecord, input_reads: u64) -> () {
         
-        PathogenDetectionRecord {
-            taxid,
-            ganon_abundance_reads: Some(record.reads),
-            ganon_abundance_rpm: compute_rpm(record.reads, input_reads),
-            ganon_abundance_name: Some(record.taxname.trim().to_string()),
-            ganon_abundance_rank: Some(record.tax_level.clone()),
-            ..Default::default()
-        }
+        self.taxid = taxid;
+
+        let estimated_reads = ((record.abundance/100.0)*input_reads as f64) as u64;
+        let taxname = record.taxname_lineage.split("|").last();
+
+        self.kmcp_profile_reads = Some(estimated_reads);
+        self.kmcp_profile_rpm = compute_rpm(estimated_reads, input_reads);
+        self.kmcp_profile_name = taxname.map(|s| s.to_string());
+        self.kmcp_profile_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
+        self.kmcp_profile_abundance = Some(record.abundance)
+    }
+    pub fn set_ganon_sequence(&mut self, taxid: String, record: &GanonReportRecord, input_reads: u64) -> () {
+        
+        self.taxid = taxid;
+
+        self.ganon_sequence_reads = Some(record.cumulative);
+        self.ganon_sequence_rpm = compute_rpm(record.cumulative, input_reads);
+        self.ganon_sequence_name = Some(record.taxname.trim().to_string());
+        self.ganon_sequence_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
+        self.ganon_sequence_abundance = Some(record.cumulative_percent);
+
+    }
+    pub fn set_ganon_profile(&mut self, taxid: String, record: &GanonReportRecord, input_reads: u64) -> () {
+        
+        self.taxid = taxid;
+
+        let estimated_reads = ((record.cumulative_percent/100.0)*input_reads as f64) as u64;
+
+        self.ganon_profile_reads = Some(estimated_reads);
+        self.ganon_profile_rpm = compute_rpm(estimated_reads, input_reads);
+        self.ganon_profile_name = Some(record.taxname.trim().to_string());
+        self.ganon_profile_rank = Some(PathogenDetectionRank::from_str(&record.tax_level));
+        self.ganon_profile_abundance = Some(record.cumulative_percent);
+
+    }
+    pub fn set_sylph(&mut self, taxid: String, tax_level: PathogenDetectionRank, record: &SylphReportRecord, input_reads: u64) -> () {
+        
+        self.taxid = taxid.clone();
+
+        let estimated_sequence_reads = ((record.sequence_abundance/100.0)*input_reads as f64) as u64;
+
+        self.sylph_sequence_reads = Some(estimated_sequence_reads);
+        self.sylph_sequence_rpm = compute_rpm(estimated_sequence_reads, input_reads);
+        self.sylph_sequence_name = Some(taxid.to_string());
+        self.sylph_sequence_rank = Some(tax_level.clone());
+        self.sylph_sequence_abundance = Some(record.sequence_abundance);
+
+        let estimated_abundance_reads = ((record.relative_abundance/100.0)*input_reads as f64) as u64;
+
+        self.sylph_profile_reads = Some(estimated_abundance_reads);
+        self.sylph_profile_rpm = compute_rpm(estimated_abundance_reads, input_reads);
+        self.sylph_profile_name = Some(taxid.to_string());
+        self.sylph_profile_rank = Some(tax_level.clone());
+        self.sylph_profile_abundance = Some(record.relative_abundance);
     }
 }
 

@@ -307,13 +307,15 @@ pub struct KmcpReportRecord {
 
 #[derive(Serialize, Deserialize)]
 pub struct GanonReportRecord {
-    pub label: String,
-    pub taxid: String,
-    pub reads: u64,
-    pub reads_direct: u64,
-    pub reads_lca: u64,
     pub tax_level: String,
+    pub taxid: String,
+    pub taxid_lineage: String,
     pub taxname: String,
+    pub unique: u64,
+    pub shared: u64,
+    pub children: u64,
+    pub cumulative: u64,
+    pub cumulative_percent: f64
 }
 
 #[derive(Serialize, Deserialize)]

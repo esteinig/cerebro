@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
                     )?;
 
                     let quality_control = QualityControl::from_pathogen(&output);
-                    let pathogen_detection = PathogenDetection::from_pathogen(&output, &quality_control);
+                    let pathogen_detection = PathogenDetection::from_pathogen(&output, &quality_control)?;
 
                     quality_control.to_json(&args.qc)?;
                     pathogen_detection.to_tsv(&args.pathogen)?;

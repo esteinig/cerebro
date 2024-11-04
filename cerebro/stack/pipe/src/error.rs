@@ -314,6 +314,10 @@ pub enum WorkflowError {
     /// Represents a failure to initiate reader
     #[error("failed to create a sample sheet reader from file: {0}")]
     SampleSheetCsvReader(String),
+
+    /// Represents a failure to reover Sylph lineage data
+    #[error("failed to recover tax info from Sylph output lineage: {0}")]
+    SylphTaxInfoRecoveryFailure(String),
 }
 
 #[derive(Error, Debug)]
