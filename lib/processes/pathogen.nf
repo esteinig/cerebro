@@ -246,7 +246,7 @@ process Kmcp {
     kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -t $kmcpMinQueryCoverage -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
     mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv.gz
     tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
-    tail -n +6 ${sampleID}.k.report > ${sampleID}.kmcp.reads.report
+    mv ${sampleID}.k.report > ${sampleID}.kmcp.reads.report
     """
 
 }
