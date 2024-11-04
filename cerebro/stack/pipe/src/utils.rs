@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::{BufReader, BufWriter, Read, Write};
-
+use std::io::BufRead;
 use crate::error::WorkflowError;
 
 pub fn init_logger() {
@@ -295,6 +295,34 @@ pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header
     let mut records = Vec::new();
     for record in reader.deserialize() {
         records.push(record?)
+    }
+
+    Ok(records)
+}
+
+
+pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header: bool, skip: char) -> Result<Vec<T>, WorkflowError> {
+
+    let file = File::open(file)?;
+    let reader = BufReader::new(file);
+
+    let filtered_lines = reader.lines()
+        .filter_map(Result::ok)
+        .filter(|line| !line.starts_with(skip));
+
+    let filtered_lines = filtered_lines.collect::<Vec<_>>().join("\n");
+
+    // Create CSV reader without headers, as headers are manually handled
+    let mut csv_reader = ReaderBuilder::new()
+        .has_headers(header) 
+        .flexible(flexible)
+        .from_reader(filtered_lines.as_bytes());
+
+    // Iterate over records
+    let mut records = Vec::new();
+    for result in csv_reader.deserialize() {
+        let record = result?;
+        records.push(record)
     }
 
     Ok(records)

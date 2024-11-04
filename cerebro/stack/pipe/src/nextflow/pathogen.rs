@@ -7,7 +7,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::utils::read_tsv;
+use crate::utils::{read_tsv, read_tsv_skip};
 use crate::error::WorkflowError;
 use crate::utils::{get_file_by_name, get_file_component, FileComponent};
 use super::quality::{QualityControlFiles, QualityControlOutput};
@@ -18,6 +18,8 @@ pub struct PathogenProfileFiles {
     metabuli: Option<PathBuf>,
     sylph: Option<PathBuf>,
     kmcp: Option<PathBuf>,
+    ganon_reads: Option<PathBuf>,
+    ganon_abundance: Option<PathBuf>,
     bracken: Option<PathBuf>,
     vircov: Option<PathBuf>
 }
@@ -26,11 +28,13 @@ impl PathogenProfileFiles {
 
         Ok(Self {
             vircov: get_file_by_name(&path, &id, ".alignment.tsv")?,
-            kraken2: get_file_by_name(&path, &id, ".kraken2.report")?,
-            bracken: get_file_by_name(&path, &id, ".bracken.report")?,
-            metabuli: get_file_by_name(&path, &id, ".metabuli.report")?,
-            kmcp: get_file_by_name(&path, &id, ".kmcp.report")?,
-            sylph: get_file_by_name(&path, &id, ".sylph.report")?,
+            kraken2: get_file_by_name(&path, &id, "kraken2.reads.report")?,
+            bracken: get_file_by_name(&path, &id, ".bracken.abundance.report")?,
+            metabuli: get_file_by_name(&path, &id, ".metabuli.reads.report")?,
+            kmcp: get_file_by_name(&path, &id, ".kmcp.abundance.report")?,
+            ganon_reads: get_file_by_name(&path, &id, ".ganon.reads.report")?,
+            ganon_abundance: get_file_by_name(&path, &id, ".ganon.abundance.report")?,
+            sylph: get_file_by_name(&path, &id, ".sylph.abundance.report")?,
         })
 
     }
@@ -83,6 +87,10 @@ pub struct PathogenProfileOutput {
     pub kraken2: Option<KrakenReport>,
     pub metabuli: Option<MetabuliReport>,
     pub bracken: Option<BrackenReport>,
+    pub kmcp: Option<KmcpReport>,
+    pub sylph: Option<SylphReport>,
+    pub ganon_reads: Option<GanonReadsReport>,
+    pub ganon_abundance: Option<GanonAbundanceReport>,
 }
 impl PathogenProfileOutput {
     pub fn from_files(id: &str, files: &PathogenProfileFiles) -> Result<Self, WorkflowError> {
@@ -103,6 +111,22 @@ impl PathogenProfileOutput {
             },
             metabuli: match files.metabuli {
                 Some(ref path) => Some(MetabuliReport::from_report(path, &id)?), 
+                None => None
+            },
+            kmcp: match files.kmcp {
+                Some(ref path) => Some(KmcpReport::from_report(path, &id)?), 
+                None => None
+            },
+            sylph: match files.sylph {
+                Some(ref path) => Some(SylphReport::from_report(path, &id)?), 
+                None => None
+            },
+            ganon_reads: match files.ganon_reads {
+                Some(ref path) => Some(GanonReadsReport::from_report(path, &id)?), 
+                None => None
+            },
+            ganon_abundance: match files.ganon_reads {
+                Some(ref path) => Some(GanonAbundanceReport::from_report(path, &id)?), 
                 None => None
             },
         })
@@ -272,6 +296,38 @@ pub struct BrackenReportRecord {
 
 
 #[derive(Serialize, Deserialize)]
+pub struct KmcpReportRecord {
+    pub taxid: String,
+    pub tax_level: String,
+    pub taxid_lineage: String,
+    pub taxname_lineage: String,
+    pub abundance: f64,
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct GanonReportRecord {
+    pub label: String,
+    pub taxid: String,
+    pub reads: u64,
+    pub reads_direct: u64,
+    pub reads_lca: u64,
+    pub tax_level: String,
+    pub taxname: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SylphReportRecord {
+    pub clade_name: String,
+    pub relative_abundance: f64,
+    pub sequence_abundance: f64,
+    #[serde(rename(deserialize = "ANI (if strain-level)"))]
+    pub ani: f64,
+    #[serde(rename(deserialize = "Coverage (if strain-level)"))]
+    pub coverage: f64
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct KrakenReport {
     pub id: String,
     pub path: PathBuf,
@@ -319,3 +375,71 @@ impl BrackenReport {
     }
 }
 
+
+#[derive(Serialize, Deserialize)]
+pub struct KmcpReport {
+    pub id: String,
+    pub path: PathBuf,
+    pub records: Vec<KmcpReportRecord>
+}
+impl KmcpReport {
+    pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
+        Ok(Self { 
+            id: id.to_string(), 
+            path: path.to_path_buf(), 
+            records: read_tsv_skip(path, false, false, '@')? 
+        })
+    }
+}
+
+
+
+#[derive(Serialize, Deserialize)]
+pub struct GanonReadsReport {
+    pub id: String,
+    pub path: PathBuf,
+    pub records: Vec<GanonReportRecord>
+}
+impl GanonReadsReport {
+    pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
+        Ok(Self { 
+            id: id.to_string(), 
+            path: path.to_path_buf(), 
+            records: read_tsv(path, false, false)? 
+        })
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct GanonAbundanceReport {
+    pub id: String,
+    pub path: PathBuf,
+    pub records: Vec<GanonReportRecord>
+}
+impl GanonAbundanceReport {
+    pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
+        Ok(Self { 
+            id: id.to_string(), 
+            path: path.to_path_buf(), 
+            records: read_tsv(path, false, false)? 
+        })
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct SylphReport {
+    pub id: String,
+    pub path: PathBuf,
+    pub records: Vec<SylphReportRecord>
+}
+impl SylphReport {
+    pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
+        Ok(Self { 
+            id: id.to_string(), 
+            path: path.to_path_buf(), 
+            records: read_tsv_skip(path, false, true, '#')? 
+        })
+    }
+}

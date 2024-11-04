@@ -275,7 +275,8 @@ process GanonReads {
 
     """
     ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one
-    mv ${sampleID}.rep ${sampleID}.ganon.reads.report
+
+    mv ${sampleID}.tre ${sampleID}.ganon.reads.report
     mv ${sampleID}.one ${sampleID}.ganon.reads.tsv
     """
 
@@ -304,7 +305,8 @@ process GanonProfile {
 
     """
     ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
-    mv ${sampleID}.rep ${sampleID}.ganon.abundance.report
+
+    mv ${sampleID}.tre ${sampleID}.ganon.abundance.report
     """
 
 }
