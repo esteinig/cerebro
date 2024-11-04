@@ -619,7 +619,7 @@ process ProcessOutput {
     script:
 
     """
-    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end
+    cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end
     """
     
 }
@@ -629,19 +629,20 @@ process PathogenDetectionTable {
     
     label "cerebro"
 
-    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "pd_rpm.tsv"
+    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "rpm.species.tsv"
 
     input:
     path(result_files)
     path(taxonomy_directory)
 
     output:
-    tuple path("pd_rpm.tsv")
+    path("rpm.species.tsv")
 
     script:
 
     """
-    cerebro-pipe table pathogen-detection --json *.pd.json --output pd_rpm.tsv --taxonomy $taxonomy_directory
+    echo '{"ranks": ["species"]}' > filter.json
+    cerebro-pipe table pathogen-detection --json *.pd.json --output rpm.species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
     """
     
 }
