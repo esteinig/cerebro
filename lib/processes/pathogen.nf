@@ -117,7 +117,7 @@ process Sylph {
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${forward}.sylphmpa" ]; then
-        mv ${forward}.sylphmpa ${sampleID}.sylph.abundance.report
+        tail -n +2 ${forward}.sylphmpa > ${sampleID}.sylph.abundance.report
     else
         touch "${sampleID}.sylph.abundance.report"
     fi
@@ -151,7 +151,7 @@ process SylphNanopore {
     python $baseDir/lib/scripts/sylph_to_taxprof.py -m $sylphMetadata -s ${sampleID}.sylph.tsv -o "" 
     
     if [ -f "${reads}.sylphmpa" ]; then
-        mv ${reads}.sylphmpa ${sampleID}.sylph.abundance.report
+        tail -n +2 ${reads}.sylphmpa > ${sampleID}.sylph.abundance.report
     else
         touch "${sampleID}.sylph.abundance.report"
     fi
@@ -246,7 +246,7 @@ process Kmcp {
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
     kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
     mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv
-    mv ${sampleID}.profile ${sampleID}.kmcp.abundance.report
+    tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
     """
 
 }
