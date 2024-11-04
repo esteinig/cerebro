@@ -5,6 +5,7 @@ use needletail::{parse_fastx_file, FastxReader};
 use niffler::get_writer;
 use niffler::seek::compression::ReadSeek;
 use niffler::seek::get_reader;
+use serde::de::IntoDeserializer;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs::File;
@@ -309,7 +310,7 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     // Filter lines starting with '#'
     let filtered_lines: Vec<String> = reader.lines()
         .filter_map(Result::ok)
-        .filter(|line| !line.starts_with('#'))
+        .filter(|line| !line.starts_with(skip))
         .collect();
 
     // Join filtered lines into a single String, separated by newlines
