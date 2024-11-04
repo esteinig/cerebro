@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::io::BufRead;
 use crate::error::WorkflowError;
 
@@ -306,19 +306,20 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     let file = File::open(file)?;
     let reader = BufReader::new(file);
 
-    let filtered_lines = reader.lines()
+    // Filter lines starting with '#'
+    let filtered_lines: Vec<String> = reader.lines()
         .filter_map(Result::ok)
-        .filter(|line| !line.starts_with(skip));
+        .filter(|line| !line.starts_with('#'))
+        .collect();
 
-    let filtered_lines = filtered_lines.collect::<Vec<_>>().join("\n");
+    // Join filtered lines into a single String, separated by newlines
+    let filtered_content = filtered_lines.join("\n");
 
-    log::info!("{:#?}", filtered_lines);
-
-    // Create CSV reader without headers, as headers are manually handled
+    // Use a Cursor to read this content as CSV input
     let mut csv_reader = ReaderBuilder::new()
-        .has_headers(header) 
+        .has_headers(header)
         .flexible(flexible)
-        .from_reader(filtered_lines.as_bytes());
+        .from_reader(Cursor::new(filtered_content));
 
     // Iterate over records
     let mut records = Vec::new();
