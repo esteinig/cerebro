@@ -352,6 +352,13 @@ pub struct ProcessArgs {
     /// other quality control steps
     #[clap(long, short = 'a')]
     pub background: bool,
+    /// Paired-end reads (same identifier for each mate) used as input
+    /// 
+    /// Classifiers like Kraken2 or Metabuli output reads as unique reads
+    /// identifiers that were classified, therefore the read counts are
+    /// usually half of what they are expected.
+    #[clap(long, short = 'a')]
+    pub paired_end: bool,
 
 }
 
