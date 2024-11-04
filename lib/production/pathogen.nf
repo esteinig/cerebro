@@ -178,7 +178,7 @@ workflow TaxonomicProfile {
         }
 
 
-        vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
+        // vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
 
         // results = vircovResults.mix(
         //     (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? Kmcp.out.results : Channel.empty(),
@@ -194,8 +194,8 @@ workflow TaxonomicProfile {
         // json = results.mix(qualityControlResults) | groupTuple | ProcessOutput
         // tables = json | collect | PathogenDetectionTable
     
-    emit:
-        reads   = reads
+    // emit:
+    //     reads   = reads
         // results = results
         // tables  = tables
 
