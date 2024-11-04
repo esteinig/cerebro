@@ -236,7 +236,7 @@ process Kmcp {
     val(kmcpMinQueryCoverage)
 
     output:
-    tuple (val(sampleID), path("${sampleID}.kmcp.reads.tsv"), path("${sampleID}.kmcp.abundance.report"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.kmcp.reads.tsv"), path("${sampleID}.kmcp.reads.report"), path("${sampleID}.kmcp.abundance.report"), emit: results)
 
 
     script:
