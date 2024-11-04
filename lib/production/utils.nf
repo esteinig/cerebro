@@ -92,10 +92,18 @@ def getTaxonomicProfileDatabases() {
         sylphDatabase:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")                                                        ?  getPathogenProfileSylphDatabase(profileParams)         :  Channel.empty(),
         sylphMetadata:      profileParams.profiler && profileParams.profilerMethod.contains("sylph")                                                        ?  getPathogenProfileSylphDatabaseMetadata(profileParams) :  Channel.empty(),
         kmcpDatabase:       profileParams.profiler && (profileParams.classifierMethod.contains("kmcp") || profileParams.profilerMethod.contains("kmcp"))    ?  getPathogenProfileKmcpDatabase(profileParams)          :  Channel.empty(),
-        ganonDatabase:      profileParams.profiler && (profileParams.classifierMethod.contains("ganon") || profileParams.profilerMethod.contains("ganon"))  ?  getPathogenProfileGanonDatabase(profileParams)          :  Channel.empty(),
-  ]
+        ganonDatabase:      profileParams.profiler && (profileParams.classifierMethod.contains("ganon") || profileParams.profilerMethod.contains("ganon"))  ?  getPathogenProfileGanonDatabase(profileParams)         :  Channel.empty(),
+        taxonomy:           profileParams.taxonomy                                                                                                          ?  getPathogenProfileTaxonomy(profileParams)              :  Channel.empty(),
+    ]
 }
 
+def getPathogenProfileTaxonomy(profileParams) {
+
+    return getFilePath(
+        profileParams.taxonomy, 
+        "pathogen detection :: tax profile :: taxonomy"
+    )
+}
 def getPathogenProfileVircovDatabase(profileParams) {
 
     return getAlignmentReferenceIndex(

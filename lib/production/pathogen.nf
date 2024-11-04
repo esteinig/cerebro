@@ -189,7 +189,7 @@ workflow TaxonomicProfile {
 
         // process results to json and get tables
         json = results.mix(qualityControlResults) | groupTuple | ProcessOutput
-        tables = json | collect | PathogenDetectionTable
+        tables = PathogenDetectionTable(json | collect, databases.taxonomy)
     
     emit:
         reads   = reads
