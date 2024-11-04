@@ -28,11 +28,11 @@ impl PathogenProfileFiles {
 
         Ok(Self {
             vircov: get_file_by_name(&path, &id, ".alignment.tsv")?,
-            kraken2: get_file_by_name(&path, &id, "kraken2.reads.report")?,
-            bracken: get_file_by_name(&path, &id, ".bracken.abundance.report")?,
+            kraken2: get_file_by_name(&path, &id, ".kraken2.reads.report")?,
             metabuli: get_file_by_name(&path, &id, ".metabuli.reads.report")?,
-            kmcp: get_file_by_name(&path, &id, ".kmcp.abundance.report")?,
             ganon_reads: get_file_by_name(&path, &id, ".ganon.reads.report")?,
+            bracken: get_file_by_name(&path, &id, ".bracken.abundance.report")?,
+            kmcp: get_file_by_name(&path, &id, ".kmcp.abundance.report")?,
             ganon_abundance: get_file_by_name(&path, &id, ".ganon.abundance.report")?,
             sylph: get_file_by_name(&path, &id, ".sylph.abundance.report")?,
         })
@@ -125,7 +125,7 @@ impl PathogenProfileOutput {
                 Some(ref path) => Some(GanonReadsReport::from_report(path, &id)?), 
                 None => None
             },
-            ganon_abundance: match files.ganon_reads {
+            ganon_abundance: match files.ganon_abundance {
                 Some(ref path) => Some(GanonAbundanceReport::from_report(path, &id)?), 
                 None => None
             },
