@@ -95,6 +95,11 @@ impl PathogenDetection {
         if let Some(sylph_report) = &output.profile.sylph {
             for record in &sylph_report.records {
                 let (taxid, rank) = Self::get_sylph_taxinfo(record)?;
+
+                if rank == PathogenDetectionRank::Strain {
+                    continue;
+                }
+                
                 let entry = detection_map.entry(taxid.to_string())
                     .or_insert(PathogenDetectionRecord::default());
                 entry.set_sylph(taxid, rank, record, input_reads);
@@ -242,6 +247,7 @@ pub enum PathogenDetectionRank {
     Family,
     Genus,
     Species,
+    Strain,
     NoRank,
     Other(String)
 }
@@ -255,6 +261,7 @@ impl PathogenDetectionRank {
             "f" | "F" | "f__" | "family"  => Self::Family,
             "g" | "G" | "g__" | "genus"  => Self::Genus,
             "s" | "S" | "s__" | "species" => Self::Species,
+            "t" | "T" | "t__" | "strain" => Self::Strain,
             "r" | "R" | "root" | "no rank" |  ""  => Self::NoRank,
             _ => Self::Other(rank_str.to_string())
         }
