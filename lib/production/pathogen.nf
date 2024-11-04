@@ -188,7 +188,7 @@ workflow TaxonomicProfile {
         )
 
         // process results to json and get tables
-        json = results.mix(qualityControlResults) | groupTuple | map { tuple(it[0], it[1..].flatten())} | ProcessOutput
+        json = results.mix(qualityControlResults) | groupTuple | map { tuple(it[0], it[1..]) } | view | ProcessOutput
         tables = PathogenDetectionTable(json | collect, databases.taxonomy)
     
     emit:
