@@ -33,8 +33,12 @@ fn main() -> anyhow::Result<()> {
                     let quality_control = QualityControl::from_pathogen(&output);
                     let pathogen_detection = PathogenDetection::from_pathogen(&output, &quality_control, args.paired_end)?;
 
-                    quality_control.to_json(&args.qc)?;
-                    pathogen_detection.to_json(&args.pathogen)?;
+                    if let Some(path) = args.qc {
+                        quality_control.to_json(&args.qc)?;
+                    }
+                    if let Some(path) = args.pathogen {
+                        pathogen_detection.to_json(&path)?;
+                    }
                     
                     if let Some(path) = &args.filter_pathogen {
 
@@ -60,7 +64,12 @@ fn main() -> anyhow::Result<()> {
                     let output = QualityControlOutput::from(
                         &args.input, args.id.clone(), args.background
                     )?;
-                    QualityControl::from_quality(&output).to_json(&args.qc)?;
+                    
+                    let quality_control = QualityControl::from_quality(&output);
+                    
+                    if let Some(path) = args.qc {
+                        quality_control.to_json(&path)?;
+                    }
                 }
             }
         },

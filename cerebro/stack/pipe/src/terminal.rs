@@ -361,10 +361,10 @@ pub struct ProcessArgs {
     pub id: Option<String>,
     /// Output file of processed quality control data
     #[clap(long, short = 'q')]
-    pub qc: PathBuf,
+    pub qc: Option<PathBuf>,
     /// Output file of processed pathogen detection data
     #[clap(long, short = 'p')]
-    pub pathogen: PathBuf,
+    pub pathogen: Option<PathBuf>,
     /// Output file of processed and filtered pathogen detection data
     #[clap(long, short = 'f')]
     pub filter_pathogen: Option<PathBuf>,
