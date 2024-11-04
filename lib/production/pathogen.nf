@@ -180,24 +180,24 @@ workflow TaxonomicProfile {
 
         vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
 
-        results = vircovResults.mix(
-            ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) ? Kmcp.out.results : Channel.empty(),
-            ((profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken"))) ? Bracken.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
-        )
+        // results = vircovResults.mix(
+        //     (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? Kmcp.out.results : Channel.empty(),
+        //     (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? Bracken.out.results : Channel.empty(),
+        //     (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
+        //     (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
+        //     (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
+        //     (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
+        //     (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
+        // )
 
-        // process results to json and get tables
-        json = results.mix(qualityControlResults) | groupTuple | ProcessOutput
-        tables = json | collect | PathogenDetectionTable
+        // // process results to json and get tables
+        // json = results.mix(qualityControlResults) | groupTuple | ProcessOutput
+        // tables = json | collect | PathogenDetectionTable
     
     emit:
         reads   = reads
-        results = results
-        tables  = tables
+        // results = results
+        // tables  = tables
 
 }
 
