@@ -328,7 +328,8 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     let mut records = Vec::new();
     for result in csv_reader.deserialize() {
         let record = result?;
-        records.push(record)
+        records.push(record);
+        log::info!("Pushed record");
     }
 
     Ok(records)
