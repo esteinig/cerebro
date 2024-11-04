@@ -181,8 +181,8 @@ workflow TaxonomicProfile {
         vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
 
         results = vircovResults.mix(
-            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? Kmcp.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? Bracken.out.results : Channel.empty(),
+            ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) ? Kmcp.out.results : Channel.empty(),
+            ((profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken"))) ? Bracken.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
