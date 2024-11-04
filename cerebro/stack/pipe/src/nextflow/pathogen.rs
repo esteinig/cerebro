@@ -373,7 +373,6 @@ impl BrackenReport {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct KmcpReport {
     pub id: String,
@@ -389,8 +388,6 @@ impl KmcpReport {
         })
     }
 }
-
-
 
 #[derive(Serialize, Deserialize)]
 pub struct GanonReadsReport {

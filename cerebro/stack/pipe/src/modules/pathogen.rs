@@ -113,12 +113,12 @@ impl PathogenDetection {
 
 
         // Process GanonAbundanceReport
-        if let Some(ganon_reads_report) = &output.profile.ganon_reads {
-            for record in &ganon_reads_report.records {
+        if let Some(ganon_profile_report) = &output.profile.ganon_abundance {
+            for record in &ganon_profile_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.to_string())
                     .or_insert(PathogenDetectionRecord::default());
-                entry.set_ganon_sequence(taxid, record, input_reads);
+                entry.set_ganon_profile(taxid, record, input_reads);
             }
         }
 
@@ -141,7 +141,7 @@ impl PathogenDetection {
                     log::warn!("Failed to recover taxinfo from Sylph output");
                     return Err(WorkflowError::SylphTaxInfoRecoveryFailure(record.clade_name.clone()))
                 } else {
-                    (taxid_str_split[0], taxid_str_split[1])
+                    (taxid_str_split[1], taxid_str_split[0])
                 }
             },
             None => { 
