@@ -24,7 +24,6 @@
     ];
 
     let analysisTags: FileTag[] = [
-        FileTag.HOST,
     ];
 
     const updateFileTags = async() => {
@@ -95,7 +94,7 @@
 </script>
 
 <div class="grid grid-cols-6 gap-8 items-center">
-    <div class="opacity-60 col-span-2 truncate">{id}</div>
+    <div class="opacity-60 col-span-2">{id}</div>
    
     {#if disableDiv}
         <div class="col-span-1 flex justify-start opacity-60 text-red-500">
@@ -109,7 +108,7 @@
             </div>
         </div>
     {:else}
-        <div class="col-span-1 flex justify-start">
+        <div class="col-span-1 flex justify-start items-center">
             {#each nucleicAcidTags as tag}
                 <button
                     class="chip {nucleicAcidTag === tag ? 'variant-filled-primary' : 'variant-soft'} ml-2"

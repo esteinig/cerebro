@@ -1,5 +1,6 @@
 import typer
 import warnings
+import pandas
 
 from pathlib import Path
 from ..utils import read_qc_table, YESTERDAY_MEDIUM
@@ -296,3 +297,114 @@ def plot_host_biomass(
     plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, title="Host spike-in")
     plt.subplots_adjust(bottom=0.2)
     fig1.savefig(plot, dpi=300,  transparent=False)
+
+
+
+@app.command()
+def plot_rna_phage(
+    qc_controls: Path = typer.Option(
+        ..., help="Quality controlue module extraction table of internal controls"
+    ),
+    metadata: Path = typer.Option(
+        ..., help="Metadata table of RNA phage experiments (and checks on T4)"
+    ),
+    plot: Path = typer.Option(
+        "rna_phage.png", help="Output plot path"
+    ),
+):
+
+    """
+    Plot RNA phage experiment for T4-Monash
+    """
+
+    df = pandas.read_csv(qc_controls, sep="\t", header=0)
+    meta = pandas.read_csv(metadata, header=0)
+
+    # Remove the sample identifier from the sequencing library
+    df["id"] = df["id"].str.replace(r'(_[^_]*)$', '', regex=True)
+
+    # T4-DNA phage section
+    plot_dna_phage_comparison(df=df)
+
+    # MS2-RNA phage
+    plot_rna_phage_comparison(df=df, meta=meta)
+
+
+
+
+def plot_rna_phage_comparison(df: pandas.DataFrame, meta: pandas.DataFrame):
+
+    df_rna_phage = df[df["reference"] == "MS2-RNA"]
+
+    meta_exp = meta[meta["experiment"] == "rna"]
+
+    df_rna_phage_experiment = df_rna_phage[df_rna_phage["id"].isin(meta_exp["id"])]
+    df_rna_phage_experiment = df_rna_phage_experiment.merge(meta_exp[["id", "host", "label"]], on="id", how="left")
+
+    print(df_rna_phage_experiment)
+    
+    hue_order = ["high", "medium", "low", "extraction", "library"]
+
+
+    rename_dict = {
+        "detroit": "Host (Detroit)",
+        "no_detroit": "Neat (PBS)",
+    }
+
+    df_rna_phage_experiment["host"] = df_rna_phage_experiment["host"].replace(rename_dict)
+    
+    fig1, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(12,12))
+
+    sns.barplot(
+        x="host", y="coverage", hue="label",
+        data=df_rna_phage_experiment, hue_order=hue_order, 
+        ax=ax1, palette=YESTERDAY_MEDIUM
+    )
+
+    sns.stripplot(
+        x="host", y="coverage", 
+        hue="label", data=df_rna_phage_experiment, 
+        hue_order=hue_order, ax=ax1, 
+        palette=YESTERDAY_MEDIUM, dodge=True, 
+        edgecolor="black", linewidth=2, 
+        legend=None
+        )
+    
+    ax1.set_title(f"\nMS2 - RNA phage coverage")
+    ax1.set_xlabel("\n")
+    ax1.set_ylabel("Genome coverage (%)")
+    
+    legend = ax1.get_legend()
+    if legend:
+        legend.set_title(None) 
+
+    fig1.savefig("rna_phage.png", dpi=300, transparent=False)
+
+
+def plot_dna_phage_comparison(df: pandas.DataFrame):
+
+    df_dna_phage = df[df["reference"] == "T4-DNA"]
+
+    rename_dict = {
+        "DW-63-S561__DNA__NS": "Current stock (PBS)",
+        "DW-63-S562__DNA__NS": "Frozen stock (PBS)",
+        "DW-63-S558__DNA__NTC": "NTC (E)",
+        "DW-63-S560__DNA__NTC": "NTC (L)"
+    }
+
+    df_dna_phage_experiment = df_dna_phage[df["id"].isin(rename_dict.keys())]
+    df_dna_phage_experiment["id"] = df_dna_phage_experiment["id"].replace(rename_dict)
+    
+    order = ["Current stock (PBS)", "Frozen stock (PBS)", "NTC (E)", "NTC (L)"]
+
+    df_dna_phage_experiment["id"] = pandas.Categorical(df_dna_phage_experiment["id"], categories=order, ordered=True)
+
+    fig1, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(12,12))
+
+    sns.barplot(x="id", y="coverage", data=df_dna_phage_experiment, ax=ax1, palette=[YESTERDAY_MEDIUM[1], YESTERDAY_MEDIUM[0], "gray", "gray"])
+    sns.stripplot(x="id", y="coverage", data=df_dna_phage_experiment, ax=ax1, palette=[YESTERDAY_MEDIUM[1], YESTERDAY_MEDIUM[0], "gray", "gray"], edgecolor="black", linewidth=2)
+    ax1.set_title(f"\nT4 DNA phage coverage (no host background)")
+    ax1.set_xlabel("\n")
+    ax1.set_ylabel("Genome coverage (%)")
+    
+    fig1.savefig("dna_phage.png", dpi=300, transparent=False)

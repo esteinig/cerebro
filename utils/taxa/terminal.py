@@ -19,6 +19,93 @@ def stdin_callback(value: Optional[Path]) -> Path:
 
 app = typer.Typer(add_completion=False)
 
+
+@app.command()
+def plot_species_reference(
+    species: Path = typer.Argument(
+        ..., help="Pathogen detection table (species)"
+    ),
+    reference: Path = typer.Option(
+        ..., help="Reference table of species and taxid"
+    ),
+):
+
+    """
+    Heatmap of reference classifications for a single sample
+    """
+
+    species = pandas.read_csv(species, sep="\t", header=0)
+    reference = pandas.read_csv(reference, sep="\t", header=0)
+
+    ref_calls = reference.merge(species[["taxid", "kraken_reads", "bracken_reads", "metabuli_reads", "ganon_reads", "kmcp_reads", "sylph_reads"]], on="taxid", how="left")
+
+    # Drop 'taxid' and '_reads' suffix from columns
+    ref_calls = ref_calls.drop(columns=["taxid", "reads"])
+    ref_calls.columns = [col.replace("_reads", "") for col in ref_calls.columns]
+
+    # Set 'name' as the index (assuming 'name' is the first column)
+    ref_calls = ref_calls.set_index("name")
+
+    # Scale values to be percentages of 668 reads
+    ref_calls = (ref_calls / 688) * 100
+
+    plt.figure(figsize=(12, 10))
+
+    sns.heatmap(
+        ref_calls, 
+        cmap="BuGn", 
+        vmin=0, 
+        vmax=100, 
+        annot=True, 
+        fmt=".1f",
+    )
+
+    # Customize plot labels and display
+    plt.xlabel("")
+    plt.ylabel("")
+    plt.title("CipherDB v0.1.0 - CNS Syndromic (Rank: Species)")
+
+    plt.tight_layout()
+    plt.savefig("cns_true.png", dpi=300, transparent=False)
+
+
+    # Find distinct species in 'species' that are not in 'reference' by 'taxid'
+    distinct_species = species[~species["taxid"].isin(reference["taxid"])]
+
+    # Count the number of distinct species
+    num_distinct_species = distinct_species["taxid"].nunique()
+    print(f"Number of distinct species in 'species' not in 'reference': {num_distinct_species}")
+
+    # Select only the relevant columns for the heatmap and drop 'taxid' and '_reads' suffix from columns
+    distinct_species = distinct_species[["name", "kraken_reads", "bracken_reads", "metabuli_reads", "ganon_reads", "kmcp_reads", "sylph_reads"]]
+    distinct_species.columns = [col.replace("_reads", "") for col in distinct_species.columns]
+
+
+    # Set 'name' as the index for the heatmap
+    distinct_species = distinct_species.set_index("name")
+    
+    # Remove species with fewer than 5 reads across all classifiers
+    distinct_species = distinct_species[(distinct_species >= 5).any(axis=1)]
+
+    # Plot heatmap
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(
+        distinct_species, 
+        cmap="OrRd", 
+        annot=True, 
+        fmt=".0f",
+    )
+
+    plt.xlabel("")
+    plt.ylabel("")
+    plt.title("CipherDB v0.1.0 - CNS Syndromic (Rank: Species)")
+
+    plt.tight_layout()
+    plt.savefig("cns_false.png", dpi=300, transparent=False)
+
+
+    
+
 @app.command()
 def plot_taxon(
     taxa: Path = typer.Argument(
