@@ -35,6 +35,7 @@ process OutputScan {
 
     output:
     tuple (val(sampleID), path("${sampleID}.output.json"), emit: results)
+    tuple val(sampleID), path(forward), path(reverse)
 
     script:
     
