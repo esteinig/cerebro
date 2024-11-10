@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
 
     // Fetch the sample overview data
     const sampleOverviewResponse: Response = await fetch(
-        `${api.routes.cerebro.sampleOverview}?db=${teamDatabase.id}&project=${project.id}&page=0&limit=${pageLimit}`, 
+        `${api.routes.cerebro.sampleOverview}?team=${team.id}&db=${teamDatabase.id}&project=${project.id}&page=0&limit=${pageLimit}`, 
         { method: 'GET', mode: 'cors', credentials: 'include' } as RequestInit
     );
 

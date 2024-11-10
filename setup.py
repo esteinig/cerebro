@@ -6,11 +6,15 @@ setup(
     author="Eike J. Steinig",
     author_email="eike.steinig@unimelb.edu.au",
     packages=find_packages(),
-    include_package_data=True,
+    include_package_data=True, 
+    package_data={
+        'utils.assets': ['ercc.tsv']
+    },
     install_requires=[
         "typer",
         "pandas",
-        "seaborn"
+        "seaborn",
+        "scipy"
     ],
     entry_points="""
         [console_scripts]

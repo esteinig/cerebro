@@ -318,7 +318,8 @@ def plot_rna_phage(
     """
 
     df = pandas.read_csv(qc_controls, sep="\t", header=0)
-    meta = pandas.read_csv(metadata, header=0)
+    meta = pandas.read_csv(metadata, sep="\t", header=0)
+
 
     # Remove the sample identifier from the sequencing library
     df["id"] = df["id"].str.replace(r'(_[^_]*)$', '', regex=True)
@@ -330,13 +331,12 @@ def plot_rna_phage(
     plot_rna_phage_comparison(df=df, meta=meta)
 
 
-
-
 def plot_rna_phage_comparison(df: pandas.DataFrame, meta: pandas.DataFrame):
 
     df_rna_phage = df[df["reference"] == "MS2-RNA"]
 
-    meta_exp = meta[meta["experiment"] == "rna"]
+    meta = meta[meta["experiment"] == "phage"]
+    meta_exp = meta[meta["nucleic_acid"] == "rna"]
 
     df_rna_phage_experiment = df_rna_phage[df_rna_phage["id"].isin(meta_exp["id"])]
     df_rna_phage_experiment = df_rna_phage_experiment.merge(meta_exp[["id", "host", "label"]], on="id", how="left")

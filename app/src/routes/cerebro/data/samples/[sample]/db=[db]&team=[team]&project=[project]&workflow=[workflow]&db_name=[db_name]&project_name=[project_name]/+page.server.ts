@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     // this always needs to be done anyway so we have the workflows for selection on page load (initialisation and reloads)
 
     const sampleOverviewWorkflowResponse: Response = await fetch(
-        `${api.routes.cerebro.sampleOverview}/${params.sample}?db=${params.db}&project=${params.project}&workflow=true`, 
+        `${api.routes.cerebro.sampleOverview}/${params.sample}?team=${params.team}&db=${params.db}&project=${params.project}&workflow=true`, 
         { method: 'GET', mode: 'cors', credentials: 'include' } as RequestInit
     );
 
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     // Now we get the Cerebro documents matching the requested sample identifier for the latest workflow
 
     const workflowSampleResponse: Response = await fetch(
-        `${api.routes.cerebro.samples}/${params.sample}?db=${params.db}&project=${params.project}&workflow=${requestedWorkflow}`, 
+        `${api.routes.cerebro.samples}/${params.sample}?team=${params.team}&db=${params.db}&project=${params.project}&workflow=${requestedWorkflow}`, 
         { method: 'GET', mode: 'cors', credentials: 'include' } as RequestInit
     );
 
@@ -79,7 +79,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
         
         // Get all run-specific negative control documents for the samples 
         const sampleControlResponse: Response = await fetch(
-            `${api.routes.cerebro.workflows}/${requestedWorkflow}?db=${params.db}&project=${params.project}&runs=${sampleRuns.join(',')}&tags=${negativeTemplateControl}`, 
+            `${api.routes.cerebro.workflows}/${requestedWorkflow}?team=${params.team}&db=${params.db}&project=${params.project}&runs=${sampleRuns.join(',')}&tags=${negativeTemplateControl}`, 
             { method: 'GET', mode: 'cors', credentials: 'include' } as RequestInit
         );
         
@@ -97,7 +97,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     if (cerebroIdentifiers.length){
         // Get all run-specific negative control documents for the samples 
         const sampleSummaryResponse: Response = await fetch(
-            `${api.routes.cerebro.getSampleSummary}?db=${params.db}&project=${params.project}`, 
+            `${api.routes.cerebro.getSampleSummary}?db=${params.db}&team=${params.team}&project=${params.project}`, 
             { 
                 method: 'POST', 
                 mode: 'cors', 

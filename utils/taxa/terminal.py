@@ -104,6 +104,210 @@ def plot_species_reference(
     plt.savefig("cns_false.png", dpi=300, transparent=False)
 
 
+
+@app.command()
+def plot_qc_pools(
+    qc_reads: Path = typer.Argument(
+        ..., help="Quality control data table"
+    ),
+    metadata: Path = typer.Option(
+        ..., help="Reference metadata table"
+    ),
+    y_label: str = typer.Option(
+        "Synthetic constructs detected (n)", help="Y-axis label"
+    ),
+    column: str = typer.Option(
+        "ercc_constructs", help="Y-axis value column"
+    ),
+    title: str = typer.Option(
+        "ERCC Constructs", help="Subplot title"
+    ),
+    output: Path = typer.Option(
+        "ercc_pool.png", help="Output plot"
+    ),
+    experiment: str = typer.Option(
+        "pool", help="Experiment column subset"
+    ),
+    label_title: str = typer.Option(
+        "Pooling strategy", help="Legent title for label column"
+    ),
+):
+    """
+    Comparison of quality control data pooling ERCC/EDCC
+    """
+
+    
+    controls = pandas.read_csv(qc_reads, sep="\t", header=0)
+    metadata = pandas.read_csv(metadata, sep="\t", header=0)
+
+    controls["id"] = controls["id"].str.replace(r'(_[^_]*)$', '', regex=True)
+
+    controls_metadata = controls.merge(metadata, on="id", how="left")
+    controls_metadata = controls_metadata[controls_metadata["experiment"] == experiment]
+
+    controls_metadata_dna = controls_metadata[controls_metadata["nucleic_acid"] == "dna"]
+    controls_metadata_rna = controls_metadata[controls_metadata["nucleic_acid"] == "rna"]
+
+    fig1, axes = plt.subplots(nrows=1, ncols=2, figsize=(24,12))
+
+    ax1 = axes[0]
+    ax2 = axes[1]
+
+    hue_order_dna = sorted(controls_metadata_dna["label"].unique())
+    hue_order_rna = sorted(controls_metadata_rna["label"].unique())
+
+    sns.barplot(
+        x="host", y=column, hue="label",
+        data=controls_metadata_dna, hue_order=hue_order_dna, 
+        ax=ax1, palette=YESTERDAY_MEDIUM
+    )
+
+    sns.stripplot(
+        x="host", y=column, 
+        hue="label", data=controls_metadata_dna, 
+        hue_order=hue_order_dna, ax=ax1, 
+        palette=YESTERDAY_MEDIUM, dodge=True, 
+        edgecolor="black", linewidth=2, 
+        legend=None
+    )
+
+    sns.barplot(
+        x="host", y=column, hue="label",
+        data=controls_metadata_rna, hue_order=hue_order_rna, 
+        ax=ax2, palette=YESTERDAY_MEDIUM
+    )
+
+    sns.stripplot(
+        x="host", y=column, 
+        hue="label", data=controls_metadata_rna, 
+        hue_order=hue_order_rna, ax=ax2, 
+        palette=YESTERDAY_MEDIUM, dodge=True, 
+        edgecolor="black", linewidth=2, 
+        legend=None
+    )
+
+
+    ax1.set_title(f"\n{title} (DNA)")
+    ax1.set_xlabel("\n")
+    ax1.set_ylabel(f"{y_label}\n")
+    ax1.set_ylim(0)
+
+
+    legend = ax1.get_legend()
+    if legend:
+        legend.set_title(label_title)
+        sns.move_legend(ax1, "upper right")
+
+    ax2.set_title(f"\n{title} (RNA)")
+    ax2.set_xlabel("\n")
+    ax2.set_ylabel(f"{y_label}\n")
+    ax2.set_ylim(0)
+
+
+    legend = ax2.get_legend()
+    if legend:
+        legend.set_title(label_title)
+        sns.move_legend(ax2, "upper right")
+
+
+    fig1.savefig(output, dpi=300, transparent=False)
+
+
+@app.command()
+def plot_pools(
+    viruses: Path = typer.Argument(
+        ..., help="Pathogen detection table for Viruses (species)"
+    ),
+    metadata: Path = typer.Option(
+        ..., help="Reference metadata table"
+    ),
+    experiment: str = typer.Option(
+        "pool", help="Experiment column subset"
+    ),
+):
+
+    """
+    Comparison of pooling strategies (pathogen detection)
+    """
+
+    viruses = pandas.read_csv(viruses, sep="\t", header=0)
+    metadata = pandas.read_csv(metadata, sep="\t", header=0)
+
+
+
+    # Remove the sample identifier from the sequencing library
+    viruses["id"] = viruses["id"].str.replace(r'(_[^_]*)$', '', regex=True)
+
+    viruses_dna = viruses[viruses["id"].str.contains("__DNA__")]
+    viruses_rna = viruses[viruses["id"].str.contains("__RNA__")]
+
+    mve = viruses_rna[viruses_rna["name"] == "Orthoflavivirus murrayense"]
+    hsv1 = viruses_dna[viruses_dna["name"] == "Simplexvirus humanalpha1"]
+    
+    mve_metadata = mve.merge(metadata, on="id", how="left")
+    hsv1_metadata = hsv1.merge(metadata, on="id", how="left")
+
+    mve_metadata = mve_metadata[mve_metadata["experiment"] == experiment]
+    hsv1_metadata = hsv1_metadata[hsv1_metadata["experiment"] == experiment]
+
+    fig1, axes = plt.subplots(nrows=6, ncols=2, figsize=(12,24))
+    
+    for i, classifier in enumerate(["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"]):
+
+        ax1 = axes[i][0]
+
+        sns.barplot(
+            x="host", y=f"{classifier}_rpm", hue="label",
+            data=mve_metadata, hue_order=["P1", "P2"], 
+            ax=ax1, palette=YESTERDAY_MEDIUM
+        )
+
+        sns.stripplot(
+            x="host", y=f"{classifier}_rpm", 
+            hue="label", data=mve_metadata, 
+            hue_order=["P1", "P2"], ax=ax1, 
+            palette=YESTERDAY_MEDIUM, dodge=True, 
+            edgecolor="black", linewidth=2, 
+            legend=None
+        )
+
+        ax2 = axes[i][1]
+
+        sns.barplot(
+            x="host", y=f"{classifier}_rpm", hue="label",
+            data=hsv1_metadata, hue_order=["P1", "P2"], 
+            ax=ax2, palette=YESTERDAY_MEDIUM
+        )
+
+        sns.stripplot(
+            x="host", y=f"{classifier}_rpm", 
+            hue="label", data=hsv1_metadata, 
+            hue_order=["P1", "P2"], ax=ax2, 
+            palette=YESTERDAY_MEDIUM, dodge=True, 
+            edgecolor="black", linewidth=2, 
+            legend=None
+        )
+        
+        ax1.set_title(f"\nOrthoflavivirus murrayense ({classifier.capitalize()})")
+        ax1.set_xlabel("\n")
+        ax1.set_ylabel(f"{classifier.capitalize()} RPM\n")
+        ax1.set_ylim(0)
+
+
+        ax2.set_title(f"\nSimplexvirus humanalpha1 ({classifier.capitalize()})")
+        ax2.set_xlabel("\n")
+        ax2.set_ylabel(f"{classifier.capitalize()} RPM\n")
+        ax2.set_ylim(0)
+        legend = ax1.get_legend()
+        if legend:
+            legend.set_title(None)  
+
+
+        legend = ax2.get_legend()
+        if legend:
+            legend.set_title(None)  
+
+    fig1.savefig("mve_pool.png", dpi=300, transparent=False)
     
 
 @app.command()

@@ -28,6 +28,8 @@ process OutputScan {
 
 
     publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.output.json"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "$forward"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "$reverse"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)

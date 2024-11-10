@@ -1,11 +1,14 @@
 import typer
 import warnings
+import pandas as pd
+import importlib.resources
 
 from pathlib import Path
 from ..utils import read_qc_table, YESTERDAY_MEDIUM
 
 from matplotlib import pyplot as plt
 import seaborn as sns
+from scipy.stats import linregress
 
 warnings.filterwarnings("ignore")
 
@@ -118,3 +121,118 @@ def plot_detroit_spikes(
     plt.close()
 
 
+def load_reference(ercc_reference: Path) -> pd.DataFrame:
+    if ercc_reference is None:
+        with importlib.resources.path('utils.assets', 'ercc.tsv') as ercc_path:
+            ercc_reference = ercc_path
+            if not ercc_reference.exists():
+                raise ValueError(f"ERCC reference path does not exist: {ercc_reference}")
+    return pd.read_csv(ercc_reference, sep="\t", header=0)
+
+def clean_id(identifier: str) -> str:
+    """Removes trailing string after the last underscore in control id."""
+    return identifier.rsplit("_", 1)[0]
+
+def subset_controls_by_metadata(controls: pd.DataFrame, metadata: pd.DataFrame) -> pd.DataFrame:
+    """Subset controls data to only include IDs present in metadata, after cleaning IDs."""
+    controls["cleaned_id"] = controls["id"].apply(clean_id)
+    return controls[controls["cleaned_id"].isin(metadata["id"])]
+
+def merge_controls_with_metadata(controls: pd.DataFrame, metadata: pd.DataFrame) -> pd.DataFrame:
+    """Merge controls with metadata on cleaned id."""
+    controls = controls.drop(columns="id")  # Drop original id to avoid conflicts in merge
+    return pd.merge(controls, metadata, left_on="cleaned_id", right_on="id")
+
+def compute_group_r2(ercc_data: pd.DataFrame, group_column: str) -> (dict, list):
+    r2_values = {}
+    hue_order = sorted(ercc_data[group_column].unique())
+    for group in hue_order:
+        group_data = ercc_data[ercc_data[group_column] == group]
+        if len(group_data) > 1:
+            slope, intercept, r_value, p_value, std_err = linregress(
+                group_data["concentration"], group_data["alignments"]
+            )
+            r2_values[group] = r_value ** 2
+        else:
+            r2_values[group] = None
+    hue_order_with_r2 = [
+        f"{group} (R² = {r2_values[group]:.2f})" if r2_values[group] is not None else f"{group} (R² = N/A)"
+        for group in hue_order
+    ]
+    ercc_data[f"{group_column}_with_r2"] = ercc_data[group_column].apply(
+        lambda g: f"{g} (R² = {r2_values[g]:.2f})" if r2_values[g] is not None else f"{g} (R² = N/A)"
+    )
+    return r2_values, hue_order_with_r2, ercc_data
+
+def plot_ercc_scatter(ercc_data: pd.DataFrame, hue_order_with_r2: list, constructs_detected: int, total_count: int, group_col: str, ax):
+    # Plot scatterplot
+    sns.scatterplot(
+        data=ercc_data, x="concentration", y="alignments", hue=f"{group_col}_with_r2",
+        hue_order=hue_order_with_r2, palette=YESTERDAY_MEDIUM, ax=ax, s=30
+    )
+    
+    # Compute and display total R²
+    if len(ercc_data) > 1:
+        overall_slope, overall_intercept, overall_r_value, _, _ = linregress(
+            ercc_data["concentration"], ercc_data["alignments"]
+        )
+        total_r2 = overall_r_value ** 2
+    else:
+        total_r2 = None
+    
+    summary_text = f"{constructs_detected}/{total_count}, R² = {total_r2:.2f}" if total_r2 is not None else f"{constructs_detected}/{total_count}, R² = N/A"
+    ax.text(
+        0.95, 0.05, summary_text, transform=ax.transAxes,
+        fontsize=12, verticalalignment='bottom', horizontalalignment='right',
+        bbox=dict(facecolor='white', alpha=0.8, edgecolor='gray')
+    )
+    
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_ylabel("Alignments (log10)")
+    ax.set_xlabel("Concentration (log10)")
+    legend = ax.get_legend()
+    if legend:
+        legend.set_title(None)
+        sns.move_legend(ax, "upper left")
+
+def plot_coverage_bar(controls: pd.DataFrame, ax):
+
+    sns.barplot(
+        data=controls, x="coverage", y="reference", orient="h",
+        palette=YESTERDAY_MEDIUM, ax=ax, legend=False
+    )
+    ax.set_ylabel(None)
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("Coverage (%)")
+    ax.axvline(80, color="gray", linestyle="--", linewidth=1)  # Vertical line at 80% coverage
+
+@app.command()
+def plot_ercc_controls(
+    qc_controls: Path = typer.Option(..., help="Quality control table for internal controls"),
+    ercc_reference: Path = typer.Option(None, help="ERCC reference data table"),
+):
+    
+    """ERCC quality control plots """
+
+    reference = load_reference(ercc_reference)
+    controls = pd.read_csv(qc_controls, sep="\t", header=0)
+    
+    for library, data in controls.groupby("id"):
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 6))
+
+        constructs = data[data["class"] == "ercc"]
+        constructs_detected = constructs[constructs["alignments"] > 0]
+
+        print(f"Detected {len(constructs_detected)}/{len(reference)} synthetic constructs (ERCC) for library {library}")
+
+        ercc_data = constructs.merge(reference, on="reference", how="left")
+        _, hue_order_with_r2, ercc_data = compute_group_r2(ercc_data, "group")
+
+        plot_ercc_scatter(ercc_data, hue_order_with_r2, len(constructs_detected), len(reference), "group", axes[0])
+
+        controls_data = data[data["class"] == "control"].sort_values(by="reference")
+        plot_coverage_bar(controls_data, axes[1])
+
+        fig.tight_layout()
+        fig.savefig(f"{library}.png", dpi=300, transparent=False)
