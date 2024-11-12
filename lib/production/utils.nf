@@ -330,13 +330,16 @@ def getClassifierReferenceIndex(String reference, String index, String descripti
 /* Reads and sample sheet inputs */
 
 def getReads(String fastqPaired, String fastqNanopore, String sampleSheet, Boolean sampleSheetProduction) {
+    
+    def pairedReads = fastqPaired ? fastqPaired.split(/\s+/) as List<String> : fastqPaired
+    def nanoporeReads = fastqNanopore ? fastqNanopore.split(/\s+/) as List<String> : fastqNanopore
 
     if (sampleSheet){
         return readSampleSheet(sampleSheet, false)
     } else if (fastqPaired) {
-        return channel.fromFilePairs(params.fastqPaired, flat: true, checkIfExists: true)
+        return channel.fromFilePairs(pairedReads, flat: true, checkIfExists: true)
     } else if (fastqNanopore) {
-        return channel.fromPath(params.fastqNanopore, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
+        return channel.fromPath(nanoporeReads, checkIfExists: true) | map { tuple(it.getSimpleName(), it) } 
     } else {
         error "Either one or both of '--fastqPaired' and '--fastqNanopore' or '--sampleSheet' have to be specified for read input"
     }
