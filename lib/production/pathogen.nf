@@ -8,7 +8,7 @@ include { QualityControl; QualityControlNanopore } from "./quality";
 include { Vircov; VircovNanopore } from "../processes/pathogen";
 include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile; ProcessOutput; PathogenDetectionTable } from "../processes/pathogen";
 
-include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore } from "../processes/pathogen";
+include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore; KmcpNanopore; GanonReadsNanopore; GanonProfileNanopore } from "../processes/pathogen";
 
 include { MetaSpades; Megahit; MetaSpadesNanopore; MegahitNanopore } from "../processes/pathogen";
 include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverage } from "../processes/pathogen";
@@ -207,6 +207,8 @@ workflow TaxonomicProfileNanopore {
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
 
+        profileParams = params.pathogenDetection.taxonomicProfile
+
         if (profileParams.alignment) {
             VircovNanopore(
                 reads,
@@ -241,6 +243,35 @@ workflow TaxonomicProfileNanopore {
             )
         }
 
+        if (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) {
+            GanonReadsNanopore(
+                reads,
+                databases.ganonDatabase,
+                profileParams.ganonDatabasePrefix,
+                profileParams.ganonMultipleMatches
+            )
+        }
+
+        if ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) {
+            KmcpNanopore(
+                reads,
+                databases.kmcpDatabase,
+                profileParams.kmcpMode,
+                profileParams.kmcpLevel,
+                profileParams.kmcpMinQueryCoverage
+            )
+        }
+
+        if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
+            GanonProfileNanopore(
+                reads,
+                databases.ganonDatabase,
+                profileParams.ganonDatabasePrefix,
+                profileParams.ganonMultipleMatches
+            )
+        }
+
+
         if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
             SylphNanopore(
                 reads,
@@ -250,6 +281,19 @@ workflow TaxonomicProfileNanopore {
                 profileParams.sylphQueryCompression
             )
         }
+
+
+        vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
+
+        results = vircovResults.mix(
+            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? Kmcp.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? Bracken.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
+        )
 }
 
 

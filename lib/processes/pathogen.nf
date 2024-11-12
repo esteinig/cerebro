@@ -251,6 +251,39 @@ process Kmcp {
 
 }
 
+
+process KmcpNanopore { 
+
+    tag { sampleID }
+    label "pathogenProfileKmcp"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.abundance.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.kmcp.reads.tsv.gz"
+
+    input:
+    tuple val(sampleID), path(reads)
+    path(kmcpDatabase)
+    val(kmcpMode)
+    val(kmcpLevel)
+    val(kmcpMinQueryCoverage)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.kmcp.reads.tsv.gz"), path("${sampleID}.kmcp.reads.report"), path("${sampleID}.kmcp.abundance.report"), emit: results)
+
+
+    script:
+
+    """
+    kmcp search -d $kmcpDatabase $reads -o ${sampleID}.reads.tsv.gz --threads $task.cpus
+    kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -t $kmcpMinQueryCoverage -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
+    mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv.gz
+    tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
+    mv ${sampleID}.k.report ${sampleID}.kmcp.reads.report
+    """
+
+}
+
 process GanonReads { 
 
     tag { sampleID }
@@ -275,6 +308,38 @@ process GanonReads {
 
     """
     ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --paired-reads $forward $reverse --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one
+
+    mv ${sampleID}.tre ${sampleID}.ganon.reads.report
+    mv ${sampleID}.one ${sampleID}.ganon.reads.tsv
+    """
+
+}
+
+
+process GanonReadsNanopore { 
+
+    tag { sampleID }
+    label "pathogenProfileGanon"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.report"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.tsv"
+
+    input:
+    tuple val(sampleID), path(reads)
+    path(ganonDatabase)
+    val(ganonDatabasePrefix)
+    val(ganonMultipleMatches)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.ganon.reads.report"), path("${sampleID}.ganon.reads.tsv"), emit: results)
+
+
+    script:
+
+    // Sequence abundance configuration for report (--binning)
+
+    """
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix $reads --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one
 
     mv ${sampleID}.tre ${sampleID}.ganon.reads.report
     mv ${sampleID}.one ${sampleID}.ganon.reads.tsv
@@ -311,6 +376,34 @@ process GanonProfile {
 
 }
 
+process GanonProfileNanopore { 
+
+    tag { sampleID }
+    label "pathogenProfileGanon"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.abundance.report"
+
+    input:
+    tuple val(sampleID), path(reads)
+    path(ganonDatabase)
+    val(ganonDatabasePrefix)
+    val(ganonMultipleMatches)
+
+    output:
+    tuple (val(sampleID), path("${sampleID}.ganon.abundance.report"), emit: results)
+
+
+    script:
+
+    // Taxonomic abundance configuration for report (default)
+
+    """
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix $reads --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
+
+    mv ${sampleID}.tre ${sampleID}.ganon.abundance.report
+    """
+
+}
 
 process MetaSpades {
 
@@ -596,7 +689,7 @@ process VircovNanopore {
     secondaryFlag = secondary ? "--secondary" : "" 
 
     """
-    vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --workdir data/ \
+    vircov run -i $reads -o ${sampleID}.alignment.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --workdir data/ \
     --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel $secondaryFlag
     """
     
@@ -630,6 +723,7 @@ process PathogenDetectionTable {
     label "cerebro"
 
     publishDir "$params.outputDirectory/results", mode: "copy", pattern: "rpm.species.tsv"
+    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "rpm.genus.tsv"
 
     input:
     path(result_files)
@@ -637,12 +731,16 @@ process PathogenDetectionTable {
 
     output:
     path("rpm.species.tsv")
+    path("rpm.genus.tsv")
 
     script:
 
     """
     echo '{"ranks": ["species"]}' > filter.json
     cerebro-pipe table pathogen-detection --json *.pd.json --output rpm.species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
+
+    echo '{"ranks": ["genus"]}' > filter.json
+    cerebro-pipe table pathogen-detection --json *.pd.json --output rpm.genus.tsv --taxonomy $taxonomy_directory --filter-json filter.json
     """
     
 }
