@@ -24,7 +24,8 @@ workflow PanviralEnrichment {
         VirusRecovery(
             QualityControl.out.reads, 
             virusDatabase, 
-            params.panviralEnrichment.virusAligner
+            params.panviralEnrichment.virusAligner,
+            params.panviralEnrichment.vircovArgs
         )
 
         results = QualityControl.out.results.mix(
