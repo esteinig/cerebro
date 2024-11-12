@@ -730,8 +730,7 @@ process PathogenDetectionTable {
     path(taxonomy_directory)
 
     output:
-    path("rpm.species.tsv")
-    path("rpm.genus.tsv")
+    tuple path("rpm.species.tsv"), path("rpm.genus.tsv")
 
     script:
 
