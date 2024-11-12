@@ -23,7 +23,7 @@ process VirusRecovery {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    vircov run -i $forward -i $reverse -o ${sampleID}.tsv --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.resources.threads.vircovRemap --parallel $params.resources.threads.vircovParallel --workdir data/ $vircovArgs
+    vircov run -i $forward -i $reverse -o ${sampleID}.tsv --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.resources.threads.vircovRemap --remap-parallel $params.resources.threads.vircovParallel --workdir data/ $vircovArgs
     """
     
 }
