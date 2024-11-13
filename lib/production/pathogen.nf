@@ -8,7 +8,7 @@ include { QualityControl; QualityControlNanopore } from "./quality";
 include { Vircov; VircovNanopore } from "../processes/pathogen";
 include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile; ProcessOutput; PathogenDetectionTable } from "../processes/pathogen";
 
-include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore; KmcpNanopore; GanonReadsNanopore; GanonProfileNanopore } from "../processes/pathogen";
+include { Kraken2Nanopore; Bracken as BrackenNanopore; MetabuliNanopore; SylphNanopore; KmcpNanopore; GanonReadsNanopore; GanonProfileNanopore; ProcessOutput as ProcessOutputNanopore; PathogenDetectionTable as PathogenDetectionTableNanopore  } from "../processes/pathogen";
 
 include { MetaSpades; Megahit; MetaSpadesNanopore; MegahitNanopore } from "../processes/pathogen";
 include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverage } from "../processes/pathogen";
@@ -283,7 +283,7 @@ workflow TaxonomicProfileNanopore {
         }
 
 
-        vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
+        vircovResults = profileParams.alignment  ? VircovNanopore.out.results : Channel.empty()
 
         results = vircovResults.mix(
             (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? KmcpNanopore.out.results : Channel.empty(),
@@ -294,6 +294,16 @@ workflow TaxonomicProfileNanopore {
             (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfileNanopore.out.results : Channel.empty(),
             (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? SylphNanopore.out.results : Channel.empty()
         )
+
+
+        // process results to json and get tables
+        json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputNanopore
+        tables = PathogenDetectionTableNanopore(json | collect, databases.taxonomy)
+    
+    emit:
+        reads   = reads
+        results = results
+        tables  = tables
 }
 
 
