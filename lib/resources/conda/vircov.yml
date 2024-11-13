@@ -4,4 +4,4 @@ channels:
   - conda-forge        
   - bioconda    
 dependencies:
-  - vircov
+  - vircov=0.8.7

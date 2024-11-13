@@ -4,4 +4,4 @@ channels:
   - conda-forge        
   - bioconda    
 dependencies:
-  - scrubby
+  - scrubby=1.0.1
