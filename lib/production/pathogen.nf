@@ -76,7 +76,8 @@ workflow PathogenDetectionNanopore {
         if (params.pathogenDetection.taxonomicProfile.enabled) {
             TaxonomicProfileNanopore(
                 QualityControlNanopore.out.reads, 
-                taxonomicProfileDatabases
+                taxonomicProfileDatabases,
+                QualityControlNanopore.out.results
             )
         }
         
@@ -204,6 +205,7 @@ workflow TaxonomicProfileNanopore {
     take:
         reads
         databases
+        qualityControlResults
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
 
