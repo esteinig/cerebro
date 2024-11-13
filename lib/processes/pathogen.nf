@@ -275,7 +275,8 @@ process KmcpNanopore {
     script:
 
     """
-    kmcp search -d $kmcpDatabase $reads -o ${sampleID}.reads.tsv.gz --threads $task.cpus
+    seqkit sliding -s 100 -W 300 -o ${sampleID}.reads.short.fastq $reads
+    kmcp search -d $kmcpDatabase ${sampleID}.reads.short.fastq -o ${sampleID}.reads.tsv.gz --threads $task.cpus
     kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -t $kmcpMinQueryCoverage -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
     mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv.gz
     tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
@@ -339,7 +340,7 @@ process GanonReadsNanopore {
     // Sequence abundance configuration for report (--binning)
 
     """
-    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix $reads --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --single-reads $reads --output-prefix $sampleID --threads $task.cpus --binning --multiple-matches $ganonMultipleMatches --output-one
 
     mv ${sampleID}.tre ${sampleID}.ganon.reads.report
     mv ${sampleID}.one ${sampleID}.ganon.reads.tsv
@@ -398,7 +399,7 @@ process GanonProfileNanopore {
     // Taxonomic abundance configuration for report (default)
 
     """
-    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix $reads --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
+    ganon classify --db-prefix $ganonDatabase/$ganonDatabasePrefix --single-reads $reads --output-prefix $sampleID --threads $task.cpus --multiple-matches $ganonMultipleMatches
 
     mv ${sampleID}.tre ${sampleID}.ganon.abundance.report
     """
