@@ -286,13 +286,13 @@ workflow TaxonomicProfileNanopore {
         vircovResults = profileParams.alignment  ? Vircov.out.results : Channel.empty()
 
         results = vircovResults.mix(
-            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? Kmcp.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? Bracken.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
+            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? KmcpNanopore.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? BrackenNanopore.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? MetabuliNanopore.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReadsNanopore.out.results : Channel.empty(),
+            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2Nanopore.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfileNanopore.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? SylphNanopore.out.results : Channel.empty()
         )
 }
 
