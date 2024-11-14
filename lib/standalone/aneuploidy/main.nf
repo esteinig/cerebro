@@ -6,7 +6,7 @@
 
 process MinimapAneuploidy {
 
-    tag { "$id : $idx_name" }
+    tag { "$id : $indexName" }
     label "minimap2"
 
     publishDir "$params.outdir/${id}", mode: "symlink", pattern: "${id}.bam"
@@ -20,8 +20,8 @@ process MinimapAneuploidy {
     output:
     tuple (val(id), path(forward), path(reverse), emit: reads)
     tuple (val(id), val(indexName), path("${id}.bam"), emit: alignment)
-    tuple (val(id), val(indexName), path("coverage.txt"), emit: coverage)
-    tuple (val(id), val(indexName), path("markdup.json"), optional: true, emit: deduplicate)
+    tuple (val(id), val(indexName), path("${id}_coverage.txt"), emit: coverage)
+    tuple (val(id), val(indexName), path("${id}_markdup.json"), optional: true, emit: deduplicate)
 
     script:
 
@@ -49,7 +49,7 @@ process CnvKitAneuploidy {
     tag { "$id : $idx_name" }
     label "cnvkit"
 
-    publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}-scatter.png"
+    publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}.png"
     publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}.cns"
     publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}.cnr"
     publishDir "$params.outdir/${id}", mode: "symlink", pattern: "${id}.cnn"
@@ -60,7 +60,7 @@ process CnvKitAneuploidy {
     path(fasta)
 
     output:
-    path("${id}-scatter.png")
+    path("${id}.png")
     path("${id}.cns")
     path("${id}.cnr")
     path("${id}.cnn")
@@ -73,7 +73,7 @@ process CnvKitAneuploidy {
     """
     cnvkit.py batch $bam -n $controlBam -m wgs -f $fasta -p $task.cpus --output-reference ${id}.cnn --output-dir results/ --diagram --scatter $dropLowCoverage $targetAverageBinSize
     
-    mv results/${id}-scatter.png .
+    mv results/${id}-scatter.png ${id}.png
     mv results/${id}.cns .
     mv results/${id}.cnr .
     """
