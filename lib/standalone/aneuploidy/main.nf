@@ -90,13 +90,13 @@ workflow {
 
         MinimapAneuploidy(
             pairedReads, 
-            channel.fromFile(params.referenceFasta, checkIfExists: true)
+            channel.fromPath(params.referenceFasta, checkIfExists: true)
         )
 
         CnvKitAneuploidy(
             MinimapAneuploidy.out.alignment, 
-            channel.fromFile(params.normalControlBam, checkIfExists: true), 
-            channel.fromFile(params.referenceFasta, checkIfExists: true), 
+            channel.fromPath(params.normalControlBam, checkIfExists: true), 
+            channel.fromPath(params.referenceFasta, checkIfExists: true), 
         )
 
 }
