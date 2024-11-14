@@ -214,6 +214,114 @@ def plot_qc_pools(
 
 
 @app.command()
+def plot_twist_comparison(
+    viruses: Path = typer.Argument(
+        ..., help="Pathogen detection table for Zeptometrix Viruses (species)"
+    ),
+    metadata: Path = typer.Option(
+        ..., help="Reference metadata table"
+    ),
+):
+
+    """
+    Comparison of virus detection TWIST vs CNS
+    """
+
+    names = {
+        "Simplexvirus humanalpha1": "HSV-1",
+        "Simplexvirus humanalpha2": "HSV-2",
+        "Roseolovirus humanbeta6a": "HHV-6a",
+        "Roseolovirus humanbeta6b": "HHV-6b",
+        "Cytomegalovirus humanbeta5": "CMV",
+        "Parechovirus ahumpari": "PEV",
+        "Enterovirus betacoxsackie": "EV",
+        "Varicellovirus humanalpha3": "VZV"
+    }
+
+    viruses = pandas.read_csv(viruses, sep="\t", header=0)
+    metadata = pandas.read_csv(metadata, sep="\t", header=0)
+
+    viruses_metadata = viruses.merge(metadata, on="id", how="left")
+
+    viruses_metadata["name"] = viruses_metadata["name"].replace(names)
+
+    print(viruses_metadata["name"])
+    
+    for panel, data in viruses_metadata.groupby("panel"):
+
+        fig1, axes = plt.subplots(nrows=5, ncols=2, figsize=(20,40))
+
+        viruses_dna = data[data["nucleic_acid"] == "dna"]
+        viruses_rna = data[data["nucleic_acid"] == "rna"]
+
+        for i, classifier in enumerate(["kraken", "bracken", "metabuli", "ganon", "kmcp"]):
+
+            ax1 = axes[i][0]
+
+            viruses_dna[f"{classifier}_rpm"] = np.log10(viruses_dna[f"{classifier}_rpm"])
+            viruses_rna[f"{classifier}_rpm"] = np.log10(viruses_rna[f"{classifier}_rpm"])
+
+            sns.barplot(
+                x="name", y=f"{classifier}_rpm", hue="protocol",
+                data=viruses_dna, hue_order=["cns", "twist"], 
+                ax=ax1, palette=YESTERDAY_MEDIUM
+            )
+
+            sns.stripplot(
+                x="name", y=f"{classifier}_rpm", 
+                hue="protocol", data=viruses_dna, 
+                hue_order=["cns", "twist"], ax=ax1, 
+                palette=YESTERDAY_MEDIUM, dodge=True, 
+                edgecolor="black", linewidth=2, 
+                legend=None
+            )
+
+            ax2 = axes[i][1]
+
+            sns.barplot(
+                x="name", y=f"{classifier}_rpm", hue="protocol",
+                data=viruses_rna, hue_order=["cns", "twist"], 
+                ax=ax2, palette=YESTERDAY_MEDIUM
+            )
+
+            sns.stripplot(
+                x="name", y=f"{classifier}_rpm", 
+                hue="protocol", data=viruses_rna, 
+                hue_order=["cns", "twist"], ax=ax2, 
+                palette=YESTERDAY_MEDIUM, dodge=True, 
+                edgecolor="black", linewidth=2, 
+                legend=None
+            )
+
+
+            ax1.set_title(f"\nDNA {panel.capitalize()} ({classifier.capitalize()})")
+            ax1.set_xlabel("\n")
+            ax1.set_ylabel(f"{classifier.capitalize()} RPM (log10)\n")
+            ax1.set_ylim(0)
+
+            # ax1.tick_params(axis='x', rotation=45)
+
+            ax2.set_title(f"\nRNA {panel.capitalize()} ({classifier.capitalize()})")
+            ax2.set_xlabel("\n")
+            ax2.set_ylabel(f"{classifier.capitalize()} RPM(log10)\n")
+            ax2.set_ylim(0)
+            
+
+            # ax2.tick_params(axis='x', rotation=45)
+            
+            legend = ax1.get_legend()
+            if legend:
+                legend.set_title(None)  
+
+
+            legend = ax2.get_legend()
+            if legend:
+                legend.set_title(None)  
+
+        fig1.savefig(f"twist_cns_zepto_{panel}.png", dpi=300, transparent=False)
+        
+
+@app.command()
 def plot_pools(
     viruses: Path = typer.Argument(
         ..., help="Pathogen detection table for Viruses (species)"
@@ -232,8 +340,6 @@ def plot_pools(
 
     viruses = pandas.read_csv(viruses, sep="\t", header=0)
     metadata = pandas.read_csv(metadata, sep="\t", header=0)
-
-
 
     # Remove the sample identifier from the sequencing library
     viruses["id"] = viruses["id"].str.replace(r'(_[^_]*)$', '', regex=True)

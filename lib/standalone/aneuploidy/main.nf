@@ -1,14 +1,8 @@
+/* Ensure params.referenceFasta and params.normalControlBam exists then execute with:
+    
+    nextflow run main.nf -p mamba --outdir test --pairedReads "*_{R1,R2}.fastq.gz"
 
-params.outdir                               = "aneuploidy"
-params.pairedReads                          = "*_{R1,R2}.fastq.gz"
-params.deduplicate                          = true
-params.host.aneuploidy.deduplicate          = true                           // samtools markdup removal on host alignment bam
-params.markdupDistance                      = 100                            // http://www.htslib.org/algorithms/duplicate.html
-params.referenceFasta                       = "db/chm13v2.fa"                
-params.normalControl                        = "db/HG007.CHM13v2.5x.bam"      // control alignment reference must be referenceFasta
-
-params.dropLowCoverage  = false
-params.targetAverageBinSize = null
+*/ 
 
 process MinimapAneuploidy {
 
@@ -58,7 +52,7 @@ process CnvKitAneuploidy {
     publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}-scatter.png"
     publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}.cns"
     publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}.cnr"
-    publishDir "$params.outdir/${id}", mode: "symlink", pattern: "${id}_${indexName}.cnn"
+    publishDir "$params.outdir/${id}", mode: "symlink", pattern: "${id}.cnn"
 
     input:
     tuple val(id), val(indexName), path(bam)
@@ -69,7 +63,7 @@ process CnvKitAneuploidy {
     path("${id}-scatter.png")
     path("${id}.cns")
     path("${id}.cnr")
-    path("${id}_${indexName}.cnn")
+    path("${id}.cnn")
     
     script:
 
@@ -77,7 +71,7 @@ process CnvKitAneuploidy {
     targetAverageBinSize = params.targetAverageBinSize ? "--target-avg-size $params.targetAverageBinSize" : ""
 
     """
-    cnvkit.py batch $bam -n $controlBam -m wgs -f $fasta -p $task.cpus --output-reference ${id}_${indexName}.cnn --output-dir results/ --diagram --scatter $dropLowCoverage $targetAverageBinSize
+    cnvkit.py batch $bam -n $controlBam -m wgs -f $fasta -p $task.cpus --output-reference ${id}.cnn --output-dir results/ --diagram --scatter $dropLowCoverage $targetAverageBinSize
     
     mv results/${id}-scatter.png .
     mv results/${id}.cns .
@@ -101,7 +95,7 @@ workflow {
 
         CnvKitAneuploidy(
             MinimapAneuploidy.out.alignment, 
-            params.normalControl, 
+            params.normalControlBam, 
             params.referenceFasta
         )
 

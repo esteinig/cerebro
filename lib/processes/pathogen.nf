@@ -550,7 +550,7 @@ process ContigCoverage {
     tuple(val(sampleID), path("${sampleID}.contigs.bam"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
 
     """
-    minimap2 -ax sr -t $task.cpus $contigs $forward $reverse | samtools view -@ $task.cpus -hbF 12 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
+    minimap2 -ax sr -t $task.cpus $contigs $forward $reverse | samtools view -@ $task.cpus -hbF 4 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
     samtools index ${sampleID}.contigs.bam
     """
 }
@@ -570,7 +570,7 @@ process ContigCoverageNanopore {
     tuple(val(sampleID), path("${sampleID}.contigs.bam"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
 
     """
-    minimap2 -ax map-ont -t $task.cpus $contigs $reads| samtools view -@ $task.cpus -hbF 12 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
+    minimap2 -ax map-ont -t $task.cpus $contigs $reads | samtools view -@ $task.cpus -hbF 4 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
     samtools index ${sampleID}.contigs.bam
     """
 }
