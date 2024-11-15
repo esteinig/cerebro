@@ -46,7 +46,7 @@ process MinimapAneuploidy {
 
 process CnvKitAneuploidy {
 
-    tag { "$id : $idx_name" }
+    tag { "$id : $indexName" }
     label "cnvkit"
 
     publishDir "$params.outdir/${id}", mode: "copy", pattern: "${id}.png"
@@ -88,15 +88,20 @@ workflow {
             checkIfExists: true
         )
 
+        referenceFasta = channel.fromPath(params.referenceFasta, checkIfExists: true).first()
+        normalControlBam = channel.fromPath(params.normalControlBam, checkIfExists: true).first()
+
+        pairedReads | view
+
         MinimapAneuploidy(
             pairedReads, 
-            channel.fromPath(params.referenceFasta, checkIfExists: true)
+            referenceFasta
         )
 
         CnvKitAneuploidy(
             MinimapAneuploidy.out.alignment, 
-            channel.fromPath(params.normalControlBam, checkIfExists: true), 
-            channel.fromPath(params.referenceFasta, checkIfExists: true), 
+            normalControlBam, 
+            referenceFasta, 
         )
 
 }

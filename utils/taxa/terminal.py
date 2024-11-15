@@ -332,6 +332,12 @@ def plot_pools(
     experiment: str = typer.Option(
         "pool", help="Experiment column subset"
     ),
+    output: str = typer.Option(
+        "pools.png", help="Plot output"
+    ),
+    hsv_species: str = typer.Option(
+        "Simplexvirus humanalpha1", help="Plot output"
+    ),
 ):
 
     """
@@ -348,7 +354,7 @@ def plot_pools(
     viruses_rna = viruses[viruses["id"].str.contains("__RNA__")]
 
     mve = viruses_rna[viruses_rna["name"] == "Orthoflavivirus murrayense"]
-    hsv1 = viruses_dna[viruses_dna["name"] == "Simplexvirus humanalpha1"]
+    hsv1 = viruses_dna[viruses_dna["name"] == hsv_species]
     
     mve_metadata = mve.merge(metadata, on="id", how="left")
     hsv1_metadata = hsv1.merge(metadata, on="id", how="left")
@@ -400,7 +406,7 @@ def plot_pools(
         ax1.set_ylim(0)
 
 
-        ax2.set_title(f"\nSimplexvirus humanalpha1 ({classifier.capitalize()})")
+        ax2.set_title(f"\n{hsv_species} ({classifier.capitalize()})")
         ax2.set_xlabel("\n")
         ax2.set_ylabel(f"{classifier.capitalize()} RPM\n")
         ax2.set_ylim(0)
@@ -413,7 +419,7 @@ def plot_pools(
         if legend:
             legend.set_title(None)  
 
-    fig1.savefig("mve_pool.png", dpi=300, transparent=False)
+    fig1.savefig(f"{output}", dpi=300, transparent=False)
     
 
 @app.command()
