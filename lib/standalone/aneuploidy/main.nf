@@ -1,6 +1,17 @@
-/* Ensure params.referenceFasta and params.normalControlBam exists then execute with:
+/* 
+
+    Requirements:
+
+        - Nextflow >= v24.04
+        - Conda/Mamba (use with -profile conda or -profile mamba)
     
-    nextflow run main.nf -p mamba --outdir test --pairedReads "*_{R1,R2}.fastq.gz"
+    Alternatively see versions in resource conda files for 'minimap2', 'samtools' and 'cnvkit' on $PATH (use without -profile mamba)
+
+    Usage:
+
+    Ensure params.referenceFasta and params.normalControlBam exists then execute with:
+    
+    > nextflow run main.nf -profile mamba --outdir test --pairedReads "*_{R1,R2}.fastq.gz"
 
 */ 
 

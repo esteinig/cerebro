@@ -658,7 +658,7 @@ process Vircov {
 
     """
     vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --workdir data/ \
-    --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel $secondaryFlag
+    --scan-threads $task.cpus --remap-threads $remapThreads --remap-parallel $remapParallel $secondaryFlag
     """
     
 }
@@ -691,7 +691,7 @@ process VircovNanopore {
 
     """
     vircov run -i $reads -o ${sampleID}.alignment.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --workdir data/ \
-    --scan-threads $task.cpus --remap-threads $remapThreads --parallel $remapParallel $secondaryFlag
+    --scan-threads $task.cpus --remap-threads $remapThreads --remap-parallel $remapParallel $secondaryFlag
     """
     
 }
