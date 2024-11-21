@@ -353,7 +353,7 @@ impl KrakenReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, false)? 
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)? }     
         })
     }
 }
@@ -369,7 +369,7 @@ impl MetabuliReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, false)? 
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)? }    
         })
     }
 }
@@ -385,7 +385,7 @@ impl BrackenReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, true)? 
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? }    
         })
     }
 }
@@ -401,7 +401,7 @@ impl KmcpAbundanceReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, false)? 
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)? }   
         })
     }
 }
@@ -417,7 +417,7 @@ impl KmcpReadsReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, true)? 
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? }  
         })
     }
     
@@ -458,7 +458,7 @@ impl GanonReadsReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, false)? 
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)?  }  
         })
     }
 }
@@ -475,7 +475,7 @@ impl GanonAbundanceReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: read_tsv(path, false, false)? 
+            records: if is_file_empty(&path)? { Vec::new() } else {  read_tsv(path, false, false)? }  
         })
     }
 }
