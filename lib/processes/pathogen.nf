@@ -184,7 +184,7 @@ process Metabuli {
         line_count=\$(wc -l < "$forward")
     fi
 
-    if [[ $line_count -eq 0 ]]; then
+    if [[ \$line_count -eq 0 ]]; then
         touch ${sampleID}.metabuli.reads.tsv
         touch ${sampleID}.metabuli.reads.report
     else
