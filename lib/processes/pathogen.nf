@@ -178,13 +178,13 @@ process Metabuli {
     memoryLimit = "${task.memory}".split()[0]
 
     """
-    if [ $forward == *.gz ]; then
-        line_count=$(zcat "$forward" | wc -l)
+    if [[ $forward == *.gz ]]; then
+        line_count=\$(zcat "$forward" | wc -l)
     else
-        line_count=$(wc -l < "$forward")
+        line_count=\$(wc -l < "$forward")
     fi
 
-    if [ $line_count -eq 0 ]; then
+    if [[ $line_count -eq 0 ]]; then
         touch ${sampleID}.metabuli.reads.tsv
         touch ${sampleID}.metabuli.reads.report
     else
