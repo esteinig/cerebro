@@ -177,19 +177,12 @@ process Metabuli {
 
     memoryLimit = "${task.memory}".split()[0]
 
-    if forward.size() == 0 && reverse.size() == 0 {  // Metabuli hangs when no reads are available
-        """
-        touch ${sampleID}.metabuli.reads.tsv
-        touch ${sampleID}.metabuli.reads.report
-        """
-    } else {
-        """
-        metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
+    """
+    metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
 
-        cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
-        cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
-        """
-    }
+    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
+    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
+    """
     
 
 }
