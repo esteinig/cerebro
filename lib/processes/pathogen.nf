@@ -65,6 +65,8 @@ process Bracken {
     tag { sampleID }
     label "pathogenProfileBracken"
 
+    errorStrategy 'ignore'  // empty files e.g. BLANK or those with < brackenMinReads at brackenRank
+
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.bracken.abundance.report"
 
     input:
@@ -78,15 +80,9 @@ process Bracken {
 
     script:
 
-    if (krakenReport.size() == 0) {
-        """
-        touch ${sampleID}.bracken.abundance.report
-        """
-    } else {
-        """
-        bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.abundance.report
-        """
-    }
+    """
+    bracken -d $krakenDatabase -i $krakenReport -r $brackenReadLength -l $brackenRank -t $brackenMinReads -o ${sampleID}.bracken.abundance.report
+    """
 }
 
 
@@ -570,7 +566,7 @@ process ContigCoverage {
     tag { sampleID }
     label "pathogenAssemblyContigCoverage"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.${assembler}.fasta"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "symlink", pattern: "${sampleID}.${assembler}.bam*"
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
