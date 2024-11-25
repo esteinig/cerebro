@@ -675,11 +675,12 @@ process SemiBin2 {
     input:
     tuple val(sampleID), val(assembler), path(contigs)
     tuple val(sampleID), path(contigBam), path(contigBai)
+    val(minContigLength)
 
     output:
 
     """
-    SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global --threads $task.cpus
+    SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global --threads $task.cpus --min-len $minContigLength
     """
 
 }
@@ -709,7 +710,7 @@ process Vircov {
     label "pathogenProfileVircov"
     tag { sampleID }
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.alignment.tsv"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -718,10 +719,11 @@ process Vircov {
     val(secondary)
     val(remapThreads)
     val(remapParallel)
+    val(vircovArgs)
 
     output:
     tuple (val(sampleID), path(forward), path(reverse), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.alignment.tsv"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
 
     script:
 
@@ -731,8 +733,8 @@ process Vircov {
     secondaryFlag = secondary ? "--secondary" : "" 
 
     """
-    vircov run -i $forward -i $reverse -o ${sampleID}.alignment.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --workdir data/ \
-    --scan-threads $task.cpus --remap-threads $remapThreads --remap-parallel $remapParallel $secondaryFlag
+    vircov run -i $forward -i $reverse -o ${sampleID}.vircov.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --workdir data/ \
+    --scan-threads $task.cpus --remap-threads $remapThreads --remap-parallel $remapParallel $secondaryFlag $vircovArgs
     """
     
 }

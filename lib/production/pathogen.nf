@@ -109,7 +109,8 @@ workflow TaxonomicProfile {
                 profileParams.alignmentMethod,
                 profileParams.alignmentSecondary,
                 params.resources.threads.vircovRemap,
-                params.resources.threads.vircovParallel
+                params.resources.threads.vircovParallel,
+                profileParams.vircovArgs
             )
         }
 
@@ -409,7 +410,8 @@ workflow MetagenomeAssembly {
             }
             if (magParams.binningMethod.contains("semibin2")) {
                 MetaSpadesSemiBin2(
-                    metaspadesAssemblyCoverage
+                    metaspadesAssemblyCoverage,
+                    magParams.binningMinContigLength
                 )
             }
         }
@@ -443,7 +445,8 @@ workflow MetagenomeAssembly {
 
             if (magParams.binningMethod.contains("semibin2")) {
                 MegahitSemiBin2(
-                    megahitAssemblyCoverage
+                    megahitAssemblyCoverage,
+                    magParams.binningMinContigLength
                 )
             }
         }
