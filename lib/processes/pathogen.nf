@@ -617,6 +617,8 @@ process Concoct {
     tag { sampleID }
     label "pathogenAssemblyConcoct"
 
+    errorStrategy 'ignore'  // empty files e.g. BLANK
+
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "concoct_bins"
 
     input:
@@ -645,7 +647,6 @@ process Metabat2 {
     
     tag { sampleID }
     label "pathogenAssemblyMetabat2"
-
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "metabat_bins"
 
