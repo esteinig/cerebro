@@ -130,7 +130,7 @@ process SylphNanopore {
 
     tag { sampleID }
     label "pathogenProfileSylph"
-    
+
     errorStrategy 'ignore'  // empty files e.g. BLANK
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.abundance.report"
@@ -570,17 +570,19 @@ process ContigCoverage {
     tag { sampleID }
     label "pathogenAssemblyContigCoverage"
 
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.${assembler}.fasta"
+
     input:
     tuple val(sampleID), val(assembler), path(contigs)
     tuple val(sampleID), path(forward), path(reverse)
 
     output:
     tuple(val(sampleID), val(assembler), path(contigs), emit: contigs)
-    tuple(val(sampleID), path("${sampleID}.contigs.bam"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
+    tuple(val(sampleID), path("${sampleID}.${assembler}.bam"), path("${sampleID}.${assembler}.bam.bai"), emit: coverage)
 
     """
-    minimap2 -ax sr -t $task.cpus $contigs $forward $reverse | samtools view -@ $task.cpus -hbF 4 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
-    samtools index ${sampleID}.contigs.bam
+    minimap2 -ax sr -t $task.cpus $contigs $forward $reverse | samtools view -@ $task.cpus -hbF 4 - | samtools sort -@ $task.cpus - > ${sampleID}.${assembler}.bam
+    samtools index ${sampleID}.${assembler}.bam
     """
 }
 
@@ -609,7 +611,6 @@ process Concoct {
     
     tag { sampleID }
     label "pathogenAssemblyConcoct"
-
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "concoct_bins"
 
@@ -672,7 +673,27 @@ process SemiBin2 {
     output:
 
     """
-    SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global
+    SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global --threads $task.cpus
+    """
+
+}
+
+
+process Vamb {
+    
+    tag { sampleID }
+    label "pathogenAssemblySemiBin2"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "symlink", pattern: "semibin2"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    tuple val(sampleID), path(contigBam), path(contigBai)
+
+    output:
+
+    """
+    SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global --threads $task.cpus
     """
 
 }

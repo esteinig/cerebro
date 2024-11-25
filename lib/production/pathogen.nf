@@ -15,7 +15,7 @@ include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverag
 include { ContigCoverageNanopore as MetaSpadesCoverageNanopore; ContigCoverageNanopore as MegahitCoverageNanopore } from "../processes/pathogen";
 include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../processes/pathogen";
 include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "../processes/pathogen";
-
+include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "../processes/pathogen";
 
 workflow PathogenDetection {
 
@@ -407,6 +407,11 @@ workflow MetagenomeAssembly {
                     magParams.binningMinContigLength
                 )
             }
+            if (magParams.binningMethod.contains("semibin2")) {
+                MetaSpadesSemiBin2(
+                    metaspadesAssemblyCoverage
+                )
+            }
         }
 
         if (magParams.assemblyMethod.contains("megahit")) {
@@ -433,6 +438,12 @@ workflow MetagenomeAssembly {
                     megahitAssemblyCoverage,
                     magParams.binningMinBinSize,
                     magParams.binningMinContigLength,
+                )
+            }
+
+            if (magParams.binningMethod.contains("semibin2")) {
+                MegahitSemiBin2(
+                    megahitAssemblyCoverage
                 )
             }
         }
