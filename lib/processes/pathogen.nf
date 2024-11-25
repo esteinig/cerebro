@@ -178,10 +178,22 @@ process Metabuli {
     memoryLimit = "${task.memory}".split()[0]
 
     """
-    metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
 
-    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
-    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
+    if [[ $forward == *.gz ]]; then
+        line_count=$(zcat "$forward" | wc -l)
+    else
+        line_count=$(wc -l < "$forward")
+    fi
+
+    if [[ $line_count -eq 0 ]]; then
+        touch ${sampleID}.metabuli.reads.tsv
+        touch ${sampleID}.metabuli.reads.report
+    else
+        metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
+        
+        cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
+        cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
+    fi
     """
     
 
