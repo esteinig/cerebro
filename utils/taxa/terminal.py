@@ -10,6 +10,8 @@ from typing import List, Optional, Union, Dict
 from ..utils import read_qc_table, YESTERDAY_MEDIUM
 
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
+from matplotlib.patches import Circle
+from matplotlib.collections import PatchCollection
 
 pandas.set_option('display.max_columns', None)
 warnings.filterwarnings("ignore")
@@ -420,7 +422,346 @@ def plot_pools(
             legend.set_title(None)  
 
     fig1.savefig(f"{output}", dpi=300, transparent=False)
+
+
+@app.command()
+def plot_simulation_evaluation(
+    summaries: List[Path] = typer.Argument(
+        ..., help="Reference metadata table"
+    ),
+    pathogens: Path = typer.Option(
+        ..., help="Pathogen detection table"
+    ),
+    match_on: str = typer.Option(
+        "name", help="Match expected taxa ('taxid' from Cipher simulation) on this column in the pathogen table"
+    ),
+    output: Path = typer.Option(
+        "simulation_evaluation.png", help="Plot output"
+    ),
+):
+
+    """
+    Evaluate simulations based on 
+    """
+
+    # Prepare data
+
+    pathogens = pandas.read_csv(pathogens, sep="\t", header=0)
     
+    summary_data = []
+    for summary in summaries:
+        sim_id = summary.name.split(".")[0]
+        sim_name, replicate, coverage = sim_id.split("_")
+        
+        df = pandas.read_csv(summary, sep="\t", header=0)
+
+        df["sim_id"] = [sim_id for _ in df.iterrows()]
+        df["sim_name"] = [sim_name for _ in df.iterrows()]
+        df["replicate"] = [replicate for _ in df.iterrows()]
+        df["coverage"] = [coverage for _ in df.iterrows()]
+        
+        summary_data.append(df)
+
+    summary = pandas.concat(summary_data)
+    summary['coverage'] = summary['coverage'].apply(convert_coverage)  
+
+    df = summary.merge(
+        pathogens, 
+        left_on=["sim_id", "taxid"], 
+        right_on=["id", match_on], 
+        how="left", 
+        suffixes=("_sim", "_run")
+    )
+
+    df_pathogen = df[df["role"] != "host"]
+
+
+    # Create a limit of detection by (x-axis = coverage, y-axis = classifier RPM)
+
+    fig1, axes = plt.subplots(nrows=6, ncols=1, figsize=(16,24))
+    
+    for i, classifier in enumerate(["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"]):
+
+        ax1 = axes[i]
+
+        df_pathogen[f"{classifier}_rpm"] = np.log10(df_pathogen[f"{classifier}_rpm"])
+
+        sns.barplot(
+            x="coverage", y=f"{classifier}_rpm", hue="id_sim",
+            data=df_pathogen, hue_order=sorted(df_pathogen["id_sim"].unique()), 
+            ax=ax1, palette=YESTERDAY_MEDIUM
+        )
+
+        sns.stripplot(
+            x="coverage", y=f"{classifier}_rpm", hue="id_sim", 
+            data=df_pathogen, hue_order=sorted(df_pathogen["id_sim"].unique()),
+            ax=ax1, palette=YESTERDAY_MEDIUM, 
+            dodge=True, edgecolor="black", linewidth=2, legend=None
+        )
+
+        ax1.invert_xaxis()
+        
+        ax1.set_title(f"\n{classifier.capitalize()}")
+        ax1.set_xlabel("\n")
+        ax1.set_ylabel(f"{classifier.capitalize()}  RPM (log10)\n")
+        ax1.set_ylim(0)
+
+
+        legend = ax1.get_legend()
+        if legend:
+            legend.set_title(None)  
+
+    fig1.suptitle("Limit of Detection (simulation with Cipher)", fontsize=24)
+    fig1.tight_layout(rect=[0, 0, 1, 0.99])
+    fig1.savefig(output, dpi=300, transparent=False)
+
+    # Extract unique replicates and coverage values
+    unique_replicates = sorted(df_pathogen["replicate"].unique())
+    unique_coverages = sorted(df_pathogen["coverage"].unique(), reverse=True)
+
+    # Preprocess Data for Heatmap Plot
+    heatmap_data = []
+
+    for classifier in ["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"]:
+        classifier_data = []
+        for sim_id in df_pathogen["id_sim"].unique():
+            sim_data = df_pathogen[df_pathogen["id_sim"] == sim_id]
+            sim_data = sim_data.copy()
+            
+            # Compute the proportion of classifier reads over total reads
+            sim_data[f"{classifier}_proportion"] = (
+                sim_data[f'{classifier}_reads'] / sim_data["reads"]
+            )
+            
+            # Prepare data for heatmap
+            pivot_data = sim_data.pivot_table(
+                values=f"{classifier}_proportion",
+                index="replicate",
+                columns="coverage",
+                aggfunc="mean"
+            )
+            
+            # Reindex to ensure all replicates and coverage values are present
+            pivot_data = pivot_data.reindex(
+                index=unique_replicates, 
+                columns=unique_coverages, 
+                fill_value=0
+            )
+            
+            # Replace zero values with NaN
+            pivot_data = pivot_data.replace(np.nan, 0)
+            
+            classifier_data.append(pivot_data)
+        
+        heatmap_data.append(classifier_data)
+        
+    # Create the Heatmap Panel
+    n_classifiers = len(["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"])
+    n_simulations = len(df_pathogen["id_sim"].unique())
+
+    fig2, axes = plt.subplots(nrows=n_classifiers, ncols=n_simulations, figsize=(16, 24), sharex=True, sharey=True)
+
+    for i, classifier in enumerate(["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"]):
+        for j, sim_id in enumerate(df_pathogen["id_sim"].unique()):
+            ax = axes[i, j]
+            
+            # Select heatmap data for this classifier and simulation
+            heatmap_df = heatmap_data[i][j]
+            
+            # Create a custom annotation array
+            annot = np.where(heatmap_df.values == 0, None, heatmap_df.values)  # Set None for 0, otherwise use the value
+            annot = [[f"{v:.2f}" if v else "" for v in row] for row in annot]
+            
+            sns.heatmap(
+                heatmap_df,
+                cmap=sns.color_palette("Greens", as_cmap=True),
+                cbar=None, # (j == n_simulations - 1),  # Add colorbar only to the last column
+                ax=ax,
+                linewidths=2,  
+                linecolor="white",  
+                annot=annot,
+                fmt="",
+                vmin=0,  # Set minimum value of color scale
+                vmax=1   # Set maximum value of color scale
+            )
+            
+            
+            if i == 0:
+                ax.set_title(f"{sim_id}\n", fontsize=14, fontweight="bold")  # Title for each simulation
+            if j == 0:
+                ax.set_ylabel(f"{classifier.capitalize()}\n", fontsize=14, fontweight="bold")  # Label for each classifier
+                ax.set_yticklabels(ax.get_yticklabels(), rotation=0, ha="right")
+            else:
+                ax.set_ylabel(None)
+
+            if i == 5:
+                ax.set_xlabel("\nDepth of coverage (x)", fontsize=12, fontweight="bold")  # Add X-axis label for coverage values
+                ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
+            else:
+                ax.set_xlabel(None)
+
+    # Set the overall figure title
+    fig2.suptitle("Expected reads recovered (fraction)", fontsize=18)
+
+    # Adjust layout
+    fig2.tight_layout(rect=[0, 0, 1, 0.95])
+    fig2.savefig(f"{output.stem}_heatmap{output.suffix}", dpi=300, transparent=False)
+
+
+    sim_taxid_names = summary["taxid"].unique().tolist()
+
+    df = pathogens.copy()
+
+    df_data = []
+    for sim_id, data in df.groupby("id"):
+        sim_name, replicate, coverage = sim_id.split("_")
+        data["sim_name"] = [sim_name for _ in data.iterrows()]
+        data["replicate"] = [replicate for _ in data.iterrows()]
+        data["coverage"] = [coverage for _ in data.iterrows()]
+        df_data.append(data)
+    
+    df = pandas.concat(df_data)
+    df['coverage'] = df['coverage'].apply(convert_coverage)  
+    df_pathogen = df.copy() # df[df["name"] != "Homo sapiens"]
+
+    # Initialize DataFrame to store results
+    heatmap_data = []
+
+    # Extract unique replicates and coverage values
+    unique_replicates = sorted(df_pathogen["replicate"].unique())
+    unique_coverages = sorted(df_pathogen["coverage"].unique(), reverse=True)
+
+    # Loop through each classifier
+    incorrect_taxa_data = []
+    for classifier in ["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"]:
+        classifier_results = []
+        classifier_incorrect_taxa = []
+        
+        for replicate in unique_replicates:
+            replicate_results = []
+            replicate_incorrect_taxa = []
+            for coverage in unique_coverages:
+
+                # Filter data for this replicate and coverage
+                subset = df_pathogen[
+                    (df_pathogen["replicate"] == replicate) & (df_pathogen["coverage"] == coverage) & (df_pathogen[f"{classifier}_reads"] > 0)
+                ]
+                
+                # Get incorrect taxa:
+                incorrect_taxa = subset[~subset["name"].isin(sim_taxid_names)]
+
+                # Count the number of incorrect taxa
+                incorrect_taxa_count = incorrect_taxa.shape[0]
+
+                # Placeholder if no incorrect taxa called
+                if incorrect_taxa.empty:
+                    incorrect_taxa = pandas.DataFrame({
+                        "coverage": [coverage],
+                        "replicate": [replicate],
+                        "name": [np.nan],
+                        f"{classifier}_reads": [0],
+                        f"{classifier}_rpm": [0]
+                    })
+
+                replicate_incorrect_taxa.append(incorrect_taxa)
+                replicate_results.append(incorrect_taxa_count)
+            
+            classifier_incorrect_taxa.append(pandas.concat(replicate_incorrect_taxa))
+            classifier_results.append(replicate_results)
+        
+        incorrect_taxa_df = pandas.concat(classifier_incorrect_taxa)
+        classifier_df = pandas.DataFrame(classifier_results, columns=unique_coverages, index=unique_replicates)
+
+        incorrect_taxa_data.append(incorrect_taxa_df)
+        heatmap_data.append(classifier_df)
+
+    heatmap_agg = pandas.concat(heatmap_data)
+    highlight_names = ["Homo sapiens", "Simplexvirus"] 
+
+    fig3, axes = plt.subplots(nrows=n_classifiers, ncols=2, figsize=(24, 24))
+
+    for i, classifier in enumerate(["kraken", "bracken", "metabuli", "ganon", "kmcp", "sylph"]):
+        ax = axes[i][0]
+            
+        # Select heatmap data for this classifier and simulation
+        heatmap_df = heatmap_data[i]
+
+
+        # Create a custom annotation array
+        annot = np.where(heatmap_df.values == 0, None, heatmap_df.values)  # Set None for 0, otherwise use the value
+        annot = [[f"{v:.0f}" if v else ""  for v in row] for row in annot]
+        
+        sns.heatmap(
+            heatmap_df,
+            cmap=sns.color_palette("Reds", as_cmap=True),
+            cbar=True,  # Add colorbar only to the last column
+            ax=ax,
+            linewidths=2,  
+            linecolor="white",  
+            annot=annot,
+            fmt="",
+            vmin=0,  # Set minimum value of color scale
+            vmax=heatmap_agg.max(None)   # Set maximum value of color scale
+        )
+        
+        
+        ax.set_title(f"{classifier.capitalize()}\n", fontsize=14, fontweight="bold")
+        ax.set_ylabel(f"Unexpected taxa at rank (n)\n", fontsize=12, fontweight="bold")  # Label for each classifier
+        ax.set_yticklabels(ax.get_yticklabels(), rotation=0, ha="right")
+
+        if i == 5:
+            ax.set_xlabel("\nDepth of coverage (x)", fontsize=12, fontweight="bold")  # Add X-axis label for coverage values
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
+        else:
+            ax.set_xlabel(None)
+
+        # Incorrect taxa plot
+        incorrect_taxa_df = incorrect_taxa_data[i]
+        ax1 = axes[i][1]
+        
+        incorrect_taxa_df[f"{classifier}_rpm"] = np.log10(incorrect_taxa_df[f"{classifier}_rpm"])
+
+        sns.barplot(
+            x="coverage", y=f"{classifier}_rpm", hue="replicate",
+            data=incorrect_taxa_df, hue_order=sorted(incorrect_taxa_df["replicate"].unique(), reverse=True), 
+            ax=ax1, palette=YESTERDAY_MEDIUM
+        )
+
+        stripplot = sns.stripplot(
+            x="coverage", y=f"{classifier}_rpm", hue="replicate", 
+            data=incorrect_taxa_df, hue_order=sorted(incorrect_taxa_df["replicate"].unique(), reverse=True),
+            ax=ax1, palette=YESTERDAY_MEDIUM, 
+            dodge=True, edgecolor="black", linewidth=2, legend=None
+        )
+
+        ax1.invert_xaxis()
+                
+        ax1.set_title(f"{classifier.capitalize()}\n", fontsize=14, fontweight="bold")
+        ax1.set_ylabel(f"{classifier.capitalize()}  RPM (log10)\n")
+        ax1.set_ylim(0)
+
+        if i == 5:
+            ax1.set_xlabel("\nDepth of coverage (x)", fontsize=12, fontweight="bold")  # Add X-axis label for coverage values
+            ax1.set_xticklabels(ax.get_xticklabels(), rotation=0)
+        else:
+            ax1.set_xlabel(None)
+
+        legend = ax1.get_legend()
+        if legend:
+            legend.set_title(None)  
+
+    fig3.tight_layout()
+    fig3.savefig(f"{output.stem}_heatmap_error_{output.suffix}", dpi=300, transparent=False)
+
+
+# Convert the coverage column to floats
+def convert_coverage(value: str):
+    leading_zeros = len(value) - len(value.lstrip('0'))
+    if leading_zeros < 1:  # Handle normal integers
+        return float(value)
+    else:  # Handle the '01', '001', etc. format
+        converted = float(value) / (10 ** leading_zeros)
+        return converted
 
 @app.command()
 def plot_taxon(
