@@ -177,13 +177,20 @@ process Metabuli {
 
     memoryLimit = "${task.memory}".split()[0]
 
-    """
-    metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
+    if forward.size() == 0 && reverse.size() == 0 {  // Metabuli hangs when no reads are available
+        """
+        touch ${sampleID}.metabuli.reads.tsv
+        touch ${sampleID}.metabuli.reads.report
+        """
+    } else {
+        """
+        metabuli classify --max-ram $memoryLimit --threads $task.cpus $forward $reverse $metabuliDatabase classified/ $sampleID
 
-    cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
-    rm classified/${sampleID}_classifications.tsv
-    cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
-    """
+        cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
+        cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
+        """
+    }
+    
 
 }
 
@@ -211,7 +218,6 @@ process MetabuliNanopore {
     metabuli classify --max-ram $memoryLimit --threads $task.cpus --seq-mode 3 $reads $metabuliDatabase classified/ $sampleID
 
     cp classified/${sampleID}_classifications.tsv ${sampleID}.metabuli.reads.tsv
-    rm classified/${sampleID}_classifications.tsv
     cp classified/${sampleID}_report.tsv ${sampleID}.metabuli.reads.report
     """
 
