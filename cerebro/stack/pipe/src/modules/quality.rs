@@ -518,7 +518,7 @@ impl ReadQualityControl {
             Some(scan_report) => {
                 log::info!("{}", scan_report.reads as f64);
                 log::info!("{}", input_bases as f64);
-                log::info!("{}", 0.0/0.0);
+                log::info!("{}", 0.0/10.0);
                 log::info!("{:?}", scan_report.reads as u64);
                 log::info!("{:?}", (scan_report.reads as f64 / input_reads as f64)*100.0);
                 log::info!("{:?}", scan_report.bases as u64);
