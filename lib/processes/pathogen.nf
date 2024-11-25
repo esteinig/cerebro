@@ -244,9 +244,26 @@ process Kmcp {
     """
     kmcp search -d $kmcpDatabase -1 $forward -2 $reverse -o ${sampleID}.reads.tsv.gz --threads $task.cpus
     kmcp profile --level $kmcpLevel --taxid-map $kmcpDatabase/taxid.map --taxdump $kmcpDatabase/taxonomy --mode $kmcpMode -t $kmcpMinQueryCoverage -o ${sampleID}.k.report -B ${sampleID} -C ${sampleID} ${sampleID}.reads.tsv.gz
-    mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv.gz
-    tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
-    mv ${sampleID}.k.report ${sampleID}.kmcp.reads.report
+    
+
+    if [ -f "${sampleID}.binning.gz" ]; then
+        mv ${sampleID}.binning.gz ${sampleID}.kmcp.reads.tsv.gz
+    else
+        touch "${sampleID}.kmcp.reads.tsv.gz"
+    fi
+
+    if [ -f "${sampleID}.profile" ]; then
+        tail -n +6 ${sampleID}.profile > ${sampleID}.kmcp.abundance.report
+    else
+        touch "${sampleID}.kmcp.abundance.report"
+    fi
+    
+    if [ -f "${sampleID}.k.report" ]; then
+        mv ${sampleID}.k.report ${sampleID}.kmcp.reads.report
+    else
+        touch "${sampleID}.kmcp.reads.report"
+    fi
+    
     """
 
 }
@@ -606,7 +623,6 @@ process Concoct {
     """
 }
 
-
 process Metabat2 {
     
     tag { sampleID }
@@ -626,6 +642,25 @@ process Metabat2 {
 
     """
     runMetaBat.sh --numThreads $task.cpus --minContig $minContigLength --minClsSize $minBinSize $contigs $contigBam
+    """
+
+}
+
+process SemiBin2 {
+    
+    tag { sampleID }
+    label "pathogenAssemblySemiBin2"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "symlink", pattern: "semibin2"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    tuple val(sampleID), path(contigBam), path(contigBai)
+
+    output:
+
+    """
+    SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global
     """
 
 }

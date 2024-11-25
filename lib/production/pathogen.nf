@@ -188,7 +188,6 @@ workflow TaxonomicProfile {
             (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
         )
 
-        // process results to json and get tables
         json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutput
         tables = PathogenDetectionTable(json | collect, databases.taxonomy)
     
