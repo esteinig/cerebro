@@ -95,6 +95,8 @@ process Sylph {
     tag { sampleID }
     label "pathogenProfileSylph"
 
+    errorStrategy 'ignore'  // empty files e.g. BLANK
+
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.abundance.report"
 
     input:
@@ -128,6 +130,8 @@ process SylphNanopore {
 
     tag { sampleID }
     label "pathogenProfileSylph"
+    
+    errorStrategy 'ignore'  // empty files e.g. BLANK
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.sylph.abundance.report"
 
@@ -263,7 +267,7 @@ process Kmcp {
     else
         touch "${sampleID}.kmcp.reads.report"
     fi
-    
+
     """
 
 }
@@ -307,6 +311,8 @@ process GanonReads {
     tag { sampleID }
     label "pathogenProfileGanon"
 
+    errorStrategy 'ignore'  // empty files e.g. BLANK
+
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.report"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.tsv"
 
@@ -339,6 +345,8 @@ process GanonReadsNanopore {
     tag { sampleID }
     label "pathogenProfileGanon"
 
+    errorStrategy 'ignore'  // empty files e.g. BLANK
+
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.report"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.reads.tsv"
 
@@ -370,6 +378,8 @@ process GanonProfile {
     tag { sampleID }
     label "pathogenProfileGanon"
 
+    errorStrategy 'ignore'  // empty files e.g. BLANK
+
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.abundance.report"
 
     input:
@@ -398,6 +408,8 @@ process GanonProfileNanopore {
 
     tag { sampleID }
     label "pathogenProfileGanon"
+
+    errorStrategy 'ignore'  // empty files e.g. BLANK
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.ganon.abundance.report"
 
