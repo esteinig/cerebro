@@ -513,6 +513,8 @@ impl ReadQualityControl {
             }
         };
 
+        log::info!("{:?}", output_scan);
+        
         let (output_reads, output_reads_percent, output_bases, output_bases_percent) = match output_scan {
             Some(scan_report) => (
                 scan_report.reads as u64, 
@@ -575,7 +577,6 @@ impl ReadQualityControl {
         let control_reads = controls.as_ref().map(|c| c.organism_reads()).flatten();
         let control_reads_percent = controls.as_ref().map(|c| c.organism_reads_percent(input_reads)).flatten();
         
-        log::info!("{} {} {} {}", output_reads_percent, output_reads, output_bases_percent, output_bases);
 
         Self {
             id: id.to_string(),
