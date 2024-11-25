@@ -574,6 +574,8 @@ impl ReadQualityControl {
 
         let control_reads = controls.as_ref().map(|c| c.organism_reads()).flatten();
         let control_reads_percent = controls.as_ref().map(|c| c.organism_reads_percent(input_reads)).flatten();
+        
+        log::info!("{} {} {} {}", output_reads_percent, output_reads, output_bases_percent, output_bases);
 
         Self {
             id: id.to_string(),
