@@ -516,14 +516,19 @@ impl ReadQualityControl {
 
         let (output_reads, output_reads_percent, output_bases, output_bases_percent) = match output_scan {
             Some(scan_report) => {
-                log::info!("{}", scan_report.reads as f64);
-                log::info!("{}", input_bases as f64);
-                log::info!("{}", 0.0/10.0);
-                log::info!("{:?}", scan_report.reads as u64);
-                log::info!("{:?}", (scan_report.reads as f64 / input_reads as f64)*100.0);
-                log::info!("{:?}", scan_report.bases as u64);
-                log::info!("{:?}", (scan_report.bases as f64 / input_bases as f64)*100.0);
-                (scan_report.reads as u64, (scan_report.reads as f64 / input_reads as f64)*100.0, scan_report.bases as u64, (scan_report.bases as f64 / input_bases as f64)*100.0)
+                let output_reads_percent = if input_reads == 0 {
+                    0.0 // otherwise is NaN
+                } else {
+                    (scan_report.reads as f64 / input_reads as f64)*100.0
+                };
+
+                let output_bases_percent = if input_bases == 0 {
+                    0.0  // otherwise is NaN
+                } else {
+                    (scan_report.bases as f64 / input_bases as f64)*100.0
+                };
+
+                (scan_report.reads as u64, output_reads_percent, scan_report.bases as u64, output_bases_percent)
             }, 
             None => {
                 match qc {
