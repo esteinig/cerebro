@@ -516,6 +516,7 @@ impl ReadQualityControl {
 
         let (output_reads, output_reads_percent, output_bases, output_bases_percent) = match output_scan {
             Some(scan_report) => {
+                log::info!("{}", scan_report.reads as f64);
                 log::info!("{}", input_bases as f64);
                 log::info!("{:?}", scan_report.reads as u64);
                 log::info!("{:?}", (scan_report.reads as f64 / input_reads as f64)*100.0);
