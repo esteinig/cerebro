@@ -245,6 +245,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
@@ -256,6 +257,7 @@ impl PathogenDetection {
                     record.tax_level.clone(),
                     reads,
                     rpm,
+                    abundance,
                 );
             }
         }
@@ -266,6 +268,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
@@ -277,6 +280,7 @@ impl PathogenDetection {
                     record.tax_level.clone(),
                     reads,
                     rpm,
+                    abundance,
                 );
             }
         }
@@ -287,6 +291,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
@@ -298,26 +303,7 @@ impl PathogenDetection {
                     record.tax_level.clone(),
                     reads,
                     rpm,
-                );
-            }
-        }
-
-        // Process KMCP abundance reports
-        if let Some(kmcp_abundance) = &output.profile.kmcp_abundance {
-            for record in &kmcp_abundance.records {
-                let taxid = record.taxid.trim().to_string();
-                let taxname = record.taxname_lineage.split('|').last().unwrap_or("").to_string();
-
-                let entry = detection_map
-                    .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
-                entry.add_result(
-                    PathogenDetectionTool::Kmcp,
-                    PathogenDetectionMode::Profile,
-                    taxname,
-                    record.tax_level.clone(),
-                    0, // KMCP abundance doesn't report read counts
-                    0.0, // No RPM for abundance mode
+                    abundance,
                 );
             }
         }
@@ -329,6 +315,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
@@ -340,6 +327,7 @@ impl PathogenDetection {
                     record.rank.clone(),
                     reads,
                     rpm,
+                    abundance,
                 );
             }
         }
@@ -366,6 +354,7 @@ impl PathogenDetection {
                     format!("{:?}", rank),
                     estimated_reads,
                     rpm,
+                    record.sequence_abundance,
                 );
             }
         }
@@ -376,6 +365,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let reads = if paired_end { record.cumulative * 2 } else { record.cumulative };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
@@ -387,6 +377,7 @@ impl PathogenDetection {
                     record.tax_level.clone(),
                     reads,
                     rpm,
+                    abundance,
                 );
             }
         }
@@ -395,6 +386,7 @@ impl PathogenDetection {
         if let Some(ganon_abundance) = &output.profile.ganon_abundance {
             for record in &ganon_abundance.records {
                 let taxid = record.taxid.trim().to_string();
+                let abundance = record.cumulative_percent;
 
                 let entry = detection_map
                     .entry(taxid.clone())
@@ -406,6 +398,7 @@ impl PathogenDetection {
                     record.tax_level.clone(),
                     0, // Ganon abundance doesn't report read counts
                     0.0, // No RPM for abundance mode
+                    abundance,
                 );
             }
         }
@@ -572,6 +565,7 @@ pub struct PathogenDetectionResult {
     pub rank: String,
     pub reads: u64,
     pub rpm: f64,
+    pub abundance: f64,
 }
 
 impl PathogenDetectionResult {
@@ -582,6 +576,7 @@ impl PathogenDetectionResult {
         rank: String,
         reads: u64,
         rpm: f64,
+        abundance: f64,
     ) -> Self {
         Self {
             tool,
@@ -590,6 +585,7 @@ impl PathogenDetectionResult {
             rank,
             reads,
             rpm,
+            abundance
         }
     }
 }
@@ -618,8 +614,9 @@ impl PathogenDetectionRecord {
         rank: String,
         reads: u64,
         rpm: f64,
+        abundance: f64
     ) {
-        let result = PathogenDetectionResult::new(tool, mode, name, rank, reads, rpm);
+        let result = PathogenDetectionResult::new(tool, mode, name, rank, reads, rpm, abundance);
         self.results.push(result);
     }
 }
