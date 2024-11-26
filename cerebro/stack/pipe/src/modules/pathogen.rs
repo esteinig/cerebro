@@ -203,13 +203,13 @@ fn compute_rpm(reads: u64, input_reads: u64) -> Option<f64> {
 pub struct PathogenDetectionFilter {
     pub taxids: Option<Vec<String>>,
     pub names: Option<Vec<String>>,
-    pub ranks: Option<Vec<String>>
+    pub ranks: Option<Vec<PathogenDetectionRank>>
 }
 impl PathogenDetectionFilter {
     pub fn new(
         taxids: Option<Vec<String>>,
         names: Option<Vec<String>>,
-        ranks: Option<Vec<String>>
+        ranks: Option<Vec<PathogenDetectionRank>>
     ) -> Result<Self, WorkflowError> {
         Ok(Self {
             taxids, names, ranks
@@ -254,7 +254,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Kraken2,
                     PathogenDetectionMode::Sequence,
                     record.taxname.trim().to_string(),
-                    record.tax_level.clone(),
+                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
                     abundance,
@@ -277,7 +277,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Metabuli,
                     PathogenDetectionMode::Sequence,
                     record.taxname.trim().to_string(),
-                    record.tax_level.clone(),
+                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
                     abundance,
@@ -300,7 +300,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Bracken,
                     PathogenDetectionMode::Profile,
                     record.taxname.trim().to_string(),
-                    record.tax_level.clone(),
+                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
                     abundance,
@@ -324,7 +324,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Kmcp,
                     PathogenDetectionMode::Sequence,
                     record.taxname.clone(),
-                    record.rank.clone(),
+                    PathogenDetectionRank::from_str(&record.rank),
                     reads,
                     rpm,
                     abundance,
@@ -351,7 +351,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Sylph,
                     PathogenDetectionMode::Sequence,
                     taxid.clone(),
-                    format!("{:?}", rank),
+                    rank,
                     estimated_reads,
                     rpm,
                     record.sequence_abundance,
@@ -374,7 +374,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Ganon,
                     PathogenDetectionMode::Sequence,
                     record.taxname.trim().to_string(),
-                    record.tax_level.clone(),
+                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
                     abundance,
@@ -395,7 +395,7 @@ impl PathogenDetection {
                     PathogenDetectionTool::Ganon,
                     PathogenDetectionMode::Profile,
                     record.taxname.trim().to_string(),
-                    record.tax_level.clone(),
+                    PathogenDetectionRank::from_str(&record.tax_level),
                     0, // Ganon abundance doesn't report read counts
                     0.0, // No RPM for abundance mode
                     abundance,
@@ -438,7 +438,7 @@ impl PathogenDetection {
         &self,
         taxids: Option<Vec<String>>,
         names: Option<Vec<String>>,
-        ranks: Option<Vec<String>>,
+        ranks: Option<Vec<PathogenDetectionRank>>,
     ) -> Vec<PathogenDetectionRecord> {
         self.records
             .iter()
@@ -511,7 +511,7 @@ impl PathogenDetection {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, clap::ValueEnum)]
 pub enum PathogenDetectionRank {
     Superkingdom,
     Phylum,
@@ -522,7 +522,7 @@ pub enum PathogenDetectionRank {
     Species,
     Strain,
     NoRank,
-    Other(String)
+    Other
 }
 impl PathogenDetectionRank {
     pub fn from_str(rank_str: &str) -> Self {
@@ -535,8 +535,8 @@ impl PathogenDetectionRank {
             "g" | "G" | "g__" | "genus"  => Self::Genus,
             "s" | "S" | "s__" | "species" => Self::Species,
             "t" | "T" | "t__" | "strain" => Self::Strain,
-            "r" | "R" | "root" | "no rank" |  ""  => Self::NoRank,
-            _ => Self::Other(rank_str.to_string())
+            "r" | "R" | "root" | "no rank" | "" | "-" => Self::NoRank,
+            _ => Self::Other
         }
     }
 }
@@ -562,7 +562,7 @@ pub struct PathogenDetectionResult {
     pub tool: PathogenDetectionTool,
     pub mode: PathogenDetectionMode,
     pub name: String,
-    pub rank: String,
+    pub rank: PathogenDetectionRank,
     pub reads: u64,
     pub rpm: f64,
     pub abundance: f64,
@@ -573,7 +573,7 @@ impl PathogenDetectionResult {
         tool: PathogenDetectionTool,
         mode: PathogenDetectionMode,
         name: String,
-        rank: String,
+        rank: PathogenDetectionRank,
         reads: u64,
         rpm: f64,
         abundance: f64,
@@ -611,7 +611,7 @@ impl PathogenDetectionRecord {
         tool: PathogenDetectionTool,
         mode: PathogenDetectionMode,
         name: String,
-        rank: String,
+        rank: PathogenDetectionRank,
         reads: u64,
         rpm: f64,
         abundance: f64

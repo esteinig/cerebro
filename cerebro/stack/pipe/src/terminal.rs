@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::{error::WorkflowError, nextflow::pathogen::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
+use crate::{error::WorkflowError, modules::pathogen::PathogenDetectionRank, nextflow::pathogen::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
 
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]
@@ -379,7 +379,7 @@ pub struct ProcessArgs {
     pub filter_names: Option<Vec<String>>,
     /// Filter the output by taxranks
     #[clap(long, short = 'r')]
-    pub filter_ranks: Option<Vec<String>>,
+    pub filter_ranks: Option<Vec<PathogenDetectionRank>>,
     /// Parse the background alignment from the quality control module variant
     /// 
     /// Combined reference for detecting organism, synthetic, internal controls 
