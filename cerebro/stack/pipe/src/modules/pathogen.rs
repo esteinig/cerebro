@@ -243,18 +243,18 @@ impl PathogenDetection {
         if let Some(kraken_report) = &output.profile.kraken2 {
             for record in &kraken_report.records {
                 let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.trim().to_string();
+                let rank = PathogenDetectionRank::from_str(&record.tax_level);
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
                 let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Kraken2,
                     PathogenDetectionMode::Sequence,
-                    record.taxname.trim().to_string(),
-                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
                     abundance,
@@ -266,18 +266,18 @@ impl PathogenDetection {
         if let Some(metabuli_report) = &output.profile.metabuli {
             for record in &metabuli_report.records {
                 let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.trim().to_string();
+                let rank = PathogenDetectionRank::from_str(&record.tax_level);
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
                 let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Metabuli,
                     PathogenDetectionMode::Sequence,
-                    record.taxname.trim().to_string(),
-                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
                     abundance,
@@ -289,42 +289,18 @@ impl PathogenDetection {
         if let Some(bracken_report) = &output.profile.bracken {
             for record in &bracken_report.records {
                 let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.trim().to_string();
+                let rank = PathogenDetectionRank::from_str(&record.tax_level);
                 let reads = if paired_end { record.reads * 2 } else { record.reads };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
                 let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Bracken,
                     PathogenDetectionMode::Profile,
-                    record.taxname.trim().to_string(),
-                    PathogenDetectionRank::from_str(&record.tax_level),
-                    reads,
-                    rpm,
-                    abundance,
-                );
-            }
-        }
-
-        // Process KMCP reads reports
-        if let Some(kmcp_reads) = &output.profile.kmcp_reads {
-            let kmcp_taxid_report = kmcp_reads.get_taxid_report()?;
-            for record in &kmcp_taxid_report.records {
-                let taxid = record.taxid.trim().to_string();
-                let reads = if paired_end { record.reads * 2 } else { record.reads };
-                let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
-                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
-
-                let entry = detection_map
-                    .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
-                entry.add_result(
-                    PathogenDetectionTool::Kmcp,
-                    PathogenDetectionMode::Sequence,
-                    record.taxname.clone(),
-                    PathogenDetectionRank::from_str(&record.rank),
                     reads,
                     rpm,
                     abundance,
@@ -340,21 +316,44 @@ impl PathogenDetection {
                     continue;
                 }
 
+                let name = taxid.clone();
                 let estimated_reads =
                     ((record.sequence_abundance / 100.0) * classifier_reads as f64) as u64;
                 let rpm = compute_rpm(estimated_reads, input_reads).unwrap_or(0.0);
 
                 let entry = detection_map
                     .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Sylph,
                     PathogenDetectionMode::Sequence,
-                    taxid.clone(),
-                    rank,
                     estimated_reads,
                     rpm,
                     record.sequence_abundance,
+                );
+            }
+        }
+
+        // Process KMCP reads reports
+        if let Some(kmcp_reads) = &output.profile.kmcp_reads {
+            let kmcp_taxid_report = kmcp_reads.get_taxid_report()?;
+            for record in &kmcp_taxid_report.records {
+                let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.clone();
+                let rank = PathogenDetectionRank::from_str(&record.rank);
+                let reads = if paired_end { record.reads * 2 } else { record.reads };
+                let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
+
+                let entry = detection_map
+                    .entry(taxid.clone())
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
+                entry.add_result(
+                    PathogenDetectionTool::Kmcp,
+                    PathogenDetectionMode::Sequence,
+                    reads,
+                    rpm,
+                    abundance,
                 );
             }
         }
@@ -363,41 +362,20 @@ impl PathogenDetection {
         if let Some(ganon_reads) = &output.profile.ganon_reads {
             for record in &ganon_reads.records {
                 let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.trim().to_string();
+                let rank = PathogenDetectionRank::from_str(&record.tax_level);
                 let reads = if paired_end { record.cumulative * 2 } else { record.cumulative };
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
                 let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
                 let entry = detection_map
                     .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Ganon,
                     PathogenDetectionMode::Sequence,
-                    record.taxname.trim().to_string(),
-                    PathogenDetectionRank::from_str(&record.tax_level),
                     reads,
                     rpm,
-                    abundance,
-                );
-            }
-        }
-
-        // Process Ganon abundance reports
-        if let Some(ganon_abundance) = &output.profile.ganon_abundance {
-            for record in &ganon_abundance.records {
-                let taxid = record.taxid.trim().to_string();
-                let abundance = record.cumulative_percent;
-
-                let entry = detection_map
-                    .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::with_default(&output.id, &taxid));
-                entry.add_result(
-                    PathogenDetectionTool::Ganon,
-                    PathogenDetectionMode::Profile,
-                    record.taxname.trim().to_string(),
-                    PathogenDetectionRank::from_str(&record.tax_level),
-                    0, // Ganon abundance doesn't report read counts
-                    0.0, // No RPM for abundance mode
                     abundance,
                 );
             }
@@ -410,29 +388,34 @@ impl PathogenDetection {
             records,
         })
     }
-    fn get_sylph_taxinfo(record: &SylphReportRecord) -> Result<(String, PathogenDetectionRank), WorkflowError> {
 
+    fn get_sylph_taxinfo(
+        record: &SylphReportRecord,
+    ) -> Result<(String, PathogenDetectionRank), WorkflowError> {
         let tax_str = record.clade_name.trim().to_string();
-        let tax_str = tax_str.split("|").last();
+        let tax_str = tax_str.split('|').last();
 
         let (taxid, taxlevel) = match tax_str {
-            Some(tax_str) => { 
+            Some(tax_str) => {
                 let taxid_str_split = tax_str.split("__").collect::<Vec<_>>();
                 if taxid_str_split.len() != 2 {
                     log::warn!("Failed to recover taxinfo from Sylph output");
-                    return Err(WorkflowError::SylphTaxInfoRecoveryFailure(record.clade_name.clone()))
+                    return Err(WorkflowError::SylphTaxInfoRecoveryFailure(
+                        record.clade_name.clone(),
+                    ));
                 } else {
                     (taxid_str_split[1], taxid_str_split[0])
                 }
-            },
-            None => { 
+            }
+            None => {
                 log::warn!("Failed to recover taxid from Sylph output");
-                return Err(WorkflowError::SylphTaxInfoRecoveryFailure(record.clade_name.clone()))
+                return Err(WorkflowError::SylphTaxInfoRecoveryFailure(
+                    record.clade_name.clone(),
+                ));
             }
         };
-        
-        Ok((taxid.to_string(), PathogenDetectionRank::from_str(taxlevel)))
 
+        Ok((taxid.to_string(), PathogenDetectionRank::from_str(taxlevel)))
     }
     pub fn filter_by_taxonomy(
         &self,
@@ -444,14 +427,9 @@ impl PathogenDetection {
             .iter()
             .filter(|record| {
                 let taxid_match = taxids.as_ref().map_or(true, |ids| ids.contains(&record.taxid));
-                let name_match = names.as_ref().map_or(true, |names| {
-                    record.results.iter().any(|res| names.contains(&res.name))
-                });
+                let name_match = names.as_ref().map_or(true, |names| names.contains(&record.name));
                 let rank_match = ranks.as_ref().map_or(true, |ranks| {
-                    record
-                        .results
-                        .iter()
-                        .any(|res| ranks.contains(&res.rank))
+                    ranks.contains(&record.rank)
                 });
 
                 taxid_match && name_match && rank_match
@@ -561,8 +539,6 @@ pub enum PathogenDetectionMode {
 pub struct PathogenDetectionResult {
     pub tool: PathogenDetectionTool,
     pub mode: PathogenDetectionMode,
-    pub name: String,
-    pub rank: PathogenDetectionRank,
     pub reads: u64,
     pub rpm: f64,
     pub abundance: f64,
@@ -572,8 +548,6 @@ impl PathogenDetectionResult {
     pub fn new(
         tool: PathogenDetectionTool,
         mode: PathogenDetectionMode,
-        name: String,
-        rank: PathogenDetectionRank,
         reads: u64,
         rpm: f64,
         abundance: f64,
@@ -581,8 +555,6 @@ impl PathogenDetectionResult {
         Self {
             tool,
             mode,
-            name,
-            rank,
             reads,
             rpm,
             abundance
@@ -594,14 +566,18 @@ impl PathogenDetectionResult {
 pub struct PathogenDetectionRecord {
     pub id: String,
     pub taxid: String,
+    pub name: String,
+    pub rank: PathogenDetectionRank,
     pub results: Vec<PathogenDetectionResult>, // Results from various tools and modes
 }
 
 impl PathogenDetectionRecord {
-    pub fn with_default(id: &str, taxid: &str) -> Self {
+    pub fn new(id: &str, taxid: &str, name: &str, rank: PathogenDetectionRank) -> Self {
         Self {
             id: id.to_string(),
             taxid: taxid.to_string(),
+            name: name.to_string(),
+            rank,
             results: Vec::new(),
         }
     }
@@ -610,13 +586,11 @@ impl PathogenDetectionRecord {
         &mut self,
         tool: PathogenDetectionTool,
         mode: PathogenDetectionMode,
-        name: String,
-        rank: PathogenDetectionRank,
         reads: u64,
         rpm: f64,
         abundance: f64
     ) {
-        let result = PathogenDetectionResult::new(tool, mode, name, rank, reads, rpm, abundance);
+        let result = PathogenDetectionResult::new(tool, mode, reads, rpm, abundance);
         self.results.push(result);
     }
 }
