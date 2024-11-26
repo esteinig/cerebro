@@ -7,7 +7,7 @@ use std::fs;
 use typst::foundations::Smart;
 use typst::{eval::Tracer, layout::Abs};
 
-use cerebro_pipeline::quality::QualityControlSummary;
+use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl};
 use cerebro_model::{
     api::cerebro::model::{CerebroId, PriorityTaxonDecision}, 
     api::cerebro::schema::ReportSchema, 
@@ -166,7 +166,7 @@ impl ReportSample {
         template: &TemplateConfig, 
         assay_template: &AssayTemplate, 
         bioinformatics_template: &BioinformaticsTemplate,
-        quality_summaries: &Vec<QualityControlSummary>
+        quality_summaries: &Vec<ReadQualityControl>
     ) -> Self {
         
         Self {
@@ -198,7 +198,7 @@ impl ReportSample {
                     started: schema.workflow.started.clone(), 
                     completed: schema.workflow.completed.clone(), 
                     libraries: quality_summaries.iter().map(
-                        |summary| match &summary.library_tag { Some(tag) => tag.to_string(), None => String::from("ERROR") }
+                        |summary| String::from("TBD") // match &summary.library_tag { Some(tag) => tag.to_string(), None => String::from("ERROR") }
                     ).collect::<Vec<String>>().join(", "), 
                     configuration: String::from("CNS-ASSAY"), 
                     databases: String::from("CIPHER 0.7.0"), 
@@ -287,22 +287,22 @@ pub struct BioinformaticsHeader {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BioinformaticsLibrary {
-    pub tag: String,
+    // pub tag: String,
     pub reads: String,
     pub reads_qc: String,
-    pub extraction_control: String,
-    pub library_control: String,
-    pub sequencing_control: String
+    // pub extraction_control: String,
+    // pub library_control: String,
+    // pub sequencing_control: String
 }
 impl BioinformaticsLibrary {
-    pub fn from_summary(qc_summary: &QualityControlSummary) -> Self {
+    pub fn from_summary(qc_summary: &ReadQualityControl) -> Self {
         Self {
-            tag: match &qc_summary.library_tag { Some(tag) => tag.to_string(), None => "ERROR".to_string() },
-            reads: qc_summary.total_reads.to_string(),
+            // tag: match &qc_summary.library_tag { Some(tag) => tag.to_string(), None => "ERROR".to_string() },
+            reads: qc_summary.input_reads.to_string(),
             reads_qc: qc_summary.output_reads.to_string(),
-            extraction_control: match &qc_summary.control_status_dna_extraction { Some(status) => status.to_string(), None => String::from("PASS") },
-            sequencing_control: match &qc_summary.control_status_sequencing { Some(status) => status.to_string(), None => String::from("N/A") },
-            library_control: match &qc_summary.control_status_library { Some(status) => status.to_string(), None => String::from("PASS") }
+            // extraction_control: match &qc_summary.control_status_dna_extraction { Some(status) => status.to_string(), None => String::from("PASS") },
+            // sequencing_control: match &qc_summary.control_status_sequencing { Some(status) => status.to_string(), None => String::from("N/A") },
+            // library_control: match &qc_summary.control_status_library { Some(status) => status.to_string(), None => String::from("PASS") }
         }
     }
 }
@@ -311,7 +311,7 @@ impl BioinformaticsLibrary {
 pub struct BioinformaticsEvidence {
     pub organism: String,
     pub taxid: String,
-    pub rpm: String,
+    // pub rpm: String,
     pub contigs: String,
     pub negative_control: bool,
     pub other: Option<String>,
@@ -324,7 +324,7 @@ impl BioinformaticsEvidence {
                 vec![Self {
                     organism: priority_taxon.taxon_overview.name.clone(),
                     taxid: priority_taxon.taxon_overview.taxid.clone(),
-                    rpm: format!("{:.1}", priority_taxon.taxon_overview.rpm),
+                    // rpm: format!("{:.1}", priority_taxon.taxon_overview.rpm),
                     contigs: priority_taxon.taxon_overview.contigs.to_string(),
                     negative_control: match schema.priority_taxon_negative_control { Some(v) => v, None => false },
                     other: schema.priority_taxon_other_evidence.clone()
@@ -547,7 +547,7 @@ impl ClinicalReport {
         template: &mut TemplateConfig, 
         assay_template: &AssayTemplate, 
         bioinformatics_template: &BioinformaticsTemplate, 
-        quality_summaries: &Vec<QualityControlSummary> 
+        quality_summaries: &Vec<ReadQualityControl> 
     ) -> Self {
         
 

@@ -685,7 +685,6 @@ process SemiBin2 {
 
 }
 
-
 process Vamb {
     
     tag { sampleID }
@@ -739,7 +738,6 @@ process Vircov {
     
 }
 
-
 process VircovNanopore {
     
     label "pathogenProfileVircov"
@@ -772,8 +770,7 @@ process VircovNanopore {
     
 }
 
-// Illumina PE
-process ProcessOutput {
+process ProcessOutputIllumina {
     
     tag { sampleID }
     label "cerebro"
@@ -790,33 +787,46 @@ process ProcessOutput {
 
     """
     cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end
-    """
-    
+    """  
 }
 
-// Illumina PE
+process ProcessOutputNanopore {
+    
+    tag { sampleID }
+    label "cerebro"
+
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
+
+    input:
+    tuple val(sampleID), path(result_files)
+
+    output:
+    tuple (path("${sampleID}.qc.json"), path("${sampleID}.pd.json"), emit: results)
+
+    script:
+
+    """
+    cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json
+    """
+}
+
 process PathogenDetectionTable {
     
     label "cerebro"
 
-    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "rpm.species.tsv"
-    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "rpm.genus.tsv"
+    publishDir "$params.outputDirectory/results", mode: "copy", pattern: "species.tsv"
 
     input:
     path(result_files)
     path(taxonomy_directory)
 
     output:
-    tuple path("rpm.species.tsv"), path("rpm.genus.tsv")
+    path("species.tsv")
 
     script:
 
     """
     echo '{"ranks": ["species"]}' > filter.json
-    cerebro-pipe table pathogen-detection --json *.pd.json --output rpm.species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
-
-    echo '{"ranks": ["genus"]}' > filter.json
-    cerebro-pipe table pathogen-detection --json *.pd.json --output rpm.genus.tsv --taxonomy $taxonomy_directory --filter-json filter.json
+    cerebro-pipe table pathogen-detection --json *.pd.json --output species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
     """
-    
 }

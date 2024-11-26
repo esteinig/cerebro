@@ -11,8 +11,12 @@ use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
 
-use cerebro_pipeline::{
-    error::{WorkflowError, WorkflowUtilityError}, filters::TaxonFilterConfig, module::QualityControlModule, sample::WorkflowSample, sheet::SampleSheet, taxon::{Taxon, TaxonOverview}
+use cerebro_pipe::{
+    error::WorkflowError, 
+    modules::quality::QualityControl, 
+    nextflow::sheet::SampleSheet, 
+    taxa::filters::TaxonFilterConfig, 
+    taxa::taxon::{Taxon, TaxonOverview}
 };
 
 use crate::api::users::model::{UserId, User};
@@ -26,7 +30,7 @@ use crate::api::cerebro::schema::{
 };
 
 
-const SCHEMA_VERSION: &str= "0.8.0";
+const SCHEMA_VERSION: &str = "0.10.0";
 
 /*
 ========================
@@ -45,9 +49,9 @@ pub enum ModelError {
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
-    /// Represents all other cases of `workflow::utils::WorkflowUtilityError`.
+    /// Represents all other cases of `WorkflowError`.
     #[error(transparent)]
-    WorkflowUtility(#[from] WorkflowUtilityError),
+    Workflow(#[from] WorkflowError),
     /// Represents failure to find a run identifier in the sample sheet
     #[error("failed to find run identifier in sample sheet for sample identifier: {0}")]
     RunIdentifier(String),
@@ -85,6 +89,88 @@ pub enum ModelError {
 
 
 /*
+==============
+Database model
+==============
+*/
+
+pub type CerebroId = String;
+
+// A struct representing a single processed workflow sample (a sequenced and analysed library)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Cerebro {
+    pub schema_version: String,                 // the schema version of this model
+    
+    pub id: CerebroId,                          // the unique identifier of this model in the database
+    pub name: String,                           // the basename of the sample as processed in the workflow
+    
+    pub fs: Option<FileStorage>,                // the file storage configuration if running in production
+    
+    pub run: RunConfig,                         // the configuration of the sequence run
+    pub sample: SampleConfig,                   // the configuration of the biological sample
+    pub workflow: WorkflowConfig,               // the configuration of the workflow run
+
+    pub taxa: HashMap<String, Taxon>,           // the dictionary of taxonomic identifiers and taxon data from the parsed workflow sample (legacy dictionary, could be simple list)
+    pub quality: QualityControl,                // the quality control data from the parsed workflow sample
+}
+impl Cerebro {
+    /// Create a `Cerebro` model from a `WorkflowSample`
+    /// 
+    /// A model for the database represents a single sample processed through the pipeline
+    /// associated with a specific biological sample, sequencing run and workflow run. 
+    /// 
+    /// TODO: IMPLEMENT A SIZE GUARD WHEN PARSING THE WORKFLOW SAMPLE
+    /// 
+    pub fn from(
+        id: &str,
+        quality: &QualityControl,
+        taxa: &HashMap<String, Taxon>,
+        sample_sheet: Option<PathBuf>, 
+        workflow_config: Option<PathBuf>
+    ) -> Result<Self, ModelError> {
+            
+            let (run_config, sample_config) = match sample_sheet {
+                Some(path) => {
+                    let sample_sheet = SampleSheet::from(&path)?;
+                    (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
+                },
+                None => (RunConfig::default(), SampleConfig::with_default(&id))
+            };
+
+            let workflow_config = match workflow_config {
+                Some(path) => WorkflowConfig::from(&path)?,
+                None => WorkflowConfig::default(),
+            };
+
+            Ok(
+                Cerebro {
+                    schema_version: format!("{}", SCHEMA_VERSION),
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: id.to_owned(),
+                    fs: None,
+                    run: run_config, 
+                    sample: sample_config, 
+                    workflow: workflow_config,
+                    taxa: taxa.to_owned(),
+                    quality: quality.to_owned(),
+                }
+            )
+    }
+    pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
+        let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
+        Ok(model)
+    }
+    pub fn write_json(&self, file: &PathBuf) -> Result<(), ModelError>{
+        let mut file = File::create(&file)?;
+        let json_string = serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
+        write!(file, "{}", json_string)?;
+        Ok(())
+    }
+
+}
+
+
+/*
 ========================
 Run configuration
 ========================
@@ -99,21 +185,28 @@ pub struct RunConfig {
     pub date: String,
 }
 impl RunConfig {
-    pub fn from(sample_sheet: &SampleSheet, workflow_sample: &WorkflowSample) -> Result<Self, ModelError> {
+    pub fn from(id: &str, sample_sheet: &SampleSheet) -> Result<Self, ModelError> {
 
-        let id = match sample_sheet.get_run_id(&workflow_sample.id) {
+        let id = match sample_sheet.get_run_id(&id) {
             Some(run_id) => run_id,
-            None => return Err(ModelError::RunIdentifier(workflow_sample.id.to_owned()))
+            None => return Err(ModelError::RunIdentifier(id.to_owned()))
         };
 
-        let date = match sample_sheet.get_run_date(&workflow_sample.id) {
+        let date = match sample_sheet.get_run_date(&id) {
             Some(run_date) => run_date,
-            None => return Err(ModelError::RunDate(workflow_sample.id.to_owned()))
+            None => return Err(ModelError::RunDate(id.to_owned()))
         };
         Ok(Self { id, date })
     }
 }
-
+impl Default for RunConfig {
+    fn default() -> Self {
+        Self {
+            id: String::from("PLACEHOLDER"),
+            date: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
+        }
+    }
+}
 /*
 ========================
 Sample configuration
@@ -137,28 +230,45 @@ pub struct SampleConfig {
     pub ercc_input_mass: Option<f64>,        // input mass in picogram
 }
 impl SampleConfig {
+    /// Create a minimal sample configuration with defaults
+    pub fn with_default(id: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            ..SampleConfig::default()
+        }
+    }
     /// Create a biological sample configuration from a parsed workflow sample and sample sheet
-    pub fn from(sample_sheet: &SampleSheet, workflow_sample: &WorkflowSample) -> Result<Self, ModelError> {
-        let (id, tags) = get_sample_regex_matches(&workflow_sample.id)?;
+    pub fn from(id: &str, sample_sheet: &SampleSheet) -> Result<Self, ModelError> {
+        let (id, tags) = get_sample_regex_matches(id)?;
 
-        let sample_group = match sample_sheet.get_sample_group(&workflow_sample.id) {
+        let sample_group = match sample_sheet.get_sample_group(&id) {
             Some(sample_group) => sample_group,
-            None => return Err(ModelError::SampleGroup(workflow_sample.id.to_owned()))
+            None => return Err(ModelError::SampleGroup(id.to_owned()))
         };
 
-        let sample_type = match sample_sheet.get_sample_type(&workflow_sample.id) {
+        let sample_type = match sample_sheet.get_sample_type(&id) {
             Some(sample_type) => sample_type,
-            None => return Err(ModelError::SampleGroup(workflow_sample.id.to_owned()))
+            None => return Err(ModelError::SampleGroup(id.to_owned()))
         };
 
-        let ercc_input_mass = sample_sheet.get_ercc_input(&workflow_sample.id);
+        let ercc_input_mass = sample_sheet.get_ercc_input(&id);
 
         Ok(Self{ id, tags, description: None, sample_group, sample_type, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
     }
-     /// Create a biological sample configuration from a parsed workflow sample
-     pub fn from_sample(workflow_sample: &WorkflowSample) -> Result<Self, ModelError> {
-        let (id, tags) = get_sample_regex_matches(&workflow_sample.id)?;
-        Ok(Self{ id, tags, description: None, sample_group: String::new(), sample_type: String::new(), comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass: None })
+}
+impl Default for SampleConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            tags: Vec::new(),
+            description: None,
+            sample_group: String::new(),
+            sample_type: String::new(),
+            comments: Vec::new(),
+            priority: Vec::new(),
+            reports: Vec::new(),
+            ercc_input_mass: None
+        }
     }
 }
 
@@ -229,7 +339,7 @@ impl SampleComment {
 }
 
 // Utility function to extract the biological sample identifier and library tags [strict]
-fn get_sample_regex_matches(file_name: &String)-> Result<(String, Vec<String>), ModelError> {
+fn get_sample_regex_matches(file_name: &str)-> Result<(String, Vec<String>), ModelError> {
     
     let mut sample_id = String::new();
     let sample_id_regex = Regex::new("^([^_]+)(?=__)").map_err(ModelError::SampleIdRegex)?;
@@ -294,134 +404,17 @@ impl WorkflowConfig {
         Ok(serde_json::from_reader(reader).map_err(ModelError::JsonSerialization)?)
     }
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParams {
-    pub production: WorkflowParamsProduction,
-    pub qc: WorkflowParamsQc
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQc {
-    pub enabled: bool,
-    pub deduplication: WorkflowParamsQcDeduplication,
-    pub reads: WorkflowParamsQcReads,
-    pub controls: WorkflowParamsQcControls,
-    pub host: WorkflowParamsQcHost
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsProduction {
-    pub enabled: bool,
-    pub sample_sheet: PathBuf,
-    pub api: WorkflowParamsProductionApi,
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsProductionApi {
-    pub enabled: bool,
-    pub url: String,
-    pub token: String,
-    pub upload: WorkflowParamsProductionApiUpload
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsProductionApiUpload {
-    pub enabled: bool,
-    pub team: Option<String>,
-    pub db: Option<String>,
-    pub project: Option<String>,
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum DeduplicationMethod {
-    #[serde(alias="none")]
-    None, 
-    #[serde(alias="naive")]
-    Naive,
-    #[serde(alias="umi-naive")]
-    UmiNaive,
-    #[serde(alias="umi-calib")]
-    UmiCalib,
-    #[serde(alias="umi-tools")]
-    UmiTools,
-    #[serde(alias="umi-tools-naive")]
-    UmiToolsNaive
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcDeduplication {
-    pub enabled: bool,
-    pub method: DeduplicationMethod,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcReads {
-    pub fastp: WorkflowParamsQcFastp,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcFastp {
-    pub enabled: bool,
-    pub min_read_length: Option<u64>,
-    pub cut_tail_quality: Option<u64>,
-    pub complexity_threshold: Option<u64>,
-    pub adapter_auto_detect: bool,
-    pub adapter_file: Option<PathBuf>,
-    pub adapter_seq_1: Option<String>,
-    pub adapter_seq_2: Option<String>,
-    pub trim_poly_g: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcControls {
-    pub ercc: WorkflowParamsQcErcc,
-    pub phage: WorkflowParamsQcPhage,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcErcc {
-    pub enabled: bool,
-    pub fasta: Option<PathBuf>
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcPhage {
-    pub enabled: bool,
-    pub fasta: Option<PathBuf>,
-    pub identifiers: WorkflowParamsQcPhageIdentifiers,
-}
-
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcPhageIdentifiers {
-    pub dna_extraction: Option<String>,
-    pub rna_extraction: Option<String>,
-    pub sequencing: Option<String>,
-}
-
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcHost {
-    pub depletion: WorkflowParamsQcHostDepletion
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkflowParamsQcHostDepletion {
-    pub enabled: bool,
-    pub databases: String,
-    pub references: String,
-    pub taxa: String,
-    pub direct: String,
-    pub min_cov: u64,
-    pub min_len: u64,
-    pub min_mapq: u64
+impl Default for WorkflowConfig {
+    fn default() -> Self {
+        Self {
+            id: String::from("PLACEHOLDER"),
+            name: String::from("PLACEHOLDER"),
+            pipeline: String::from("PLACEHOLDER"),
+            version: String::from("PLACEHOLDER"),
+            started: String::from("PLACEHOLDER"),
+            completed: String::from("PLACEHOLDER"),
+        }
+    }
 }
 
 // Actix Web fails when specifying custom serde deserializers - it might be because
@@ -570,98 +563,5 @@ impl PriorityTaxon {
         }
     }
 }
-
-
-/*
-==============
-Database model
-==============
-*/
-
-// quality_summary: Vec::from([QualityControlRow::from(&workflow_sample.qc_module)])
-
-pub type CerebroId = String;
-
-// A struct representing a single processed workflow sample (a sequenced and analysed library)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Cerebro {
-    pub schema_version: String,             // the schema version of this model
-
-    pub id: CerebroId,                      // the unique identifier of this model in the database
-    pub name: String,                       // the basename of the sample as processed in the workflow
-
-    pub fs: Option<FileStorage>,            // the file storage configuration if running in production
-
-    pub run: RunConfig,                     // the configuration of the sequence run
-    pub sample: SampleConfig,               // the configuration of the biological sample
-    pub workflow: WorkflowConfig,           // the configuration of the workflow run
-
-    pub taxa: HashMap<String, Taxon>,               // the dictionary of taxonomic identifiers and taxon data from the parsed workflow sample (legacy dictionary, could be simple list)
-    pub quality: QualityControlModule,              // the quality control data from the parsed workflow sample
-}
-impl Cerebro {
-    /// Create a `Cerebro` model from a `WorkflowSample`
-    /// 
-    /// A model for the database represents a single sample processed through the pipeline
-    /// associated with a specific biological sample, sequencing run and workflow run. 
-    /// 
-    /// TODO: IMPLEMENT A SIZE GUARD WHEN PARSING THE WORKFLOW SAMPLE
-    /// 
-    pub fn from_workflow_sample(
-        workflow_sample: &WorkflowSample, 
-        sample_sheet: &PathBuf, 
-        workflow_config: &PathBuf
-    ) -> Result<Self, ModelError> {
-            Ok(
-                Cerebro {
-                    schema_version: format!("{}", SCHEMA_VERSION),
-                    id: uuid::Uuid::new_v4().to_string(),
-                    name: workflow_sample.id.to_owned(),
-                    fs: None,
-                    run:  RunConfig::from(&SampleSheet::from(&sample_sheet)?, &workflow_sample)?, 
-                    sample: SampleConfig::from(&SampleSheet::from(&sample_sheet)?, &workflow_sample)?, 
-                    workflow: WorkflowConfig::from(workflow_config)?,
-                    taxa: workflow_sample.taxa.to_owned(),
-                    quality: workflow_sample.qc_module.to_owned(),
-                }
-            )
-    }
-    pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
-        let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
-        Ok(model)
-    }
-    pub fn write_json(&self, file: &PathBuf) -> Result<(), ModelError>{
-        let mut file = File::create(&file)?;
-        let json_string = serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
-        write!(file, "{}", json_string)?;
-        Ok(())
-    }
-    pub fn update_sample_id(&self, sample_id: &str, sample_tags: Option<Vec<String>>) -> Self {
-       
-       // TODO: Updates sample identifier throughout model
-        
-        log::warn!("Updating sample identifier for model: {} ({})", self.name, self.id);
-
-        let mut cc = self.clone();
-
-        cc.name = sample_id.to_string();
-        cc.sample.id = sample_id.to_string();
-
-        if let Some(tags) = sample_tags {
-            cc.sample.tags = tags;
-        }
-        
-        cc.quality.id = sample_id.to_string();
-
-        cc.taxa = self.taxa.iter().map(|(taxid, taxon)| {
-            let taxon = taxon.update_evidence_sample_id(sample_id);
-            (taxid.to_owned(), taxon)
-        }).collect::<HashMap<String, Taxon>>();
-
-        cc
-    }
-
-}
-
 
 

@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Pat
 use serde::{Deserialize, Serialize};
 use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
 
-use crate::{error::WorkflowError, nextflow::pathogen::{BrackenReportRecord, GanonReportRecord, KmcpAbundanceReportRecord, KmcpReadsReportRecord, KrakenReportRecord, MetabuliReportRecord, PathogenOutput, SylphReportRecord}, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{BrackenReportRecord, GanonReportRecord, KmcpAbundanceReportRecord, KmcpReadsReportRecord, KrakenReportRecord, MetabuliReportRecord, PathogenOutput, SylphReportRecord}, taxa::taxon::Taxon, utils::{read_tsv, write_tsv}};
 
 use super::quality::QualityControl;
 
@@ -176,7 +176,7 @@ impl PathogenDetection {
 
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                    .or_insert(PathogenDetectionRecord::default());
+                    .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_kraken(taxid, record, input_reads, classifier_reads, paired_end); 
             }
         }
@@ -319,7 +319,7 @@ impl PathogenDetection {
                 true
             };
 
-            // Check if any name matches (from kraken, bracken, or metabuli)
+            // Check if any name matches
             let name_match = if let Some(names) = &names {
 
                 let kraken_name_match = record.kraken_sequence_name.as_ref().map_or(false, |name| names.contains(name));
@@ -338,7 +338,7 @@ impl PathogenDetection {
                 true
             };
 
-            // Check if any rank matches (from kraken, bracken, or metabuli)
+            // Check if any rank matches
             let rank_match = if let Some(ranks) = &ranks {
 
                 let kraken_rank_match = record.kraken_sequence_rank.as_ref().map_or(false, |rank| ranks.contains(rank));
@@ -363,7 +363,30 @@ impl PathogenDetection {
         .cloned()
         .collect()
     }
+    // Uses the provided taxonomy to create the taxon structs for the database model
+    pub fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
 
+        let taxonomy = ncbi::load(taxonomy_directory)?;
+
+        let mut taxa = HashMap::new();
+        for record in &self.records {
+            let mut taxon = match Taxon::from_taxid(record.taxid.clone(), &taxonomy, true) {
+                Ok(taxon) => taxon,
+                Err(err) => {
+                    log::error!("Failed to find taxid '{}' in provided taxonomy", record.taxid);
+                    if strict {
+                        return Err(err)
+                    } else {
+                        log::warn!("Strict mode is not enabled - detection of taxid '{}' will be skipped", record.taxid);
+                        continue;
+                    }
+                }
+            };
+            taxon.evidence.records.push(record.clone());
+            taxa.insert(record.taxid.clone(), taxon);
+        }
+        Ok(taxa)
+    }
     pub fn write_records(records: &Vec<PathogenDetectionRecord>, path: &Path) -> Result<(), WorkflowError> {
         write_tsv(&records, path, true)
     }
@@ -424,9 +447,9 @@ impl PathogenDetectionRank {
 
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PathogenDetectionRecord {
-    // pub id: String,
+    pub id: String,
     // pub rank: String,
     pub taxid: String,
     // pub input_reads: u64,
@@ -480,6 +503,7 @@ pub struct PathogenDetectionRecord {
 impl Default for PathogenDetectionRecord {
     fn default() -> Self {
         Self {
+            id: String::from(""),
             taxid: String::from(""),
             kraken_sequence_reads: None,
             kraken_sequence_name: None,
@@ -530,9 +554,10 @@ impl Default for PathogenDetectionRecord {
     }
 }
 impl PathogenDetectionRecord {
-    pub fn with_default(taxid: String) -> Self {
+    pub fn with_default(id: &str, taxid: &str) -> Self {
         Self {
-            taxid,
+            id: id.to_string(),
+            taxid: taxid.to_string(),
             ..Default::default()
         }
     }

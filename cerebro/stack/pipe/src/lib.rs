@@ -5,4 +5,4 @@ pub mod parsers;
 pub mod terminal;
 pub mod modules;
 pub mod tools;
-pub mod taxon;
+pub mod taxa;

@@ -5,7 +5,7 @@ use needletail::{parse_fastx_file, FastxReader};
 use niffler::get_writer;
 use niffler::seek::compression::ReadSeek;
 use niffler::seek::get_reader;
-use serde::de::IntoDeserializer;
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs::File;
@@ -330,4 +330,17 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     }
 
     Ok(records)
+}
+
+
+pub fn get_colored_string(value: &str, color: &str) -> String {
+    match color.to_lowercase().as_str() {
+        "blue" => value.blue().to_string(),
+        "green"  => value.green().to_string(),
+        "yellow"  => value.yellow().to_string(),
+        "red" => value.red().to_string(),
+        "cyan" => value.cyan().to_string(),
+        "magenta" => value.magenta().to_string(),
+        _ => value.white().to_string()
+    }
 }

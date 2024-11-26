@@ -7,6 +7,7 @@ use scrubby::report::ScrubbyReport;
 use serde::{Deserialize, Serialize, Serializer};
 use vircov::vircov::{VircovRecord, VircovSummary};
 
+
 use crate::error::WorkflowError;
 use crate::nextflow::pathogen::PathogenOutput;
 use crate::nextflow::panviral::PanviralOutput;
@@ -160,6 +161,63 @@ impl QualityControl {
         let reader = BufReader::new(File::open(path)?);
         let quality_control = serde_json::from_reader(reader)?;
         Ok(quality_control)
+    }
+}
+
+
+// For data quality control table output from API
+
+pub struct ModelConfig {
+    sample_type: Option<String>,
+    sample_group: Option<String>,
+    ercc_input_mass: Option<f64>,
+    library_tag: Option<String>,
+    run_id: Option<String>,
+    run_date: Option<String>,
+    workflow_name: Option<String>,
+    workflow_id: Option<String>,
+    workflow_date: Option<String>
+}
+
+impl ModelConfig {
+    pub fn new(
+        sample_type: Option<String>,
+        sample_group: Option<String>,
+        ercc_input_mass: Option<f64>,
+        library_tag: Option<String>,
+        run_id: Option<String>,
+        run_date: Option<String>,
+        workflow_name: Option<String>,
+        workflow_id: Option<String>,
+        workflow_date: Option<String>
+    ) -> Self {
+        
+        Self {
+            sample_type,
+            sample_group,
+            ercc_input_mass,
+            library_tag,
+            run_id,
+            run_date,
+            workflow_name,
+            workflow_id,
+            workflow_date
+        }
+    }
+}
+impl Default for ModelConfig {
+    fn default() -> Self { 
+        Self {
+            sample_type: None,
+            sample_group: None,
+            ercc_input_mass: None,
+            library_tag: None,
+            run_id: None,
+            run_date: None,
+            workflow_name: None,
+            workflow_id: None,
+            workflow_date: None,
+        }
     }
 }
 
@@ -437,6 +495,26 @@ impl ReadReport for NanoqReport {
 pub struct ReadQualityControl {
     pub id: String,
 
+    // API
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_group: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_date: Option<String>,
+
     pub input_reads: u64,
     pub input_bases: u64,
 
@@ -487,6 +565,24 @@ pub struct ReadQualityControl {
     pub q30_percent: Option<f64>,
 }
 impl ReadQualityControl {
+    pub fn with_model(
+        &mut self,
+        model_id: &str, 
+        model_config: ModelConfig
+    ) -> Result<Self, WorkflowError> {
+
+        self.model_id = Some(model_id.to_string());
+        self.run_id = model_config.run_id;
+        self.run_date = model_config.run_date;
+        self.library_tag = model_config.library_tag;
+        self.sample_group = model_config.sample_group;
+        self.sample_type = model_config.sample_type;
+        self.workflow_name = model_config.workflow_name;
+        self.workflow_id = model_config.workflow_id;
+        self.workflow_date = model_config.workflow_date;
+
+        Ok(self.clone())
+    }
     pub fn from(
         id: &str, 
         input_scan: Option<ScanReport>,
@@ -589,6 +685,16 @@ impl ReadQualityControl {
         Self {
             id: id.to_string(),
 
+            model_id: None,
+            run_id: None,
+            run_date: None,
+            library_tag: None,
+            sample_group: None,
+            sample_type: None,
+            workflow_name: None,
+            workflow_id: None,
+            workflow_date: None,
+            
             input_reads,
             input_bases,
 

@@ -1,4 +1,4 @@
-name: cerebro-metadbg
+name: cerebro-metamdbg
 channels:
   - conda-forge        
   - bioconda    

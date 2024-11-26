@@ -26,7 +26,7 @@ name = "cerebro_model"
 # Workflow library dependency to access module structs and definitions
 # to use in endpoints e.g. to generate quality control summary tables  
 # for the user from models in the database
-cerebro-pipeline = { path = "../../stack/pipeline" }
+cerebro-pipe = { path = "../../stack/pipe" }
 
 anyhow = "1.0"
 thiserror = "1.0"

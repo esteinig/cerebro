@@ -5,13 +5,15 @@ use cerebro_client::error::HttpClientError;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
+use cerebro_pipe::modules::pathogen::PathogenDetection;
+use cerebro_pipe::modules::quality::QualityControl;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{TowerCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
 
-use cerebro_pipeline::sample::WorkflowSample;
+// use cerebro_pipe::sample::WorkflowSample;
 use cerebro_model::api::cerebro::model::Cerebro;
 
 fn main() -> anyhow::Result<()> {
@@ -45,41 +47,46 @@ fn main() -> anyhow::Result<()> {
         Commands::PingStatus(_) => {
             client.ping_status()?
         },            
-        // Upload sample models to database
+        // Upload sample model to database
         Commands::UploadSample( args ) => {
             
-            let mut cerebro_models = Vec::new();
-            
-            for path in &args.sample_models {
-                let cerebro = Cerebro::from_workflow_sample(
-                    &WorkflowSample::read_json(&path)?,
-                    &args.sample_sheet,
-                    &args.pipeline_config
-                )?;
+            let quality = QualityControl::from_json(&args.quality)?;
+            let pathogen = PathogenDetection::from_json(&args.pathogen)?;
 
-                let cerebro = match args.replace_sample_id.clone() {
-                    Some(new_sample_id) => cerebro.update_sample_id(
-                        &new_sample_id, args.replace_sample_tags.clone()
-                    ),
-                    None => cerebro
-                };
-
-                cerebro_models.push(cerebro)
+            if quality.id != pathogen.id {
+                return Err(HttpClientError::IdentifiersNotMatched(quality.id, pathogen.id).into())
             }
-            
 
-            for cerebro_model in &cerebro_models {
-                if let Some(model_dir) = &args.model_dir {
-                    if !model_dir.exists() || !model_dir.is_dir() {
-                        create_dir_all(&model_dir)?
-                    }
-                    let output_file = model_dir.join(format!("{}.json", cerebro_model.name));
-                    log::info!("Writing model to file: {}", output_file.display());
-                    cerebro_model.write_json(&output_file)?;
+            let cerebro = Cerebro::from(
+                &quality.id,
+                &quality,
+                &pathogen.get_taxa(
+                    &args.taxonomy, 
+                    args.strict
+                )?,
+                args.sample_sheet.clone(),
+                args.pipeline_config.clone()
+            )?;
+
+            if let Some(model_dir) = &args.model_dir {
+                
+                if !model_dir.exists() || !model_dir.is_dir() {
+                    create_dir_all(&model_dir)?
                 }
+
+                let output_file = model_dir.join(format!("{}.json", cerebro.name));
+                log::info!("Writing model to file: {}", output_file.display());
+                cerebro.write_json(&output_file)?;
             }
 
-            client.upload_models(&cerebro_models, &args.team_name, &args.project_name, args.db_name.as_ref())?;
+            if !args.no_upload {
+                client.upload_models(
+                    &Vec::from([cerebro]), 
+                    &args.team_name, 
+                    &args.project_name, 
+                    args.db_name.as_ref()
+                )?;
+            }
             
             
         },

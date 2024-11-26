@@ -3,7 +3,6 @@ use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
 
-
     init_logger();
 
     let cli = App::parse();

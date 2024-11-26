@@ -124,33 +124,39 @@ pub struct LoginArgs {
 
 #[derive(Debug, Args)]
 pub struct UploadArgs {
-    /// Processed pipeline sample models (*.json)
-    #[clap(long, short = 'i', num_args(0..))]
-    pub sample_models: Vec<PathBuf>,
+    /// Processed pipeline quality control module (.json)
+    #[clap(long)]
+    pub quality: PathBuf,
+    /// Processed pipeline pathogen detection module (.json)
+    #[clap(long)]
+    pub pathogen: PathBuf,
+    /// Taxonomy directory containing 'nodes.dmp' and 'names.dmp'
+    #[clap(long)]
+    pub taxonomy: PathBuf,
+    /// Raise error if taxid was not found in taxonomy
+    #[clap(long)]
+    pub strict: bool,
     /// Pipeline sample sheet (.csv)
-    #[clap(long, short = 's')]
-    pub sample_sheet: PathBuf,
+    #[clap(long)]
+    pub sample_sheet: Option<PathBuf>,
     /// Pipeline configuration (.json)
-    #[clap(long, short = 'c')]
-    pub pipeline_config: PathBuf,
+    #[clap(long)]
+    pub pipeline_config: Option<PathBuf>,
     /// Team name for model upload
     #[clap(long, short = 't')]
     pub team_name: String,
     /// Project name for model upload
     #[clap(long, short = 'p')]
     pub project_name: String,
-    /// Database name for model upload
+    /// Database name for model upload, otherwise team default database
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
-    /// Replace sample identifier before upload
-    #[clap(long)]
-    pub replace_sample_id: Option<String>,
-    /// Replace sample tags before upload
-    #[clap(long, num_args(0..))]
-    pub replace_sample_tags: Option<Vec<String>>,
-    /// Output model as file (.json)
+    /// Output database model as file (.json)
     #[clap(long, short = 'o')]
     pub model_dir: Option<PathBuf>,
+    /// Do not upload, use to write the model to --model-dir only
+    #[clap(long)]
+    pub no_upload: bool,
 }
 
 

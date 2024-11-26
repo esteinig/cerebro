@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use cerebro_pipeline::taxon::{Taxon, TaxonOverview};
+use cerebro_pipe::taxa::taxon::{Taxon, TaxonOverview};
 
 #[derive(Deserialize)]
 pub struct TaxaSummaryMongoPipeline {
@@ -34,9 +34,9 @@ pub struct TaxonSummaryOverview {
     pub domain: Option<String>,
     pub genus: Option<String>,
     pub name: String,             // used to later map back the tags
-    pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
-    pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
-    pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
+    // pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
+    // pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
+    // pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
     pub contigs: u64,             // total assembled and identified contig evidence
     pub contigs_bases: u64,
     pub kmer: bool,
@@ -59,9 +59,9 @@ impl TaxonSummaryOverview {
             domain: taxon_overview.domain.clone(),
             genus: taxon_overview.genus.clone(),
             name: taxon_overview.name.clone(),            
-            rpm: taxon_overview.rpm,                 
-            rpm_kmer: taxon_overview.rpm_kmer,            
-            rpm_alignment: taxon_overview.rpm_alignment,  
+            // rpm: taxon_overview.rpm,                 
+            // rpm_kmer: taxon_overview.rpm_kmer,            
+            // rpm_alignment: taxon_overview.rpm_alignment,  
             contigs: taxon_overview.contigs,             
             contigs_bases: taxon_overview.contigs_bases,
             kmer: taxon_overview.kmer,

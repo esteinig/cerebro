@@ -45,37 +45,26 @@ use cerebro_model::api::cerebro::schema::{
 use cerebro_model::api::cerebro::response::{TaxonSummaryOverview, TaxaSummaryMongoPipeline};
 use cerebro_report::report::ClinicalReport;
 
-use cerebro_pipeline::filters::*;
-use cerebro_pipeline::module::QualityControlModule;
-use cerebro_pipeline::quality::{QualityControlSummary, ModelConfig};
-use cerebro_pipeline::taxon::{Taxon, TaxonOverview, aggregate};
+use cerebro_pipe::taxa::filters::*;
+use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
+use cerebro_pipe::taxa::taxon::{Taxon, TaxonOverview, aggregate};
 
 type CerebroIds = String;
 
-fn qc_config_from_model(sample_config: Option<&SampleConfig>, run_config: Option<&RunConfig>, workflow_config: Option<&WorkflowConfig>) -> ModelConfig {
+fn qc_config_from_model(sample_config: Option<SampleConfig>, run_config: Option<RunConfig>, workflow_config: Option<WorkflowConfig>) -> ModelConfig {
 
     let (sample_type, sample_group, ercc_input_mass, library_tag) = match sample_config {
-        Some(config) => (Some(config.sample_type.to_owned()), Some(config.sample_group.to_owned()), config.ercc_input_mass.to_owned(), Some(config.tags.join("-"))), 
+        Some(config) => (Some(config.sample_type), Some(config.sample_group), config.ercc_input_mass, Some(config.tags.join("-"))), 
         None => (None, None, None, None)
     };
 
     let (run_id, run_date) = match run_config {
-        Some(config) => (Some(config.id.clone()), Some(config.date.clone())),
+        Some(config) => (Some(config.id), Some(config.date)),
         None => (None, None)
     };
 
     let (workflow_name, workflow_id, workflow_date) = match workflow_config {
-        Some(config) => (Some(config.name.to_owned()), Some(config.id.to_owned()), Some(config.completed.to_owned())), 
-        None => (None, None, None)
-    };
-
-    let (dna_phage_id, rna_phage_id, seq_phage_id) = match workflow_config {
-        Some(_) => (
-            None, None, None
-            // config.params.qc.controls.phage.identifiers.dna_extraction.clone(),
-            // config.params.qc.controls.phage.identifiers.rna_extraction.clone(),
-            // config.params.qc.controls.phage.identifiers.sequencing.clone(),
-        ),
+        Some(config) => (Some(config.name), Some(config.id), Some(config.completed)), 
         None => (None, None, None)
     };
 
@@ -88,10 +77,7 @@ fn qc_config_from_model(sample_config: Option<&SampleConfig>, run_config: Option
         run_date,
         workflow_name,
         workflow_id, 
-        workflow_date,
-        dna_phage_id,
-        rna_phage_id,
-        seq_phage_id
+        workflow_date
     )
 }
 
@@ -1053,7 +1039,7 @@ struct CerebroSampleSummaryQcQuery {
 #[derive(Deserialize)]
 struct SummaryAggregateResult {
     id: String,
-    quality: QualityControlModule,
+    quality: QualityControl,
     run: RunConfig,
     sample: SampleConfig,
     workflow: WorkflowConfig
@@ -1084,25 +1070,22 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json
             match matched_cerebro.is_empty() {
                 false => {
 
-                    let matched_cerebro_data: Vec<SummaryAggregateResult> = matched_cerebro.iter().map(|doc| mongodb::bson::from_bson(doc.into()).map_err(|_| {
+                    let mut matched_cerebro_data: Vec<SummaryAggregateResult> = matched_cerebro.iter().map(|doc| mongodb::bson::from_bson(doc.into()).map_err(|_| {
                         HttpResponse::InternalServerError().json(serde_json::json!({
                             "status": "error", "message": "Failed to transform retrieved samples to retrieve quality control summary"
                         }))
                     }).unwrap()).collect();
 
-                    let summaries: Vec<QualityControlSummary> =match  matched_cerebro_data.iter().map(|result| -> Result<QualityControlSummary, HttpResponse> {
+                    let summaries: Vec<ReadQualityControl> = match matched_cerebro_data.iter_mut().map(|result| -> Result<ReadQualityControl, HttpResponse> {
 
-                        match QualityControlSummary::from(
-                            &result.quality, 
-                            Some(result.id.clone()), 
-                            query.ercc, 
-                            Some(
+                        match result.quality.reads.with_model(
+                                &result.id, 
                                 qc_config_from_model(
-                                    Some(&result.sample), 
-                                    Some(&result.run),
-                                    Some(&result.workflow), 
+                                    Some(result.sample.clone()), 
+                                    Some(result.run.clone()),
+                                    Some(result.workflow.clone()), 
                                 )
-                            )){
+                            ){
                                 Ok(summary) => Ok(summary),
                                 Err(_) => Err(HttpResponse::InternalServerError().json(serde_json::json!({
                                     "status": "error", "message": "Failed to transform retrieved sample data into quality control summaries"
@@ -1534,7 +1517,7 @@ pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>
 async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &web::Json<ReportSchema>) -> Result<ClinicalReport, HttpResponse> {
 
     // Find matching models
-    let cerebro = match project_collection
+    let mut cerebro = match project_collection
         .find(
             doc! { 
                 "id":  { "$in" : &report_schema.ids }
@@ -1565,18 +1548,14 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
     };
 
     // Compute quality control summaries from the models
-    let quality_summaries: Vec<QualityControlSummary> = match cerebro.iter().map(|result| -> Result<QualityControlSummary, HttpResponse> {
+    let quality_summaries: Vec<ReadQualityControl> = match cerebro.iter_mut().map(|result| -> Result<ReadQualityControl, HttpResponse> {
 
-        match QualityControlSummary::from(
-            &result.quality, 
-            Some(result.id.clone()), 
-            None,
-            Some(
-                qc_config_from_model(
-                    Some(&result.sample), 
-                    Some(&result.run),
-                    Some(&result.workflow), 
-                )
+        match result.quality.reads.with_model(
+            &result.id,
+            qc_config_from_model(
+                Some(result.sample.clone()), 
+                Some(result.run.clone()),
+                Some(result.workflow.clone()), 
             )
          ) {
             Ok(summary) => Ok(summary),

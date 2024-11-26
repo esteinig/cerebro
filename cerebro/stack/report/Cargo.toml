@@ -32,7 +32,7 @@ name = "cerebro_report"
 # Workflow library dependency to access module structs and definitions
 # to use in endpoints e.g. to generate quality control summary tables  
 # for the user from models in the database
-cerebro-pipeline = { path = "../pipeline" }
+cerebro-pipe = { path = "../pipe" }
 
 # Model library dependency to access shared module structs and definitions
 # to use in endpoints and client responses

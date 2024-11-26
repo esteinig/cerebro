@@ -1,5 +1,5 @@
 
-use cerebro_pipeline::error::WorkflowError;
+use cerebro_pipe::error::WorkflowError;
 use reqwest::StatusCode;
 use thiserror::Error;
 use cerebro_model::api::cerebro::model::ModelError;
@@ -62,5 +62,8 @@ pub enum HttpClientError {
     #[error("failed to send request with 'db' access parameter  - did you provide a database name or identifier?")]
     RequireDbNotConfigured,
     #[error("failed to send request with 'project' access parameter  - did you provide a project name or identifier?")]
-    RequireProjectNotConfigured
+    RequireProjectNotConfigured,
+
+    #[error("failed to match quality control data identifier ({0}) with pathogen detection data identifier ({0})")]
+    IdentifiersNotMatched(String, String)
 }

@@ -323,6 +323,7 @@ pub enum WorkflowError {
     /// Represents a failure to reover Sylph lineage data
     #[error("failed to recover tax info from Sylph output lineage: {0}")]
     SylphTaxInfoRecoveryFailure(String),
+
 }
 
 #[derive(Error, Debug)]
