@@ -10,6 +10,7 @@ process Kraken2 {
     tuple val(sampleID), path(forward), path(reverse)
     path(krakenDatabase)
     val(krakenConfidence)
+    val(krakenMemoryMapping)
 
     output:
 
@@ -18,8 +19,10 @@ process Kraken2 {
 
     script:
 
+    memoryMapping = krakenMemoryMapping ? "--memory-mapping" : ""
+
     """
-    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.reads.tsv --report ${sampleID}.kraken2.reads.report --paired $forward $reverse
+    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.reads.tsv --report ${sampleID}.kraken2.reads.report $memoryMapping --paired $forward $reverse 
 
     if [ ! -f "${sampleID}.kraken2.reads.tsv" ]; then
         touch "${sampleID}.kraken2.reads.tsv"
@@ -41,6 +44,7 @@ process Kraken2Nanopore {
     tuple val(sampleID), path(reads)
     path(krakenDatabase)
     val(krakenConfidence)
+    val(krakenMemoryMapping)
 
     output:
 
@@ -49,8 +53,10 @@ process Kraken2Nanopore {
 
     script:
 
+    memoryMapping = krakenMemoryMapping ? "--memory-mapping" : ""
+
     """
-    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.reads.tsv --report ${sampleID}.kraken2.reads.report $reads
+    kraken2 --db $krakenDatabase --confidence $krakenConfidence --threads $task.cpus --output ${sampleID}.kraken2.reads.tsv --report ${sampleID}.kraken2.reads.report $memoryMapping $reads
     
     if [ ! -f "${sampleID}.kraken2.reads.tsv" ]; then
         touch "${sampleID}.kraken2.reads.tsv"

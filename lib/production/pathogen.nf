@@ -118,7 +118,8 @@ workflow TaxonomicProfile {
             Kraken2(
                 reads,
                 databases.krakenDatabase,
-                profileParams.krakenConfidence
+                profileParams.krakenConfidence,
+                profileParams.krakenMemoryMapping
             )
             if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
                 Bracken(
@@ -226,7 +227,8 @@ workflow TaxonomicProfileNanopore {
             Kraken2Nanopore(
                 reads,
                 databases.krakenDatabase,
-                profileParams.krakenConfidence
+                profileParams.krakenConfidence,
+                profileParams.krakenMemoryMapping
             )
             if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
                 BrackenNanopore(
