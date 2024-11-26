@@ -187,7 +187,7 @@ impl PathogenDetection {
 
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                    .or_insert(PathogenDetectionRecord::default());
+                    .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_metabuli(taxid, record, input_reads, classifier_reads, paired_end); 
             }
         }
@@ -197,7 +197,7 @@ impl PathogenDetection {
             for record in &bracken_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                .or_insert(PathogenDetectionRecord::default());
+                .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_bracken(taxid, record, input_reads, classifier_reads, paired_end); 
             }
         }
@@ -208,7 +208,7 @@ impl PathogenDetection {
             for record in &kmcp_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                .or_insert(PathogenDetectionRecord::default());
+                .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_kmcp_profile(taxid, record); 
             }
         }
@@ -223,7 +223,7 @@ impl PathogenDetection {
             for record in &kmcp_taxid_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.clone())
-                .or_insert(PathogenDetectionRecord::default());
+                .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_kmcp_sequence(taxid, record, input_reads, classifier_reads, paired_end); 
             }
         }
@@ -238,7 +238,7 @@ impl PathogenDetection {
                 }
 
                 let entry = detection_map.entry(taxid.to_string())
-                    .or_insert(PathogenDetectionRecord::default());
+                    .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_sylph(taxid, rank, record, input_reads, classifier_reads);
             }
         }
@@ -248,7 +248,7 @@ impl PathogenDetection {
             for record in &ganon_reads_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.to_string())
-                    .or_insert(PathogenDetectionRecord::default());
+                    .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_ganon_sequence(taxid, record, input_reads, classifier_reads, paired_end);
             }
         }
@@ -258,7 +258,7 @@ impl PathogenDetection {
             for record in &ganon_profile_report.records {
                 let taxid = record.taxid.trim().to_string();
                 let entry = detection_map.entry(taxid.to_string())
-                    .or_insert(PathogenDetectionRecord::default());
+                    .or_insert(PathogenDetectionRecord::with_default(&output.id, &taxid));
                 entry.set_ganon_profile(taxid, record);
             }
         }
@@ -450,10 +450,7 @@ impl PathogenDetectionRank {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PathogenDetectionRecord {
     pub id: String,
-    // pub rank: String,
     pub taxid: String,
-    // pub input_reads: u64,
-    // pub qc_reads: u64,
     pub kraken_sequence_name: Option<String>,
     pub kraken_sequence_rank: Option<PathogenDetectionRank>,
     pub kraken_sequence_reads: Option<u64>,

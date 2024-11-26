@@ -581,59 +581,6 @@ def plot_comparison(target_classifications: List[LibraryResult], organism: str, 
     df.to_csv(Path(output).with_suffix(".csv"), index=False, header=True)
 
 
-    # fig1, axes = plt.subplots(nrows=4, ncols=2, figsize=(24,48))
-
-    # axes = axes.flat
-    # i = 0
-    # for metric in ("total_rpm", "kmer_rpm", "alignment_rpm", "assembly_contigs_bases"):
-    #     for (nucleic_acid, nucleic_acid_data) in df.groupby("nucleic_acid"):
-
-    #         nucleic_acid_data = nucleic_acid_data.replace(0, np.nan)
-    #         nucleic_acid_data[metric] = np.log10(nucleic_acid_data[metric])
-
-    #         print(nucleic_acid_data)
-            
-    #         if library_variable == "extraction_machine_primer":
-    #             hue_order = [
-    #                 "sonication-ez1-NEB",
-    #                 "sonication-tanbead-NEB",
-    #                 "beads-ez1-NEB",
-    #                 "beads-tanbead-NEB",
-    #                 "sonication-ez1-BIO",
-    #                 "sonication-tanbead-BIO",
-    #                 "beads-ez1-BIO",
-    #                 "beads-tanbead-BIO",
-    #             ]
-    #             palette = [
-    #                 "#444E7E",
-    #                 "#8087AA",
-    #                 "#B7ABBC",
-    #                 "#F9ECE8",
-    #                 "#D8511D",
-    #                 "#FD8700",
-    #                 "#FEB424",
-    #                 "#FCC893"
-    #             ]
-    #         else:
-    #             hue_order = None
-    #             palette = YESTERDAY_MEDIUM
-
-    #         p = sns.barplot(nucleic_acid_data, x="label", y=metric, hue=library_variable, hue_order=hue_order, ax=axes[i], palette=palette)
-    #         sns.stripplot(x="label", y=metric, hue=library_variable, hue_order=hue_order, data=nucleic_acid_data, ax=axes[i], palette=palette, dodge=True if library_variable else False, edgecolor="black", linewidth=2, legend=None)
-    
-    #         p.set_title(f"{panel} {nucleic_acid} ({metric})")
-    #         p.set_ylabel(f"Log10 ({metric})")
-    #         p.set_xlabel(None)
-    #         legend = p.get_legend()
-    #         legend.set_title(None) 
-    #         sns.move_legend(p, "upper right")
-
-
-    #         i += 1
-
-    # fig1.savefig(f"{panel}_{library_variable if library_variable else 'all'}.pdf", dpi=300,  transparent=False)
-
-
 def merge_meta_data(meta: pandas.DataFrame, other: pandas.DataFrame, other_column: str = "id") -> pandas.DataFrame:
 
 
