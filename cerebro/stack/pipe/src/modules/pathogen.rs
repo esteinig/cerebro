@@ -102,7 +102,7 @@ impl PathogenDetectionTableRecord {
                     metabuli_reads = Some(result.reads);
                     metabuli_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Ganon, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Ganon2, PathogenDetectionMode::Sequence) => {
                     ganon_reads = Some(result.reads);
                     ganon_rpm = Some(result.rpm);
                 }
@@ -372,7 +372,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Ganon,
+                    PathogenDetectionTool::Ganon2,
                     PathogenDetectionMode::Sequence,
                     reads,
                     rpm,
@@ -523,7 +523,7 @@ impl PathogenDetectionRank {
 pub enum PathogenDetectionTool {
     Kraken2,
     Metabuli,
-    Ganon,
+    Ganon2,
     Kmcp,
     Bracken,
     Sylph,
