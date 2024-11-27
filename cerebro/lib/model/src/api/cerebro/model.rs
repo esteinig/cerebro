@@ -126,7 +126,8 @@ impl Cerebro {
         quality: &QualityControl,
         taxa: &HashMap<String, Taxon>,
         sample_sheet: Option<PathBuf>, 
-        workflow_config: Option<PathBuf>
+        workflow_config: Option<PathBuf>,
+        run_id: Option<String>,
     ) -> Result<Self, ModelError> {
             
             let (run_config, sample_config) = match sample_sheet {
@@ -134,7 +135,7 @@ impl Cerebro {
                     let sample_sheet = SampleSheet::from(&path)?;
                     (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
                 },
-                None => (RunConfig::default(), SampleConfig::with_default(&id))
+                None => (RunConfig::with_default(&match run_id { Some(id) => id, None => String::from("Placeholder") }), SampleConfig::with_default(&id)?)
             };
 
             let workflow_config = match workflow_config {
@@ -197,6 +198,12 @@ impl RunConfig {
             None => return Err(ModelError::RunDate(id.to_owned()))
         };
         Ok(Self { id, date })
+    }
+    pub fn with_default(id: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            ..Default::default()
+        }
     }
 }
 impl Default for RunConfig {

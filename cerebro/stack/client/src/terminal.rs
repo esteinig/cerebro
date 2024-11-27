@@ -138,6 +138,9 @@ pub struct UploadSampleArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
+    /// Run identifier if sample sheet is not provided
+    #[clap(long)]
+    pub run_id: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,

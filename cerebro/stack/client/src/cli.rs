@@ -65,7 +65,8 @@ fn main() -> anyhow::Result<()> {
                     args.strict
                 )?,
                 args.sample_sheet.clone(),
-                args.pipeline_config.clone()
+                args.pipeline_config.clone(),
+                args.run_id.clone()
             )?;
 
             if let Some(model_dir) = &args.model_dir {
