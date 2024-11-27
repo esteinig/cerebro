@@ -76,8 +76,10 @@ pub enum Commands {
     PingServer(PingArgs),
     /// Ping the server as unauthenticated user
     PingStatus(StatusArgs),
-    /// Upload pipeline outputs to database
-    UploadSample(UploadArgs),
+    /// Process and upload pipeline outputs to database
+    UploadSample(UploadSampleArgs),
+    /// Upload processed model to database
+    UploadModel(UploadModelArgs),
     /// Summary of taxa evidence for requested models
     GetTaxa(TaxaArgs),
     /// Summary of quality control for requested models or samples
@@ -123,7 +125,7 @@ pub struct LoginArgs {
 
 
 #[derive(Debug, Args)]
-pub struct UploadArgs {
+pub struct UploadSampleArgs {
     /// Processed pipeline quality control module (.json)
     #[clap(long)]
     pub quality: PathBuf,
@@ -159,6 +161,21 @@ pub struct UploadArgs {
     pub no_upload: bool,
 }
 
+#[derive(Debug, Args)]
+pub struct UploadModelArgs {
+    /// Processed database models(.json)
+    #[clap(long, short = 'm', num_args(1..))]
+    pub models: Vec<PathBuf>,
+    /// Team name for model upload
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Project name for model upload
+    #[clap(long, short = 'p')]
+    pub project_name: String,
+    /// Database name for model upload, otherwise team default database
+    #[clap(long, short = 'd')]
+    pub db_name: Option<String>,
+}
 
 #[derive(Debug, Args)]
 pub struct TaxaArgs {

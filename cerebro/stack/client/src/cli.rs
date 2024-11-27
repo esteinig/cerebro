@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
         Commands::PingStatus(_) => {
             client.ping_status()?
         },            
-        // Upload sample model to database
+        // Process and upload sample model to database
         Commands::UploadSample( args ) => {
             
             let quality = QualityControl::from_json(&args.quality)?;
@@ -90,6 +90,21 @@ fn main() -> anyhow::Result<()> {
             
             
         },
+        Commands::UploadModel( args ) => {
+
+            let mut models = Vec::new();
+            for path in &args.models {
+                models.push(Cerebro::from_json(path)?)
+            }
+            
+            client.upload_models(
+                &models, 
+                &args.team_name, 
+                &args.project_name, 
+                args.db_name.as_ref()
+            )?;
+
+        }
         Commands::Tower(subcommand) => {
             match subcommand {
                 TowerCommands::Register( args ) => {
