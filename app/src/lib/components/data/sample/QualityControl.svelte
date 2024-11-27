@@ -57,19 +57,19 @@
     {#each selectedModels as model, i}  
         <div class="grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-12 py-8">
             <!-- ReadQualityCard: First column spanning two rows -->
-            <div class="p-4 row-span-2 rounded-xl bg-surface-400/5">
+            <div class="p-4 row-span-2 rounded-xl bg-surface-500/5">
                 <p class="flex align-center"><span class="code bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 text-sm">{model.sample.id}</span> <span class="code ml-2 text-sm">{model.sample.tags.join("-")}</span></p>
                     
                 <ReadQualityStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]}></ReadQualityStageCard>
             </div>
     
             <!-- SyntheticControlCard: Second column, second row -->
-            <div class="p-8 rounded-xl bg-surface-400/5">
+            <div class="p-8 rounded-xl bg-surface-500/5">
                 <SyntheticControlStageCard selectedModel={model} selectedQualityControlSummary={selectedQualityControlSummaries[i]}></SyntheticControlStageCard>
             </div>
             
             <!-- PhageControlCard: Second column, first row -->
-            <div class="p-8 rounded-xl bg-surface-400/5">
+            <div class="p-8 rounded-xl bg-surface-500/5">
                 <PhageControlStageCard selectedModel={model}></PhageControlStageCard>
             </div>
     

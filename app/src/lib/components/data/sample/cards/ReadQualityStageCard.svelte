@@ -19,7 +19,7 @@
             value: 10
         },
         {
-            group: 'QC',
+            group: 'Read QC',
             value: 10
         }
     ]
@@ -32,7 +32,7 @@
             'Depth': `rgb(${style.getPropertyValue("--color-primary-100").split(" ").join(",")})`,
             'Deduplication': `rgb(${style.getPropertyValue("--color-primary-200").split(" ").join(",")})`,
             'Controls': `rgb(${style.getPropertyValue("--color-primary-300").split(" ").join(",")})`,
-            'QC': `rgb(${style.getPropertyValue("--color-primary-400").split(" ").join(",")})`,
+            'Read QC': `rgb(${style.getPropertyValue("--color-primary-400").split(" ").join(",")})`,
         };
     }
     
@@ -211,7 +211,7 @@
         </p>
     </div>
 
-    <div class="pt-16">
+    <div class="pt-16 px-32">
         <MeterChart {data} {options} />
     </div>
 
