@@ -39,37 +39,42 @@ impl PathogenDetectionTableRecord {
         // Map lineage and taxonomy information
         let (rank, name, lineage) = match taxonomy {
             Some(taxonomy) => {
-                let rank = taxonomy.rank(taxid)?;
-                let name = taxonomy.name(taxid)?.to_string();
+                
+                match taxonomy.rank(taxid) {
+                    Ok(rank) => {
+                        let name = taxonomy.name(taxid)?.to_string();
 
-                let lineage = vec![
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Superkingdom)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Phylum)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Class)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Order)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Family)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Genus)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                    taxonomy
-                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Species)?.unwrap_or(("", 0.0)).0)
-                        .unwrap_or(""),
-                ]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>();
+                        let lineage = vec![
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Superkingdom)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Phylum)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Class)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Order)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Family)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Genus)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                            taxonomy
+                                .name(taxonomy.parent_at_rank(taxid, TaxRank::Species)?.unwrap_or(("", 0.0)).0)
+                                .unwrap_or(""),
+                        ]
+                        .into_iter()
+                        .map(String::from)
+                        .collect::<Vec<_>>();
 
-                (Some(rank), Some(name), Some(Self::lineage_to_str(lineage)?))
+                        (Some(rank), Some(name), Some(Self::lineage_to_str(lineage)?))
+                    },
+                    Err(_) => (Some(TaxRank::Unspecified), Some(record.name.clone()), None)
+                }
             }
             None => (None, None, None),
         };
