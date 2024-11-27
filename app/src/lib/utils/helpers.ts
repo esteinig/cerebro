@@ -11,20 +11,24 @@ export const getDateTimeString = (
     sep: string = " ", 
     localeString: boolean = false
 ): string => {
-    const date = new Date(isoString);
+    try {
+        const date = new Date(isoString);
 
-    if (localeString) {
-        const options: Intl.DateTimeFormatOptions = {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            ...(time && { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        };
-        return date.toLocaleString(undefined, options).replace(',', sep);
-    } else {
-        const datePart = date.toISOString().split("T")[0];
-        const timePart = date.toISOString().split("T")[1].substring(0, 8);
-        return time ? `${datePart}${sep}${timePart}` : datePart;
+        if (localeString) {
+            const options: Intl.DateTimeFormatOptions = {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                ...(time && { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            };
+            return date.toLocaleString(undefined, options).replace(',', sep);
+        } else {
+            const datePart = date.toISOString().split("T")[0];
+            const timePart = date.toISOString().split("T")[1].substring(0, 8);
+            return time ? `${datePart}${sep}${timePart}` : datePart;
+        }
+    } catch (error) {
+        return isoString;
     }
 };
 

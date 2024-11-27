@@ -1078,6 +1078,7 @@ impl CerebroClient {
         project_name: &str,
         db_name: Option<&String>,
     ) -> Result<(), HttpClientError> {
+
         let urls = self.get_database_and_project_queries(
             &self.routes.url(Route::DataCerebroInsertModel),
             team_name,
@@ -1091,12 +1092,11 @@ impl CerebroClient {
                     return Err(HttpClientError::ModelSampleIdentifierEmpty);
                 }
 
-                let response = self
-                    .client
-                    .post(url)
-                    .header(AUTHORIZATION, self.get_bearer_token(None))
-                    .json(model)
-                    .send()?;
+                let response = self.send_request_with_team(
+                    self.client
+                        .post(url)
+                        .json(model)
+                )?;
 
                 self.handle_response::<serde_json::Value>(
                     response,
@@ -1308,10 +1308,12 @@ impl CerebroClient {
         // Request data on a team project for insertion of new data
         // log::info!("Getting user team for database verification ({})", &url);
         
-        let response = self.client.get(&url)
-            .header(AUTHORIZATION, self.get_bearer_token(None))
-            .send()?;
+        let response = self.send_request_with_team(
+            self.client.get(&url)
+        )?;
+        
         log::info!("{url}");
+
         let status = response.status();
 
         let team = match status.is_success() {

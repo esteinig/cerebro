@@ -228,74 +228,113 @@ export type SampleOverviewData = {
 
 
 
-/**
- * Quality control summary data from: /cerebro/samples/summary/qc
- * 
- * @file lib/utils/types
- */
-export type QualityControlSummary = {
-    id: string,                      // sample identifier
-    model_id: string | null,         // model identifier
-    sample_group: string | null,
-    sample_type: string | null,
-    run_id: string | null,
-    run_date: string | null,
-    workflow_name: string | null,
-    workflow_id: string | null,
-    workflow_date: string | null,
-    total_reads: number,
-    total_biomass: number | null, 
-    deduplicated_reads: number,
-    deduplicated_percent: number | null,
-    ercc_constructs: number | null,
-    ercc_reads: number | null,
-    ercc_percent: number | null,
-    ercc_input_mass: number | null,
-    ercc_mass_per_read: number | null,
-    adapter_trimmed_reads: number | null,
-    adapter_trimmed_percent: number | null,
-    low_complexity_reads: number | null,
-    low_complexity_percent: number | null,
-    mean_length_r1: number,
-    mean_length_r2: number,
-    qc_reads: number,
-    qc_percent: number | null,
-    qc_missing_bases_reads: number,
-    qc_missing_bases_percent: number | null,
-    qc_min_length_reads: number,
-    qc_min_length_percent: number | null,
-    qc_low_quality_reads: number,
-    qc_low_quality_percent: number | null,
-    q20_percent: number | null,
-    q30_percent: number | null,
-    host_reads: number | null,
-    host_percent: number | null,
-    host_biomass: number | null,
-    other_reads: number | null,
-    other_percent: number | null,
-    other_biomass: number | null,
-    dna_phage_id: string | null,
-    dna_phage_reads: number | null,
-    dna_phage_percent: string | null,
-    dna_phage_coverage_percent: string | null,
-    dna_phage_biomass: number | null,
-    rna_phage_id: string | null,
-    rna_phage_reads: number | null,
-    rna_phage_percent: string | null,
-    rna_phage_coverage_percent: string | null,
-    rna_phage_biomass: number | null,
-    seq_phage_id: string | null,
-    seq_phage_reads: number | null,
-    seq_phage_percent: string | null,
-    seq_phage_coverage_percent: string | null,
-    seq_phage_biomass: number | null,
-    output_reads: number,
-    output_percent: string | null,
-    control_status_dna_extraction: boolean | null,
-    control_status_rna_extraction:  boolean | null,
-    control_status_library: boolean | null,
-    control_status_sequencing: boolean | null,
-}
+// /**
+//  * Quality control summary data from: /cerebro/samples/summary/qc
+//  * 
+//  * @file lib/utils/types
+//  */
+// export type QualityControlSummary = {
+//     id: string,                      // sample identifier
+//     model_id: string | null,         // model identifier
+//     sample_group: string | null,
+//     sample_type: string | null,
+//     run_id: string | null,
+//     run_date: string | null,
+//     workflow_name: string | null,
+//     workflow_id: string | null,
+//     workflow_date: string | null,
+//     input_reads: number | null,
+//     input_bases: number | null,
+//     ercc_constructs: number | null,
+//     ercc_reads: number | null,
+//     ercc_reads_percent: number | null,
+//     deduplicated_reads: number | null,
+//     deduplicated_percent: number | null,
+//     qc_reads: number | null,
+//     qc_reads_percent: number | null,
+//     qc_bases: number | null,
+//     qc_bases_percent: number | null,
+//     host_reads: number | null,
+//     host_reads_percent: number | null,
+//     control_reads: number | null,
+//     control_reads_percent: number | null,
+//     background_reads: number | null,
+//     background_reads_percent: number | null,
+//     output_reads: number | null,
+//     output_reads_percent: number | null,
+//     output_bases: number | null,
+//     output_bases_percent: number | null,
+//     input_biomass: number | null,
+//     host_biomass: number | null,
+//     control_biomass: number | null,
+//     background_biomass: number | null,
+//     output_biomass: number | null,
+//     adapter_trimmed_reads: number | null,
+//     adapter_trimmed_percent: number | null,
+//     low_complexity_reads: number | null,
+//     low_complexity_percent: number | null,
+//     mean_read_length_r1: number | null,
+//     mean_read_length_r2: number | null,
+//     min_length_reads: number | null,
+//     min_length_percent: number | null,
+//     low_quality_reads: number | null,
+//     low_quality_percent: number | null,
+//     q20_percent: number | null,
+//     q30_percent: number | null
+
+//     // total_reads: number,
+//     // total_biomass: number | null, 
+//     // deduplicated_reads: number,
+//     // deduplicated_percent: number | null,
+//     // ercc_constructs: number | null,
+//     // ercc_reads: number | null,
+//     // ercc_percent: number | null,
+//     // ercc_input_mass: number | null,
+//     // ercc_mass_per_read: number | null,
+//     // adapter_trimmed_reads: number | null,
+//     // adapter_trimmed_percent: number | null,
+//     // low_complexity_reads: number | null,
+//     // low_complexity_percent: number | null,
+//     // mean_length_r1: number,
+//     // mean_length_r2: number,
+//     // qc_reads: number,
+//     // qc_percent: number | null,
+//     // qc_missing_bases_reads: number,
+//     // qc_missing_bases_percent: number | null,
+//     // qc_min_length_reads: number,
+//     // qc_min_length_percent: number | null,
+//     // qc_low_quality_reads: number,
+//     // qc_low_quality_percent: number | null,
+//     // q20_percent: number | null,
+//     // q30_percent: number | null,
+//     // host_reads: number | null,
+//     // host_percent: number | null,
+//     // host_biomass: number | null,
+//     // other_reads: number | null,
+//     // other_percent: number | null,
+//     // other_biomass: number | null,
+//     // dna_phage_id: string | null,
+//     // dna_phage_reads: number | null,
+//     // dna_phage_percent: string | null,
+//     // dna_phage_coverage_percent: string | null,
+//     // dna_phage_biomass: number | null,
+//     // rna_phage_id: string | null,
+//     // rna_phage_reads: number | null,
+//     // rna_phage_percent: string | null,
+//     // rna_phage_coverage_percent: string | null,
+//     // rna_phage_biomass: number | null,
+//     // seq_phage_id: string | null,
+//     // seq_phage_reads: number | null,
+//     // seq_phage_percent: string | null,
+//     // seq_phage_coverage_percent: string | null,
+//     // seq_phage_biomass: number | null,
+//     // output_reads: number,
+//     // output_percent: string | null,
+//     // control_status_dna_extraction: boolean | null,
+//     // control_status_rna_extraction:  boolean | null,
+//     // control_status_library: boolean | null,
+//     // control_status_sequencing: boolean | null,
+// }
 
 /**
  * Quality control thresholds to indicate pass 
@@ -1478,109 +1517,129 @@ export type WorkflowParamsQcHostDepletion = {
 DATABASE QC MODEL
 =================
 */
-
 export type QualityControlModule = {
-    id: string,
-    fastp: Fastp,
-    ercc: Ercc | null,
-    host_background: Scrubby | null,
-    virus_background: Scrubby | null
-}
+    id: string;
+    background: Background;
+    controls: Controls;
+    reads: QualityControlSummary;
+};
 
-export type Fastp = {
-    summary: FastpSummary,
-    filtering_result: FastpFilter,
-    duplication: FastpDuplication,
-    adapter_cutting: FastpAdapters
-}
+export type Background = {
+    host: HostBackground | null;
+    other: OtherBackground | null;
+    config: BackgroundDepletionConfig;
+};
 
-export type FastpSummary = {
-    fastp_version: string,
-    before_filtering: FastpReadSummary,
-    after_filtering: FastpReadSummary
-}
+export type HostBackground = {
+    id: string;
+    alignments: number;
+};
 
-export type FastpReadSummary  = {
-    total_reads: number,
-    total_bases: number,
-    q20_rate: number,
-    q30_rate: number,
-    read1_mean_length: number,
-    read2_mean_length: number,
-    gc_content: number
-}
+export type OtherBackground = {
+    id: string;
+    alignments: number;
+    records: AlignmentRecord[];
+};
 
-export type FastpFilter = {
-    passed_filter_reads: number,
-    low_quality_reads: number,
-    low_complexity_reads: number,
-    too_many_N_reads: number,
-    too_short_reads: number,
-    too_long_reads: number
-}
+export type BackgroundDepletionConfig = {
+    host_id: string;
+    control_id: string;
+    plasmid_id: string;
+    univec_id: string;
+    phage_id: string;
+    rrna_id: string;
+};
 
-export type FastpDuplication = {
-    rate: number
-}
+export type Controls = {
+    ercc: ErccControl | null;
+    organism: OrganismControl | null;
+    config: ControlsConfig;
+};
 
-export type FastpAdapters = {
-    adapter_trimmed_reads: number,
-    adapter_trimmed_bases: number,
-    read1_adapter_sequence: string,
-    read2_adapter_sequence: string
-}
+export type ErccControl = {
+    constructs: number;
+    detected: number;
+    alignments: number;
+    reads: number;
+    mass_per_read: number;
+    records: AlignmentRecord[];
+};
 
+export type OrganismControl = {
+    id: string;
+    alignments: number;
+    records: AlignmentRecord[];
+};
 
-export type Ercc = {
-    constructs: number,
-    constructs_aligned: number,
-    reads: number,
-    reads_aligned: number,
-    depletion: Scrubby,
-    records: Array<VircovRecord>
-}
+export type ControlsConfig = {
+    ercc_id: string;
+    ercc_mass: number;
+};
 
-export type Scrubby = {
-    version: string,
-    schema_version: string,
-    summary: ScrubbySummary,
-    settings: ScrubbySettings,
-    pipeline: Array<ScrubbyReferenceSummary>
-}
+export type QualityControlSummary = {
+    id: string;
+    model_id: string | null;
+    run_id: string | null;
+    run_date: string | null;
+    library_tag: string | null;
+    sample_group: string | null;
+    sample_type: string | null;
+    workflow_name: string | null;
+    workflow_id: string | null;
+    workflow_date: string | null;
+    input_reads: number;
+    input_bases: number;
+    ercc_constructs: number | null;
+    ercc_reads: number | null;
+    ercc_reads_percent: number | null;
+    deduplicated_reads: number | null;
+    deduplicated_percent: number | null;
+    qc_reads: number | null;
+    qc_reads_percent: number | null;
+    qc_bases: number | null;
+    qc_bases_percent: number | null;
+    host_reads: number | null;
+    host_reads_percent: number | null;
+    control_reads: number | null;
+    control_reads_percent: number | null;
+    background_reads: number | null;
+    background_reads_percent: number | null;
+    output_reads: number;
+    output_reads_percent: number;
+    output_bases: number;
+    output_bases_percent: number;
+    input_biomass: number | null;
+    host_biomass: number | null;
+    control_biomass: number | null;
+    background_biomass: number | null;
+    output_biomass: number | null;
+    adapter_trimmed_reads: number | null;
+    adapter_trimmed_percent: number | null;
+    low_complexity_reads: number | null;
+    low_complexity_percent: number | null;
+    mean_read_length_r1: number | null;
+    mean_read_length_r2: number | null;
+    min_length_reads: number | null;
+    min_length_percent: number | null;
+    low_quality_reads: number | null;
+    low_quality_percent: number | null;
+    q20_percent: number | null;
+    q30_percent: number | null;
+};
 
-export type ScrubbySummary = {
-    total: number,
-    depleted: number,
-    extracted: number
-}
+export type AlignmentRecord = {
+    id: string;
+    reference: string;
+    alignments: number;
+    reads: number;
+    coverage: number;
+    class: RecordClass;
+};
 
-export type ScrubbySettings = {
-    kraken_taxa: Array<string>,
-    kraken_taxa_direct: Array<string>,
-    min_len: number,
-    min_cov: number,
-    min_mapq: number,
-    extract: boolean
-}
-
-export type ScrubbyReferenceSummary = {
-    index: number,
-    tool?: string,
-    name: string,
-    path: string,
-    total: number,
-    depleted: number,
-    extracted: number,
-    files: Array<ScrubbyFileSummary>
-}
-
-export type ScrubbyFileSummary = {
-    total: number,
-    depleted: number,
-    extracted: number,
-    input_file: string,
-    output_file: string,
-}
+export type RecordClass =
+    | "ercc"
+    | "control"
+    | "host"
 
 
 

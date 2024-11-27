@@ -1,185 +1,238 @@
 <script lang="ts">
-	import { calculateTotalQuality, formatAsPercentage, formatAsThousands } from "$lib/utils/helpers";
-	import type { QualityControlSummary, WorkflowParamsQcFastp } from "$lib/utils/types";
-	import { Tab, TabGroup } from "@skeletonlabs/skeleton";
-    
-    export let selectedQualityControlSummary: QualityControlSummary;
-    export let selectedStageParams: WorkflowParamsQcFastp | undefined;
-    export let selectedStage: string = "Read Quality";
+	import { type QualityControlSummary } from "$lib/utils/types";
+    import { MeterChart, ChartTheme } from '@carbon/charts-svelte'
+    import { Statuses } from '@carbon/charts';
 
-    let tabSet: number = 0;
+    export let selectedQualityControlSummary: QualityControlSummary;
+
+    let data = [
+        {
+            group: 'Depth',
+            value: 10
+        },
+        {
+            group: 'Deduplication',
+            value: 10
+        },
+        {
+            group: 'Controls',
+            value: 10
+        },
+        {
+            group: 'QC',
+            value: 10
+        }
+    ]
+    
+	let groupColors: Record<string, string> = {};
+
+    if (typeof window !== "undefined") {
+        const style = getComputedStyle(document.body);
+        groupColors = {
+            'Depth': `rgb(${style.getPropertyValue("--color-primary-100").split(" ").join(",")})`,
+            'Deduplication': `rgb(${style.getPropertyValue("--color-primary-200").split(" ").join(",")})`,
+            'Controls': `rgb(${style.getPropertyValue("--color-primary-300").split(" ").join(",")})`,
+            'QC': `rgb(${style.getPropertyValue("--color-primary-400").split(" ").join(",")})`,
+        };
+    }
+    
+    $: options = {
+		theme: ChartTheme.G100,
+        toolbar: { enabled: false }, 
+        title: '',
+        color: { scale: groupColors },
+        height: '200px',
+        meter: {
+            peak: 60,
+            proportional: {
+                total: 100,
+            },
+            status: {
+                ranges: [
+                    {
+                        range: [0, 50] as [number, number],
+                        status: 'danger' as Statuses
+                    },
+                    {
+                        range: [50, 60] as [number, number],
+                        status: 'warning' as Statuses
+                    },
+                    {
+                        range: [60, 100] as [number, number],
+                        status: 'success' as Statuses
+                    }
+                ]
+            }
+        },
+    };
+
 
 </script>
 
-<div class="">
-    <TabGroup>
-        <Tab bind:group={tabSet} name="overview" value={0}>
-            <span class="text-sm">Results</span>
-        </Tab>
-        <Tab bind:group={tabSet} name="description" value={1}>
-            <span class="text-sm">Description</span>
-        </Tab>
-        <Tab bind:group={tabSet} name="configuration" value={2}>
-            <span class="text-sm">Configuration</span>
-        </Tab>
-        <svelte:fragment slot="panel">
-            {#if tabSet === 0}
+<div class="p-6 rounded-lg space-y-2">
+    <!-- Highlight Input Reads -->
+    <div class="text-center space-y-1">
+        <p class="text-lg font-semibold text-primary-600 dark:text-primary-300 opacity-40">Input Reads</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">
+            <span class="text-primary-800 dark:text-primary-400">{selectedQualityControlSummary.input_reads.toLocaleString()}</span>
+            <span class="ml-1 text-sm text-gray-500 dark:text-gray-300">(100%)</span>
+        </p>
+    </div>
+
+    <div class="grid grid-cols-2 px-32">
+    <!-- Reads Section -->
+    <div>
+        <div class="grid grid-cols-2 sm:grid-cols-1 gap-4 text-medium text-center pt-8">
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Synthetic Controls</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.ercc_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.ercc_reads_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Internal Controls</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.control_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.control_reads_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Deduplicated</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.deduplicated_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.deduplicated_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Quality Control</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.qc_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.qc_reads_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Host Depletion</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.host_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.host_reads_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Background Depletion</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.background_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.background_reads_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Length and Quality Section -->
+    <div>
+        <div class="grid grid-cols-1 sm:grid-cols-1 gap-4 text-medium text-center pt-8">
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Low Quality</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.low_quality_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.low_quality_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Low Complexity</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.low_complexity_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.low_complexity_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Adapter Trimmed</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.adapter_trimmed_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.adapter_trimmed_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Min Length</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    <span>{selectedQualityControlSummary.min_length_reads?.toLocaleString() ?? 'N/A'}</span>
+                    <span class="ml-1 text-sm text-primary-600 dark:text-primary-400">
+                        ({selectedQualityControlSummary.min_length_percent?.toFixed(2) ?? 'N/A '}%)
+                    </span>
+                </p>
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Mean Length</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    {selectedQualityControlSummary.mean_read_length_r1?.toLocaleString() ?? 'N/A'} bp
+                    {#if selectedQualityControlSummary.mean_read_length_r2}
+                    | {selectedQualityControlSummary.mean_read_length_r2?.toLocaleString() ?? 'N/A'} bp
+                    {/if}
+                </p>
                 
-                <div class="card max-w-xl2">
-                    <header class="card-header">
-                        <div class="p-1">
-                            <div class="flex">
-                                <div class="flex items-center">
-                                    <div class="flex-none">
-                                        <div class="md:h4 lg:h3">{selectedStage}</div>
-                                        <div class="flex items-center">
-                                            <p class="flex opacity-60 text-xs pr-1">
-                                                Removal of low-quality reads
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-                    <section class="p-4">
-                        <div class="p-1">
-                            
-                                <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
+            </div>
+            <div class="space-y-1">
+                <p class="font-medium opacity-40">Q20 | Q30</p>
+                <p class="text-gray-800 dark:text-gray-100">
+                    {selectedQualityControlSummary.q20_percent?.toFixed(2) ?? 'N/A '}%
+                    | {selectedQualityControlSummary.q30_percent?.toFixed(2) ?? 'N/A '}%
+                </p>
+            </div>
+        </div>
+    </div>
+    </div>
 
-                                    <div><span class="opacity-60 mr-4">Total removed</span></div>
-                                    <div>{formatAsThousands(calculateTotalQuality(
-                                        selectedQualityControlSummary.low_complexity_reads,
-                                        selectedQualityControlSummary.qc_reads
-                                    ))}</div>
+    <!-- Highlight Output Reads -->
+    <div class="text-center space-y-1 pt-4">
+        <p class="text-lg font-semibold text-primary-600 dark:text-primary-300 opacity-40">Output Reads</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">
+            <span class="text-primary-800 dark:text-primary-400">{selectedQualityControlSummary.output_reads.toLocaleString()}</span>
+            <span class="ml-1 text-sm text-gray-500 dark:text-gray-300">
+                ({selectedQualityControlSummary.output_reads_percent.toFixed(2)}%)
+            </span>
+        </p>
+    </div>
 
-                                    <div><span class="opacity-60 mr-4 ml-4">Low complexity</span></div>
-                                    <div>{formatAsThousands(selectedQualityControlSummary.low_complexity_reads)}</div>
+    <div class="pt-16">
+        <MeterChart {data} {options} />
+    </div>
 
-                                    <div><span class="opacity-60 mr-4 ml-4">Low quality</span></div>
-                                    <div>{formatAsThousands(selectedQualityControlSummary.qc_reads)}</div>
-
-                                    <div><span class="opacity-60 mr-4 ml-8">Minimum length</span></div>
-                                    <div>{formatAsThousands(selectedQualityControlSummary.qc_min_length_reads)}</div>
-
-                                    <div><span class="opacity-60 mr-4 ml-8">Low read quality</span></div>
-                                    <div>{formatAsThousands(selectedQualityControlSummary.qc_low_quality_reads)}</div>
-
-                                    <div><span class="opacity-60 mr-4 ml-8">Missing bases</span></div>
-                                    <div>{formatAsThousands(selectedQualityControlSummary.qc_missing_bases_reads)}</div>
-
-                                    <div><span class="opacity-60 mr-4">{">"} Q20</span></div>
-                                    <div>{formatAsPercentage(selectedQualityControlSummary.q20_percent)}</div>
-
-                                    <div><span class="opacity-60 mr-4">{">"} Q30</span></div>
-                                    <div>{formatAsPercentage(selectedQualityControlSummary.q30_percent)}</div>
-
-                                    <div><span class="opacity-60 mr-4">Mean length</span></div>
-                                    <div>{selectedQualityControlSummary.mean_length_r1} / {selectedQualityControlSummary.mean_length_r2}</div>
-
-
-                                </div>
-                        </div>
-                    </section>
-                </div>
-            {:else if tabSet === 1}
-                <div class="card max-w-xl2">
-                    <header class="card-header">
-                        <div class="p-1">
-                            <div class="flex">
-                                <div class="flex items-center">
-                                    <div class="flex-none">
-                                        <div class="md:h4 lg:h3">{selectedStage}</div>
-                                        <div class="flex items-center">
-                                            <p class="flex opacity-60 text-xs pr-1">
-                                                Background information
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-                    <section class="p-4">
-                        <div class="p-1 pb-8">
-                            <p class="text-sm opacity-80 pb-5">
-                                Description
-                            </p>
-                            <p class="text-sm opacity-60">
-                                Read quality control is conducted with 
-                                <span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90">Fastp v.</span> .
-                            </p>
-                            <p class="text-sm opacity-60 my-2">
-                                This step includes various optional configurations such as length and adapter trimming, as well as estimation of 
-                                remaining duplication levels.
-                            </p>
-                            <p class="text-sm opacity-60 my-2">
-                                <span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90">Fastp v.</span> 
-                                is never used for deduplication due to a high probability of hash collisions and resulting non-deterministic outcomes.
-                            </p>
-                        </div>
-                    </section>
-                </div>
-                {:else if tabSet === 2}
-                    <div class="card max-w-xl2">
-                        <header class="card-header">
-                            <div class="p-1">
-                                <div class="flex">
-                                    <div class="flex items-center">
-                                        <div class="flex-none">
-                                            <div class="md:h4 lg:h3">{selectedStage}</div>
-                                            <div class="flex items-center">
-                                                <p class="flex opacity-60 text-xs pr-1">
-                                                    Parameters and commands
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </header>
-                        <section class="p-4">
-                            
-                            <div class="p-1 pb-8">
-                                <p class="text-sm opacity-80 pb-5">
-                                    Workflow configuration
-                                </p>
-                                <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-x-8 gap-y-4 w-3/4">
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">min_read_length</span></div>
-                                    <div>{selectedStageParams?.min_read_length}</div>
-
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">cut_tail_quality</span></div>
-                                    <div>{selectedStageParams?.cut_tail_quality}</div>
-
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">complexity_threshold</span></div>
-                                    <div>{selectedStageParams?.complexity_threshold}</div>
-
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_auto_detect</span></div>
-                                    <div>{selectedStageParams?.adapter_auto_detect}</div>
-
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_file</span></div>
-                                    <div>{selectedStageParams?.adapter_file}</div>
-
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_seq_1</span></div>
-                                    <div class="text-sm">{selectedStageParams?.adapter_seq_1}</div>
-
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">adapter_seq_2</span></div>
-                                    <div class="text-sm">{selectedStageParams?.adapter_seq_2}</div>
-                                    
-                                    <div><span class="code text-xs bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 mr-4">trim_poly_g</span></div>
-                                    <div class="text-base">{selectedStageParams?.trim_poly_g}</div>
-                                </div>
-                            </div>
-                            <div class="p-1">
-                                <p class="text-sm opacity-80 pb-5">
-                                    Workflow command
-                                </p>
-                                
-                            </div>
-                        </section>
-                    </div>
-                {/if}
-
-        </svelte:fragment>
-    </TabGroup>
 </div>
+
+<style lang="postcss">
+    :root {
+         --cds-grid-bg: rgb(0, 0, 0, 0);
+    }
+    /* Scoped globally but applied only within this component */
+    :global(.proportional-meter-total) {
+        display: none;
+    }
+    /* Scoped globally but applied only within this component */
+    :global(.proportional-meter-title) {
+        display: none;
+    }
+    /* Scoped globally but applied only within this component */
+    :global(.status-indicator) {
+        display: none;
+    }
+</style>
+ 
+<link rel="stylesheet" href="/carbon.css">

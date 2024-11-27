@@ -455,7 +455,17 @@
                 {/if}
             </div>
             <div class="mt-5">
-                <SampleOverviewTable sampleOverviewData={sampleOverviewData} bind:selectedSampleOverview bind:selectedSamples selectedDatabaseId={selectedDatabaseId} selectedProjectId={selectedProjectId} selectedDatabaseName={selectedDatabase.name} selectedProjectName={selectedProject.name}></SampleOverviewTable>
+                <SampleOverviewTable 
+                sampleOverviewData={sampleOverviewData} 
+                bind:selectedSampleOverview 
+                bind:selectedSamples 
+                selectedTeamId={selectedTeamId} 
+                selectedTeamName={selectedTeam.name} 
+                selectedDatabaseId={selectedDatabaseId} 
+                selectedProjectId={selectedProjectId} 
+                selectedDatabaseName={selectedDatabase.name} 
+                selectedProjectName={selectedProject.name}
+                ></SampleOverviewTable>
             </div>
         {/if}
     </div>

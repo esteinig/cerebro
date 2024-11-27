@@ -288,11 +288,11 @@ impl ReadReport for FastpReport {
         self.summary.before.bases
     }
     fn qc_reads(&self) -> u64 {
-        self.summary.after.reads
+        self.summary.before.reads - self.summary.after.reads
     }
     fn qc_reads_percent(&self, total: u64) -> f64 {
         if total > 0 {
-            (self.summary.after.reads as f64 / total as f64)*100.0
+            ((self.summary.before.reads - self.summary.after.reads) as f64 / total as f64)*100.0
         } else {
             0.0
         }
