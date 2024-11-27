@@ -231,11 +231,15 @@ pub struct SampleConfig {
 }
 impl SampleConfig {
     /// Create a minimal sample configuration with defaults
-    pub fn with_default(id: &str) -> Self {
-        Self {
+    pub fn with_default(id: &str) -> Result<Self, ModelError> {
+
+        let (id, tags) = get_sample_regex_matches(id)?;
+
+        Ok(Self {
             id: id.to_string(),
+            tags,
             ..SampleConfig::default()
-        }
+        })
     }
     /// Create a biological sample configuration from a parsed workflow sample and sample sheet
     pub fn from(id: &str, sample_sheet: &SampleSheet) -> Result<Self, ModelError> {
