@@ -6,9 +6,11 @@
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import GenusOverviewTable from "./taxa/GenusOverviewTable.svelte";
-    
+    import DatatableTaxonOverview from '$lib/general/datatable/DatatableTaxonOverview.svelte';
+
     export let selectedIdentifiers: string[] = [];
     export let selectedModels: Cerebro[] = [];
+    
     export let clientFilterConfig: ClientFilterConfig;
     export let serverFilterConfig: CerebroFilterConfig;
     export let taxonHighlightConfig: TaxonHighlightConfig;
@@ -26,7 +28,7 @@
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.taxa}?db=${$page.params.db}&project=${$page.params.project}&id=${selectedIdentifiers.join(",")}&overview=true`,
+            `${publicApi.routes.cerebro.taxa}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}&id=${selectedIdentifiers.join(",")}&overview=true`,
             { 
                 method: 'POST',  
                 mode: 'cors',
@@ -40,38 +42,19 @@
         loading = false;
         
         if (response.ok){
-            // Get taxon overview and sort by total RPM
             taxaOverview = response.json.data.taxa;
-            taxaOverview.sort((a, b) => a.rpm < b.rpm ? 1 : -1)
-
-            // Get genus specific view groupings
-            let genusGroups = taxaOverview.reduce((group: {[key: string]: GenusOverview}, item) => {
-                
-                // TODO: Make sure we are not excluding unusual ones!
-                if (item.genus === null) return group;
-
-                if (!group[item.genus]) {
-                    group[item.genus] = {
-                        taxid: "",
-                        genus: item.genus,
-                        domain: item.domain,
-                        species: []
-                    } satisfies GenusOverview;
-                }
-
-                group[item.genus].species.push(item);
-                return group;
-                }, {}
-            );
-            genusOverview = Object.entries(genusGroups).map(([_, overview]) => overview);
         }
     }
     
 
-    $: {
+    $: if (selectedIdentifiers.length > 0) {
         getAggregatedTaxaOverview(selectedIdentifiers);
+    }
+
+    $: {
         modelNameTags = new Map(selectedModels.map(cerebro => [cerebro.name, cerebro.sample.tags]));
     }
+
     let showGenusOverview: boolean = false;
 
 </script>
@@ -83,18 +66,12 @@
         </div>
     {:else}
         {#if !taxaOverview.length}
-
-            <div class="flex justify-center py-16 ">
-                <ErrorAnimation></ErrorAnimation>
-            </div>
+            <div class="flex justify-center py-16 "><ErrorAnimation></ErrorAnimation></div>
             <p class="flex justify-center text-lg pb-4">No taxa available</p>
-            
         {:else}
-            {#if showGenusOverview}
-                <GenusOverviewTable genusOverview={genusOverview}></GenusOverviewTable>
-            {:else}
-                <SpeciesOverviewTable selectedIdentifiers={selectedIdentifiers} taxonOverview={taxaOverview} modelNameTags={modelNameTags} clientFilterConfig={clientFilterConfig} serverFilterConfig={serverFilterConfig} taxonHighlightConfig={taxonHighlightConfig}> </SpeciesOverviewTable>
-            {/if}
+        <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags}  serverFilterConfig={serverFilterConfig}> </SpeciesOverviewTable>
+     
+            <!-- <DatatableTaxonOverview data={taxaOverview}></DatatableTaxonOverview> -->
         {/if}
     {/if}
 

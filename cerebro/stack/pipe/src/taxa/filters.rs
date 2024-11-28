@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use env_logger::filter;
 use taxonomy::TaxRank;
 use serde::{Serialize, Deserialize};
 
@@ -8,6 +9,7 @@ use crate::taxa::taxon::Taxon;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaxonFilterConfig {
+    pub rank: Option<TaxRank>,
     pub domains: Vec<String>,
     pub tags: Vec<String>,
     pub kmer_min_reads: u64,
@@ -24,6 +26,7 @@ pub struct TaxonFilterConfig {
 impl Default for TaxonFilterConfig {
     fn default() -> Self {
         Self {
+            rank: Some(TaxRank::Species),
             domains: Vec::new(),
             tags: Vec::new(),
             kmer_min_reads: 0,
@@ -45,10 +48,11 @@ impl TaxonFilterConfig {
     }
 }
 
-// // Taxon rank filters (direct rank)
-// pub fn filter_by_rank(taxa: Vec<Taxon>, rank: TaxRank) -> Vec<Taxon> {
-//     taxa.into_iter().filter(|taxon| taxon.rank == rank).collect()
-// }
+// Taxon rank filters (direct rank)
+pub fn filter_by_rank(taxa: Vec<Taxon>, rank: TaxRank) -> Vec<Taxon> {
+    taxa.into_iter().filter(|taxon| taxon.rank == rank).collect()
+}
+
 // pub fn filter_by_rank_name(taxa: Vec<Taxon>, name: String) -> Vec<Taxon> {
 //     taxa.into_iter().filter(|taxon| taxon.name == name).collect()
 // }
@@ -241,7 +245,10 @@ impl TaxonFilterSettings {
 /// to a collection of `Taxon` instances when requesting taxa
 pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig) -> Vec<Taxon> {
 
-    // // Domain filter 
+    if let Some(rank) = filter_config.rank {
+        taxa = filter_by_rank(taxa, rank);
+    }
+    // Domain filter 
     // for domain in &filter_config.domains {
     //     taxa = filter_by_parent(taxa, "domain", Some(domain.to_string()), None)
     // }

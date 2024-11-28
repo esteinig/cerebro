@@ -759,6 +759,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     for tax_map in taxon_maps {
                         aggregated_taxa = aggregate(&mut aggregated_taxa, &tax_map)
                     }   
+                    
 
                     // Applying the rank/evidence filters from the post body - i.e. selected by user in filter interface
                     let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config.into_inner());

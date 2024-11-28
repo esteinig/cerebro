@@ -5,7 +5,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
 use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
-use crate::modules::pathogen::PathogenDetectionRecord;
+use crate::modules::pathogen::{PathogenDetectionRecord, PathogenDetectionResult};
 use crate::{error::WorkflowError, utils::get_colored_string};
 
 
@@ -368,27 +368,34 @@ pub fn taxa_summary(samples: Vec<PathBuf>, output: &PathBuf, sep: char, header: 
 // of the aggregated taxon evidence
 pub struct TaxonOverview {
     pub taxid: String,
+    pub name: String,                    // used to later map back the tags
     pub domain: Option<String>,
     pub genus: Option<String>,
-    pub name: String,             // used to later map back the tags
-   
-    pub contigs: u64,             // total assembled and identified contig evidence
-    pub contigs_bases: u64,
+    pub evidence: Vec<PathogenDetectionResult>,
     pub kmer: bool,
     pub alignment: bool,
     pub assembly: bool,
-    pub names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
+    pub sample_names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
 }
 impl TaxonOverview {
     pub fn from(taxon: &Taxon) -> Self {
 
         let (kmer, alignment, assembly) = (false, false, false);
 
+        let mut results = Vec::new();
+        for record in &taxon.evidence.records {
+            for result in &record.results {
+                results.push(result.to_owned())
+            }
+        }
+
         // Unique record identifiers (sample names)
         let mut names = Vec::new();
+        
         for record in &taxon.evidence.records {
             names.push(record.id.to_owned())
         };
+
         let names = names.into_iter().unique().collect();
 
         Self {
@@ -396,12 +403,11 @@ impl TaxonOverview {
             name: taxon.name.to_owned(),
             genus: taxon.level.genus_name.to_owned(),
             domain: taxon.level.domain_name.to_owned(),
-            contigs: 0,
-            contigs_bases: 0,
+            evidence: results,
             kmer,
             alignment,
             assembly,
-            names
+            sample_names: names
         }
     }
 }

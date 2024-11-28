@@ -33,12 +33,12 @@ pub struct TaxonSummaryOverview {
     pub taxid: String,
     pub domain: Option<String>,
     pub genus: Option<String>,
-    pub name: String,             // used to later map back the tags
+    pub name: String,                // used to later map back the tags
     // pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
     // pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
     // pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
-    pub contigs: u64,             // total assembled and identified contig evidence
-    pub contigs_bases: u64,
+    // pub contigs: u64,             // total assembled and identified contig evidence
+    // pub contigs_bases: u64,
     pub kmer: bool,
     pub alignment: bool,
     pub assembly: bool
@@ -62,8 +62,8 @@ impl TaxonSummaryOverview {
             // rpm: taxon_overview.rpm,                 
             // rpm_kmer: taxon_overview.rpm_kmer,            
             // rpm_alignment: taxon_overview.rpm_alignment,  
-            contigs: taxon_overview.contigs,             
-            contigs_bases: taxon_overview.contigs_bases,
+            // contigs: taxon_overview.contigs,             
+            // contigs_bases: taxon_overview.contigs_bases,
             kmer: taxon_overview.kmer,
             alignment: taxon_overview.alignment,
             assembly: taxon_overview.assembly

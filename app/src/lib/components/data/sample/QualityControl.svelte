@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { Cerebro, QualityControlSummary, WorkflowConfig } from "$lib/utils/types";
-   	import SyntheticControlStageCard from "./cards/SyntheticControlStageCard.svelte";
-	import PhageControlStageCard from "./cards/PhageControlStageCard.svelte";
-	import ReadQualityStageCard from "./cards/ReadQualityStageCard.svelte";
+	import type { Cerebro, WorkflowConfig } from "$lib/utils/types";
+   	import SyntheticControlStageCard from "./cards/SyntheticControls.svelte";
+	import PhageControlStageCard from "./cards/InternalControls.svelte";
+	import ReadQualityStageCard from "./cards/ReadQuality.svelte";
 
-    export let selectedWorkflowConfiguration: WorkflowConfig;
+    export let selectedWorkflowConfiguration: WorkflowConfig | null;
     export let selectedModels: Cerebro[] = [];
-    export let selectedQualityControlSummaries: QualityControlSummary[] = [];
 
 </script>
 
@@ -60,12 +59,12 @@
             <div class="p-4 row-span-2 rounded-xl bg-surface-500/5">
                 <p class="flex align-center"><span class="code bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 text-sm">{model.sample.id}</span> <span class="code ml-2 text-sm">{model.sample.tags.join("-")}</span></p>
                     
-                <ReadQualityStageCard selectedQualityControlSummary={selectedQualityControlSummaries[i]}></ReadQualityStageCard>
+                <ReadQualityStageCard selectedModel={model}></ReadQualityStageCard>
             </div>
     
             <!-- SyntheticControlCard: Second column, second row -->
             <div class="p-8 rounded-xl bg-surface-500/5">
-                <SyntheticControlStageCard selectedModel={model} selectedQualityControlSummary={selectedQualityControlSummaries[i]}></SyntheticControlStageCard>
+                <SyntheticControlStageCard selectedModel={model}></SyntheticControlStageCard>
             </div>
             
             <!-- PhageControlCard: Second column, first row -->

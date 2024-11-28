@@ -1157,24 +1157,70 @@ export type GenusOverview = {
     species: TaxonOverview[]
 }
 
+export enum PathogenDetectionTool {
+    Kraken2 = "Kraken2",
+    Metabuli = "Metabuli",
+    Ganon2 = "Ganon2",
+    Kmcp = "Kmcp",
+    Bracken = "Bracken",
+    Sylph = "Sylph"
+}
+
+
+export enum PathogenDetectionMode {
+    Sequence = "Sequence",
+    Profile = "Profile"
+}
+
+
+export type PathogenDetectionResult = {
+    tool: PathogenDetectionTool,
+    mode: PathogenDetectionMode,
+    reads: number,
+    rpm: number,
+    abundance: number
+
+}
+
 export type TaxonOverview = {
     taxid: string,
     name: string,                // used to later map back the tags
     domain: string | null,
     genus: string | null,
-    rpm: number,                 // total rpm summed from k-mer and alignment evidence
-    rpm_kmer: number,            // rpm from k-mer evidence
-    rpm_alignment: number,       // rpm from alignment evidence
-    contigs: number,             // total assembled and identified contig evidence
-    contigs_bases: number,
-    coverage: number,            // maximum coverage in the alignments evidence
-    coverage_bases: number,      // maximum coverage bases of reference covered
-    coverage_length: number,     // maximum coverage reference length
+    evidence: PathogenDetectionResult[],
     kmer: boolean,
     alignment: boolean,
     assembly: boolean,
-    names: Array<string>         // unique names of all evidence records (matching `Cerebro.name` field)
+    sample_names: Array<string>         // unique names of all evidence records (matching `Cerebro.name` field)
 }
+
+export type TaxonOverviewRecord = {
+    taxid: string;
+    name: string;
+    domain: string | null;
+    genus: string | null;
+    sample_names: Array<string>;
+    kmer: boolean;
+    alignment: boolean;
+    assembly: boolean;
+    kraken2: number;
+    metabuli: number;
+    ganon2: number;
+    kmcp: number;
+    sylph: number;
+    bracken: number;
+    total: number;
+};
+
+
+    // rpm: number,                 // total rpm summed from k-mer and alignment evidence
+    // rpm_kmer: number,            // rpm from k-mer evidence
+    // rpm_alignment: number,       // rpm from alignment evidence
+    // contigs: number,             // total assembled and identified contig evidence
+    // contigs_bases: number,
+    // coverage: number,            // maximum coverage in the alignments evidence
+    // coverage_bases: number,      // maximum coverage bases of reference covered
+    // coverage_length: number,     // maximum coverage reference length
 
 
 /**
@@ -1324,8 +1370,20 @@ export type PriorityTaxonDecisionResponseDataField = {
     decision: PriorityTaxonDecision
 }
 
+/**
+ * 
+ * Taxonomic ranks supported by Cerebro/Cipher
+ * 
+ * @file lib/utils/types
+ */
+export enum PathogenDetectionRank {
+    Species = "Species",
+    Genus = "Genus",
+    Family = "Family"
+}
 
 export type CerebroFilterConfig = {  // ADD WORKFLOW ID
+    rank: PathogenDetectionRank | null,
     domains: Array<string>,
     tags: Array<string>,
     kmer_min_reads: number,
@@ -1341,6 +1399,7 @@ export type CerebroFilterConfig = {  // ADD WORKFLOW ID
 }
 
 // Client-side selection of taxa
+
 
 export type ClientFilterConfig = {
     domains: Array<string | null>,

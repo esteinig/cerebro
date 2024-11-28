@@ -1,11 +1,17 @@
 <script lang="ts">
 	import type { Cerebro } from "$lib/utils/types";
+	import { selectedIdentifiers } from "$lib/stores/stores";
 	import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
-
-    export let selectedIdentifiers: string[];
+    
+    export let identifiers: string[] = [];
     export let models: Cerebro[] = [];
     export let variant: string = "sample";
     export let variantColor: string = "secondary";
+
+	// Sync store with the local identifiers
+	$: {
+        selectedIdentifiers.set(identifiers);
+	}
 
 </script>
 
@@ -13,7 +19,7 @@
     {#if models.length}
         <ListBox multiple>
             {#each models as model}
-                <ListBoxItem bind:group={selectedIdentifiers} name="sample" value={model.id} active='variant-ghost' hover='hover:variant-soft' rounded='rounded-token'>
+                <ListBoxItem bind:group={identifiers} name="sample" value={model.id} active='variant-ghost' hover='hover:variant-soft' rounded='rounded-token'>
                     <div class="ml-5">
                         <div>
                             {#if variant === "sample"}
@@ -23,6 +29,7 @@
                             {:else}
                                 {model.name}
                             {/if}
+                        </div>
                     </div>
                         <div> 
                             <span class="code bg-{variantColor}-500/30 text-{variantColor}-700 dark:bg-{variantColor}-500/20 dark:text-{variantColor}-400">{model.sample.tags?.join("-")}</span>
