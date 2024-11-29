@@ -1,4 +1,16 @@
+
 import { Role } from "./types";
+
+
+export function getCssVariableAsHex(variableName: string, theme: string): string | null {
+    const element = document.querySelector(`[data-theme="${theme}"]`); // Target the themed element
+    if (!element) return null;
+    const rgbValue = getComputedStyle(element).getPropertyValue(variableName).trim();
+    console.log("CssVariable", rgbValue); // Debug the value
+    if (!rgbValue) return null;
+    const [r, g, b] = rgbValue.split(' ').map(Number);
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
 
 export const getDateTime = (isoString: string): [string, string] => {
     let data = isoString.split("T");

@@ -773,16 +773,19 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                         }))
                     } else {
                         if let Some(taxid) = &query.taxid {
-                            // If only a single taxon is requested, filter the taxa for this taxon - this is in the `EvidenceTable`
-                            let taxa: Vec<Taxon> = taxa.into_iter().filter(|taxon| &taxon.taxid == taxid).collect();
+                            let taxids = taxid.split(",").collect::<Vec<&str>>();
 
-                            return HttpResponse::Ok().json(serde_json::json!({
+                            let taxa: Vec<Taxon> = taxa.into_iter().filter(|taxon| taxids.contains(&taxon.taxid.as_str())).collect();
+
+                            HttpResponse::Ok().json(serde_json::json!({
                                 "status": "success", "message": "Retrieved aggregated taxon by taxid with evidence", "data": serde_json::json!({"taxa": taxa})
                             }))
-                        };
-                        HttpResponse::Ok().json(serde_json::json!({
-                            "status": "success", "message": "Retrieved aggregated taxa with evidence", "data": serde_json::json!({"taxa": taxa})
-                        }))
+                        } else {
+                            // Return all taxids
+                            HttpResponse::Ok().json(serde_json::json!({
+                                "status": "success", "message": "Retrieved aggregated taxa with evidence", "data": serde_json::json!({"taxa": taxa})
+                            }))
+                        }
                     }
                 },
                 true => HttpResponse::Ok().json(serde_json::json!({

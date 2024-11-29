@@ -160,7 +160,7 @@
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.sampleOverview}?db=${selectedDatabaseId}&project=${selectedProjectId}&page=0&limit=${$page.data.defaultPageLimit}&notag=${$page.data.defaultNegativeTemplateControl}`, {
+            `${publicApi.routes.cerebro.sampleOverview}?team=${selectedTeamId}&db=${selectedDatabaseId}&project=${selectedProjectId}&page=0&limit=${$page.data.defaultPageLimit}&notag=${$page.data.defaultNegativeTemplateControl}`, {
                 method: 'GET',
                 mode: 'cors',
                 credentials: 'include'
@@ -190,7 +190,7 @@
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.deleteSamples}?db=${selectedDatabaseId}&project=${selectedProjectId}`, {
+            `${publicApi.routes.cerebro.deleteSamples}?team=${selectedTeamId}&db=${selectedDatabaseId}&project=${selectedProjectId}`, {
                 method: 'DELETE',
                 mode: 'cors',
                 credentials: 'include',
@@ -214,7 +214,7 @@
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.getSampleSummary}?db=${selectedDatabaseId}&project=${selectedProjectId}&csv=true`, {
+            `${publicApi.routes.cerebro.getSampleSummary}?team=${selectedTeamId}&db=${selectedDatabaseId}&project=${selectedProjectId}&csv=true`, {
                 method: 'POST',
                 mode: 'cors',
                 credentials: 'include',

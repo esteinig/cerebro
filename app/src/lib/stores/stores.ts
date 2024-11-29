@@ -1,5 +1,5 @@
 import { browser } from "$app/environment";
-import { PathogenDetectionRank, type Cerebro, type CerebroFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig } from "$lib/utils/types";
+import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type CerebroFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig } from "$lib/utils/types";
 import { writable, type Writable } from "svelte/store";
 
 // Session based theme store. Grabs the current theme from the current body.
@@ -92,4 +92,5 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
 export const selectedClientFilterConfig = writable<ClientFilterConfig>(defaultClientFilterConfig)
 export const selectedServerFilterConfig = writable<CerebroFilterConfig>(defaultServerFilterConfig)
 export const selectedTaxonHighlightConfig = writable<TaxonHighlightConfig>(defaultTaxonHighlightConfig)
+export const selectedTaxa = writable<TaxonOverviewRecord[]>([])
 

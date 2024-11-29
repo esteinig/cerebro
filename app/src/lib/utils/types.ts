@@ -1066,10 +1066,17 @@ export type TaxonLevel = {
 }
 
 export type TaxonEvidence = {
-    kmer: Kraken2UniqRecord[],
-    alignment: VircovScanRemapRecord[],
-    assembly: BlastLcaRecord[],
+    records: PathogenDetectionRecord[]
 }
+
+export type PathogenDetectionRecord = {
+    id: string,
+    taxid: string,
+    name: string,
+    rank: PathogenDetectionRank,
+    results: PathogenDetectionResult[]
+}
+
 
 export type Kraken2UniqRecord = {
     id: string,
@@ -1172,6 +1179,17 @@ export enum PathogenDetectionMode {
     Profile = "Profile"
 }
 
+
+export enum DisplayData {
+    Reads = "reads",
+    Rpm = "rpm",
+    Abundance = "abundance"
+}
+
+export enum DisplayTotal {
+    Sum = "Sum",
+    Average = "Average"
+}
 
 export type PathogenDetectionResult = {
     tool: PathogenDetectionTool,

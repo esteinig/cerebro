@@ -2,29 +2,29 @@
     import { page } from "$app/stores";
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { getToastStore, ProgressRadial } from "@skeletonlabs/skeleton";
-	import type { Cerebro, CerebroFilterConfig, ClientFilterConfig, GenusOverview, TaxonOverview, TaxonHighlightConfig } from "$lib/utils/types";
+	import { type Cerebro, type CerebroFilterConfig, type ClientFilterConfig, type TaxonOverview, DisplayData } from "$lib/utils/types";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
-	import GenusOverviewTable from "./taxa/GenusOverviewTable.svelte";
-    import DatatableTaxonOverview from '$lib/general/datatable/DatatableTaxonOverview.svelte';
+	import TaxonHeatmap from "$lib/components/visualisations/taxa/heatmap/TaxonHeatmap.svelte";
+
 
     export let selectedIdentifiers: string[] = [];
     export let selectedModels: Cerebro[] = [];
     
-    export let clientFilterConfig: ClientFilterConfig;
     export let serverFilterConfig: CerebroFilterConfig;
-    export let taxonHighlightConfig: TaxonHighlightConfig;
+
+    // export let clientFilterConfig: ClientFilterConfig;
+    // export let taxonHighlightConfig: TaxonHighlightConfig;
 
     let publicApi = new CerebroApi();
     let toastStore = getToastStore();
 
     let loading: boolean = false;
     let taxaOverview: TaxonOverview[] = [];
-    let genusOverview: GenusOverview[] = [];
     let modelNameTags: Map<string, string[]> = new Map();
 
-    const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
 
+    const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
@@ -44,18 +44,17 @@
         if (response.ok){
             taxaOverview = response.json.data.taxa;
         }
-    }
-    
+    }    
 
     $: if (selectedIdentifiers.length > 0) {
+        // Clear the selected taxa store whenever we select new libraries
+        // selectedTaxa.set([]);
         getAggregatedTaxaOverview(selectedIdentifiers);
     }
 
     $: {
         modelNameTags = new Map(selectedModels.map(cerebro => [cerebro.name, cerebro.sample.tags]));
     }
-
-    let showGenusOverview: boolean = false;
 
 </script>
 
@@ -69,6 +68,8 @@
             <div class="flex justify-center py-16 "><ErrorAnimation></ErrorAnimation></div>
             <p class="flex justify-center text-lg pb-4">No taxa available</p>
         {:else}
+
+        <TaxonHeatmap selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
         <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags}  serverFilterConfig={serverFilterConfig}> </SpeciesOverviewTable>
      
             <!-- <DatatableTaxonOverview data={taxaOverview}></DatatableTaxonOverview> -->

@@ -832,7 +832,7 @@ process PathogenDetectionTable {
     script:
 
     """
-    echo '{"ranks": ["species"]}' > filter.json
+    echo '{"ranks": ["Species"]}' > filter.json
     cerebro-pipe table pathogen-detection --json *.pd.json --output species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
     """
 }

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { CerebroFilterConfig, ClientFilterConfig, TaxonHighlightConfig, TaxonOverview, TaxonOverviewRecord } from "$lib/utils/types";
+    import { DisplayData, DisplayTotal } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
-	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
-	import { selectedIdentifiers, selectedTaxonHighlightConfig, selectedClientFilterConfig } from "$lib/stores/stores";
+	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
     import { PathogenDetectionMode } from "$lib/utils/types";
     export let taxonOverview: TaxonOverview[] = [];
     export let modelNameTags: Map<string, string[]> = new Map();
@@ -11,19 +11,9 @@
     export let candidateButton: boolean = true;
     export let pagination: boolean = true;
 
-    enum DisplayData {
-        Reads = "reads",
-        Rpm = "rpm",
-        Abundance = "abundance"
-    }
-
-    enum DisplayTotal {
-        Sum = "Sum",
-        Average = "Average"
-    }
 
     let displayMode: PathogenDetectionMode = PathogenDetectionMode.Sequence;
-    let displayData: DisplayData = DisplayData.Abundance;
+    let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
     function getNumberPrecision(displayData: DisplayData): number {
@@ -41,6 +31,7 @@
         mode: PathogenDetectionMode,
         field: DisplayData
     ): TaxonOverviewRecord[] {
+
         return overviews.map((overview) => {
             const aggregatedResults = {
                 kraken2: 0,
@@ -193,7 +184,7 @@
         return Array.isArray(serverFilterConfig) ? serverFilterConfig[i] : serverFilterConfig
     }
 
-    const getTaxonBackgroundColor = (overview: TaxonOverview): string =>  {
+    const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
         if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.includes(species))) {
             return 'variant-soft-secondary rounded-token py-1.5 px-2'
         } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))) {
@@ -212,6 +203,20 @@
             return 'hover:variant-soft'
         }
     }
+
+
+    export const addSelectedTaxon = (overview: TaxonOverviewRecord) => {
+        selectedTaxa.update(currentTaxa => {
+            const index = currentTaxa.findIndex(taxon => taxon.taxid === overview.taxid);
+            if (index > -1) {
+                // If it exists, remove it
+                return currentTaxa.filter((_, i) => i !== index);
+            } else {
+                // If it doesn't exist, add it
+                return [...currentTaxa, overview];
+            }
+        });
+    };
 
 </script>
 
@@ -234,7 +239,7 @@
                 </div>
             </ListBoxItem>
             {#each tableData as overview, i}
-                <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => taxonEvidence === null ? taxonEvidence = overview.taxid : taxonEvidence = null}>
+                <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                     
                     <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
                         <div class="col-span-1 opacity-70">{overview.domain}</div>

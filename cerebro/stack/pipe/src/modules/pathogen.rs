@@ -317,6 +317,7 @@ impl PathogenDetection {
         if let Some(sylph_report) = &output.profile.sylph {
             for record in &sylph_report.records {
                 let (taxid, rank) = Self::get_sylph_taxinfo(record)?;
+                
                 if rank == PathogenDetectionRank::Strain {
                     continue;
                 }
