@@ -48,7 +48,7 @@
         {#if showEvidenceTable}
             <div class="pb-10">
                 <p class="pb-3 opacity-60 text-xl">Evidence</p>
-                <SpeciesOverviewTable selectedIdentifiers={selectedIdentifiers} taxonOverview={taxaOverview} modelNameTags={modelNameTags} clientFilterConfig={null} serverFilterConfig={serverFilterConfigs} candidateButton={false} pagination={false}></SpeciesOverviewTable>
+                <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags} pagination={false}></SpeciesOverviewTable>
             </div>
         {/if}
         <div>

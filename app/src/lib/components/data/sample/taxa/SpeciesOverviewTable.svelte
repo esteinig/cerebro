@@ -4,17 +4,21 @@
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
     import { PathogenDetectionMode } from "$lib/utils/types";
+
+    // export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
+    
+    // export let candidateButton: boolean = true;
+
+    export let pagination: boolean = true;
     export let taxonOverview: TaxonOverview[] = [];
     export let modelNameTags: Map<string, string[]> = new Map();
-    export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
-    
-    export let candidateButton: boolean = true;
-    export let pagination: boolean = true;
-
 
     let displayMode: PathogenDetectionMode = PathogenDetectionMode.Sequence;
     let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
+
+
+    let selectedTaxid: string;
 
     function getNumberPrecision(displayData: DisplayData): number {
         if (displayData == DisplayData.Reads) {
@@ -175,14 +179,13 @@
        
     }
 
-
-    let selectedTaxid: string;
-    let taxonEvidence: string | null = null;
+    
+    // let taxonEvidence: string | null = null;
 
     // Can be multiple e.g. saved from candidate taxa
-    const getServerConfig = (i: number): CerebroFilterConfig => {
-        return Array.isArray(serverFilterConfig) ? serverFilterConfig[i] : serverFilterConfig
-    }
+    // const getServerConfig = (i: number): CerebroFilterConfig => {
+    //     return Array.isArray(serverFilterConfig) ? serverFilterConfig[i] : serverFilterConfig
+    // }
 
     const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
         if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.includes(species))) {

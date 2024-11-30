@@ -2,7 +2,8 @@
 import { Role } from "./types";
 
 
-export function getCssVariableAsHex(variableName: string, theme: string): string | null {
+export function getCssVariableAsHex(variableName: string | null | undefined, theme: string): string | null {
+    if (!variableName) return null
     const element = document.querySelector(`[data-theme="${theme}"]`); // Target the themed element
     if (!element) return null;
     const rgbValue = getComputedStyle(element).getPropertyValue(variableName).trim();

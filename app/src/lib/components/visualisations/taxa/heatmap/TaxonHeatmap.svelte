@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as d3 from 'd3';
     import { selectedTaxa, selectedServerFilterConfig, storeTheme } from '$lib/stores/stores';
-    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, PathogenDetectionMode, DisplayData } from '$lib/utils/types';
+    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, PathogenDetectionMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName } from '$lib/utils/types';
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { page } from '$app/stores';
     import { getCssVariableAsHex } from '$lib/utils/helpers';
@@ -25,8 +25,18 @@
     let hoveredCell = { row: null, column: null };
     let loading = false;
 
+    let selectedRowOrder: string = HeatmapRowOrder.Domain;
+    let colorScheme: string = HeatmapColorScheme.Domain;
+
     let rowOrder: string[] = []; // Tracks the rows in the heatmap
     let columnOrder: string[] = [];
+
+    let domainColors: Map<string, {start: string, end: string}> = new Map([
+        [DomainName.Viruses, { start: '--color-tertiary-200', end: '--color-tertiary-600'}],
+        [DomainName.Archaea, { start: '--color-primary-200', end: '--color-primary-600'}],
+        [DomainName.Bacteria, { start: '--color-primary-200', end: '--color-primary-600'}],
+        [DomainName.Eukaryota, { start: '--color-secondary-200', end: '--color-secondary-600'}],
+    ])   
 
     const getAggregatedTaxa = async (selectedIdentifiers: string[], selectedTaxa: TaxonOverviewRecord[]) => {
         if (!selectedTaxa || selectedTaxa.length === 0) return;
@@ -59,6 +69,19 @@
     };
 
     $: getAggregatedTaxa(selectedIdentifiers, $selectedTaxa);
+
+    // Sort taxa by domain name if the toggle is active
+    $: {
+        if (selectedRowOrder === HeatmapRowOrder.Domain) {
+            taxa.sort((a, b) => {
+                const domainA = a.level?.domain_name || ""; // Default to an empty string if undefined
+                const domainB = b.level?.domain_name || ""; // Default to an empty string if undefined
+                return domainA.localeCompare(domainB);
+            });
+            rowOrder = taxa.map(taxon => taxon.name);
+        }
+    }
+
 
     // Derive unique Detection IDs (columns)
     $: uniqueDetectionIds = Array.from(new Set(taxa.flatMap((taxon) => taxon.evidence.records.map((record) => record.id))));
@@ -93,8 +116,23 @@
 
     $: rowColorScales = Object.fromEntries(
         Object.entries(rowMaxValues).map(([row, maxValue]) => {
-            const startColor = getCssVariableAsHex('--color-primary-200', $storeTheme);
-            const endColor = getCssVariableAsHex('--color-primary-600', $storeTheme);
+            
+            let startColor = getCssVariableAsHex('--color-primary-200', $storeTheme);
+            let endColor = getCssVariableAsHex('--color-primary-600', $storeTheme);
+
+            if (colorScheme === HeatmapColorScheme.Uniform) {
+                startColor = getCssVariableAsHex('--color-primary-200', $storeTheme);
+                endColor = getCssVariableAsHex('--color-primary-600', $storeTheme);
+            } else if (colorScheme === HeatmapColorScheme.Domain) {
+                taxa.filter((taxon) => row == taxon.name).map((taxon) => {
+                    if (taxon.level.domain_name !== undefined) {
+                        startColor = getCssVariableAsHex(domainColors.get(taxon.level.domain_name)?.start, $storeTheme);
+                        endColor = getCssVariableAsHex(domainColors.get(taxon.level.domain_name)?.end, $storeTheme);
+                    } 
+                })
+
+            }
+
             return [
                 row,
                 d3.scaleLinear()
@@ -113,7 +151,7 @@
 
     $: yScale = d3.scaleBand().domain(rowOrder).range([0, heatmapHeight]).padding(0.05);
 
-    const handleMouseOver = (row, column) => {
+    const handleMouseOver = (row: any, column: any) => {
         hoveredCell = { row, column };
     };
 
@@ -159,14 +197,16 @@
 
             <!-- Y-axis Labels -->
             <g transform={`translate(${margin.left - 10}, ${margin.top})`}>
-                {#each taxa as taxon}
-                    <text
-                        x="0"
-                        y={yScale(taxon.name) + yScale.bandwidth() / 2}
-                        style="fill: rgb(var(--color-primary-400)); text-anchor: end; dominant-baseline: middle; font-size: 0.7em;"
-                    >
-                        {taxon.name}
-                    </text>
+                {#each rowOrder as row}
+                    {#if taxa.find(taxon => taxon.name === row)}
+                        <text
+                            x="0"
+                            y={yScale(row) + yScale.bandwidth() / 2}
+                            style="fill: rgb(var(--color-primary-400)); text-anchor: end; dominant-baseline: middle; font-size: 0.7em;"
+                        >
+                            {row}
+                        </text>
+                    {/if}
                 {/each}
             </g>
 
@@ -181,6 +221,9 @@
                         fill={data.value !== null ? rowColorScales[data.row](data.value) : "rgba(0, 0, 0, 0)"}
                         on:mouseover={() => handleMouseOver(data.row, data.column)}
                         on:mouseout={handleMouseOut}
+                        on:focus={() => handleMouseOver(data.row, data.column)}
+                        on:blur={handleMouseOut}
+                        role="figure"
                     ></rect>
                     {#if hoveredCell.row === data.row && hoveredCell.column === data.column}
                         <text
@@ -202,7 +245,7 @@
     <!-- Second Column: Controls -->
     <div class="col-span-1 h-full flex flex-col gap-4 p-4 pt-16">
         <label class="label">
-            <span class="font-medium mb-2">Tool</span>
+            <span class="font-medium mb-2">Read classifier</span>
             <select bind:value={tool} class="select">
                 <option value="{PathogenDetectionTool.Ganon2}">{PathogenDetectionTool.Ganon2}</option>
                 <option value="{PathogenDetectionTool.Kraken2}">{PathogenDetectionTool.Kraken2}</option>
@@ -214,7 +257,7 @@
         </label>
 
         <label class="label">
-            <span class="font-medium mb-2">Mode</span>
+            <span class="font-medium mb-2">Classification mode</span>
             <select bind:value={mode} class="select">
                 <option value="{PathogenDetectionMode.Sequence}">{PathogenDetectionMode.Sequence}</option>
                 <option value="{PathogenDetectionMode.Profile}">{PathogenDetectionMode.Profile}</option>
@@ -222,11 +265,19 @@
         </label>
 
         <label class="label">
-            <span class="font-medium mb-2">Data</span>
+            <span class="font-medium mb-2">Data values</span>
             <select bind:value={displayData} class="select">
                 <option value="{DisplayData.Rpm}">Reads per million (RPM)</option>
                 <option value="{DisplayData.Reads}">Reads</option>
                 <option value="{DisplayData.Abundance}">Abundance</option>
+            </select>
+        </label>
+
+        <label class="label">
+            <span class="font-medium mb-2">Color scheme</span>
+            <select bind:value={colorScheme} class="select">
+                <option value="{HeatmapColorScheme.Domain}">Rank: Domain (Superkingdom)</option>
+                <option value="{HeatmapColorScheme.Uniform}">Uniform</option>
             </select>
         </label>
     </div>

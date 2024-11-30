@@ -1078,6 +1078,64 @@ export type PathogenDetectionRecord = {
 }
 
 
+export enum PathogenDetectionTool {
+    Kraken2 = "Kraken2",
+    Metabuli = "Metabuli",
+    Ganon2 = "Ganon2",
+    Kmcp = "Kmcp",
+    Bracken = "Bracken",
+    Sylph = "Sylph"
+}
+
+
+export enum PathogenDetectionMode {
+    Sequence = "Sequence",
+    Profile = "Profile"
+}
+
+
+export enum DisplayData {
+    Reads = "reads",
+    Rpm = "rpm",
+    Abundance = "abundance"
+}
+
+export enum DisplayTotal {
+    Sum = "Sum",
+    Average = "Average"
+}
+
+export enum HeatmapRowOrder {
+    Domain = "Domain",
+    Selected = "Selected"
+}
+
+export enum HeatmapColorScheme {
+    Uniform = "Uniform",
+    Domain = "Domain"
+}
+
+export enum HeatmapColorScale {
+    Row = "Row",
+    Column = "Column"
+}
+
+export enum DomainName {
+    Viruses = "Viruses",
+    Bacteria = "Bacteria",
+    Archaea = "Archaea",
+    Eukaryota = "Eukaryota"
+}
+
+export type PathogenDetectionResult = {
+    tool: PathogenDetectionTool,
+    mode: PathogenDetectionMode,
+    reads: number,
+    rpm: number,
+    abundance: number
+}
+
+
 export type Kraken2UniqRecord = {
     id: string,
     db: string,
@@ -1164,41 +1222,6 @@ export type GenusOverview = {
     species: TaxonOverview[]
 }
 
-export enum PathogenDetectionTool {
-    Kraken2 = "Kraken2",
-    Metabuli = "Metabuli",
-    Ganon2 = "Ganon2",
-    Kmcp = "Kmcp",
-    Bracken = "Bracken",
-    Sylph = "Sylph"
-}
-
-
-export enum PathogenDetectionMode {
-    Sequence = "Sequence",
-    Profile = "Profile"
-}
-
-
-export enum DisplayData {
-    Reads = "reads",
-    Rpm = "rpm",
-    Abundance = "abundance"
-}
-
-export enum DisplayTotal {
-    Sum = "Sum",
-    Average = "Average"
-}
-
-export type PathogenDetectionResult = {
-    tool: PathogenDetectionTool,
-    mode: PathogenDetectionMode,
-    reads: number,
-    rpm: number,
-    abundance: number
-
-}
 
 export type TaxonOverview = {
     taxid: string,

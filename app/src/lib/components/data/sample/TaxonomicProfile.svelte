@@ -70,7 +70,7 @@
         {:else}
 
         <TaxonHeatmap selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
-        <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags}  serverFilterConfig={serverFilterConfig}> </SpeciesOverviewTable>
+        <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags}> </SpeciesOverviewTable>
      
             <!-- <DatatableTaxonOverview data={taxaOverview}></DatatableTaxonOverview> -->
         {/if}
