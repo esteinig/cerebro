@@ -9,9 +9,7 @@
             <TaxonomicProfile
                 selectedIdentifiers={$selectedIdentifiers}
                 selectedModels={$selectedModels}
-                clientFilterConfig={$selectedClientFilterConfig}
                 serverFilterConfig={$selectedServerFilterConfig}
-                taxonHighlightConfig={$selectedTaxonHighlightConfig}
             />
     </div>
 </div>

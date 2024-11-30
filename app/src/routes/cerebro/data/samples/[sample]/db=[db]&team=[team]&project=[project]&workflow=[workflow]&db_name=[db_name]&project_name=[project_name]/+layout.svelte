@@ -55,9 +55,7 @@
         // To reload classficiation table we re-assign the current 
         // selected identfiers to trigger the reactive load in child 
         // component
-        selectedIdentifiers.set(
-            $selectedIdentifiers
-        );
+        selectedIdentifiers.set($selectedIdentifiers);
     }
 
 </script>

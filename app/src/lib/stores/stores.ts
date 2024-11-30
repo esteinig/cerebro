@@ -42,7 +42,7 @@ const defaultClientFilterConfig: ClientFilterConfig = {
 }
 
 const defaultServerFilterConfig: CerebroFilterConfig = {
-    rank: PathogenDetectionRank.Species,
+    rank: PathogenDetectionRank.Genus,
     domains: [],
     tags: [],
     // K-mer data

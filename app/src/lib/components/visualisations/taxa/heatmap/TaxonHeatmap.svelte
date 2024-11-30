@@ -32,10 +32,10 @@
     let columnOrder: string[] = [];
 
     let domainColors: Map<string, {start: string, end: string}> = new Map([
-        [DomainName.Viruses, { start: '--color-tertiary-200', end: '--color-tertiary-600'}],
-        [DomainName.Archaea, { start: '--color-primary-200', end: '--color-primary-600'}],
-        [DomainName.Bacteria, { start: '--color-primary-200', end: '--color-primary-600'}],
-        [DomainName.Eukaryota, { start: '--color-secondary-200', end: '--color-secondary-600'}],
+        [DomainName.Viruses, { start: '--color-tertiary-400', end: '--color-tertiary-900'}],
+        [DomainName.Archaea, { start: '--color-primary-100', end: '--color-primary-900'}],
+        [DomainName.Bacteria, { start: '--color-primary-100', end: '--color-primary-900'}],
+        [DomainName.Eukaryota, { start: '--color-secondary-100', end: '--color-secondary-900'}],
     ])   
 
     const getAggregatedTaxa = async (selectedIdentifiers: string[], selectedTaxa: TaxonOverviewRecord[]) => {
