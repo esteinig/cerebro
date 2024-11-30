@@ -110,7 +110,8 @@
     );
 
     $: rowMaxValues = taxa.reduce((acc, taxon) => {
-        acc[taxon.name] = Math.max(...dataMatrix.filter((d) => d.row === taxon.name).map((d) => d.value || 0));
+        // acc[taxon.name] = Math.max(...dataMatrix.filter((d) => d.row === taxon.name).map((d) => d.value || 0));
+        acc[taxon.name] = Math.max(...dataMatrix.map((d) => d.value || 0));
         return acc;
     }, {} as Record<string, number>);
 
