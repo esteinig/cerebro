@@ -2,7 +2,7 @@
     import { page } from "$app/stores";
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { getToastStore, ProgressRadial } from "@skeletonlabs/skeleton";
-	import { type Cerebro, type CerebroFilterConfig, type ClientFilterConfig, type TaxonOverview, DisplayData } from "$lib/utils/types";
+	import { type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type TaxonOverview, DisplayData } from "$lib/utils/types";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import TaxonHeatmap from "$lib/components/visualisations/taxa/heatmap/TaxonHeatmap.svelte";
@@ -11,7 +11,7 @@
     export let selectedIdentifiers: string[] = [];
     export let selectedModels: Cerebro[] = [];
     
-    export let serverFilterConfig: CerebroFilterConfig;
+    export let serverFilterConfig: TaxonFilterConfig;
 
     // export let clientFilterConfig: ClientFilterConfig;
     // export let taxonHighlightConfig: TaxonHighlightConfig;
@@ -61,7 +61,7 @@
 <div>
     {#if loading}
         <div class="flex justify-center py-24">
-            <ProgressRadial width="sm:w-12 md:w-24" stroke={100} meter="stroke-tertiary-500" track="stroke-tertiary-500/30" />
+            <ProgressRadial width="sm:w-12 md:w-24" stroke={20} meter="stroke-tertiary-500" track="stroke-tertiary-500/30" />
         </div>
     {:else}
         {#if !taxaOverview.length}
@@ -69,8 +69,8 @@
             <p class="flex justify-center text-lg pb-4">No taxa available</p>
         {:else}
 
-        <TaxonHeatmap selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
-        <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags}> </SpeciesOverviewTable>
+        <TaxonHeatmap selectedModels={selectedModels} selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
+        <SpeciesOverviewTable taxonOverview={taxaOverview} modelNameTags={modelNameTags}></SpeciesOverviewTable>
      
             <!-- <DatatableTaxonOverview data={taxaOverview}></DatatableTaxonOverview> -->
         {/if}

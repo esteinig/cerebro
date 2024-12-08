@@ -19,6 +19,7 @@ pub struct SampleSheetEntry{
     pub comment: Option<String>,
     pub sample_group: Option<String>,
     pub sample_type: Option<String>,
+    pub sample_date: Option<String>,
     pub ercc_input: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forward_path: Option<PathBuf>,  // option because of production sample sheet ionput
@@ -28,7 +29,7 @@ pub struct SampleSheetEntry{
     pub fastq: Option<PathBuf>
 }
 impl SampleSheetEntry {
-    pub fn new(run_date: &str, run_id: &str, sample_id: &str, sample_group: Option<&str>, sample_type: Option<&str>, ercc_input: Option<f64>, aneuploidy: bool, files: &Vec<PathBuf>) -> Result<Self, WorkflowError> {
+    pub fn new(run_date: &str, run_id: &str, sample_id: &str, sample_group: Option<&str>, sample_type: Option<&str>, sample_date: Option<&str>, ercc_input: Option<f64>, aneuploidy: bool, files: &Vec<PathBuf>) -> Result<Self, WorkflowError> {
         let (forward_path, reverse_path, fastq) = match files.len() {
             1 => (None, None, Some(files[0].clone())),
             2 => (Some(files[0].clone()), Some(files[1].clone()), None),
@@ -40,6 +41,7 @@ impl SampleSheetEntry {
             run_id: run_id.into(), 
             aneuploidy,
             comment: None,
+            sample_date: sample_date.map(str::to_string), 
             sample_group: sample_group.map(str::to_string), 
             sample_type: sample_type.map(str::to_string), 
             ercc_input,
@@ -63,6 +65,7 @@ impl SampleSheet {
         run_date: Option<String>, 
         sample_group: Option<String>, 
         sample_type: Option<String>, 
+        sample_date: Option<String>, 
         ercc_input: Option<f64>, 
         symlinks: bool,
     ) -> Result<SampleSheet, WorkflowError> {
@@ -89,6 +92,7 @@ impl SampleSheet {
                     &date, 
                     &run, 
                     sample_id, 
+                    sample_date.as_deref(), 
                     sample_group.as_deref(), 
                     sample_type.as_deref(),
                     ercc_input,
@@ -156,6 +160,17 @@ impl SampleSheet {
         }
     }  
     pub fn get_sample_type(&self, sample_id: &str) -> Option<String> {
+        let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
+        match matches.len() {
+            0 => None,
+            1 => match &matches[0].sample_group {
+                Some(v) => Some(v.to_owned()),
+                None => Some(String::from(""))
+            },
+            _ => None // sample_id should be unique
+        }
+    }  
+    pub fn get_sample_date(&self, sample_id: &str) -> Option<String> {
         let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
         match matches.len() {
             0 => None,

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
+
 
     import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
 
@@ -9,7 +11,7 @@
 <p class="opacity-60">Production interface</p>
 <div class="card border p-4 border-primary-500">
     <ListBox class="">
-        <ListBoxItem bind:group={selectedView} name="medium" value="runs", active='variant-soft' rounded='rounded-token'>
+        <ListBoxItem bind:group={selectedView} name="medium" value="runs", active='variant-soft' rounded='rounded-token' on:click={() => goto("./production/runs")}>
            
             <svelte:fragment slot="lead">
                 <div class="w-4 h-4">

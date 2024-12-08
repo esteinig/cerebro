@@ -231,6 +231,7 @@ pub struct SampleConfig {
     pub description: Option<String>,
     pub sample_group: String,
     pub sample_type: String,
+    pub sample_date: String,
     pub comments: Vec<SampleComment>,
     pub priority: Vec<PriorityTaxon>,        // priority taxa set from the user interface
     pub reports: Vec<ReportEntry>,           // reports generated for this sample - links to a report log in the team database
@@ -262,9 +263,14 @@ impl SampleConfig {
             None => return Err(ModelError::SampleGroup(id.to_owned()))
         };
 
+        let sample_date = match sample_sheet.get_sample_type(&id) {
+            Some(sample_type) => sample_type,
+            None => return Err(ModelError::SampleGroup(id.to_owned()))
+        };
+
         let ercc_input_mass = sample_sheet.get_ercc_input(&id);
 
-        Ok(Self{ id, tags, description: None, sample_group, sample_type, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
+        Ok(Self{ id, tags, description: None, sample_group, sample_type, sample_date, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
     }
 }
 impl Default for SampleConfig {
@@ -275,6 +281,7 @@ impl Default for SampleConfig {
             description: None,
             sample_group: String::new(),
             sample_type: String::new(),
+            sample_date: String::new(),
             comments: Vec::new(),
             priority: Vec::new(),
             reports: Vec::new(),

@@ -1,4 +1,5 @@
 
+use cerebro_pipe::taxa::filters::TaxonFilterConfig;
 use mongodb::bson::{doc, Document};
 use cerebro_model::api::cerebro::model::{SampleId, WorkflowId, CerebroId, RunId, Tag};
 
@@ -49,22 +50,91 @@ pub fn get_matched_uuid_cerebro_pipeline(id: &CerebroId, taxa: &Option<bool>) ->
     }
     
 }
+pub fn get_matched_id_taxa_cerebro_pipeline(
+    ids: Option<Vec<CerebroId>>,
+    date_range: Option<Vec<String>>,
+    run_ids: Option<Vec<String>>,
+    filter_config: Option<TaxonFilterConfig>,
+) -> Vec<Document> {
+    let mut match_conditions = Document::new();
 
+    // Match by IDs
+    if let Some(ids) = ids {
+        match_conditions.insert("id", doc! { "$in": ids });
+    }
 
-pub fn get_matched_id_taxa_cerebro_pipeline(id: &Vec<CerebroId>) -> Vec<Document> {
+    // Match by date range
+    if let Some(date_range) = date_range {
+        if date_range.len() == 2 {
+            let sample_date_condition = doc! {
+                "sample.sample_date": {
+                    "$gte": &date_range[0],
+                    "$lte": &date_range[1],
+                }
+            };
+            let run_date_condition = doc! {
+                "run.date": {
+                    "$gte": &date_range[0],
+                    "$lte": &date_range[1],
+                }
+            };
+            match_conditions.insert(
+                "$or",
+                mongodb::bson::to_bson(&vec![sample_date_condition, run_date_condition]).unwrap(),
+            );
+        }
+    }
+
+    // Match by run IDs
+    if let Some(run_ids) = run_ids {
+        match_conditions.insert("run.id", doc! { "$in": run_ids });
+    }
+
+    // Apply TaxonFilterConfig filters
+    if let Some(config) = filter_config {
+        // Filter by rank
+        if let Some(rank) = config.rank {
+            let tax_rank = rank.to_string().to_lowercase(); // Convert rank to a string for MongoDB query
+            match_conditions.insert("rank", tax_rank);
+        }
+
+        // Filter by domains
+        if !config.domains.is_empty() {
+            match_conditions.insert("level.domain_name", doc! { "$in": config.domains });
+        }
+
+        // Filter by tools
+        if !config.tools.is_empty() {
+            let tools: Vec<String> = config.tools.into_iter().map(|tool| tool.to_string()).collect();
+            match_conditions.insert("evidence.results.tool", doc! { "$in": tools });
+        }
+
+        // Filter by modes
+        if !config.modes.is_empty() {
+            let modes: Vec<String> = config.modes.into_iter().map(|mode| mode.to_string()).collect();
+            match_conditions.insert("evidence.results.mode", doc! { "$in": modes });
+        }
+
+        // Filter by minimum reads, RPM, and abundance
+        let mut result_conditions = vec![];
+        if config.min_reads > 0 {
+            result_conditions.push(doc! { "evidence.results.reads": { "$gte": config.min_reads as i64 } });
+        }
+        if config.min_rpm > 0.0 {
+            result_conditions.push(doc! { "evidence.results.rpm": { "$gte": config.min_rpm } });
+        }
+        if config.min_abundance > 0.0 {
+            result_conditions.push(doc! { "evidence.results.abundance": { "$gte": config.min_abundance } });
+        }
+
+        if !result_conditions.is_empty() {
+            match_conditions.insert("$and", result_conditions);
+        }
+    }
 
     vec![
-        doc! {
-            "$match": {
-                "id": { "$in": &id}
-            },
-        },
-        doc! {
-            // replace the object root with the nested run doc
-            "$replaceRoot": {
-                "newRoot": "$taxa"
-            }
-        },
+        doc! { "$match": match_conditions },
+        doc! { "$replaceRoot": { "newRoot": "$taxa" } },
     ]
 }
 

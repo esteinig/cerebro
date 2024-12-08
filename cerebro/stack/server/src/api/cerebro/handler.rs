@@ -714,9 +714,11 @@ struct TaxaQuery {
     db: DatabaseId,
     project: ProjectId,
     // Required model identifiers and overview switch
-    id: CerebroIds,
-    overview: bool,
-    taxid: Option<String>
+    id: Option<CerebroIds>,
+    overview: Option<bool>,
+    taxid: Option<String>,
+    run_id: Option<String>,
+    date_range: Option<String>
 }
 
 
@@ -728,8 +730,26 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
         Err(error_response) => return error_response
     };
 
-    let ids: Vec<CerebroId> = query.id.split(",").map(|x| x.trim().to_string()).collect::<Vec<CerebroId>>();
-    let pipeline = get_matched_id_taxa_cerebro_pipeline(&ids);
+    // Extract and parse optional query parameters
+    let ids: Option<Vec<CerebroId>> = query
+    .id
+    .as_ref()
+    .map(|i| i.split(',').map(|x| x.trim().to_string()).collect());
+
+    let run_ids: Option<Vec<String>> = query
+    .run_id
+    .as_ref()
+    .map(|r| r.split(',').map(|x| x.trim().to_string()).collect());
+
+    let date_range: Option<Vec<String>> = query
+    .date_range
+    .as_ref()
+    .map(|d| d.split(',').map(|x| x.trim().to_string()).collect());
+
+    let filter_config = filter_config.into_inner();
+
+    // Build MongoDB pipeline
+    let pipeline = get_matched_id_taxa_cerebro_pipeline(ids, date_range, run_ids, None);
     
     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
 
@@ -759,12 +779,14 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     for tax_map in taxon_maps {
                         aggregated_taxa = aggregate(&mut aggregated_taxa, &tax_map)
                     }   
+
+                    // let taxa: Vec<Taxon>= aggregated_taxa.values().cloned().collect();
                     
 
                     // Applying the rank/evidence filters from the post body - i.e. selected by user in filter interface
-                    let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config.into_inner());
+                    let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config);
 
-                    if query.overview {
+                    if query.overview.is_some_and(|x| x) {
                         // Summarize the evidence fields into a taxon overview, which is the first layer of the front-end `TaxonomyTable`
                         let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
                         

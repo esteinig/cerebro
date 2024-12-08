@@ -323,8 +323,7 @@ impl PathogenDetection {
                 }
 
                 let name = taxid.clone();
-                let estimated_reads =
-                    ((record.sequence_abundance / 100.0) * classifier_reads as f64) as u64;
+                let estimated_reads = ((record.sequence_abundance / 100.0) * classifier_reads as f64) as u64;
                 let rpm = compute_rpm(estimated_reads, input_reads).unwrap_or(0.0);
 
                 let entry = detection_map
@@ -364,6 +363,29 @@ impl PathogenDetection {
             }
         }
 
+        // Process KMCP abundance reports
+        if let Some(kmcp_abundance) = &output.profile.kmcp_abundance {
+            for record in &kmcp_abundance.records {
+                let taxid = record.taxid.trim().to_string();
+                let name =  record.taxname_lineage.split("|").last().unwrap_or("ERROR");  // TODO: check what we can do to put a placeholder
+                let rank = PathogenDetectionRank::from_str(&record.tax_level);
+                let reads = 0;
+                let rpm = 0.0;
+                let abundance = record.abundance;
+
+                let entry = detection_map
+                    .entry(taxid.clone())
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
+                entry.add_result(
+                    PathogenDetectionTool::Kmcp,
+                    PathogenDetectionMode::Profile,
+                    reads,
+                    rpm,
+                    abundance,
+                );
+            }
+        }
+
         // Process Ganon reads reports
         if let Some(ganon_reads) = &output.profile.ganon_reads {
             for record in &ganon_reads.records {
@@ -380,6 +402,30 @@ impl PathogenDetection {
                 entry.add_result(
                     PathogenDetectionTool::Ganon2,
                     PathogenDetectionMode::Sequence,
+                    reads,
+                    rpm,
+                    abundance,
+                );
+            }
+        }
+
+
+        // Process Ganon profile reports
+        if let Some(ganon_abundance) = &output.profile.ganon_abundance {
+            for record in &ganon_abundance.records {
+                let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.trim().to_string();
+                let rank = PathogenDetectionRank::from_str(&record.tax_level);
+                let reads = if paired_end { record.cumulative * 2 } else { record.cumulative };
+                let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = record.cumulative_percent;
+
+                let entry = detection_map
+                    .entry(taxid.clone())
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
+                entry.add_result(
+                    PathogenDetectionTool::Ganon2,
+                    PathogenDetectionMode::Profile,
                     reads,
                     rpm,
                     abundance,
@@ -505,6 +551,8 @@ pub enum PathogenDetectionRank {
     Genus,
     Species,
     Strain,
+    Root,
+    Unclassified,
     NoRank,
     Other
 }
@@ -519,8 +567,61 @@ impl PathogenDetectionRank {
             "g" | "G" | "g__" | "genus"  => Self::Genus,
             "s" | "S" | "s__" | "species" => Self::Species,
             "t" | "T" | "t__" | "strain" => Self::Strain,
-            "r" | "R" | "root" | "no rank" | "" | "-" => Self::NoRank,
+            "r" | "R" | "root" => Self::Root, 
+            "unspecified" | "no rank" | "" => Self::NoRank,
+            "unclassified" | "-" => Self::Unclassified,
             _ => Self::Other
+        }
+    }
+}
+impl PathogenDetectionRank {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Superkingdom => "superkingdom".to_string(),
+            Self::Phylum => "phylum".to_string(),
+            Self::Class => "class".to_string(),
+            Self::Order => "order".to_string(),
+            Self::Family => "family".to_string(),
+            Self::Genus => "genus".to_string(),
+            Self::Species => "species".to_string(),
+            Self::Strain => "strain".to_string(),
+            Self::NoRank => "no rank".to_string(),
+            Self::Root => "root".to_string(),
+            Self::Unclassified => "unclassified".to_string(),
+            Self::Other => "other".to_string(),
+        }
+    }
+}
+
+impl From<TaxRank> for PathogenDetectionRank {
+    fn from(tax_rank: TaxRank) -> Self {
+        match tax_rank {
+            TaxRank::Superkingdom => PathogenDetectionRank::Superkingdom,
+            TaxRank::Phylum => PathogenDetectionRank::Phylum,
+            TaxRank::Class => PathogenDetectionRank::Class,
+            TaxRank::Order => PathogenDetectionRank::Order,
+            TaxRank::Family => PathogenDetectionRank::Family,
+            TaxRank::Genus => PathogenDetectionRank::Genus,
+            TaxRank::Species => PathogenDetectionRank::Species,
+            TaxRank::Strain => PathogenDetectionRank::Strain,
+            TaxRank::Unspecified => PathogenDetectionRank::NoRank,
+            _ => PathogenDetectionRank::Other,
+        }
+    }
+}
+
+impl From<PathogenDetectionRank> for TaxRank {
+    fn from(rank: PathogenDetectionRank) -> Self {
+        match rank {
+            PathogenDetectionRank::Superkingdom => TaxRank::Superkingdom,
+            PathogenDetectionRank::Phylum => TaxRank::Phylum,
+            PathogenDetectionRank::Class => TaxRank::Class,
+            PathogenDetectionRank::Order => TaxRank::Order,
+            PathogenDetectionRank::Family => TaxRank::Family,
+            PathogenDetectionRank::Genus => TaxRank::Genus,
+            PathogenDetectionRank::Species => TaxRank::Species,
+            PathogenDetectionRank::Strain => TaxRank::Strain,
+            _ => TaxRank::Unspecified,
         }
     }
 }
@@ -534,11 +635,31 @@ pub enum PathogenDetectionTool {
     Bracken,
     Sylph,
 }
+impl PathogenDetectionTool {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Kraken2 => "Kraken2".to_string(),
+            Self::Metabuli => "Metabuli".to_string(),
+            Self::Ganon2 => "Ganon2".to_string(),
+            Self::Kmcp => "Kmcp".to_string(),
+            Self::Bracken => "Bracken".to_string(),
+            Self::Sylph => "Sylph".to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PathogenDetectionMode {
     Sequence,
     Profile,
+}
+impl PathogenDetectionMode {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Sequence => "Sequence".to_string(),
+            Self::Profile => "Profile".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -1,5 +1,5 @@
 import { browser } from "$app/environment";
-import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type CerebroFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig } from "$lib/utils/types";
+import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig } from "$lib/utils/types";
 import { writable, type Writable } from "svelte/store";
 
 // Session based theme store. Grabs the current theme from the current body.
@@ -21,6 +21,9 @@ export const storeSettings: Writable<SessionSettings> = writable({
 export const selectedWorkflowConfiguration = writable<WorkflowConfig | null>(null);
 export const selectedModels = writable<Cerebro[]>([]);
 export const selectedIdentifiers = writable<string[]>([]);
+export const selectedWorkflowIdentifier = writable<string>("0"); // 0 = latest in loading function
+
+export const navigationLoading = writable<boolean | null>(null);
 
 
 const defaultClientFilterConfig: ClientFilterConfig = {
@@ -41,24 +44,14 @@ const defaultClientFilterConfig: ClientFilterConfig = {
     } satisfies ClientFilterMinimum
 }
 
-const defaultServerFilterConfig: CerebroFilterConfig = {
+const defaultServerFilterConfig: TaxonFilterConfig = {
     rank: PathogenDetectionRank.Genus,
-    domains: [],
-    tags: [],
-    // K-mer data
-    kmer_min_reads: 3,
-    kmer_databases: [],
-    // Scanning part of alignment pipelines
-    alignment_min_reads: 3,
-    alignment_min_bases: 0,
-    alignment_min_regions: 0,
-    alignment_min_coverage: 0,
-    // General alignment section of the pipeline
-    alignment_min_ref_length: 2000,
-    // LCA BLAST/Diamond on assembled contigs
-    assembly_min_contig_length: 200,
-    assembly_min_contig_identity: 60.0,
-    assembly_min_contig_coverage: 60.0
+    domains: [],            // Filter by domain names
+    tools: [],              // Filter by specific detection tools
+    modes: [],              // Filter by detection modes (Sequence/Profile)
+    min_reads: 0,           // Minimum read count for inclusion
+    min_rpm: 0.0,           // Minimum RPM for inclusion
+    min_abundance: 0,       // Minimum abundance for inclusion
 }
 
 
@@ -90,7 +83,7 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
 }
 
 export const selectedClientFilterConfig = writable<ClientFilterConfig>(defaultClientFilterConfig)
-export const selectedServerFilterConfig = writable<CerebroFilterConfig>(defaultServerFilterConfig)
+export const selectedServerFilterConfig = writable<TaxonFilterConfig>(defaultServerFilterConfig)
 export const selectedTaxonHighlightConfig = writable<TaxonHighlightConfig>(defaultTaxonHighlightConfig)
 export const selectedTaxa = writable<TaxonOverviewRecord[]>([])
 

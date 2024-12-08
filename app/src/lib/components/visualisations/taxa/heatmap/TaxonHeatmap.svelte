@@ -1,13 +1,14 @@
 <script lang="ts">
     import * as d3 from 'd3';
-    import { selectedTaxa, selectedServerFilterConfig, storeTheme } from '$lib/stores/stores';
-    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, PathogenDetectionMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName } from '$lib/utils/types';
+    import { selectedTaxa, selectedServerFilterConfig, storeTheme, navigationLoading } from '$lib/stores/stores';
+    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, PathogenDetectionMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName, FileTag, type Cerebro } from '$lib/utils/types';
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { page } from '$app/stores';
     import { getCssVariableAsHex } from '$lib/utils/helpers';
 
     const publicApi = new CerebroApi();
 
+    export let selectedModels: Cerebro[] = [];
     export let selectedIdentifiers: string[] = [];
     export let width: number = 1024;
     export let height: number = 768;
@@ -38,10 +39,10 @@
         [DomainName.Eukaryota, { start: '--color-secondary-100', end: '--color-secondary-900'}],
     ])   
 
-    const getAggregatedTaxa = async (selectedIdentifiers: string[], selectedTaxa: TaxonOverviewRecord[]) => {
+    const getAggregatedTaxa = async (selectedIdentifiers: string[], selectedTaxa: TaxonOverviewRecord[], dateRange: [string, string] | null = null) => {
         if (!selectedTaxa || selectedTaxa.length === 0) return;
 
-        loading = true;
+        navigationLoading.set(true);
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
             `${publicApi.routes.cerebro.taxa}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}&id=${selectedIdentifiers.join(",")}&overview=false&taxid=${selectedTaxa.map(taxon => taxon.taxid).join(",")}`,
@@ -55,7 +56,7 @@
             $page.data.refreshToken
         );
         
-        loading = false;
+        navigationLoading.set(false);
         
         if (response.ok) {
             taxa = response.json.data.taxa;
@@ -83,11 +84,57 @@
     }
 
 
+
     // Derive unique Detection IDs (columns)
     $: uniqueDetectionIds = Array.from(new Set(taxa.flatMap((taxon) => taxon.evidence.records.map((record) => record.id))));
 
     // Preserve order and append new columns
-    $: columnOrder = [...columnOrder, ...uniqueDetectionIds.filter((id) => !columnOrder.includes(id))];
+    // $: columnOrder = [...columnOrder, ...uniqueDetectionIds.filter((id) => !columnOrder.includes(id))];
+
+    $: {
+        
+        // Trigger so the order is dynamically computed when taxa are selected
+
+        if ($selectedTaxa && $selectedTaxa.length < 1) {
+            columnOrder = columnOrder
+        }
+        // Map column identifiers to their corresponding tags from the selectedModels
+        const columnTags = new Map<string, FileTag>();
+        selectedModels.forEach((model: Cerebro) => {
+            const tags = model.sample.tags;
+            tags.forEach((tag: any) => {
+                if (Object.values(FileTag).includes(tag as FileTag)) {
+                    columnTags.set(model.name, tag as FileTag);
+                }
+            });
+        });
+
+        // Filter uniqueDetectionIds into groups
+        const ntcAndEnvColumns = uniqueDetectionIds.filter(
+            (id) => columnTags.get(id) === FileTag.NTC || columnTags.get(id) === FileTag.ENV
+        );
+        const otherColumns = uniqueDetectionIds.filter(
+            (id) => !ntcAndEnvColumns.includes(id)
+        );
+
+        // Merge with existing columnOrder, ensuring all columns are included
+        const updatedColumnOrder = [
+            ...new Set([
+                ...ntcAndEnvColumns,
+                ...columnOrder.filter((id) => !ntcAndEnvColumns.includes(id) && !otherColumns.includes(id)),
+                ...otherColumns,
+            ]),
+        ];
+
+        // Insert a "gap" placeholder between the groups
+        const ntcAndEnvIndex = updatedColumnOrder.findIndex((id) => ntcAndEnvColumns.includes(id));
+        const lastNtcEnvIndex = updatedColumnOrder.lastIndexOf(ntcAndEnvColumns[ntcAndEnvColumns.length - 1]);
+        if (ntcAndEnvIndex !== -1 && lastNtcEnvIndex !== -1 && lastNtcEnvIndex + 1 < updatedColumnOrder.length) {
+            updatedColumnOrder.splice(lastNtcEnvIndex + 1, 0, "gap");
+        }
+
+        columnOrder = updatedColumnOrder;
+    }
 
     // Prepare data matrix for heatmap
     $: dataMatrix = rowOrder.flatMap((row) =>

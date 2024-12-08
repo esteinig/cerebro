@@ -4,7 +4,7 @@
 	import WorkflowSelection from "$lib/components/data/sample/selections/WorkflowSelection.svelte";
 	import SampleSelection from "$lib/components/data/sample/selections/SampleSelection.svelte";
     import QualityControl from "$lib/components/data/sample/QualityControl.svelte";
-	import type { Cerebro, CerebroFilterConfig, ClientFilterConfig, ClientFilterMinimum, ClientFilterModules, HighlightConfig, QualityControlSummary, TaxonHighlightConfig, WorkflowConfig } from "$lib/utils/types";
+	import { FileTag, type Cerebro, type WorkflowConfig } from "$lib/utils/types";
 	import CommentBox from "$lib/components/data/sample/CommentBox.svelte";
 	import { getToastStore, ListBox, ListBoxItem, SlideToggle } from "@skeletonlabs/skeleton";
     import type { ToastSettings } from "@skeletonlabs/skeleton";
@@ -20,6 +20,7 @@
         selectedWorkflowConfiguration,
         selectedModels,
         selectedIdentifiers,
+        selectedWorkflowIdentifier,
         selectedServerFilterConfig,
         selectedClientFilterConfig,
         selectedTaxonHighlightConfig
@@ -30,15 +31,26 @@
 
     let selectedView: string = "Quality Control";
 
-    let identifiers = $page.data.sampleCerebro?.length ? [$page.data.sampleCerebro[0].id] : [];
+	// Function to filter identifiers with the DNA tag
+	function getDNAIdentifiers(models: Cerebro[]): string[] {
+		return models
+			.filter((model) => model.sample.tags.includes(FileTag.DNA))
+			.map((model) => model.id);
+	};
 
-    let selectedWorkflowIdentifier: string = $page.data.requestedWorkflow;
+    let identifiers = getDNAIdentifiers([...$page.data.sampleCerebro, ...$page.data.controlCerebro]);
+    
+    identifiers = identifiers.length ? identifiers : [$page.data.sampleCerebro[0].id];
+
+    selectedWorkflowIdentifier.set($page.data.requestedWorkflow);
+
+
 
     $: {
         // Update the workflow configuration based on selected workflow
         selectedWorkflowConfiguration.set(
             $page.data.sampleWorkflows.find(
-                (workflow: WorkflowConfig) => workflow.id === selectedWorkflowIdentifier
+                (workflow: WorkflowConfig) => workflow.id === $selectedWorkflowIdentifier
             )
         );
         // Filter selected models based on selected sample identifiers
@@ -86,7 +98,7 @@
         <div class="w-full border border-primary-500 rounded-md p-4">
             <p class="mb-1"><span class="opacity-40">Workflows</span></p>
             <div class="mb-4 p-4 ">
-                <WorkflowSelection workflows={$page.data.sampleWorkflows} bind:selectedWorkflowIdentifier={selectedWorkflowIdentifier} />
+                <WorkflowSelection workflows={$page.data.sampleWorkflows} bind:selectedWorkflowIdentifier={$selectedWorkflowIdentifier} />
             </div>
             <p class="mb-1"><span class="opacity-40">Libraries</span></p>
             <div class="mb-4 p-4 text-sm">

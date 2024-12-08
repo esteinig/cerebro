@@ -245,17 +245,30 @@ pub struct SampleSheetArgs {
     /// Sample group - if not provided sample group designation is an empty string
     /// 
     /// Sample groups can be specified manually for larger runs containing
-    /// sampels from multiple experimental groups - these are later available
-    /// in the front-end application
-    #[clap(long, short = 's')]
+    /// samples from multiple experimental groups - these are later available
+    /// in the front-end application and therefore should have permission from
+    /// governance and ethics to store such types; please check your local 
+    /// regulartory framework for inclusion of this data type.
+    #[clap(long, short = 'g')]
     pub sample_group: Option<String>,
     /// Sample type - if not provided sample type designation is an empty string
     /// 
     /// Sample types can be specified manually for larger runs containing
-    /// sampels from multiple biological sources- these are later available
-    /// in the front-end application
+    /// samples from multiple biological sources- these are later available
+    /// in the front-end application and therefore should have permission from
+    /// governance and ethics to store such types; please check your local 
+    /// regulartory framework for inclusion of this data type.
     #[clap(long, short = 't')]
     pub sample_type: Option<String>,
+    /// Sample date - if not provided sample date designation is an empty string
+    /// 
+    /// Sample dates can be specified manually for larger runs containing
+    /// samples from multiple biological sources- these are later available
+    /// in the front-end application and therefore should have permission from
+    /// governance and ethics to store such types; please check your local 
+    /// regulartory framework for inclusion of this data type.
+    #[clap(long, short = 's')]
+    pub sample_date: Option<String>,
     /// ERCC input mass in picogram - if not provided input mass is 0
     /// 
     /// In the validation experiments, we test different input masses per sample.

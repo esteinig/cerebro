@@ -104,6 +104,7 @@ fn main() -> anyhow::Result<()> {
                         args.ont, 
                         args.run_id.clone(), 
                         args.run_date.clone(),
+                        args.sample_date.clone(),
                         args.sample_group.clone(),
                         args.sample_type.clone(),
                         args.ercc_input,

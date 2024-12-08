@@ -1301,7 +1301,7 @@ export type PriorityTaxon = {
     cerebro_identifiers: Array<string>,
     taxon_type: string,
     taxon_overview: TaxonOverview,
-    filter_config: CerebroFilterConfig,
+    filter_config: TaxonFilterConfig,
     decisions: Array<PriorityTaxonDecision>
 };
 
@@ -1313,7 +1313,7 @@ export type PriorityTaxonSchema = {
     cerebro_identifiers: Array<string>,
     taxon_type: PriorityTaxonType,
     taxon_overview: TaxonOverview,
-    filter_config: CerebroFilterConfig,
+    filter_config: TaxonFilterConfig,
     decisions: Array<PriorityTaxonDecision>
 };
 
@@ -1423,20 +1423,14 @@ export enum PathogenDetectionRank {
     Family = "Family"
 }
 
-export type CerebroFilterConfig = {  // ADD WORKFLOW ID
-    rank: PathogenDetectionRank | null,
-    domains: Array<string>,
-    tags: Array<string>,
-    kmer_min_reads: number,
-    kmer_databases: Array<string>,
-    alignment_min_reads: number,
-    alignment_min_bases: number,
-    alignment_min_regions: number,
-    alignment_min_coverage: number,
-    alignment_min_ref_length: number,
-    assembly_min_contig_length: number,
-    assembly_min_contig_identity: number
-    assembly_min_contig_coverage: number
+export type TaxonFilterConfig = {  // ADD WORKFLOW ID
+    rank: PathogenDetectionRank | null, // Filter by specific taxonomic rank
+    domains: Array<string>,            // Filter by domain names
+    tools: Array<string>,              // Filter by specific detection tools
+    modes: Array<string>,              // Filter by detection modes (Sequence/Profile)
+    min_reads: number,                 // Minimum read count for inclusion
+    min_rpm: number,                   // Minimum RPM for inclusion
+    min_abundance: number,             // Minimum abundance for inclusion
 }
 
 // Client-side selection of taxa
@@ -1946,7 +1940,7 @@ export enum FileTag {
     RNA = "RNA",
     POS = "POS",
     NEG = "NEG",
-    TMP = "TMP",
+    NTC = "NTC",
     ENV = "ENV",
     HOST = "HOST"
 }
