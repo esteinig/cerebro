@@ -23,6 +23,8 @@
 use std::fs::create_dir_all;
 use std::time::Duration;
 
+use cerebro::stack::deploy::StackConfigError;
+use cerebro::stack::deploy::StackConfigTemplate;
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -41,7 +43,7 @@ use cerebro::utils::init_logger;
 use cerebro::terminal::{App, Commands, StackCommands};
 
 
-fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<(), StackConfigError> {
 
     init_logger();
 
@@ -53,13 +55,33 @@ fn main() -> anyhow::Result<()> {
             match subcommand {
                 StackCommands::Deploy( args ) => {
                     
-                    let mut stack = cerebro::stack::deploy::StackConfig::from_toml(&args.config)?;
+                    let mut stack = match (&args.config, &args.config_file) {
+                        (Some(template), None) => {
+                            
+                            match template {
+                                StackConfigTemplate::Localhost => {
+                                    cerebro::stack::deploy::StackConfig::default_localhost_from_args(args, args.interactive)?
+                                },
+                                StackConfigTemplate::Web => {
+                                    cerebro::stack::deploy::StackConfig::default_web_from_args(args, args.interactive)?
+                                }
+                            }
+                        },
+                        (_, Some(path)) => {
+                            cerebro::stack::deploy::StackConfig::from_toml(path)?
+                        },
+                        _ => return Err(StackConfigError::StackBaseConfigNotProvided)
+                    };
+
 
                     stack.configure( 
+                        &args.name,
                         &args.outdir, 
                         args.dev, 
                         args.subdomain.clone(), 
                         args.trigger, 
+                        // On-the-fly changes to configuration file from command-line
+                        // usually when using pre-constructed configuration files
                         args.fs_primary.clone(), 
                         args.fs_secondary.clone()
                     )?;
@@ -70,7 +92,7 @@ fn main() -> anyhow::Result<()> {
                         args.revision.clone()
                     )?;
                 },
-                StackCommands::HashPassword( args ) => {
+                StackCommands::Hash( args ) => {
                     println!("{}", hash_password(&args.password)?);
                 },  
             }

@@ -410,7 +410,7 @@ impl PathogenDetection {
         }
 
 
-        // Process Ganon profile reports
+        // Process Ganon abundance reports
         if let Some(ganon_abundance) = &output.profile.ganon_abundance {
             for record in &ganon_abundance.records {
                 let taxid = record.taxid.trim().to_string();

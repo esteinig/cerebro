@@ -4,14 +4,14 @@
 
 use argon2::{password_hash::SaltString, PasswordHasher, Argon2};
 use rand_core::OsRng;
-use crate::tools::error::ToolError;
+use crate::stack::deploy::StackConfigError;
 
-pub fn hash_password(pwd: &String) -> Result<String, ToolError> {
+pub fn hash_password(pwd: &str) -> Result<String, StackConfigError> {
 
     let salt = SaltString::generate(&mut OsRng);
     let hashed_password = Argon2::default()
         .hash_password(pwd.as_bytes(), &salt)
-        .map_err(|_| ToolError::PasswordNotHashed)?
+        .map_err(|_| StackConfigError::PasswordNotHashed)?
         .to_string();
 
     Ok(hashed_password)

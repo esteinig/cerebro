@@ -20,7 +20,7 @@ team_database_logs_collection       = 'logs'
 team_database_reports_collection    = 'reports'
 team_database_files_collection      = 'files'
 team_database_stage_collection      = 'stage'
-team_database_watcher_collection    = 'watchers'
+team_database_watchers_collection   = 'watchers'
 team_database_pipelines_collection  = 'pipelines'
 
 [security.components]

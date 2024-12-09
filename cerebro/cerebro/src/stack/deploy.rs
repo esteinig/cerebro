@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize, Deserializer};
 use base64::{engine::general_purpose, Engine as _};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey};
 
+use rprompt::prompt_reply;
+use rpassword::prompt_password;
+
+use crate::terminal::StackDeployArgs;
 use crate::utils::CRATE_VERSION;
 
 use crate::stack::assets::{MongoInitTemplates, DockerTemplates, TraefikTemplates, CerebroTemplates};
@@ -73,6 +77,12 @@ pub enum StackConfigError {
     RsaPublicKeyPemNotGenerated(#[from] rsa::pkcs8::spki::Error),
     #[error("failed to parse template server configuration file")]
     CerebroServerConfigNotParsed(#[from] cerebro_model::api::config::ConfigError),
+    #[error("failed to hash password")]
+    PasswordNotHashed,
+    #[error("failed to provide config template (--config) or file (--config-file)")]
+    StackBaseConfigNotProvided,
+    #[error("Missing required argument: {0}")]
+    MissingArgument(String),
 }
 
 fn write_embedded_file(embedded_file: &EmbeddedFile, outfile: &PathBuf) -> Result<(), StackConfigError> {
@@ -286,6 +296,48 @@ pub struct MongoDbConfig {
     #[serde(skip_deserializing)]
     pub cerebro_admin_password_hashed: String,     
 }
+impl MongoDbConfig {
+    pub fn default_localhost(
+        root_username: &str,
+        root_password: &str,
+        admin_username: &str,
+        admin_password: &str,
+        cerebro_admin_email: &str,
+        cerebro_admin_name: &str,
+        cerebro_admin_password: &str
+    ) -> Self {
+        Self { 
+            root_username: root_username.to_string(), 
+            root_password: root_password.to_string(), 
+            admin_username: admin_username.to_string(), 
+            admin_password: admin_password.to_string(), 
+            cerebro_admin_email: cerebro_admin_email.to_string(), 
+            cerebro_admin_name: cerebro_admin_name.to_string(), 
+            cerebro_admin_password: cerebro_admin_password.to_string(), 
+            cerebro_admin_password_hashed: String::new(),
+        }
+    }
+    pub fn default_web(
+        root_username: &str,
+        root_password: &str,
+        admin_username: &str,
+        admin_password: &str,
+        cerebro_admin_email: &str,
+        cerebro_admin_name: &str,
+        cerebro_admin_password: &str
+    ) -> Self {
+        Self { 
+            root_username: root_username.to_string(), 
+            root_password: root_password.to_string(), 
+            admin_username: admin_username.to_string(), 
+            admin_password: admin_password.to_string(), 
+            cerebro_admin_email: cerebro_admin_email.to_string(), 
+            cerebro_admin_name: cerebro_admin_name.to_string(), 
+            cerebro_admin_password: cerebro_admin_password.to_string(), 
+            cerebro_admin_password_hashed: String::new()
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Clone)]
 pub enum TraefikDeployment {
@@ -315,6 +367,70 @@ pub struct TraefikConfig {
     pub web: TraefikWebConfig,
     #[serde(skip_deserializing)]
     pub is_localhost: bool,
+}
+impl TraefikConfig {
+    pub fn default_localhost(launch: bool) -> Self {
+        Self {
+            deploy: TraefikDeployment::Localhost,
+            launch,
+            is_localhost: true,
+            subdomain: TraefikSubdomain { 
+                app: "app".to_string(), 
+                api: "api".to_string(), 
+                router: TraefikSubdomainRouter { 
+                    app: String::new() , 
+                    api: String::new() 
+                }
+            },
+            network: TraefikNetwork { 
+                name: "proxy".to_string(), 
+                external: true, 
+            },
+            localhost: TraefikLocalhostConfig { 
+                tls: false, 
+                domain: "cerebro.localhost".to_string(), 
+                entrypoint: "http".to_string(),
+            },
+            web: TraefikWebConfig {
+                email: String::new(),
+                domain: String::new(),
+                username: String::new(),
+                password: String::new(),
+                password_hashed: String::new()
+            }
+        }
+    }
+    pub fn default_web(launch: bool, email: &str, domain: &str, username: &str, password: &str) -> Self {
+        Self {
+            deploy: TraefikDeployment::Web,
+            launch,
+            is_localhost: false,
+            subdomain: TraefikSubdomain { 
+                app: "app-dev".to_string(), 
+                api: "api-dev".to_string(), 
+                router: TraefikSubdomainRouter { 
+                    app: String::new() , 
+                    api: String::new() 
+                }
+            },
+            network: TraefikNetwork { 
+                name: "proxy".to_string(), 
+                external: true, 
+            },
+            localhost: TraefikLocalhostConfig { 
+                tls: false, 
+                domain: "cerebro.localhost".to_string(), 
+                entrypoint: "http".to_string(),
+            },
+            web: TraefikWebConfig {
+                email: email.to_string(),
+                domain: domain.to_string(),
+                username: username.to_string(),
+                password: password.to_string(),
+                password_hashed: String::new()
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -363,6 +479,54 @@ pub struct CerebroConfig {
     pub smtp: SmtpConfig,
     #[serde(skip_deserializing)]  // internal config
     pub app: AppConfig,
+}
+impl CerebroConfig {
+    pub fn default_localhost() -> Self {
+        Self {
+            components: SecurityComponentsConfig { 
+                email: true, 
+                comments: true, 
+                annotation: true, 
+                report_header: true 
+            },
+            smtp: SmtpConfig { 
+                host: String::new(), 
+                port: 0, 
+                username: String::new(), 
+                password: String::new(), 
+                from: String::new() 
+            },
+            app: AppConfig { 
+                public_cerebro_api_url: String::new(), 
+                private_cerebro_api_access_max_age: 360, 
+                private_cerebro_api_access_cookie_secure: true, 
+                private_cerebro_api_access_cookie_domain: String::new() 
+            }
+        }
+    }
+    pub fn default_web() -> Self {
+        Self {
+            components: SecurityComponentsConfig { 
+                email: true, 
+                comments: true, 
+                annotation: true, 
+                report_header: true 
+            },
+            smtp: SmtpConfig { 
+                host: String::new(), 
+                port: 0, 
+                username: String::new(), 
+                password: String::new(), 
+                from: String::new() 
+            },
+            app: AppConfig { 
+                public_cerebro_api_url: String::new(), 
+                private_cerebro_api_access_max_age: 360, 
+                private_cerebro_api_access_cookie_secure: true, 
+                private_cerebro_api_access_cookie_domain: String::new() 
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -434,6 +598,24 @@ pub struct DataCenterConfig {
     pub rack: String,
     pub path: PathBuf 
 }
+impl DataCenterConfig {
+    pub fn default_primary(path: &PathBuf) -> Self {
+        Self {
+            enabled: true,
+            center: "primary".to_string(),
+            rack: "dev".to_string(),
+            path: path.to_path_buf()
+        }
+    }
+    pub fn default_secondary(path: &PathBuf) -> Self {
+        Self {
+            enabled: true,
+            center: "secondary".to_string(),
+            rack: "dev".to_string(),
+            path: path.to_path_buf()
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSystemConfig {
@@ -449,6 +631,24 @@ impl Default for FileSystemConfig {
             replication: String::from("100"),
             primary: None,
             secondary: None
+        }
+    }
+}
+impl FileSystemConfig {
+    pub fn default_localhost(fs_primary: &PathBuf, fs_secondary: &PathBuf) -> Self {
+        Self {
+            enabled: true,
+            replication: String::from("100"),
+            primary: Some(DataCenterConfig::default_primary(fs_primary)),
+            secondary: Some(DataCenterConfig::default_secondary(fs_secondary)),
+        }
+    }
+    pub fn default_web() -> Self {
+        Self {
+            enabled: false,
+            replication: String::from("100"),
+            primary: None,
+            secondary: None,
         }
     }
 }
@@ -473,6 +673,12 @@ pub fn write_rendered_template(buf: &[u8], path: &PathBuf) -> Result<(), StackCo
     file.write_all(buf).map_err(|err| StackConfigError::TemplateRenderFileNotWritten(err))
 }
 
+
+#[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
+pub enum StackConfigTemplate {
+    Localhost,
+    Web
+}
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -524,13 +730,201 @@ impl StackConfig {
         let config = toml::to_string_pretty(&self).map_err(|err| StackConfigError::ConfigFileNotSerialized(err))?;
         std::fs::write(path, config).map_err(|_| StackConfigError::ConfigFileOutputInvalid)
     }
-    pub fn default_localhost(
-    ) -> () {
+    fn get_or_prompt(
+        value: Option<&String>,
+        arg_name: &str,
+        interactive: bool,
+    ) -> Result<String, StackConfigError> {
+        if let Some(v) = value {
+            Ok(v.clone())
+        } else if interactive {
+            let input = prompt_reply(&format!("Enter value for {}: ", arg_name))
+                .map_err(|_| StackConfigError::MissingArgument(arg_name.to_string()))?;
+            Ok(input)
+        } else {
+            Err(StackConfigError::MissingArgument(arg_name.to_string()))
+        }
+    }
 
+    fn get_or_prompt_hidden(
+        value: Option<&String>,
+        arg_name: &str,
+        interactive: bool,
+    ) -> Result<String, StackConfigError> {
+        if let Some(v) = value {
+            Ok(v.clone())
+        } else if interactive {
+            let input = prompt_password(&format!("Enter value for {}: ", arg_name))
+                .map_err(|_| StackConfigError::MissingArgument(arg_name.to_string()))?;
+            Ok(input)
+        } else {
+            Err(StackConfigError::MissingArgument(arg_name.to_string()))
+        }
+    }
+
+    fn get_path_or_prompt(
+        value: Option<&PathBuf>,
+        arg_name: &str,
+        interactive: bool,
+    ) -> Result<PathBuf, StackConfigError> {
+        if let Some(p) = value {
+            Ok(p.clone())
+        } else if interactive {
+            let input = prompt_reply(&format!("Enter path for {}: ", arg_name))
+                .map_err(|_| StackConfigError::MissingArgument(arg_name.to_string()))?;
+            Ok(PathBuf::from(input))
+        } else {
+            Err(StackConfigError::MissingArgument(arg_name.to_string()))
+        }
+    }
+
+    pub fn default_localhost_from_args(
+        args: &StackDeployArgs,
+        interactive: bool,
+    ) -> Result<Self, StackConfigError> {
+        let root_username = Self::get_or_prompt(args.db_root_username.as_ref(), "--db-root-username", interactive)?;
+        let root_password = Self::get_or_prompt_hidden(args.db_root_password.as_ref(), "--db-root-password", interactive)?;
+        let admin_username = Self::get_or_prompt(args.db_admin_username.as_ref(), "--db-admin-username", interactive)?;
+        let admin_password = Self::get_or_prompt_hidden(args.db_admin_password.as_ref(), "--db-admin-password", interactive)?;
+        let cerebro_admin_email = Self::get_or_prompt(args.cerebro_admin_email.as_ref(), "--cerebro-admin-email", interactive)?;
+        let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
+        let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
+        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive)?;
+        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive)?;
+
+        Ok(Self::default_localhost(
+            &root_username,
+            &root_password,
+            &admin_username,
+            &admin_password,
+            &cerebro_admin_email,
+            &cerebro_admin_name,
+            &cerebro_admin_password,
+            &fs_primary,
+            &fs_secondary,
+            args.dev,
+        ))
+    }
+
+    pub fn default_web_from_args(
+        args: &StackDeployArgs,
+        interactive: bool,
+    ) -> Result<Self, StackConfigError> {
+        let root_username = Self::get_or_prompt(args.db_root_username.as_ref(), "--db-root-username", interactive)?;
+        let root_password = Self::get_or_prompt_hidden(args.db_root_password.as_ref(), "--db-root-password", interactive)?;
+        let admin_username = Self::get_or_prompt(args.db_admin_username.as_ref(), "--db-admin-username", interactive)?;
+        let admin_password = Self::get_or_prompt_hidden(args.db_admin_password.as_ref(), "--db-admin-password", interactive)?;
+        let cerebro_admin_email = Self::get_or_prompt(args.cerebro_admin_email.as_ref(), "--cerebro-admin-email", interactive)?;
+        let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
+        let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
+        let traefik_email = Self::get_or_prompt(args.traefik_domain.as_ref(), "--traefik-domain", interactive)?;
+        let traefik_domain = Self::get_or_prompt(args.traefik_domain.as_ref(), "--traefik-domain", interactive)?;
+        let traefik_username = Self::get_or_prompt(args.traefik_username.as_ref(), "--traefik-username", interactive)?;
+        let traefik_password = Self::get_or_prompt_hidden(args.traefik_password.as_ref(), "--traefik-password", interactive)?;
+
+        Ok(Self::default_web(
+            &root_username,
+            &root_password,
+            &admin_username,
+            &admin_password,
+            &cerebro_admin_email,
+            &cerebro_admin_name,
+            &cerebro_admin_password,
+            args.dev,
+            &traefik_email,
+            &traefik_domain,
+            &traefik_username,
+            &traefik_password,
+        ))
+    }
+    pub fn default_localhost(
+        root_username: &str, 
+        root_password: &str, 
+        admin_username: &str, 
+        admin_password: &str, 
+        cerebro_admin_email: &str, 
+        cerebro_admin_name: &str, 
+        cerebro_admin_password: &str,
+        fs_primary: &PathBuf,
+        fs_secondary: &PathBuf,
+        traefik_launch: bool,
+    ) -> Self {
+
+        log::info!("Creating default localhost deployment template");
+
+        Self {
+
+            // Configured during configuration process
+            name: String::new(),
+            outdir: PathBuf::new(),
+            dev: false,
+            trigger: false,
+            revision: CRATE_VERSION.to_string(),
+
+            cerebro: CerebroConfig::default_localhost(),
+            mongodb: MongoDbConfig::default_localhost(
+                root_username, 
+                root_password, 
+                admin_username, 
+                admin_password, 
+                cerebro_admin_email, 
+                cerebro_admin_name, 
+                cerebro_admin_password
+            ),
+            traefik: TraefikConfig::default_localhost(
+                traefik_launch
+            ),
+            fs: FileSystemConfig::default_localhost(
+                fs_primary, 
+                fs_secondary
+            )
+        }
     }
     pub fn default_web(
-    ) -> () {
+        root_username: &str, 
+        root_password: &str, 
+        admin_username: &str, 
+        admin_password: &str, 
+        cerebro_admin_email: &str, 
+        cerebro_admin_name: &str, 
+        cerebro_admin_password: &str,
+        traefik_launch: bool,
+        traefik_email: &str,
+        traefik_domain: &str,
+        traefik_username: &str,
+        traefik_password: &str,
+    ) -> Self {
         
+        log::info!("Creating default web deployment template");
+
+        Self {
+
+            // Configured during configuration process
+            name: String::new(),
+            outdir: PathBuf::new(),
+            dev: false,
+            trigger: false,
+            revision: CRATE_VERSION.to_string(),
+
+            cerebro: CerebroConfig::default_web(),
+            mongodb: MongoDbConfig::default_web(
+                root_username, 
+                root_password, 
+                admin_username, 
+                admin_password, 
+                cerebro_admin_email, 
+                cerebro_admin_name, 
+                cerebro_admin_password
+            ),
+            traefik: TraefikConfig::default_web(
+                traefik_launch,
+                traefik_email,
+                traefik_domain,
+                traefik_username,
+                traefik_password,
+            ),
+            fs: FileSystemConfig::default_web()
+        }
     }
     pub fn create_certs_and_keys(&self, dir_tree: &StackConfigTree) -> Result<TokenEncryptionConfig, StackConfigError> {
 
@@ -596,6 +990,7 @@ impl StackConfig {
     }
     pub fn configure(
         &mut self, 
+        name: &str,
         outdir: &PathBuf, 
         dev: bool, 
         subdomain: Option<String>, 
@@ -604,13 +999,7 @@ impl StackConfig {
         fs_secondary: Option<PathBuf>
     ) -> Result<(), StackConfigError> {
 
-        self.name = match outdir.file_name() {
-            Some(os_str) => match os_str.to_str() {
-                Some(dir_name) => dir_name.to_string(),
-                None => return Err(StackConfigError::ProjectNameInvalid)
-            },
-            None => return Err(StackConfigError::ProjectNameInvalid)
-        };
+        self.name = name.to_string();
         log::info!("Initiate server configuration: {}", self.name);
 
         self.dev = dev;
@@ -625,18 +1014,22 @@ impl StackConfig {
                     return Err(StackConfigError::PrimaryDataCenterMissing)
                 },
                 Some(dc) => {
-                    log::info!("Primary datacenter configured (center: {}, rack: {})", dc.center, dc.rack);
+                    log::info!("Primary data center configured (center: {}, rack: {})", dc.center, dc.rack);
                     if !dc.path.exists() || !dc.path.is_dir() {
                         log::info!("Creating primary datacenter path: {}", dc.path.display());
                         create_dir_all(&dc.path).map_err(|_| StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned()))?;
+                    } else {
+                        log::warn!("Primary data center path exists or is not a directory - skipping creation, please ensure this is addressed")
                     }
                 }
             }
             if let Some(dc) = &self.fs.secondary {
                 log::info!("Secondary datacenter configured (center: {}, rack: {})", dc.center, dc.rack);
                 if !dc.path.exists() || !dc.path.is_dir() {
-                    log::info!("Creating primary datacenter path: {}", dc.path.display());
+                    log::info!("Creating secondary data center path: {}", dc.path.display());
                     create_dir_all(&dc.path).map_err(|_| StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned()))?;
+                } else {
+                    log::warn!("Secondary data center path exists or is not a directory - skipping creation, please ensure this is addressed")
                 }
             }
         }
@@ -662,6 +1055,7 @@ impl StackConfig {
         self.traefik.subdomain.router.app = uuid::Uuid::new_v4().to_string();
 
         log::info!("Read default server configuration");
+        
         // Read the default server template configuration
         let mut server_config = cerebro_model::api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
             .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;

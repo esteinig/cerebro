@@ -1,10 +1,7 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
-use cerebro_pipeline::terminal::Commands as WorkflowCommands;
-use cerebro_report::terminal::Commands as ReportCommands;
-use cerebro_client::terminal::Commands as ClientCommands;
-use cerebro_watcher::terminal::Commands as WatcherCommands;
+use crate::stack::deploy::StackConfigTemplate;
 
 /// Cerebro: metagenomic diagnostic for clinical production
 #[derive(Debug, Parser)]
@@ -13,83 +10,12 @@ use cerebro_watcher::terminal::Commands as WatcherCommands;
 #[command(arg_required_else_help(true))]
 #[clap(name = "cerebro", version)]
 pub struct App {
-    /// API URL
-    #[clap(
-        long, 
-        short = 'u', 
-        default_value = "http://api.cerebro.localhost", 
-        env = "CEREBRO_API_URL"
-    )]
-    pub url: String,
-    /// API token - usually provided with CEREBRO_API_TOKEN
-    #[clap(
-        long, 
-        short = 'e', 
-        env = "CEREBRO_API_TOKEN",
-        hide_env_values = true
-    )]
-    pub token: Option<String>,
-    /// API token file - can be set from environment variable
-    #[clap(
-        long, 
-        short = 'f', 
-        env = "CEREBRO_API_TOKEN_FILE"
-    )]
-    pub token_file: Option<PathBuf>,
-    /// User team name or identifier for requests that require team specification 
-    #[clap(
-        long, 
-        short = 't', 
-        env = "CEREBRO_USER_TEAM",
-        hide_env_values = true
-    )]
-    pub team: Option<String>,
-    /// SSL certificate verification is ignored [DANGER]
-    #[clap(
-        long, 
-        env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE"
-    )]
-    /// SeaweedFS master node address
-    #[clap(
-        long, 
-        short = 's', 
-        default_value = "http://fs.cerebro.localhost", 
-        env = "CEREBRO_FS_URL"
-    )]
-    pub fs_url: String,
-    /// SeaweedFS master node port
-    #[clap(
-        long, 
-        short = 'p',
-        env = "CEREBRO_FS_PORT",
-        default_value = "9333", 
-    )]
-    pub fs_port: String,
-    /// SSL certificate verification is ignored [DANGER]
-    #[clap(
-        long, 
-        env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE"
-    )]
-    pub danger_invalid_certificate: bool,
-
     #[clap(subcommand)]
     pub command: Commands,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    #[clap(subcommand)]
-    /// File system watchers
-    Watcher(WatcherCommands),
-    #[clap(subcommand)]
-    /// Workflow processing
-    Workflow(WorkflowCommands),
-    #[clap(subcommand)]
-    /// API terminal client
-    Client(ClientCommands),
-    #[clap(subcommand)]
-    /// Report compiler
-    Report(ReportCommands),
     #[clap(subcommand)]
     /// Stack configuration and deployment
     Stack(StackCommands),
@@ -107,14 +33,29 @@ pub enum StackCommands {
     /// Deploy a stack configuration from file
     Deploy(StackDeployArgs),
     /// Hash a password using the stack hash function
-    HashPassword(StackHashPasswordArgs)
+    Hash(StackHashPasswordArgs)
 }   
 
 #[derive(Debug, Args)]
 pub struct StackDeployArgs {
+
+    /// Stack configuration name
+    #[clap(long, short = 'n', env = "CEREBRO_STACK_CONFIG_NAME")]
+    pub name: String,
+    /// Configured stack output directory
+    #[clap(long, short = 'o', env = "CEREBRO_STACK_CONFIG_DIR")]
+    pub outdir: PathBuf,
+    /// Stack configuration template
+    #[clap(long, short = 'c', env = "CEREBRO_STACK_CONFIG_TEMPLATE")]
+    pub config: Option<StackConfigTemplate>,
     /// Stack configuration file (.toml)
-    #[clap(long, short = 'c', env = "CEREBRO_STACK_CONFIG_FILE")]
-    pub config: PathBuf,
+    #[clap(long, short = 'f', env = "CEREBRO_STACK_CONFIG_FILE")]
+    pub config_file: Option<PathBuf>,
+    /// Deploy a configuration from template with interactive 
+    /// prompts to fill in required arguments like admin username,
+    /// email and passwords if not provided on the command-line
+    #[clap(long, short = 'i')]
+    pub interactive: bool,
     /// Deploy for local development with hot-reloads (unsafe in production)
     #[clap(long, short = 'd')]
     pub dev: bool,
@@ -125,9 +66,6 @@ pub struct StackDeployArgs {
     /// `Cargo.toml` for hot-rebuilds during development
     #[clap(long, short = 't')]
     pub trigger: bool,
-    /// Configured stack output directory
-    #[clap(long, short = 'o', env = "CEREBRO_STACK_CONFIG_DIR")]
-    pub outdir: PathBuf,
     /// Clone the specific branch for this repository
     #[clap(long, short = 'b')]
     pub branch: Option<String>,
@@ -141,17 +79,45 @@ pub struct StackDeployArgs {
     /// for example to `app.dev.cerebro.localhost` or `app.demo.cerebro.localhost`
     #[clap(long, short = 's')]
     pub subdomain: Option<String>,
-
     /// Public or SSH-like repository URL for cloning into deployment
     #[clap(long, short = 'u', env = "CEREBRO_STACK_GIT_REPO_URL", default_value="git@github.com:esteinig/cerebro.git")]
     pub git_url: String,
-
     /// Primary file system path if using Cerebro FS
     #[clap(long)]
     pub fs_primary: Option<PathBuf>,
     /// Secondary file system path if using Cerebro FS
     #[clap(long)]
     pub fs_secondary: Option<PathBuf>,
+    /// Database root username
+    #[clap(long)]
+    pub db_root_username: Option<String>,
+    /// Database root password
+    #[clap(long)]
+    pub db_root_password: Option<String>,
+    /// Database admin username
+    #[clap(long)]
+    pub db_admin_username: Option<String>,
+    /// Database admin password
+    #[clap(long)]
+    pub db_admin_password: Option<String>,
+    /// Cerebro admin email for admin login
+    #[clap(long)]
+    pub cerebro_admin_email: Option<String>,
+    /// Cerebro admin password for admin login
+    #[clap(long)]
+    pub cerebro_admin_password: Option<String>,
+    /// Cerebro admin full name for admin profile
+    #[clap(long)]
+    pub cerebro_admin_name: Option<String>,
+    /// Email name used in domain registration used to configure Traefik
+    #[clap(long)]
+    pub traefik_domain: Option<String>,
+    /// User name for Traefik web dashboard (BasicAuth)
+    #[clap(long)]
+    pub traefik_username: Option<String>,
+    /// User password for Traefik web dashboard (BasicAuth)
+    #[clap(long)]
+    pub traefik_password: Option<String>,
 }
 
 #[derive(Debug, Args)]
