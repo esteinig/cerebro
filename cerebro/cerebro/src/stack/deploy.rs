@@ -817,7 +817,7 @@ impl StackConfig {
         let cerebro_admin_email = Self::get_or_prompt(args.cerebro_admin_email.as_ref(), "--cerebro-admin-email", interactive)?;
         let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
         let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
-        let traefik_email = Self::get_or_prompt(args.traefik_domain.as_ref(), "--traefik-domain", interactive)?;
+        let traefik_email = Self::get_or_prompt(args.traefik_email.as_ref(), "--traefik-email", interactive)?;
         let traefik_domain = Self::get_or_prompt(args.traefik_domain.as_ref(), "--traefik-domain", interactive)?;
         let traefik_username = Self::get_or_prompt(args.traefik_username.as_ref(), "--traefik-username", interactive)?;
         let traefik_password = Self::get_or_prompt_hidden(args.traefik_password.as_ref(), "--traefik-password", interactive)?;
@@ -1055,7 +1055,7 @@ impl StackConfig {
         self.traefik.subdomain.router.app = uuid::Uuid::new_v4().to_string();
 
         log::info!("Read default server configuration");
-        
+
         // Read the default server template configuration
         let mut server_config = cerebro_model::api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
             .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;

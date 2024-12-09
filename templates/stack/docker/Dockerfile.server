@@ -46,7 +46,7 @@ RUN chown -R cerebro-api:cerebro-api /usr/src/cerebro
 {{#unless dev}}
 RUN chown -R cerebro-api:cerebro-api /opt/cerebro
 WORKDIR /opt/cerebro
-{{/unless}}
+{{/unlessls}}
 
 # Switch to non-root user
 USER cerebro-api

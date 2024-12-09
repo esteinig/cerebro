@@ -109,9 +109,12 @@ pub struct StackDeployArgs {
     /// Cerebro admin full name for admin profile
     #[clap(long)]
     pub cerebro_admin_name: Option<String>,
-    /// Email name used in domain registration used to configure Traefik
+    /// Domain name for deployment with Traefik
     #[clap(long)]
     pub traefik_domain: Option<String>,
+    /// Email name used in domain registration
+    #[clap(long)]
+    pub traefik_email: Option<String>,
     /// User name for Traefik web dashboard (BasicAuth)
     #[clap(long)]
     pub traefik_username: Option<String>,
