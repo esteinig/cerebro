@@ -106,6 +106,10 @@ pub struct WatchArgs {
     #[clap(long, short = 'd')]
     pub databases: PathBuf,
 
+    /// Configuration profiles to run pipeline
+    #[clap(long, short = 'p', num_args(0..))]
+    pub profile: Vec<String>,
+
     /// Working directory for pipeline executions
     #[clap(long, short = 'w', default_value=".")]
     pub workdir: PathBuf,

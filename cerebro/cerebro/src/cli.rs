@@ -62,6 +62,10 @@ fn main() -> anyhow::Result<(), StackConfigError> {
                                 StackConfigTemplate::Localhost => {
                                     cerebro::stack::deploy::StackConfig::default_localhost_from_args(args, args.interactive)?
                                 },
+                                StackConfigTemplate::LocalhostInsecure => {
+                                    log::warn!("Insecure deployment on localhost using standard root and admin user credentials for MongoDB (root:root, admin:admin) and Cerebro (admin@cerebro:admin)");
+                                    cerebro::stack::deploy::StackConfig::default_localhost_insecure_from_args(args, args.interactive)?
+                                },
                                 StackConfigTemplate::Web => {
                                     cerebro::stack::deploy::StackConfig::default_web_from_args(args, args.interactive)?
                                 }

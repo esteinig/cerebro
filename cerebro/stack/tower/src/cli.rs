@@ -36,6 +36,7 @@ async fn main() -> Result<()> {
                 &args.config, 
                 &args.workdir, 
                 &args.databases,
+                &args.profile,
                 args.cleanup
             ).await?;
 

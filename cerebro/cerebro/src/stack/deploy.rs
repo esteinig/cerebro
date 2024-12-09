@@ -677,6 +677,7 @@ pub fn write_rendered_template(buf: &[u8], path: &PathBuf) -> Result<(), StackCo
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum StackConfigTemplate {
     Localhost,
+    LocalhostInsecure,
     Web
 }
 
@@ -802,7 +803,28 @@ impl StackConfig {
             &cerebro_admin_password,
             &fs_primary,
             &fs_secondary,
-            args.dev,
+            false,
+        ))
+    }
+    pub fn default_localhost_insecure_from_args(
+        args: &StackDeployArgs,
+        interactive: bool,
+    ) -> Result<Self, StackConfigError> {
+
+        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive)?;
+        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive)?;
+
+        Ok(Self::default_localhost(
+            "root",
+            "root",
+            "admin",
+            "admin",
+            "admin@cerebro",
+            "Administrator",
+            "admin",
+            &fs_primary,
+            &fs_secondary,
+            false,
         ))
     }
 
@@ -830,7 +852,7 @@ impl StackConfig {
             &cerebro_admin_email,
             &cerebro_admin_name,
             &cerebro_admin_password,
-            args.dev,
+            false,
             &traefik_email,
             &traefik_domain,
             &traefik_username,

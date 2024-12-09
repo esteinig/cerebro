@@ -8,8 +8,100 @@ use serde::{Deserialize, Serialize};
 use tar::Archive;
 
 use crate::error::WorkflowError;
-use crate::nextflow::pathogen::{Aligner, Classifier};
 
+/// Enum representing the available classifiers.
+#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+pub enum Classifier {
+    #[serde(rename="kraken2")]
+    Kraken2,
+    #[serde(rename="metabuli")]
+    Metabuli,
+}
+
+
+/// Enum representing the available profilers.
+#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+pub enum Profiler {
+    #[serde(rename="sylph")]
+    Sylph,
+    #[serde(rename="kmcp")]
+    Kmcp,
+    #[serde(rename="bracken")]
+    Bracken,
+
+}
+
+/// Enum representing the available aligners.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, clap::ValueEnum)]
+pub enum Aligner {
+    #[serde(rename="bowtie2")]
+    Bowtie2,
+    #[serde(rename="minimap2")]
+    Minimap2,
+    #[serde(rename="strobealign")]
+    Strobealign,
+}
+
+
+impl Aligner {
+    // Used for identification of pre-built-indices
+    pub fn short_name(&self) -> &str {
+        match self {
+            Aligner::Bowtie2 => "bt2",
+            Aligner::Minimap2 => "mm2",
+            Aligner::Strobealign => "sti",
+        }
+    }
+}
+impl fmt::Display for Aligner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Aligner::Bowtie2 => write!(f, "bowtie2"),
+            Aligner::Minimap2 => write!(f, "minimap2"),
+            Aligner::Strobealign => write!(f, "strobealign"),
+        }
+    }
+}
+
+
+impl Classifier {
+    // Used for identification of pre-built-indices
+    pub fn short_name(&self) -> &str {
+        match self {
+            Classifier::Kraken2 => "kraken2",
+            Classifier::Metabuli => "metabuli",
+        }
+    }
+}
+impl fmt::Display for Classifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Classifier::Kraken2 => write!(f, "kraken2"),
+            Classifier::Metabuli => write!(f, "metabuli"),
+        }
+    }
+}
+
+
+impl Profiler {
+    // Used for identification of pre-built-indices
+    pub fn short_name(&self) -> &str {
+        match self {
+            Profiler::Sylph => "sylph",
+            Profiler::Kmcp => "kmcp",
+            Profiler::Bracken => "bracken",
+        }
+    }
+}
+impl fmt::Display for Profiler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Profiler::Sylph => write!(f, "sylph"),
+            Profiler::Bracken => write!(f, "bracken"),
+            Profiler::Kmcp  =>  write!(f, "kmcp")
+        }
+    }
+}
 
 /// Represents different indices available for Cerebro.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]

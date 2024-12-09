@@ -81,19 +81,18 @@ workflow production {
 
     PanviralEnrichment(
         pairedReadsFromStage(pipelines.panviral),
-        panviralDB.host, 
         panviralDB.virus, 
-        panviralDB.control,
+        panviralDB.qualityControl,
     )
 
     /* Pathogen detection */
     
-    def pathogenDB = getPathogenDetectionDatabases();
+    // def pathogenDB = getPathogenDetectionDatabases();
 
-    PathogenDetection(
-        pairedReadsFromStage(pipelines.pathogen),
-        pathogenDB.qualityControl,
-    )   
+    // PathogenDetection(
+    //     pairedReadsFromStage(pipelines.pathogen),
+    //     pathogenDB.qualityControl,
+    // )   
 
 }
 

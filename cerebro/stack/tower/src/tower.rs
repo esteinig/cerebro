@@ -18,6 +18,7 @@ pub struct NextflowConfig {
     config: PathBuf,
     workdir: PathBuf,
     databases: PathBuf,
+    profile: Vec<String>,
 
     cleanup: bool,
     execution_directory: Option<PathBuf>
@@ -28,6 +29,7 @@ impl NextflowConfig {
         config: &PathBuf,
         workdir: &PathBuf, 
         databases: &PathBuf,
+        profile: &Vec<String>,
         cleanup: bool
     ) -> Result<Self, TowerError> {
 
@@ -49,6 +51,7 @@ impl NextflowConfig {
             config: config.to_owned(),
             workdir: workdir.to_owned(),
             databases: databases.to_owned(),
+            profile: profile.to_owned(),
             execution_directory: None,
             cleanup
         })
@@ -105,18 +108,23 @@ impl NextflowConfig {
         let dir = self.create(samples).await?;
         log::info!("Executing pipeline at: {}", dir.display());
 
+        let command = format!(
+            "nextflow run {} -config {} {} -entry production --databaseDirectory {} --executionDirectory {}", 
+            self.main.canonicalize()?.display(), 
+            self.config.canonicalize()?.display(),
+            if self.profile.is_empty() { String::new() } else { format!("-profile {}", self.profile.join(",")) },
+            self.databases.canonicalize()?.display(),
+            dir.canonicalize()?.display()
+        );
+
+        log::info!("Running execution command: '{}'", command);
+
         let process = Command::new("sh")
             .current_dir(
                 dir.canonicalize()?
             )
             .arg("-c")
-            .arg(format!(
-                "nextflow run {} -config {} -entry production --databaseDirectory {} --executionDirectory {}", 
-                self.main.canonicalize()?.display(), 
-                self.config.canonicalize()?.display(),
-                self.databases.canonicalize()?.display(),
-                dir.canonicalize()?.display()
-            ))
+            .arg(&command)
             .spawn()?;
 
         Ok(process)

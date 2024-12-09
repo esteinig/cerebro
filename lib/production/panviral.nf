@@ -28,10 +28,8 @@ workflow PanviralEnrichment {
             params.panviralEnrichment.vircovArgs
         )
 
-        results = QualityControl.out.results.mix(
-            VirusRecovery.out.results
-        )
+        results = QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | view
 
-        results | groupTuple | ProcessOutput
+        results | ProcessOutput
 
 }

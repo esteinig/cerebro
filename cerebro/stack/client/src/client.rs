@@ -1,12 +1,8 @@
 use std::fs::create_dir_all;
-use std::fs::File;
-use std::io::Write;
 use anyhow::Result;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
-use cerebro_model::api::files::response::RegisterFileResponse;
-use cerebro_model::api::towers::model::Pipeline;
 use cerebro_model::api::towers::model::ProductionTower;
 use cerebro_model::api::towers::response::DeleteTowerResponse;
 use cerebro_model::api::towers::response::ListTowersResponse;
