@@ -781,7 +781,7 @@ process BlastContigs {
     label "pathogenAssemblyBlast"
     tag { sampleID }
 
-    publishDir  "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${id}.blast.assembly.tsv"
+    publishDir  "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.blast.assembly.tsv"
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
