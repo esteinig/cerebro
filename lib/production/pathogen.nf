@@ -424,7 +424,8 @@ workflow MetagenomeAssembly {
             if (magParams.ncbiDatabase && magParams.ncbiDatabaseMethod.contains("blast")) {
                 MetaSpadesBlastNcbi(
                     MetaSpades.out.contigs,
-                    databases.ncbiDatabase
+                    databases.ncbiDatabase,
+                    magParams.ncbiDatabaseBlastPrefix
                 )
 
             }
@@ -465,10 +466,10 @@ workflow MetagenomeAssembly {
             }
 
             if (magParams.ncbiDatabase && magParams.ncbiDatabaseMethod.contains("blast")) {
-
                 MegahitBlastNcbi(
                     Megahit.out.contigs,
-                    databases.ncbiDatabase
+                    databases.ncbiDatabase,
+                    magParams.ncbiDatabaseBlastPrefix
                 )
             }
         }
