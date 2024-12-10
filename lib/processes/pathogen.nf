@@ -796,7 +796,7 @@ process BlastContigs {
     // Set the execution environment variable BLASTDB to database path to enable the taxonomic assignments
     
     """
-    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity 90 -evalue 1e-06 -db ${database}/nt -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' -max_target_seqs $params.taxa.assembly.meta.blastn.max_target_seqs  > ${id}.blast.assembly.tsv
+    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity 90 -evalue 1e-06 -db ${database}/nt -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' -max_target_seqs 100  > ${id}.blast.assembly.tsv
     """
 
 }
