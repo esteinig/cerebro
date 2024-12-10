@@ -779,12 +779,12 @@ process VircovNanopore {
 process BlastContigs {
 
     label "pathogenAssemblyBlast"
-    tag { id }
+    tag { sampleID }
 
     publishDir  "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${id}.blast.assembly.tsv"
 
     input:
-    tuple val(id), val(assembler), path(contigs)
+    tuple val(sampleID), val(assembler), path(contigs)
     path(database)
     val(databasePrefix)
     val(minPercentIdentity)
@@ -793,14 +793,14 @@ process BlastContigs {
 
 
     output:
-    tuple(val(id), path("${id}.blast.assembly.tsv"), emit: results)
+    tuple(val(sampleID), path("${sampleID}.blast.assembly.tsv"), emit: results)
 
     script:
     
     // Set the execution environment variable BLASTDB to database path to enable the taxonomic assignments
     
     """
-    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity $minPercentIdentity -evalue $minEvalue -max_target_seqs $maxTargetSeqs -db ${database}/${databasePrefix} -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' > ${id}.blast.assembly.tsv
+    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity $minPercentIdentity -evalue $minEvalue -max_target_seqs $maxTargetSeqs -db ${database}/${databasePrefix} -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' > ${sampleID}.blast.assembly.tsv
     """
 
 }
