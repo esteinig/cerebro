@@ -425,7 +425,10 @@ workflow MetagenomeAssembly {
                 MetaSpadesBlastNcbi(
                     MetaSpades.out.contigs,
                     databases.ncbiDatabase,
-                    magParams.ncbiDatabaseBlastPrefix
+                    magParams.ncbiDatabaseBlastPrefix,
+                    magParams.ncbiDatabaseBlastMinPercentIdentity,
+                    magParams.ncbiDatabaseBlastMinEvalue,
+                    magParams.ncbiDatabaseBlastMaxTargetSeqs,
                 )
 
             }
@@ -469,7 +472,10 @@ workflow MetagenomeAssembly {
                 MegahitBlastNcbi(
                     Megahit.out.contigs,
                     databases.ncbiDatabase,
-                    magParams.ncbiDatabaseBlastPrefix
+                    magParams.ncbiDatabaseBlastPrefix,
+                    magParams.ncbiDatabaseBlastMinPercentIdentity,
+                    magParams.ncbiDatabaseBlastMinEvalue,
+                    magParams.ncbiDatabaseBlastMaxTargetSeqs,
                 )
             }
         }
