@@ -732,19 +732,19 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
 
     // Extract and parse optional query parameters
     let ids: Option<Vec<CerebroId>> = query
-    .id
-    .as_ref()
-    .map(|i| i.split(',').map(|x| x.trim().to_string()).collect());
+        .id
+        .as_ref()
+        .map(|i| i.split(',').map(|x| x.trim().to_string()).collect());
 
     let run_ids: Option<Vec<String>> = query
-    .run_id
-    .as_ref()
-    .map(|r| r.split(',').map(|x| x.trim().to_string()).collect());
+        .run_id
+        .as_ref()
+        .map(|r| r.split(',').map(|x| x.trim().to_string()).collect());
 
     let date_range: Option<Vec<String>> = query
-    .date_range
-    .as_ref()
-    .map(|d| d.split(',').map(|x| x.trim().to_string()).collect());
+        .date_range
+        .as_ref()
+        .map(|d| d.split(',').map(|x| x.trim().to_string()).collect());
 
     let filter_config = filter_config.into_inner();
 

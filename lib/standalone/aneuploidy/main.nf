@@ -102,8 +102,6 @@ workflow {
         referenceFasta = channel.fromPath(params.referenceFasta, checkIfExists: true).first()
         normalControlBam = channel.fromPath(params.normalControlBam, checkIfExists: true).first()
 
-        pairedReads | view
-
         MinimapAneuploidy(
             pairedReads, 
             referenceFasta

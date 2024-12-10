@@ -16,6 +16,7 @@ include { ContigCoverageNanopore as MetaSpadesCoverageNanopore; ContigCoverageNa
 include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../processes/pathogen";
 include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "../processes/pathogen";
 include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "../processes/pathogen";
+include { BlastContigs as MegahitBlastNcbi; BlastContigs as MetaSpadesBlastNcbi } from "../processes/pathogen";
 
 workflow PathogenDetection {
 
@@ -345,6 +346,8 @@ workflow MetagenomeAssemblyNanopore {
                     magParams.binningMinContigLength
                 )
             }
+
+
         }
 
         if (magParams.assemblyMethod.contains("megahit")) {
@@ -373,6 +376,7 @@ workflow MetagenomeAssemblyNanopore {
                     magParams.binningMinContigLength,
                 )
             }
+
         }
 
 }
@@ -416,6 +420,14 @@ workflow MetagenomeAssembly {
                     magParams.binningMinContigLength
                 )
             }
+
+            if (magParams.ncbiDatabase && magParams.ncbiDatabaseMethod.contains("blast")) {
+                MetaSpadesBlastNcbi(
+                    MetaSpades.out.contigs,
+                    databases.ncbiDatabase
+                )
+
+            }
         }
 
         if (magParams.assemblyMethod.contains("megahit")) {
@@ -449,6 +461,14 @@ workflow MetagenomeAssembly {
                 MegahitSemiBin2(
                     megahitAssemblyCoverage,
                     magParams.binningMinContigLength
+                )
+            }
+
+            if (magParams.ncbiDatabase && magParams.ncbiDatabaseMethod.contains("blast")) {
+
+                MegahitBlastNcbi(
+                    Megahit.out.contigs,
+                    databases.ncbiDatabase
                 )
             }
         }

@@ -776,6 +776,30 @@ process VircovNanopore {
     
 }
 
+process BlastContigs {
+
+    label "blast"
+    tag { id }
+
+    publishDir  "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${id}.blast.assembly.tsv"
+
+    input:
+    tuple val(id), val(assembler,) path(contigs)
+    path(database)
+
+    output:
+    tuple(val(id), path("${id}.blast.assembly.tsv"), emit: results)
+
+    script:
+    
+    // Set the execution environment variable BLASTDB to database path to enable the taxonomic assignments
+    
+    """
+    BLASTDB=$database blastn -num_threads $task.cpus -query $contigs -perc_identity $params.taxa.assembly.meta.blastn.min_identity -evalue $params.taxa.assembly.meta.blastn.min_evalue -db ${database}/nt -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' -max_target_seqs $params.taxa.assembly.meta.blastn.max_target_seqs  > ${id}.blast.assembly.tsv
+    """
+
+}
+
 process ProcessOutputIllumina {
     
     tag { sampleID }

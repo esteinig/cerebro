@@ -57,24 +57,33 @@ def getMetagenomeAssemblyDatabases() {
     def magParams = params.pathogenDetection.metagenomeAssembly;
 
     return [
-        sylphDatabase:      magParams.contigProfile   ?  getPathogenProfileSylphDatabase(magParams)          :  Channel.empty(),
+        ncbiDatabase:       magParams.ncbiDatabase    ?  getPathogenAssemblyNcbiDatabase(magParams)          :  Channel.empty(),
+        sylphDatabase:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabase(magParams)         :  Channel.empty(),
         sylphMetadata:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabaseMetadata(magParams) :  Channel.empty(),
     ]
 }
 
 
+def getPathogenAssemblyNcbiDatabase(magParams) {
+
+    return getFilePath(
+        magParams.ncbiDatabaseIndex, 
+        "pathogen detection :: assembly :: sylph"
+    )
+}
+
 def getPathogenAssemblySylphDatabase(magParams) {
 
     return getFilePath(
         magParams.contigProfileIndex, 
-        "pathogen detection :: tax profile :: sylph"
+        "pathogen detection :: assembly :: sylph"
     )
 }
 def getPathogenAssemblySylphDatabaseMetadata(magParams) {
 
     return getFilePath(
         magParams.contigProfileMetadata,
-        "pathogen detection :: tax profile :: sylph meta"
+        "pathogen detection :: assembly :: sylph meta"
     )
 }
 
