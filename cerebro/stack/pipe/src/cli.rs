@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::{pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipe::{modules::{panviral::Panviral, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -18,9 +18,18 @@ fn main() -> anyhow::Result<()> {
                         &args.input, args.id.clone(), args.background
                     )?;
                     let quality_control = QualityControl::from_panviral(&output);
+                    
+                    let panviral = Panviral::from_panviral(
+                        &output,
+                        &quality_control,
+                        args.paired_end
+                    )?;
 
                     if let Some(path) = &args.qc {
                         quality_control.to_json(path)?;
+                    }
+                    if let Some(path) = &args.panviral {
+                        panviral.to_json(path)?;
                     }
                     
                 }

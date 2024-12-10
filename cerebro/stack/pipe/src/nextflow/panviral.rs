@@ -12,14 +12,14 @@ use super::quality::{QualityControlFiles, QualityControlOutput};
 
 pub struct PanviralFiles {
     pub qc: QualityControlFiles,
-    pub viruses: Option<PathBuf>,
+    pub vircov: Option<PathBuf>,
 }
 impl PanviralFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
         
         Ok(Self{
             qc: QualityControlFiles::from(path, id)?,
-            viruses: get_file_by_name(&path, &id, ".viruses.tsv")?,
+            vircov: get_file_by_name(&path, &id, ".vircov.tsv")?,
         })
     }
 }
@@ -27,7 +27,7 @@ impl PanviralFiles {
 pub struct PanviralOutput {
     pub id: String,
     pub qc: QualityControlOutput,
-    pub viruses: VircovSummary,
+    pub vircov: VircovSummary,
     
 }
 impl PanviralOutput {
@@ -44,10 +44,10 @@ impl PanviralOutput {
         Ok(Self{
             id: id.to_string(),
             qc: QualityControlOutput::from_files(&id, &files.qc, background)? ,
-            viruses: match files.viruses { 
+            vircov: match files.vircov { 
                 Some(ref path) => VircovSummary::from_tsv(path, true)?, 
                 None => {
-                    log::error!("No virus coverage file detected for {id}");
+                    log::error!("No virus coverage file detected for: {id}");
                     return Err(WorkflowError::PipelineOutputNotFound)
                 }
             },

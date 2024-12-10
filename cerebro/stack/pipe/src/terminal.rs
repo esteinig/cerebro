@@ -378,6 +378,9 @@ pub struct ProcessArgs {
     /// Output file of processed pathogen detection data
     #[clap(long, short = 'p')]
     pub pathogen: Option<PathBuf>,
+    /// Output file of processed panviral data
+    #[clap(long, short = 'v')]
+    pub panviral: Option<PathBuf>,
     /// Output file of processed and filtered pathogen detection data
     #[clap(long, short = 'f')]
     pub filter_pathogen: Option<PathBuf>,

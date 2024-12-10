@@ -67,6 +67,8 @@ def pairedReadsFromStage(channel) {
 
 workflow production {
 
+    params.cerebroProduction.enabled = true
+
     /* Staged sample files provided by tower */
 
     Channel.fromPath("$params.stageDirectory/*.json") | StageInputFiles
@@ -81,7 +83,7 @@ workflow production {
 
     PanviralEnrichment(
         pairedReadsFromStage(pipelines.panviral),
-        panviralDB.virus, 
+        panviralDB.panviralEnrichment, 
         panviralDB.qualityControl,
     )
 
@@ -149,7 +151,7 @@ workflow panviral {
             params.sampleSheet, 
             params.sampleSheetProduction
         ),
-        panviralDB.virus, 
+        panviralDB.panviralEnrichment, 
         panviralDB.qualityControl,
     )
 

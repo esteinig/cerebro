@@ -77,7 +77,9 @@ pub enum Commands {
     /// Ping the server as unauthenticated user
     PingStatus(StatusArgs),
     /// Process and upload pipeline outputs to database
-    UploadSample(UploadSampleArgs),
+    UploadPathogen(UploadPathogenArgs),
+    /// Process and upload pipeline outputs to database
+    UploadPanviral(UploadPanviralArgs),
     /// Upload processed model to database
     UploadModel(UploadModelArgs),
     /// Summary of taxa evidence for requested models
@@ -125,13 +127,55 @@ pub struct LoginArgs {
 
 
 #[derive(Debug, Args)]
-pub struct UploadSampleArgs {
+pub struct UploadPathogenArgs {
     /// Processed pipeline quality control module (.json)
     #[clap(long)]
     pub quality: PathBuf,
     /// Processed pipeline pathogen detection module (.json)
     #[clap(long)]
     pub pathogen: PathBuf,
+    /// Taxonomy directory containing 'nodes.dmp' and 'names.dmp'
+    #[clap(long)]
+    pub taxonomy: PathBuf,
+    /// Raise error if taxid was not found in taxonomy
+    #[clap(long)]
+    pub strict: bool,
+    /// Run identifier if sample sheet is not provided
+    #[clap(long)]
+    pub run_id: Option<String>,
+    /// Pipeline sample sheet (.csv)
+    #[clap(long)]
+    pub sample_sheet: Option<PathBuf>,
+    /// Pipeline configuration (.json)
+    #[clap(long)]
+    pub pipeline_config: Option<PathBuf>,
+    /// Team name for model upload
+    #[clap(long, short = 't')]
+    pub team_name: String,
+    /// Project name for model upload
+    #[clap(long, short = 'p')]
+    pub project_name: String,
+    /// Database name for model upload, otherwise team default database
+    #[clap(long, short = 'd')]
+    pub db_name: Option<String>,
+    /// Output database model as file (.json)
+    #[clap(long, short = 'o')]
+    pub model_dir: Option<PathBuf>,
+    /// Do not upload, use to write the model to --model-dir only
+    #[clap(long)]
+    pub no_upload: bool,
+}
+
+
+
+#[derive(Debug, Args)]
+pub struct UploadPanviralArgs {
+    /// Processed pipeline quality control module (.json)
+    #[clap(long)]
+    pub quality: PathBuf,
+    /// Processed pipeline panviral detection module (.json)
+    #[clap(long)]
+    pub panviral: PathBuf,
     /// Taxonomy directory containing 'nodes.dmp' and 'names.dmp'
     #[clap(long)]
     pub taxonomy: PathBuf,

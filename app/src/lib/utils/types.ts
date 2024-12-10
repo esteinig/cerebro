@@ -1066,6 +1066,7 @@ export type TaxonLevel = {
 }
 
 export type TaxonEvidence = {
+    alignment: VircovRecord[],
     records: PathogenDetectionRecord[]
 }
 
@@ -1151,51 +1152,48 @@ export type Kraken2UniqRecord = {
     rpm: number
 }
 
+export enum Aligner {
+    Bowtie2 = "bowtie2",
+    Minimap2 = "minimap2",
+    Strobealign = "strobealign"
+}
+
+
+export enum ConsensusAssembler {
+    Ivar = "Ivar"
+}
 
 export type VircovRecord = {
-    id: string,
-    db: string,
-    tool: string,
-    taxid: string,
-    reference: string,
-    regions: number,
-    reads: number,
-    alignments: number,
-    bases: number,
-    length: number,
-    coverage: number,
-    description: string,
-    tags: string,
-    rpm: number
-}
+    id: string | null;
+    index: string | null;
+    aligner: Aligner | null;
+    assembler: ConsensusAssembler | null;
+    bin: string | null;
+    name: string | null;
+    segment: string | null;
+    taxid: string | null;
+    reference: string;
+    reference_length: number;
+    scan_regions: number;
+    scan_reads: number;
+    scan_alignments: number;
+    scan_bases_covered: number;
+    scan_coverage: number;
+    remap_regions: number | null;
+    remap_reads: number | null;
+    remap_alignments: number | null;
+    remap_bases_covered: number | null;
+    remap_coverage: number | null;
+    remap_depth: number | null;
+    remap_depth_coverage: number | null;
+    consensus_length: number | null;
+    consensus_missing: number | null;
+    consensus_completeness: number | null;
+    consensus_alignments_mapq: number | null;
+    consensus_coverage_mapq: number | null;
+    reference_description: string;
+};
 
-export type VircovScanRemapRecord = {
-    id: string,
-    db: string,
-    tool: string,
-    reference: string,
-    reference_length: number,
-    scan_regions: number,
-    scan_reads: number,
-    scan_alignments: number,
-    scan_bases_covered: number,
-    scan_coverage: number,
-    remap_regions: number | null,
-    remap_reads: number | null,
-    remap_alignments: number | null,
-    remap_bases_covered: number | null,
-    remap_coverage: number | null,
-    remap_mean_depth: number | null,
-    consensus_length: number | null,
-    consensus_missing: number | null,
-    consensus_completeness: number | null,
-    taxid: string | null,
-    name: string | null,
-    segment: string | null,
-    reference_description: string,
-    scan_rpm: number,
-    remap_rpm: number,
-}
 
 export type BlastLcaRecord = {
     id: string,
@@ -1941,6 +1939,7 @@ export enum FileTag {
     POS = "POS",
     NEG = "NEG",
     NTC = "NTC",
+    TMP = "TMP",
     ENV = "ENV",
     HOST = "HOST"
 }

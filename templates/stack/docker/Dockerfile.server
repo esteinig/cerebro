@@ -1,4 +1,4 @@
-FROM rust:1.76.0
+FROM rust:1.81.0
 
 # Dependencies for Tectonic LaTeX compiler library
 # TODO: add versions for all system packages
@@ -31,8 +31,8 @@ COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 
 {{#if dev}}
-# For cargo-watch mode...
-RUN cargo install cargo-watch 
+    # For cargo-watch mode...
+    RUN cargo install cargo-watch 
 {{else}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
 RUN cargo build --release -p cerebro-server && \

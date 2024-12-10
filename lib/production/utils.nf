@@ -3,29 +3,29 @@
 
 def getPanviralEnrichmentDatabases() {
     return [
-        virus: getPanviralEnrichmentVirusDatabase(),
-        qualityControl: getQualityControlDatabases()
+        panviralEnrichment: getPanviralEnrichmentVirusDatabases(),
+        qualityControl: getQualityControlDatabases(),
     ]
 }
 
-def getPanviralEnrichmentVirusDatabase() {
+def getPanviralEnrichmentVirusDatabases() {
 
-    return getAlignmentReferenceIndex(
-        params.panviralEnrichment.virusReference, 
-        params.panviralEnrichment.virusIndex, 
-        params.panviralEnrichment.virusAligner,
-        "panviral enrichment :: quality control :: virus"
-    )
+    return [
+        virusDatabase: getAlignmentReferenceIndex(
+            params.panviralEnrichment.virusReference, 
+            params.panviralEnrichment.virusIndex, 
+            params.panviralEnrichment.virusAligner,
+            "panviral enrichment :: virus"
+        ),
+        taxonomy: params.cerebroProduction.enabled ? getPanviralEnrichmentTaxonomy() : Channel.empty() // necessary for production only
+    ]
 }
 
+def getPanviralEnrichmentTaxonomy() {
 
-def getPanviralEnrichmentControlDatabase() {
-
-    return getAlignmentReferenceIndex(
-        params.panviralEnrichment.controlReference, 
-        params.panviralEnrichment.controlIndex, 
-        params.panviralEnrichment.controlAligner,
-        "panviral enrichment :: quality control :: internal controls"
+    return getFilePath(
+        params.panviralEnrichment.taxonomy, 
+        "panviral enrichment :: taxonomy"
     )
 }
 
@@ -104,6 +104,7 @@ def getPathogenProfileTaxonomy(profileParams) {
         "pathogen detection :: tax profile :: taxonomy"
     )
 }
+
 def getPathogenProfileVircovDatabase(profileParams) {
 
     return getAlignmentReferenceIndex(

@@ -1,4 +1,4 @@
-# Cerebero stack
+# Cerebro stack
 
 Install the current version:
 
@@ -14,8 +14,7 @@ mamba activate cerebro
 
 ## Localhost configuration
 
-We will use the `localhost` configuration template and setup a production stack in the local environment using `--interactive` mode,
-which prompts for a set of important admin variables like usernames and passwords:
+We will use the `localhost` configuration template and setup a production stack in the local environment using `--interactive` mode, which prompts for a set of important admin setttings like username and passwords:
 
 ```bash
 cerebro stack deploy --name cerebro-local --outdir cerebro-local --config localhost --interactive
@@ -46,6 +45,22 @@ cerebro stack deploy --help
 * `--fs-secondary`: Path to secondary data storage (backup)
 
 This will create the output directory `cerebro-local` with all required files and configurations for launching the stack.
+
+## Insecure localhost configuration
+
+For convenience there is an **insecure** local configuration template that only requires the `--fs-primary` and `--fs-secondary` inputs and assigns the following default logins:
+
+* `--db-root-username`: root
+* `--db-root-password`: root
+* `--db-admin-username`: admin
+* `--db-admin-password`: admin
+* `--cerebro-admin-email`: admin@cerebro
+* `--cerebro-admin-password`: admin
+* `--cerebro-admin-name`: Administrator
+
+```bash
+cerebro stack deploy --name cerebro-local-insecure --outdir cerebro-local-insecure --config localhost-insecure --interactive
+```
 
 ## Stack management
 

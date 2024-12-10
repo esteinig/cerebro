@@ -761,7 +761,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
             let cerebro_taxa = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
             match cerebro_taxa.is_empty() {
                 false => {
-
+                    
                     // `cerebro_taxa` is a Vec<Hashmap<TaxId, Taxon>> for each requested 
                     //  Cerebro document but we need to transform from the BSON format
                     let taxon_maps: Vec<HashMap<String, Taxon>> = cerebro_taxa.iter().map(

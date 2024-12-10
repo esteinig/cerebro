@@ -241,10 +241,14 @@ impl SampleConfig {
     /// Create a minimal sample configuration with defaults
     pub fn with_default(id: &str) -> Result<Self, ModelError> {
 
-        let (id, tags) = get_sample_regex_matches(id)?;
+        let (mut sample_id, tags) = get_sample_regex_matches(id)?;
+
+        if sample_id.is_empty() {
+            sample_id = id.to_string()
+        }
 
         Ok(Self {
-            id: id.to_string(),
+            id: sample_id,
             tags,
             ..SampleConfig::default()
         })

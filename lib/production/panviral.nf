@@ -5,14 +5,14 @@
 
 
 include { QualityControl } from "./quality";
-include { VirusRecovery; ProcessOutput } from "../processes/panviral";
+include { VirusRecovery; PanviralTable; ProcessOutput; UploadOutput  } from "../processes/panviral";
 
 
 workflow PanviralEnrichment {
 
     take:
         reads
-        virusDatabase
+        panviralDatabases
         qualityControlDatabases
     main:
 
@@ -23,13 +23,25 @@ workflow PanviralEnrichment {
 
         VirusRecovery(
             QualityControl.out.reads, 
-            virusDatabase, 
+            panviralDatabases.virusDatabase, 
             params.panviralEnrichment.virusAligner,
             params.panviralEnrichment.vircovArgs
         )
 
-        results = QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | view
+        VirusRecovery.out.results | map { d -> d[1] } | collect | PanviralTable
 
-        results | ProcessOutput
+        json = QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | ProcessOutput
+
+        if (params.cerebroProduction.enabled) {
+
+            UploadOutput(
+                ProcessOutput.out.results, 
+                panviralDatabases.taxonomy, 
+                "CNS", 
+                "CNS", 
+                "Default"
+            )
+
+        }
 
 }

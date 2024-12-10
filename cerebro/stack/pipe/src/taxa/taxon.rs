@@ -4,7 +4,9 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
+use vircov::vircov::VircovRecord;
 use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
+use crate::modules::assembly::AssemblyRecord;
 use crate::modules::pathogen::{PathogenDetectionRecord, PathogenDetectionResult};
 use crate::{error::WorkflowError, utils::get_colored_string};
 
@@ -126,6 +128,8 @@ impl Taxon {
     /// Get evidence filtered for a specific sample id (from aggregated evidence)
     pub fn get_evidence(&self, id: &str) -> TaxonEvidence {
         TaxonEvidence {
+            alignment: Vec::new(),
+            assembly: Vec::new(),
             records: self.evidence.records.clone().into_iter().filter(|record| record.id == id).collect(),
         }
     }
@@ -162,12 +166,16 @@ impl Taxon {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonEvidence {
+    pub alignment: Vec<VircovRecord>,
+    pub assembly: Vec<AssemblyRecord>,
     pub records: Vec<PathogenDetectionRecord>,
 }
 
 impl TaxonEvidence {
     pub fn new() -> Self {
         Self { 
+            alignment: Vec::new(),
+            assembly: Vec::new(),
             records: Vec::new()
         }
     }

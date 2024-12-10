@@ -126,7 +126,7 @@ pub enum WorkflowError {
     /// Indicates a failure to build a glob from multiple patterns for file matching
     #[error("failed to build glob walker for file parsing")]
     GlobWalkBuilder,
-    /// Indicates a failure to parse a traxid from an alignment output sequence description
+    /// Indicates a failure to parse a taxid from an alignment output sequence description
     #[error("failed to parse the taxid field from a Vircov record header (DB: {0})")]
     VircovTaxidFieldMissing(String),
     /// Indicates failure with JSON serialization
@@ -324,6 +324,10 @@ pub enum WorkflowError {
     #[error("failed to recover tax info from Sylph output lineage: {0}")]
     SylphTaxInfoRecoveryFailure(String),
 
+    /// Represents a failure to obtain the taxid for an alignment record
+    /// most likely due to not having a taxid field annotation in Vircov
+    #[error("taxid annotation missing for alignment record")]
+    PanviralTaxidAnnotationMissing,
 }
 
 #[derive(Error, Debug)]
