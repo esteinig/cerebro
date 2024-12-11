@@ -71,7 +71,8 @@ fn main() -> Result<()> {
             fs_client.delete_files(
                 &args.file_ids,  
                 args.run_id.clone(),
-                args.watcher_id.clone()
+                args.sample_id.clone(),
+                args.all
             )?;
         },
         Commands::List( args ) => {

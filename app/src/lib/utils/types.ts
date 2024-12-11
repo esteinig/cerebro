@@ -1521,11 +1521,12 @@ export type ReportEntry = {
 export type WorkflowConfig = {          // parsed from `config.json` nextflow output
     id: string,                         // unique identifier of the workflow run 
     name: string,                       // mnenomic name of the workflow
-    pipeline: string,
+    pipeline: string,                   // manifest pipeline
     version: string,                    // version of the workflow 
     started: string,                    // datetime of workflow run start 
     completed: string,                  // datetime of workflow run end 
     description: string,                // description of workflow
+    workflow: string,                   // subworkflow in pipeline
     params: WorkflowParams | undefined  // workflow parameters from 
 }
 

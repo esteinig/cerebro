@@ -1,7 +1,9 @@
 use std::fs::create_dir_all;
 use anyhow::Result;
 use cerebro_model::api::files::model::SeaweedFile;
+use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
+use cerebro_model::api::files::response::DeleteFilesResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
 use cerebro_model::api::towers::model::ProductionTower;
 use cerebro_model::api::towers::response::DeleteTowerResponse;
@@ -503,21 +505,11 @@ impl CerebroClient {
         Ok(())
     }
 
-    pub fn delete_file(&self, id: Option<String>, run_id: Option<String>, sample_id: Option<String>) -> Result<SeaweedFile, HttpClientError> {
+    pub fn delete_file(&self, id: &str) -> Result<SeaweedFile, HttpClientError> {
 
         self.log_team_warning();
 
-        let mut url = self.routes.url(Route::TeamFilesDelete);  // deletes all
-
-        if let Some(id) = id {
-            url = format!("{url}/{id}")
-        }
-
-        if run_id.is_some() | sample_id.is_some() {
-            url = self.build_request_url(
-                self.routes.url(Route::TeamFilesDelete), &[("run_id", run_id), ("sample_id", sample_id)]
-            );
-        }
+        let url = format!("{}/{id}", self.routes.url(Route::TeamFilesDelete));
 
         let response = self.send_request_with_team(
             self.client.delete(url)
@@ -533,6 +525,33 @@ impl CerebroClient {
             HttpClientError::DataResponseFailure(
                 reqwest::StatusCode::INTERNAL_SERVER_ERROR,
                 String::from("File data not returned after deletion"),
+            )
+        })
+    }
+
+    pub fn delete_files(&self, run_id: Option<String>, sample_id: Option<String>, all: Option<bool>) -> Result<Vec<SeaweedFileId>, HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = self.build_request_url(
+            self.routes.url(Route::TeamFilesDelete), &[("run_id", run_id), ("sample_id", sample_id), ("all", all.map(|b| b.to_string()))]
+        );
+
+
+        let response = self.send_request_with_team(
+            self.client.delete(url)
+        )?;
+
+        self.handle_response::<DeleteFilesResponse>(
+            response,
+            None,
+            "Files deletion failed",
+        )?
+        .data
+        .ok_or_else(|| {
+            HttpClientError::DataResponseFailure(
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from("File identifiers not returned after deletion"),
             )
         })
     }
@@ -1068,7 +1087,7 @@ impl CerebroClient {
     }
 
     pub fn upload_models(
-        &self,
+        &mut self,
         models: &[Cerebro],
         team_name: &str,
         project_name: &str,
@@ -1340,7 +1359,7 @@ impl CerebroClient {
             // If specific database name requested, check if this is it,
             // otherwise use all databases for this team for data insertion
             if let Some(name) = db_name {
-                if &database.name != name {
+                if &database.name != name && &database.id != name {  // TODO: added the identifier check 
                     log::info!("Requested database ({}) - skipping team database ({})", &name, &database.name);
                     continue
                 }
@@ -1362,7 +1381,7 @@ impl CerebroClient {
 
 
 fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) -> Result<ProjectCollection, HttpClientError>   {
-    let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name).collect();
+    let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name || x.id == project_name).collect(); // TODO: added the identifier check 
 
     if matches.len() > 0 {
         Ok(matches[0].to_owned())

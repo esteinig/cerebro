@@ -434,6 +434,7 @@ impl PathogenDetection {
         }
 
         let records = detection_map.into_iter().map(|(_, record)| record).collect();
+        
         Ok(Self {
             id: output.id.clone(),
             paired_end,

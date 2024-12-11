@@ -67,5 +67,8 @@ pub enum HttpClientError {
     #[error("failed to match quality control data identifier ({0}) with pathogen detection data identifier ({0})")]
     PathogenIdentifiersNotMatched(String, String),
     #[error("failed to match quality control data identifier ({0}) with panviral data identifier ({0})")]
-    PanviralIdentifiersNotMatched(String, String)
+    PanviralIdentifiersNotMatched(String, String),
+
+    #[error("you must provide a staged file (--stage-json) or a project name (--project-name) and a database name (--db-name)")]
+    MissingUploadParameters,
 }

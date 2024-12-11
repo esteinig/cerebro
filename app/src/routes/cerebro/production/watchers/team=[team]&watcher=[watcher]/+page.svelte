@@ -63,7 +63,6 @@
     $: pipelineSelection = selectedTower?.pipelines;
     $: selectedPipeline= pipelineSelection?.find(pipeline => pipeline === selectedPipeline);
 
-
     let selectedDatabase: TeamDatabase = data.defaultDatabase;
     
     $: databaseSelection = data.selectedTeam.databases;
@@ -84,7 +83,7 @@
 
     const stageLibraries = async() => {
 
-        if (!selectedTower || !selectedPipeline ) {
+        if (!selectedTower || !selectedPipeline || !selectedFilesIds) {
             return
         }
 
@@ -94,7 +93,6 @@
             file_ids: selectedFilesIds,
             run_id: null
         }
-
         await publicApi.fetchWithRefresh(
             `${publicApi.routes.stage.registerSamples}?team=${$page.params.team}&db=${selectedDatabase.id}&project=${selectedProject.id}`,
             { 

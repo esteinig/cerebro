@@ -388,10 +388,8 @@ process ProcessOutput {
 
     script:
 
-    qc_bg_param = params.cerebroConfig.qualityControlBackgroundOnly ? "--qc-background" : ""
-
     """
-    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json $qc_bg_param
+    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json
     """
     
 }

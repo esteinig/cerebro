@@ -42,7 +42,7 @@ async fn register_staged_samples(data: web::Data<AppState>, schema: web::Json<Re
     };
 
     // Get the registered files from the staged sample request and transform into StagedSample
-    let aggregate_pipeline = create_staged_samples_pipeline(&schema.into_inner(), &tower, &access.db, &access.project);
+    let aggregate_pipeline = create_staged_samples_pipeline(&schema.into_inner(), &tower, &access.team, &access.db, &access.project);
     let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Files);
 
     let staged_samples: Vec<StagedSample> = match files_collection

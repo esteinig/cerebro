@@ -1,3 +1,14 @@
+import groovy.json.JsonOutput
+
+/* Production */
+
+def getProductionConfig() {
+
+    return [
+        apiUrl: params.cerebroProduction.authConfig.apiUrl ? params.cerebroProduction.authConfig.apiUrl : error("URL for Cerebro API was not provided (-> params.cerebroProduction.authConfig.apiUrl)"),
+        authToken: params.cerebroProduction.authConfig.tokenEnvironmentVariable ? System.getenv(params.cerebroProduction.authConfig.tokenEnvironmentVariable): error("No token environment variable was provided for production configuration (-> params.cerebroProduction.authConfig.tokenEnvironmentVariable)"),
+     ]
+}
 
 /* Panviral Enrichment */
 
@@ -519,10 +530,45 @@ def helpMessage(){
     ${c_light_blue}C E R E B R O
     ${c_indigo}=====================${c_reset}
 
-    Version:               ${c_light_indigo}v${workflow.mainfest.version}${c_reset}
+    Version:              ${c_light_indigo}v${workflow.mainfest.version}${c_reset}
     Documentation:        ${c_light_blue}https://cerebro.meta-gp.org${c_reset}
 
     """.stripIndent()
     System.exit(0)
 }
 
+
+process PipelineConfig {
+
+    publishDir "$params.outputDirectory", mode: "copy", pattern: "config.json"
+
+    input:
+        val cerebroWorkflow
+        val started
+
+    output:
+        path 'config.json', emit: config
+
+    script:
+
+        completed = java.time.LocalDateTime.now()
+
+        config = [
+            id: "$workflow.sessionId",
+            name: "$workflow.runName",
+            pipeline: "$workflow.manifest.name",
+            version: "$workflow.manifest.version",
+            started: "$started",
+            completed: "$completed",
+            workflow: "$cerebroWorkflow",
+            params: params
+        ]
+
+        json = JsonOutput.toJson(config)
+        json_pretty = JsonOutput.prettyPrint(json)
+
+        """
+        echo '${json_pretty}' > config.json
+        """
+        
+}

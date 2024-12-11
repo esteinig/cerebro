@@ -138,9 +138,9 @@ pub struct DeleteFileArgs {
     /// Sequence run identifier
     #[clap(long, short = 'r')]
     pub run_id: Option<String>,
-    /// Watcher identifier
-    #[clap(long, short = 'w')]
-    pub watcher_id: Option<String>,
+    /// Sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
     /// Delete all files (requires confirmation)
     #[clap(long, short = 'a')]
     pub all: bool,

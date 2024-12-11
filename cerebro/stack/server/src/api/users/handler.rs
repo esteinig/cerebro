@@ -36,98 +36,154 @@ pub struct TeamQuery {
     name: Option<String>
 }
 
-
-// Get the teams for the current user [USER]
 #[get("/users/self/teams")]
-async fn get_user_self_teams_handler(data: web::Data<AppState>, query: web::Query<TeamQuery>, jwt_guard: jwt::JwtUserMiddleware) -> impl Responder {
-    
+async fn get_user_self_teams_handler(
+    data: web::Data<AppState>, 
+    query: web::Query<TeamQuery>, 
+    jwt_guard: jwt::JwtUserMiddleware,
+) -> impl Responder {
     let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
-    // A bit wordy ...
+    let mut filter = doc! { "users": &jwt_guard.user.id };
 
-    match (&query.id, &query.name) {
-        (None, None) => {
-            match team_collection.find(doc! { "users": &jwt_guard.user.id }, None).await 
-            {
-                Ok(cursor) => {
-                    let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]);  // allow empty teams database
-                    let json_response = serde_json::json!({
-                        "status":  "success",
-                        "message": "Listed all teams for current user",
-                        "data": serde_json::json!({"teams": teams })
-                    });
-                    return HttpResponse::Ok().json(json_response)
-                },
-                Err(err) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": format_args!("{}", err)})
-                )
-            }
-        },
-        (Some(id), None) => {
-            match team_collection.find_one(doc! { "users": &jwt_guard.user.id, "id": id }, None).await 
-            {
-                Ok(Some(team)) => {
-                    let json_response = serde_json::json!({
-                        "status":  "success",
-                        "message": "Obtained requested team for current user",
-                        "data": serde_json::json!({"team": team })
-                    });
-                    return HttpResponse::Ok().json(json_response)
-                },
-                Ok(None) => {
-                    return HttpResponse::NotFound().json(
-                        serde_json::json!({"status": "error", "message": "Did not find requested team for current user"})
-                    )
-                },
-                Err(err) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": format_args!("{}", err)})
-                )
-            }
-        },
-        (None, Some(name)) => {
-            match team_collection.find_one(doc! { "users": &jwt_guard.user.id, "name": name }, None).await 
-            {
-                Ok(Some(team)) => {
-                    let json_response = serde_json::json!({
-                        "status":  "success",
-                        "message": "Obtained requested team for current user",
-                        "data": serde_json::json!({"team": team })
-                    });
-                    return HttpResponse::Ok().json(json_response)
-                },
-                Ok(None) => {
-                    return HttpResponse::NotFound().json(
-                        serde_json::json!({"status": "error", "message": "Did not find requested team for current user"})
-                    )
-                },
-                Err(err) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": format_args!("{}", err)})
-                )
-            }
-        },
-        (Some(id), Some(name)) => {
-            match team_collection.find_one(doc! { "users": &jwt_guard.user.id, "name": name, "id": id }, None).await 
-            {
-                Ok(Some(team)) => {
-                    let json_response = serde_json::json!({
-                        "status":  "success",
-                        "message": "Obtained requested team for current user",
-                        "data": serde_json::json!({"team": team })
-                    });
-                    return HttpResponse::Ok().json(json_response)
-                },
-                Ok(None) => {
-                    return HttpResponse::NotFound().json(
-                        serde_json::json!({"status": "error", "message": "Did not find requested team for current user"})
-                    )
-                },
-                Err(err) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": format_args!("{}", err)})
-                )
-            }
-        }
+    // Add id or name to the query filter if present
+    if let Some(identifier) = query.id.as_ref().map(|id| id.to_string()).or_else(|| query.name.clone()) {
+        // Allow flexibility between id and name
+        filter.insert("$or", vec![
+            doc! { "id": &identifier },
+            doc! { "name": &identifier }
+        ]);
     }
+
+    let result = if query.id.is_some() || query.name.is_some() {
+        // Find one specific team
+        match team_collection.find_one(filter, None).await {
+            Ok(Some(team)) => HttpResponse::Ok().json(serde_json::json!({
+                "status": "success",
+                "message": "Obtained requested team for current user",
+                "data": { "team": team }
+            })),
+            Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+                "status": "error",
+                "message": "Did not find requested team for current user"
+            })),
+            Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+                "status": "error",
+                "message": format!("{}", err)
+            })),
+        }
+    } else {
+        // Find all teams for the current user
+        match team_collection.find(filter, None).await {
+            Ok(cursor) => {
+                let teams: Vec<Team> = cursor.try_collect().await.unwrap_or_default(); // Allow empty teams
+                HttpResponse::Ok().json(serde_json::json!({
+                    "status": "success",
+                    "message": "Listed all teams for current user",
+                    "data": { "teams": teams }
+                }))
+            }
+            Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+                "status": "error",
+                "message": format!("{}", err)
+            })),
+        }
+    };
+
+    result
 }
+
+// // Get the teams for the current user [USER]
+// #[get("/users/self/teams")]
+// async fn get_user_self_teams_handler(data: web::Data<AppState>, query: web::Query<TeamQuery>, jwt_guard: jwt::JwtUserMiddleware) -> impl Responder {
+    
+//     let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+
+//     // A bit wordy ...
+
+//     match (&query.id, &query.name) {
+//         (None, None) => {
+//             match team_collection.find(doc! { "users": &jwt_guard.user.id }, None).await 
+//             {
+//                 Ok(cursor) => {
+//                     let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]);  // allow empty teams database
+//                     let json_response = serde_json::json!({
+//                         "status":  "success",
+//                         "message": "Listed all teams for current user",
+//                         "data": serde_json::json!({"teams": teams })
+//                     });
+//                     return HttpResponse::Ok().json(json_response)
+//                 },
+//                 Err(err) => return HttpResponse::InternalServerError().json(
+//                     serde_json::json!({"status": "error", "message": format_args!("{}", err)})
+//                 )
+//             }
+//         },
+//         (Some(id), None) => {
+//             match team_collection.find_one(doc! { "users": &jwt_guard.user.id, "id": id }, None).await 
+//             {
+//                 Ok(Some(team)) => {
+//                     let json_response = serde_json::json!({
+//                         "status":  "success",
+//                         "message": "Obtained requested team for current user",
+//                         "data": serde_json::json!({"team": team })
+//                     });
+//                     return HttpResponse::Ok().json(json_response)
+//                 },
+//                 Ok(None) => {
+//                     return HttpResponse::NotFound().json(
+//                         serde_json::json!({"status": "error", "message": "Did not find requested team for current user"})
+//                     )
+//                 },
+//                 Err(err) => return HttpResponse::InternalServerError().json(
+//                     serde_json::json!({"status": "error", "message": format_args!("{}", err)})
+//                 )
+//             }
+//         },
+//         (None, Some(name)) => {
+//             match team_collection.find_one(doc! { "users": &jwt_guard.user.id, "name": name }, None).await 
+//             {
+//                 Ok(Some(team)) => {
+//                     let json_response = serde_json::json!({
+//                         "status":  "success",
+//                         "message": "Obtained requested team for current user",
+//                         "data": serde_json::json!({"team": team })
+//                     });
+//                     return HttpResponse::Ok().json(json_response)
+//                 },
+//                 Ok(None) => {
+//                     return HttpResponse::NotFound().json(
+//                         serde_json::json!({"status": "error", "message": "Did not find requested team for current user"})
+//                     )
+//                 },
+//                 Err(err) => return HttpResponse::InternalServerError().json(
+//                     serde_json::json!({"status": "error", "message": format_args!("{}", err)})
+//                 )
+//             }
+//         },
+//         (Some(id), Some(name)) => {
+//             match team_collection.find_one(doc! { "users": &jwt_guard.user.id, "name": name, "id": id }, None).await 
+//             {
+//                 Ok(Some(team)) => {
+//                     let json_response = serde_json::json!({
+//                         "status":  "success",
+//                         "message": "Obtained requested team for current user",
+//                         "data": serde_json::json!({"team": team })
+//                     });
+//                     return HttpResponse::Ok().json(json_response)
+//                 },
+//                 Ok(None) => {
+//                     return HttpResponse::NotFound().json(
+//                         serde_json::json!({"status": "error", "message": "Did not find requested team for current user"})
+//                     )
+//                 },
+//                 Err(err) => return HttpResponse::InternalServerError().json(
+//                     serde_json::json!({"status": "error", "message": format_args!("{}", err)})
+//                 )
+//             }
+//         }
+//     }
+// }
 
 
 // Register a new user - this is an admin operation, as access is currently restricted/controlled [ADMIN]

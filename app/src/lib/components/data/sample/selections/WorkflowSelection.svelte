@@ -6,7 +6,6 @@
     export let selectedWorkflowIdentifier: string;
     export let workflows: WorkflowConfig[] = [];
     
-
 </script>
 
 <ListBox>
@@ -15,8 +14,8 @@
             <div class="ml-5">
                 <p class="text-sm mb-1">{getDateTimeString(workflow.completed)} - {workflow.name}</p>
                 <p class="text-xs opacity-60">
-                    {#if workflow.description}
-                        {workflow.description}
+                    {#if workflow.workflow}
+                        {workflow.workflow}
                     {:else}
                         No description available for this workflow
                     {/if}

@@ -6,7 +6,7 @@ use mongodb::bson::{doc, Document, to_bson};
 use uuid::Uuid;
 
 
-pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, tower: &ProductionTower, database: &str, project: &str) -> Vec<Document> {
+pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, tower: &ProductionTower, team: &str, database: &str, project: &str) -> Vec<Document> {
     
     let mut mongo_pipeline = vec![];
 
@@ -47,6 +47,7 @@ pub fn create_staged_samples_pipeline(schema: &RegisterStagedSampleSchema, tower
                 "date": Utc::now().to_string(),  
                 "run_id": "$run_id",
                 "sample_id": "$_id",
+                "team": team,
                 "database": database,                       
                 "project": project,            
                 "pipeline": format!("{}", schema.pipeline),       

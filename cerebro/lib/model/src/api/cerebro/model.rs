@@ -418,6 +418,7 @@ pub struct WorkflowConfig {
     pub version: String,
     pub started: String,
     pub completed: String,
+    pub workflow: String
     // pub params: WorkflowParams
 }
 impl WorkflowConfig {
@@ -435,6 +436,7 @@ impl Default for WorkflowConfig {
             version: String::from("PLACEHOLDER"),
             started: String::from("PLACEHOLDER"),
             completed: String::from("PLACEHOLDER"),
+            workflow: String::from("PLACEHOLDER")
         }
     }
 }

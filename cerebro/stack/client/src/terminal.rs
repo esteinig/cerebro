@@ -149,19 +149,22 @@ pub struct UploadPathogenArgs {
     /// Pipeline configuration (.json)
     #[clap(long)]
     pub pipeline_config: Option<PathBuf>,
+    /// Staged file metadata from production pipeline (.json)
+    #[clap(long, short = 'j')]
+    pub stage_json: Option<PathBuf>,
     /// Team name for model upload
     #[clap(long, short = 't')]
-    pub team_name: String,
+    pub team_name: Option<String>,
     /// Project name for model upload
     #[clap(long, short = 'p')]
-    pub project_name: String,
+    pub project_name: Option<String>,
     /// Database name for model upload, otherwise team default database
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
     /// Output database model as file (.json)
     #[clap(long, short = 'o')]
-    pub model_dir: Option<PathBuf>,
-    /// Do not upload, use to write the model to --model-dir only
+    pub model: Option<PathBuf>,
+    /// Do not upload, use to write the model only
     #[clap(long)]
     pub no_upload: bool,
 }
@@ -191,19 +194,22 @@ pub struct UploadPanviralArgs {
     /// Pipeline configuration (.json)
     #[clap(long)]
     pub pipeline_config: Option<PathBuf>,
+    /// Staged file metadata from production pipeline (.json)
+    #[clap(long, short = 'j')]
+    pub stage_json: Option<PathBuf>,
     /// Team name for model upload
     #[clap(long, short = 't')]
-    pub team_name: String,
+    pub team_name: Option<String>,
     /// Project name for model upload
     #[clap(long, short = 'p')]
-    pub project_name: String,
+    pub project_name: Option<String>,
     /// Database name for model upload, otherwise team default database
     #[clap(long, short = 'd')]
     pub db_name: Option<String>,
     /// Output database model as file (.json)
     #[clap(long, short = 'o')]
-    pub model_dir: Option<PathBuf>,
-    /// Do not upload, use to write the model to --model-dir only
+    pub model: Option<PathBuf>,
+    /// Do not upload, use to write the model only
     #[clap(long)]
     pub no_upload: bool,
 }

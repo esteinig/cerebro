@@ -2,6 +2,7 @@
 use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
+use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
@@ -58,6 +59,19 @@ fn main() -> anyhow::Result<()> {
                 return Err(HttpClientError::PathogenIdentifiersNotMatched(quality.id, pathogen.id).into())
             }
 
+            let (team, database, project, run_id) = match &args.stage_json {
+                Some(path) => {
+                    let staged = StagedSample::from_json(path)?;
+                    (staged.team, staged.database, staged.project, staged.run_id)
+                },
+                None => {
+                    match (args.team_name.clone(), args.db_name.clone(), args.project_name.clone(), args.run_id.clone()) {
+                        (Some(team), Some(database), Some(project), Some(run_id)) => (team, database, project, run_id),
+                        _ => return Err(HttpClientError::MissingUploadParameters.into())
+                    }
+                }
+            };
+
             let cerebro = Cerebro::from(
                 &quality.id,
                 &quality,
@@ -67,26 +81,28 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                args.run_id.clone()
+                Some(run_id)
             )?;
 
-            if let Some(model_dir) = &args.model_dir {
-                
-                if !model_dir.exists() || !model_dir.is_dir() {
-                    create_dir_all(&model_dir)?
-                }
-
-                let output_file = model_dir.join(format!("{}.json", cerebro.name));
-                log::info!("Writing model to file: {}", output_file.display());
-                cerebro.write_json(&output_file)?;
+            
+            if let Some(model) = &args.model {
+                cerebro.write_json(&model)?;
             }
 
             if !args.no_upload {
+
+                // A little weird, but for the uploads we authenticate
+                // with the team derived from the command line or 
+                // staging data, so we need to reset the global
+                // team authentication option
+                let mut client = client.clone();
+                client.team = Some(team.clone());
+                
                 client.upload_models(
                     &Vec::from([cerebro]), 
-                    &args.team_name, 
-                    &args.project_name, 
-                    args.db_name.as_ref()
+                    &team, 
+                    &project, 
+                    Some(&database)
                 )?;
             }
             
@@ -101,6 +117,19 @@ fn main() -> anyhow::Result<()> {
                 return Err(HttpClientError::PanviralIdentifiersNotMatched(quality.id, panviral.id).into())
             }
 
+            let (team, database, project, run_id) = match &args.stage_json {
+                Some(path) => {
+                    let staged = StagedSample::from_json(path)?;
+                    (staged.team, staged.database, staged.project, staged.run_id)
+                },
+                None => {
+                    match (args.team_name.clone(), args.db_name.clone(), args.project_name.clone(), args.run_id.clone()) {
+                        (Some(team), Some(database), Some(project), Some(run_id)) => (team, database, project, run_id),
+                        _ => return Err(HttpClientError::MissingUploadParameters.into())
+                    }
+                }
+            };
+
             let cerebro = Cerebro::from(
                 &quality.id,
                 &quality,
@@ -110,28 +139,27 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                args.run_id.clone()
+                Some(run_id)
             )?;
 
-            if let Some(model_dir) = &args.model_dir {
-                
-                if !model_dir.exists() || !model_dir.is_dir() {
-                    create_dir_all(&model_dir)?
-                }
-
-                let output_file = model_dir.join(format!("{}.json", cerebro.name));
-                log::info!("Writing model to file: {}", output_file.display());
-                cerebro.write_json(&output_file)?;
+            if let Some(model) = &args.model {
+                cerebro.write_json(&model)?;
             }
 
-            log::info!("{:?}", cerebro);
-
             if !args.no_upload {
+                
+                // A little weird, but for the uploads we authenticate
+                // with the team derived from the command line or 
+                // staging data, so we need to reset the global
+                // team authentication option
+                let mut client = client.clone();
+                client.team = Some(team.clone());
+
                 client.upload_models(
                     &Vec::from([cerebro]), 
-                    &args.team_name, 
-                    &args.project_name, 
-                    args.db_name.as_ref()
+                    &team, 
+                    &project, 
+                    Some(&database)
                 )?;
             }
             
@@ -143,6 +171,13 @@ fn main() -> anyhow::Result<()> {
                 models.push(Cerebro::from_json(path)?)
             }
             
+            // A little weird, but for the uploads we authenticate
+            // with the team derived from the command line or 
+            // staging data, so we need to reset the global
+            // team authentication option
+            let mut client = client.clone();
+            client.team = Some(args.team_name.clone());
+
             client.upload_models(
                 &models, 
                 &args.team_name, 

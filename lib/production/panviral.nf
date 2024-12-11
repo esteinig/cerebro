@@ -5,6 +5,7 @@
 
 
 include { QualityControl } from "./quality";
+include { PipelineConfig } from "./utils";
 include { VirusRecovery; PanviralTable; ProcessOutput; UploadOutput  } from "../processes/panviral";
 
 
@@ -14,7 +15,12 @@ workflow PanviralEnrichment {
         reads
         panviralDatabases
         qualityControlDatabases
+        productionConfig
+        stagedFileData
     main:
+
+        cerebroWorkflow = "panviral-enrichment"
+        workflowStarted = java.time.LocalDateTime.now()
 
         QualityControl(
             reads,
@@ -30,16 +36,18 @@ workflow PanviralEnrichment {
 
         VirusRecovery.out.results | map { d -> d[1] } | collect | PanviralTable
 
-        json = QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | ProcessOutput
+        QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | ProcessOutput
 
         if (params.cerebroProduction.enabled) {
-
+            
+            PipelineConfig(cerebroWorkflow, workflowStarted)
+            
             UploadOutput(
-                ProcessOutput.out.results, 
+                stagedFileData.mix(ProcessOutput.out.results) | groupTuple | map { d -> d.flatten() }, 
                 panviralDatabases.taxonomy, 
-                "CNS", 
-                "CNS", 
-                "Default"
+                PipelineConfig.out.config,
+                productionConfig.apiUrl,
+                productionConfig.authToken
             )
 
         }

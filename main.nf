@@ -34,7 +34,7 @@ include { getReads } from './lib/production/utils';
 include { getQualityControlDatabases } from './lib/production/utils'; 
 include { getPanviralEnrichmentDatabases } from './lib/production/utils'; 
 include { getPathogenDetectionDatabases } from './lib/production/utils'; 
-
+include { getProductionConfig } from './lib/production/utils'; 
 
 process StageInputFiles {
 
@@ -42,7 +42,7 @@ process StageInputFiles {
     path(stageJson)
 
     output:
-    tuple env(PIPELINE), env(SAMPLE_ID), path("*.gz")
+    tuple env(PIPELINE), env(SAMPLE_ID), path("*.gz"), path(stageJson)
 
     script:
 
@@ -65,9 +65,26 @@ def pairedReadsFromStage(channel) {
     ) }
 }
 
+def stagedFileDataFromStage(channel) {
+    return channel.map { it ->
+        def sampleID = it[1] 
+        def originalFile = it[3].toFile() 
+        
+        def renamedFile = new File(originalFile.parent, "${sampleID}.stage.json")
+        originalFile.renameTo(renamedFile)
+        
+        return tuple(
+            sampleID,
+            renamedFile.absolutePath
+        )
+    }
+}
+
 workflow production {
 
     params.cerebroProduction.enabled = true
+    
+    productionConfig = getProductionConfig()
 
     /* Staged sample files provided by tower */
 
@@ -85,6 +102,8 @@ workflow production {
         pairedReadsFromStage(pipelines.panviral),
         panviralDB.panviralEnrichment, 
         panviralDB.qualityControl,
+        productionConfig,
+        stagedFileDataFromStage(pipelines.panviral)
     )
 
     /* Pathogen detection */
@@ -153,6 +172,8 @@ workflow panviral {
         ),
         panviralDB.panviralEnrichment, 
         panviralDB.qualityControl,
+        null, // staged file data for production
+        null  // production configuration
     )
 
 }

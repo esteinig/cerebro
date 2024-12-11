@@ -24,88 +24,48 @@ workflow QualityControl {
 
         InputScan(reads)
 
-        // Quality control background only or start with synthetic controls
-        if (params.cerebroConfig.qualityControlBackgroundOnly) {
+        if (params.qualityControl.syntheticControls) {
+            reads = SyntheticControls(
+                reads,
+                databases.syntheticControls,
+                params.qualityControl.syntheticControlsAligner
+            ).reads
+        }
+
+        if (params.qualityControl.internalControls) {
+            reads = InternalControls(
+                reads,
+                databases.internalControls,
+                params.qualityControl.internalControlsAligner
+            ).reads
+        }
+
+        if (params.qualityControl.readDeduplication) {
+            reads = Deduplication(
+                reads,
+                params.qualityControl.readDeduplicationHead,
+                params.qualityControl.readDeduplicationDeterministic
+            ).reads
+        }
+
+        if (params.qualityControl.readQuality) {
+            reads = ReadQuality(reads).reads
+        }
+
+        if (params.qualityControl.hostDepletion) {
+            reads = HostDepletion(
+                reads, 
+                databases.hostDepletion, 
+                params.qualityControl.hostDepletionAligner
+            ).reads
+        }
+
+        if (params.qualityControl.backgroundDepletion) {
             reads = BackgroundDepletion(
                 reads, 
                 databases.backgroundDepletion, 
                 params.qualityControl.backgroundDepletionAligner
             ).reads
-
-        } else {
-            if (params.qualityControl.syntheticControls) {
-                reads = SyntheticControls(
-                    reads,
-                    databases.syntheticControls,
-                    params.qualityControl.syntheticControlsAligner
-                ).reads
-            }
-        }
-
-
-        if (params.cerebroConfig.qualityControlInternalControlsBefore) {
-
-            if (params.qualityControl.internalControls) {
-                reads = InternalControls(
-                    reads,
-                    databases.internalControls,
-                    params.qualityControl.internalControlsAligner
-                ).reads
-            }
-        }
-
-        // Deduplicate before read quality control or after
-        if (params.cerebroConfig.qualityControlDeduplicateBefore) {
-
-            if (params.qualityControl.readDeduplication) {
-                reads = Deduplication(
-                    reads,
-                    params.qualityControl.readDeduplicationHead,
-                    params.qualityControl.readDeduplicationDeterministic
-                ).reads
-            }
-            if (params.qualityControl.readQuality) {
-                reads = ReadQuality(reads).reads
-            }
-        } else {
-            if (params.qualityControl.readQuality) {
-                reads = ReadQuality(reads).reads
-            }
-            if (params.qualityControl.readDeduplication) {
-                reads = Deduplication(
-                    reads,
-                    params.qualityControl.readDeduplicationHead,
-                    params.qualityControl.readDeduplicationDeterministic
-                ).reads
-            }
-        }
-
-
-        // Complete optional alignment depletions
-        if (!params.cerebroConfig.qualityControlBackgroundOnly) {
-            if (params.qualityControl.hostDepletion) {
-                reads = HostDepletion(
-                    reads, 
-                    databases.hostDepletion, 
-                    params.qualityControl.hostDepletionAligner
-                ).reads
-            }
-
-            if (params.qualityControl.internalControls && !params.cerebroConfig.qualityControlInternalControlsBefore) {
-                reads = InternalControls(
-                    reads,
-                    databases.internalControls,
-                    params.qualityControl.internalControlsAligner
-                ).reads
-            }
-
-            if (params.qualityControl.backgroundDepletion) {
-                reads = BackgroundDepletion(
-                    reads, 
-                    databases.backgroundDepletion, 
-                    params.qualityControl.backgroundDepletionAligner
-                ).reads
-            }
         }
 
         OutputScan(reads)

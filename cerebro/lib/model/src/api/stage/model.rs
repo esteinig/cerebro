@@ -20,6 +20,7 @@ pub struct StagedSample {
     pub date: String,
     pub run_id: String,
     pub sample_id: String,
+    pub team: String,
     pub database: String,
     pub project: String,
     pub pipeline: Pipeline,

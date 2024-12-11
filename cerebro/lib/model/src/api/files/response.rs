@@ -119,10 +119,41 @@ impl DeleteFileResponse {
             data: Some(file)
         }
     }
-    pub fn all_deleted() -> Self {
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("No file entries found in database"),
+            data: None
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct DeleteFilesResponse {
+    pub status: String,
+    pub message: String,
+    pub data: Option<Vec<String>>
+}
+impl DeleteFilesResponse {
+    pub fn success(fids: Vec<String>) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("File entries deleted from database"),
+            data: Some(fids)
+        }
+    }
+    pub fn invalid_query() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("Invalid query - run identifier or sample identifier must be provided if no query parameter 'all' is porovided"),
             data: None
         }
     }

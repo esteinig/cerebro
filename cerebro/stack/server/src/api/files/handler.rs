@@ -1,5 +1,5 @@
 
-use cerebro_model::api::{files::{response::{DeleteFileResponse, ListFilesResponse, RegisterFileResponse, UpdateTagsResponse}, schema::UpdateFileTagsSchema}, teams::model::TeamAdminCollection};
+use cerebro_model::api::{files::{response::{DeleteFileResponse, DeleteFilesResponse, ListFilesResponse, RegisterFileResponse, UpdateTagsResponse}, schema::UpdateFileTagsSchema}, teams::model::TeamAdminCollection};
 use serde::Deserialize;
 use futures::TryStreamExt;
 use mongodb::{bson::{doc, from_document, to_bson}, Collection};
@@ -117,42 +117,64 @@ struct FilesDeleteQuery {
     // Optional run identifier
     run_id: Option<String>,
     // Optional sample identifier
-    sample_id: Option<String>
+    sample_id: Option<String>,
+    // Delete all option
+    all: Option<bool>
 }
 
 #[delete("/files")]
-async fn delete_files(data: web::Data<AppState>, query: web::Query<FilesDeleteQuery>,  _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
+async fn delete_files(
+    data: web::Data<AppState>, query: web::Query<FilesDeleteQuery>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+
     let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Files);
-    
-    let mut delete_query = doc! {};
 
-    if let Some(run_id) = &query.run_id {
-        delete_query.insert("run_id", run_id);
+    let mut delete_query = doc! {}; // Default to deleting all if `all` is true
+
+    if let Some(true) = query.all {
+        // If `all` is true, delete all documents
+        delete_query = doc! {};
+    } else {
+
+        if query.run_id.is_none() && query.sample_id.is_none() {
+            return HttpResponse::BadRequest().json(DeleteFilesResponse::invalid_query());
+        }
+
+        // Build query based on provided parameters
+        if let Some(run_id) = &query.run_id {
+            delete_query.insert("run_id", run_id);
+        }
+
+        if let Some(sample_id) = &query.sample_id {
+            delete_query.insert("sample_id", sample_id);
+        }
     }
 
-    if let Some(sample_id) = &query.sample_id {
-        delete_query.insert("sample_id", sample_id);
-    }
-
+    // Retrieve IDs of files to delete
     match files_collection
-        .delete_many(delete_query, None) 
+        .find(delete_query.clone(), None)
         .await
     {
-        Ok(delete_result) => {
-            if delete_result.deleted_count > 0 {
-                HttpResponse::Ok().json(
-                    DeleteFileResponse::all_deleted()
-                )
-            } else {
-                HttpResponse::NotFound().json(
-                    DeleteFileResponse::not_found()
-                )
+        Ok(cursor) => {
+            let deleted_ids = cursor.try_collect().await
+                .unwrap_or_else(|_| vec![])
+                .into_iter()
+                .map(|f| f.fid)
+                .collect();
+
+            // Proceed with deletion
+            match files_collection.delete_many(delete_query, None).await {
+                Ok(_) => {
+                    HttpResponse::Ok().json(DeleteFilesResponse::success(deleted_ids))
+                }
+                Err(err) => HttpResponse::InternalServerError().json(
+                    DeleteFilesResponse::server_error(err.to_string()),
+                ),
             }
         }
         Err(err) => HttpResponse::InternalServerError().json(
-            DeleteFileResponse::server_error(err.to_string())
-        )
+            DeleteFilesResponse::server_error(err.to_string()),
+        ),
     }
 }
 
@@ -186,6 +208,7 @@ async fn delete_file(data: web::Data<AppState>, id: web::Path<String>,  _: web::
 pub fn files_config(cfg: &mut web::ServiceConfig) {
     cfg.service(register_file)
         .service(delete_file)
+        .service(delete_files)
         .service(update_tags)
         .service(list_files);
 }

@@ -93,31 +93,46 @@ impl FileSystemClient {
         }
     }
     // Cerebro API file entry deletion followed by Cerebro FS file deletion
-    //
-    // Needs improvements especially when file storage gets large!
+    // Needs improvements especially when the identifiers returned becomes larger
     pub fn delete_files(
         &self,
         file_ids: &Vec<String>,
         run_id: Option<String>,
-        watcher_id: Option<String>
+        sample_id: Option<String>,
+        all: bool
     ) -> Result<(), FileSystemError> {
+        
+        if all {
+            let confirmation = dialoguer::Confirm::new()
+                .with_prompt("Do you want to delete ALL files for your team?")
+                .interact()
+                .unwrap();
 
-        let file_ids = match (&run_id, &watcher_id) {
-            (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
-                self.api_client.list_files(run_id, watcher_id, 0, 1000, false)?
-                    .iter()
-                    .map(|file| file.id.to_owned())
-                    .collect()
+            if !confirmation {
+                return Ok(())
+            } else {
+                let confirmation = dialoguer::Confirm::new()
+                    .with_prompt("Really?? It is the nuclear option meant for development and testing!")
+                    .interact()
+                    .unwrap();
 
-            },
-            _ => file_ids.clone()
-        };
-           
+                if !confirmation {
+                    return Ok(())
+                }
+            }
+        }
 
-        for file_id in file_ids {
-            let deleted_file = self.api_client.delete_file(Some(file_id), None, None)?;
-            self.delete_file(&deleted_file.fid)?;
-        } 
+        if file_ids.is_empty() {
+            let deleted_fids = self.api_client.delete_files(run_id, sample_id, if all { Some(all) } else { None })?;
+            for fid in deleted_fids {
+                self.delete_file(&fid)?
+            }
+        } else {
+            for file_id in file_ids {
+                let deleted_file = self.api_client.delete_file(&file_id)?;
+                self.delete_file(&deleted_file.fid)?;
+            } 
+        }
 
         Ok(())
     }
