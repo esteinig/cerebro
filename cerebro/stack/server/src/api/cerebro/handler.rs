@@ -8,7 +8,7 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use actix_web::{get, post, web, HttpResponse, patch, delete, HttpRequest};
 
-use crate::api::auth::jwt;
+use crate::api::auth::jwt::{self, TeamProjectAccessQuery};
 use cerebro_model::api::config::Config;
 use cerebro_report::report::{TemplateConfig, AssayTemplate, BioinformaticsTemplate};
 use cerebro_model::api::users::model::Role;
@@ -81,16 +81,9 @@ fn qc_config_from_model(sample_config: Option<SampleConfig>, run_config: Option<
     )
 }
 
-#[derive(Deserialize)]
-pub struct CerebroInsertSampleQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId
-}
-
 
 #[post("/cerebro")]
-async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, query: web::Query<CerebroInsertSampleQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
         Ok(authorized) => authorized,

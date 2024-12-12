@@ -427,7 +427,7 @@ process QualityControlTables {
     path(result_files)
 
     output:
-    tuple path("qc_reads.tsv"), path("qc_background.tsv"), path("qc_ccontrols.tsv")
+    tuple path("qc_reads.tsv"), path("qc_background.tsv"), path("qc_controls.tsv")
 
     script:
 
@@ -449,7 +449,7 @@ process QualityControlTablesNanopore {
     path(result_files)
 
     output:
-    tuple path("qc_reads.tsv"), path("qc_background.tsv"), path("qc_ccontrols.tsv")
+    tuple path("qc_reads.tsv"), path("qc_background.tsv"), path("qc_controls.tsv")
 
     script:
 

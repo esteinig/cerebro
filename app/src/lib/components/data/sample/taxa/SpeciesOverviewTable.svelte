@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { CerebroFilterConfig, ClientFilterConfig, TaxonHighlightConfig, TaxonOverview, TaxonOverviewRecord } from "$lib/utils/types";
+	import type { ClientFilterConfig, TaxonHighlightConfig, TaxonOverview, TaxonOverviewRecord } from "$lib/utils/types";
     import { DisplayData, DisplayTotal } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
@@ -38,6 +38,7 @@
 
         return overviews.map((overview) => {
             const aggregatedResults = {
+                vircov: 0,
                 kraken2: 0,
                 metabuli: 0,
                 ganon2: 0,
@@ -117,31 +118,6 @@
                 taxonomy = $selectedClientFilterConfig.species.includes(taxonOverview.name);
             }
 
-            // // Explicit minimum aggregate metric filters
-            // let metrics = taxonOverview.rpm >= clientFilterConfig?.minimum.rpm && 
-            //     taxonOverview.contigs >= clientFilterConfig?.minimum.contigs &&
-            //     taxonOverview.contigs_bases >= clientFilterConfig?.minimum.bases;
-            
-            // // Explicit module filter - if none set retain this taxon overview
-           
-            // if (clientFilterConfig?.modules.alignment && clientFilterConfig?.modules.kmer && clientFilterConfig?.modules.assembly) {
-            //     modules = taxonOverview.alignment && taxonOverview.kmer && taxonOverview.assembly;
-            // } else if (clientFilterConfig?.modules.alignment && clientFilterConfig?.modules.kmer) {
-            //     modules = taxonOverview.alignment && taxonOverview.kmer;
-            // } else if (clientFilterConfig?.modules.alignment && clientFilterConfig?.modules.assembly) {
-            //     modules = taxonOverview.alignment && taxonOverview.assembly;
-            // } else if (clientFilterConfig?.modules.kmer && clientFilterConfig?.modules.assembly) {
-            //     modules = taxonOverview.kmer && taxonOverview.assembly;
-            // } else if (clientFilterConfig?.modules.alignment) {
-            //     modules = taxonOverview.alignment;
-            // } else if (clientFilterConfig?.modules.kmer) {
-            //     modules = taxonOverview.kmer;
-            // } else if (clientFilterConfig?.modules.assembly) {
-            //     modules = taxonOverview.assembly
-            // } else {
-            //     modules = true
-            // }
-
             if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxonOverview.name.includes(species))) {
                 contam = false
             } else  {
@@ -178,14 +154,6 @@
         }
        
     }
-
-    
-    // let taxonEvidence: string | null = null;
-
-    // Can be multiple e.g. saved from candidate taxa
-    // const getServerConfig = (i: number): CerebroFilterConfig => {
-    //     return Array.isArray(serverFilterConfig) ? serverFilterConfig[i] : serverFilterConfig
-    // }
 
     const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
         if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.includes(species))) {
@@ -289,6 +257,11 @@
                                 {/if}
                                 {#if overview.sylph > 0}
                                     <div class="rounded-full bg-tertiary-200 h-2 w-2"></div>
+                                {:else}
+                                    <div></div>
+                                {/if}
+                                {#if overview.vircov > 0}
+                                    <div class="rounded-full bg-tertiary-400 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}

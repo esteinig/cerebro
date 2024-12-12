@@ -1094,6 +1094,11 @@ impl CerebroClient {
         db_name: Option<&String>,
     ) -> Result<(), HttpClientError> {
 
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
         let urls = self.get_database_and_project_queries(
             &self.routes.url(Route::DataCerebroInsertModel),
             team_name,
@@ -1107,7 +1112,7 @@ impl CerebroClient {
                     return Err(HttpClientError::ModelSampleIdentifierEmpty);
                 }
 
-                let response = self.send_request_with_team(
+                let response = self.send_request_with_team_db_project(
                     self.client
                         .post(url)
                         .json(model)

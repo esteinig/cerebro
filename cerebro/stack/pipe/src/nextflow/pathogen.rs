@@ -14,6 +14,7 @@ use super::quality::{QualityControlFiles, QualityControlOutput};
 
 #[derive(Debug, Clone)]
 pub struct PathogenProfileFiles {
+    vircov: Option<PathBuf>,
     kraken2: Option<PathBuf>,
     metabuli: Option<PathBuf>,
     sylph: Option<PathBuf>,
@@ -22,13 +23,12 @@ pub struct PathogenProfileFiles {
     ganon_reads: Option<PathBuf>,
     ganon_abundance: Option<PathBuf>,
     bracken: Option<PathBuf>,
-    vircov: Option<PathBuf>
 }
 impl PathogenProfileFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
 
         Ok(Self {
-            vircov: get_file_by_name(&path, &id, ".alignment.tsv")?,
+            vircov: get_file_by_name(&path, &id, ".vircov.tsv")?,
             kraken2: get_file_by_name(&path, &id, ".kraken2.reads.report")?,
             metabuli: get_file_by_name(&path, &id, ".metabuli.reads.report")?,
             ganon_reads: get_file_by_name(&path, &id, ".ganon.reads.report")?,
@@ -165,9 +165,6 @@ impl PathogenOutput {
         })
     }
 }
-
-
-
 
 
 #[derive(Serialize, Deserialize)]

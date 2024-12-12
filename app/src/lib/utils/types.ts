@@ -1080,6 +1080,7 @@ export type PathogenDetectionRecord = {
 
 
 export enum PathogenDetectionTool {
+    Vircov = "Vircov",
     Kraken2 = "Kraken2",
     Metabuli = "Metabuli",
     Ganon2 = "Ganon2",
@@ -1248,6 +1249,7 @@ export type TaxonOverviewRecord = {
     kmcp: number;
     sylph: number;
     bracken: number;
+    vircov: number;
     total: number;
 };
 

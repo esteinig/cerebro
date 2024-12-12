@@ -69,6 +69,6 @@ pub enum HttpClientError {
     #[error("failed to match quality control data identifier ({0}) with panviral data identifier ({0})")]
     PanviralIdentifiersNotMatched(String, String),
 
-    #[error("you must provide a staged file (--stage-json) or a project name (--project-name) and a database name (--db-name)")]
+    #[error("you must provide a staged file (--stage-json) or global options for team, db and project authentication (cerebro-client --team --db --project)")]
     MissingUploadParameters,
 }

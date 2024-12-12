@@ -30,9 +30,9 @@ fn main() -> anyhow::Result<()> {
         match &cli.command { Commands::Login(_) | Commands::PingStatus(_) => true, _ => false },
         cli.danger_invalid_certificate,
         cli.token_file,
-        cli.team,
-        cli.db,
-        cli.project
+        cli.team.clone(),
+        cli.db.clone(),
+        cli.project.clone()
     )?;
 
     match &cli.command {
@@ -59,13 +59,14 @@ fn main() -> anyhow::Result<()> {
                 return Err(HttpClientError::PathogenIdentifiersNotMatched(quality.id, pathogen.id).into())
             }
 
+            
             let (team, database, project, run_id) = match &args.stage_json {
                 Some(path) => {
                     let staged = StagedSample::from_json(path)?;
                     (staged.team, staged.database, staged.project, staged.run_id)
                 },
                 None => {
-                    match (args.team_name.clone(), args.db_name.clone(), args.project_name.clone(), args.run_id.clone()) {
+                    match (cli.team.clone(), cli.db.clone(), cli.project.clone(), args.run_id.clone()) {
                         (Some(team), Some(database), Some(project), Some(run_id)) => (team, database, project, run_id),
                         _ => return Err(HttpClientError::MissingUploadParameters.into())
                     }
@@ -123,7 +124,7 @@ fn main() -> anyhow::Result<()> {
                     (staged.team, staged.database, staged.project, staged.run_id)
                 },
                 None => {
-                    match (args.team_name.clone(), args.db_name.clone(), args.project_name.clone(), args.run_id.clone()) {
+                    match (cli.team.clone(), cli.db.clone(), cli.project.clone(), args.run_id.clone()) {
                         (Some(team), Some(database), Some(project), Some(run_id)) => (team, database, project, run_id),
                         _ => return Err(HttpClientError::MissingUploadParameters.into())
                     }
