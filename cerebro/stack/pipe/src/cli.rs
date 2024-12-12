@@ -15,7 +15,8 @@ fn main() -> anyhow::Result<()> {
 
                 ProcessCommands::Panviral(args) => {
                     let output = PanviralOutput::from(
-                        &args.input, args.id.clone(), args.background
+                        &args.input, 
+                        args.id.clone()
                     )?;
                     let quality_control = QualityControl::from_panviral(&output);
                     
@@ -38,8 +39,7 @@ fn main() -> anyhow::Result<()> {
 
                     let output = PathogenOutput::from(
                         &args.input, 
-                        args.id.clone(), 
-                        args.background
+                        args.id.clone()
                     )?;
 
                     let quality_control = QualityControl::from_pathogen(&output);
@@ -78,7 +78,7 @@ fn main() -> anyhow::Result<()> {
 
                 ProcessCommands::Quality(args) => {
                     let output = QualityControlOutput::from(
-                        &args.input, args.id.clone(), args.background
+                        &args.input, args.id.clone()
                     )?;
                     
                     let quality_control = QualityControl::from_quality(&output);

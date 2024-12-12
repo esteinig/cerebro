@@ -396,13 +396,6 @@ pub struct ProcessArgs {
     /// Filter the output by taxranks
     #[clap(long, short = 'r')]
     pub filter_ranks: Option<Vec<PathogenDetectionRank>>,
-    /// Parse the background alignment from the quality control module variant
-    /// 
-    /// Combined reference for detecting organism, synthetic, internal controls 
-    /// and other relevant background and deplete in a single alignment before
-    /// other quality control steps
-    #[clap(long, short = 'a')]
-    pub background: bool,
     /// Paired-end reads (same identifier for each mate) used as input
     /// 
     /// Classifiers like Kraken2 or Metabuli output reads as unique reads

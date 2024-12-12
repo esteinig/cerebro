@@ -427,12 +427,12 @@ process QualityControlTables {
     path(result_files)
 
     output:
-    tuple path("qc_reads.tsv"), path("qc_bg.tsv"), path("qc_ctrl.tsv")
+    tuple path("qc_reads.tsv"), path("qc_background.tsv"), path("qc_ccontrols.tsv")
 
     script:
 
     """
-    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_background.tsv --controls qc_controls.tsv
     """
     
 }
@@ -449,12 +449,12 @@ process QualityControlTablesNanopore {
     path(result_files)
 
     output:
-    tuple path("qc_reads.tsv"), path("qc_bg.tsv"), path("qc_ctrl.tsv")
+    tuple path("qc_reads.tsv"), path("qc_background.tsv"), path("qc_ccontrols.tsv")
 
     script:
 
     """
-    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_bg.tsv --controls qc_ctrl.tsv
+    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_background.tsv --controls qc_controls.tsv
     """
     
 }

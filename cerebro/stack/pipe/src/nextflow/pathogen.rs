@@ -3,12 +3,11 @@ use std::path::PathBuf;
 
 use vircov::vircov::VircovSummary;
 
-use core::fmt;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{is_file_empty, read_tsv, read_tsv_skip};
+use crate::utils::{is_file_empty, read_tsv};
 use crate::error::WorkflowError;
 use crate::utils::{get_file_by_name, get_file_component, FileComponent};
 use super::quality::{QualityControlFiles, QualityControlOutput};
@@ -149,7 +148,7 @@ pub struct PathogenOutput {
 }
 impl PathogenOutput {
 
-    pub fn from(path: &PathBuf, id: Option<String>, background: bool) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, id: Option<String>) -> Result<Self, WorkflowError> {
 
         let id = match id {
             Some(id) => id,
@@ -160,7 +159,7 @@ impl PathogenOutput {
         
         Ok(Self{
             id: id.to_string(),
-            qc: QualityControlOutput::from_files(&id, &files.qc, background)?,
+            qc: QualityControlOutput::from_files(&id, &files.qc)?,
             profile: PathogenProfileOutput::from_files(&id, &files.profile)?,
             assembly: PathogenAssemblyOutput::from_files(&id, &files.profile)?
         })

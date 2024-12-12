@@ -91,8 +91,7 @@ process UploadOutput {
 
     script:
 
-    // We do not need the global --team authentication option for the client,
-    // the upload tasks use the data from stageJson for this
+    // We do not need the global --team authentication option for the client, the upload tasks use the data from stageJson
 
     """
     cerebro-client --url $apiUrl --token $authToken upload-panviral --quality $quality --panviral $panviral --taxonomy $taxonomyDirectory --pipeline-config $pipelineConfig --stage-json $stageJson --model ${sampleID}.cerebro.json

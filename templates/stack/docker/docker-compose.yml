@@ -32,6 +32,7 @@ services:
       - no-new-privileges:true
   {{/if}}
   
+  {{#unless fs.fs_only}}
   # Envionment variable file is copied into container from deployment configuration
   # and not loaded as Docker environment variables
   cerebro-app:
@@ -193,7 +194,8 @@ services:
       - cerebro-database
     security_opt:
       - no-new-privileges:true
-  
+
+  {{/unless}}
 
   # Cerebro file-system
   
@@ -264,6 +266,7 @@ services:
   {{/if}}
 
 volumes:
+  {{#unless fs.fs_only}}
   cerebro_app:
     driver: local
   cerebro_api:
@@ -276,6 +279,7 @@ volumes:
     driver: local
   cerebro_auth_onetime:
     driver: local
+  {{/unless}}
   {{#if fs.enabled }}
   cerebro_fs_master:
     driver: local

@@ -10,27 +10,27 @@ use crate::error::WorkflowError;
 use super::quality::{QualityControlFiles, QualityControlOutput};
 
 
-pub struct PanviralFiles {
+pub struct MagFiles {
     pub qc: QualityControlFiles,
-    pub vircov: Option<PathBuf>,
+    pub ncbi_blast: Option<PathBuf>,
 }
-impl PanviralFiles {
+impl MagFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
         
         Ok(Self{
             qc: QualityControlFiles::from(path, id)?,
-            vircov: get_file_by_name(&path, &id, ".vircov.tsv")?,
+            ncbi_blast: get_file_by_name(&path, &id, ".vircov.tsv")?,
         })
     }
 }
 
-pub struct PanviralOutput {
+pub struct MagOutput {
     pub id: String,
     pub qc: QualityControlOutput,
-    pub vircov: VircovSummary,
+    pub ncbi_blast: String,
     
 }
-impl PanviralOutput {
+impl MagOutput {
 
     pub fn from(path: &PathBuf, id: Option<String>) -> Result<Self, WorkflowError> {
 
@@ -39,15 +39,15 @@ impl PanviralOutput {
             None => get_file_component(&path, FileComponent::FileName)?
         };
 
-        let files = PanviralFiles::from(&path, &id)?; 
+        let files = MagFiles::from(&path, &id)?; 
         
         Ok(Self{
             id: id.to_string(),
             qc: QualityControlOutput::from_files(&id, &files.qc)? ,
-            vircov: match files.vircov { 
-                Some(ref path) => VircovSummary::from_tsv(path, true)?, 
+            ncbi_blast: match files.ncbi_blast { 
+                Some(ref path) => String::new(), 
                 None => {
-                    log::error!("No virus coverage file detected for: {id}");
+                    log::error!("No NCBI BLAST file detected for: {id}");
                     return Err(WorkflowError::PipelineOutputNotFound)
                 }
             },

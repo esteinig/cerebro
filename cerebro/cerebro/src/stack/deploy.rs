@@ -620,6 +620,7 @@ impl DataCenterConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSystemConfig {
     pub enabled: bool,
+    pub fs_only: bool,
     pub replication: String,
     pub primary: Option<DataCenterConfig>,
     pub secondary: Option<DataCenterConfig>,
@@ -628,6 +629,7 @@ impl Default for FileSystemConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            fs_only: false,
             replication: String::from("100"),
             primary: None,
             secondary: None
@@ -635,9 +637,10 @@ impl Default for FileSystemConfig {
     }
 }
 impl FileSystemConfig {
-    pub fn default_localhost(fs_primary: &PathBuf, fs_secondary: &PathBuf) -> Self {
+    pub fn default_localhost(fs_primary: &PathBuf, fs_secondary: &PathBuf, fs_only: bool) -> Self {
         Self {
             enabled: true,
+            fs_only,
             replication: String::from("100"),
             primary: Some(DataCenterConfig::default_primary(fs_primary)),
             secondary: Some(DataCenterConfig::default_secondary(fs_secondary)),
@@ -646,6 +649,7 @@ impl FileSystemConfig {
     pub fn default_web() -> Self {
         Self {
             enabled: false,
+            fs_only: false,
             replication: String::from("100"),
             primary: None,
             secondary: None,
@@ -678,6 +682,7 @@ pub fn write_rendered_template(buf: &[u8], path: &PathBuf) -> Result<(), StackCo
 pub enum StackConfigTemplate {
     Localhost,
     LocalhostInsecure,
+    LocalhostFs,
     Web
 }
 
@@ -804,6 +809,7 @@ impl StackConfig {
             &fs_primary,
             &fs_secondary,
             false,
+            false
         ))
     }
     pub fn default_localhost_insecure_from_args(
@@ -825,9 +831,31 @@ impl StackConfig {
             &fs_primary,
             &fs_secondary,
             false,
+            false
         ))
     }
+    pub fn default_localhost_fs_from_args(
+        args: &StackDeployArgs,
+        interactive: bool,
+    ) -> Result<Self, StackConfigError> {
 
+        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive)?;
+        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive)?;
+
+        Ok(Self::default_localhost(
+            "root",
+            "root",
+            "admin",
+            "admin",
+            "admin@cerebro",
+            "Administrator",
+            "admin",
+            &fs_primary,
+            &fs_secondary,
+            false,
+            true
+        ))
+    }
     pub fn default_web_from_args(
         args: &StackDeployArgs,
         interactive: bool,
@@ -870,6 +898,7 @@ impl StackConfig {
         fs_primary: &PathBuf,
         fs_secondary: &PathBuf,
         traefik_launch: bool,
+        fs_only: bool
     ) -> Self {
 
         log::info!("Creating default localhost deployment template");
@@ -898,7 +927,8 @@ impl StackConfig {
             ),
             fs: FileSystemConfig::default_localhost(
                 fs_primary, 
-                fs_secondary
+                fs_secondary,
+                fs_only
             )
         }
     }

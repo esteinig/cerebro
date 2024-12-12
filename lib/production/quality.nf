@@ -146,7 +146,6 @@ workflow QualityControlNanopore {
             OutputScanNanopore.out.results
         )
 
-        // process results to json and get qc tables
         json    = results | groupTuple | ProcessOutputNanopore 
         tables  = json    | collect    | QualityControlTablesNanopore
 

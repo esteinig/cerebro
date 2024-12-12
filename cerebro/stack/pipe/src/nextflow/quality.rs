@@ -55,7 +55,7 @@ pub struct QualityControlOutput {
     pub output_scan: ScanReport,
 }
 impl QualityControlOutput {
-    pub fn from(path: &PathBuf, id: Option<String>, background: bool) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, id: Option<String>) -> Result<Self, WorkflowError> {
 
         let id = match id {
             Some(id) => id,
@@ -64,21 +64,11 @@ impl QualityControlOutput {
 
         let qc_files =  QualityControlFiles::from(path, &id)?;
 
-        if background {
-            Self::get_background_qc(&id, &qc_files)
-        } else {
-            
-            Self::get_modular_qc(&id, &qc_files)
-        }
+        Self::get_modular_qc(&id, &qc_files)
     }
-    pub fn from_files(id: &str, qc_files: &QualityControlFiles, background: bool) -> Result<Self, WorkflowError> {
+    pub fn from_files(id: &str, qc_files: &QualityControlFiles) -> Result<Self, WorkflowError> {
 
-        if background {
-            Self::get_background_qc(&id, &qc_files)
-        } else {
-            
-            Self::get_modular_qc(&id, &qc_files)
-        }
+        Self::get_modular_qc(&id, &qc_files)
         
     }
     pub fn get_modular_qc(id: &str, qc_files: &QualityControlFiles) -> Result<Self, WorkflowError> {
@@ -126,41 +116,6 @@ impl QualityControlOutput {
                     return Err(WorkflowError::PipelineOutputNotFound)
                 }
             },
-        })
-    }
-    pub fn get_background_qc(id: &str, qc_files: &QualityControlFiles) -> Result<Self, WorkflowError> {
-        Ok(QualityControlOutput { 
-            id: id.to_string(),
-            input_scan: match qc_files.input_scan { 
-                Some(ref path) => ScanReport::from_json(path)?, 
-                None => {
-                    log::error!("No required read scanning file (input) detected for {id}");
-                    return Err(WorkflowError::PipelineOutputNotFound)
-                }
-            },
-            reads_qc_fastp: match qc_files.reads_qc_fastp { 
-                Some(ref path) => Some(FastpReport::from_json(path)?), 
-                None => None
-            },
-            reads_qc_nanoq: match qc_files.reads_qc_nanoq { 
-                Some(ref path) => Some(NanoqReport::from_json(path)?), 
-                None => None
-            },
-            deduplication: match qc_files.deduplication { 
-                Some(ref path) => Some(DeduplicationReport::from_json(path)?), 
-                None => None
-            },
-            internal_controls: None,
-            synthetic_controls: None,
-            host_depletion: None,
-            background_alignment: None,
-            output_scan: match qc_files.output_scan { 
-                Some(ref path) => ScanReport::from_json(path)?, 
-                None => {
-                    log::error!("No required read scanning file (output) detected for {id}");
-                    return Err(WorkflowError::PipelineOutputNotFound)
-                }
-            }
         })
     }
 }

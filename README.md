@@ -50,7 +50,7 @@ Support
 
 ## Getting started
 
-Let's step through some common tasks and core functions of `Cerebro` and its data application and reporting stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to deploy and operate the full application in production please see the [documentation](). 
+Let's step through some common tasks and core functions of `Cerebro` and the application and reporting stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to deploy and operate the full application in production please see the [documentation](). 
 
 Minimum requirements:
 
@@ -98,7 +98,15 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 ```
 
 
-## Cerebro API and FS
+## Cerebro API
+
+### Quick start
+
+```
+
+```
+
+## Cerebro FS
 
 ### Quick start
 
