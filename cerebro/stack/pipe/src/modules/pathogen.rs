@@ -15,6 +15,8 @@ pub struct PathogenDetectionTableRecord {
     rank: Option<TaxRank>,
     name: Option<String>,
     lineage: Option<String>,
+    vircov_reads: Option<u64>,
+    vircov_rpm: Option<f64>,
     kraken_reads: Option<u64>,
     kraken_rpm: Option<f64>,
     bracken_reads: Option<u64>,
@@ -92,6 +94,8 @@ impl PathogenDetectionTableRecord {
         let mut kmcp_rpm = None;
         let mut sylph_reads = None;
         let mut sylph_rpm = None;
+        let mut vircov_reads = None;
+        let mut vircov_rpm = None;
 
         for result in &record.results {
             match (result.tool.clone(), result.mode.clone()) {
@@ -119,6 +123,10 @@ impl PathogenDetectionTableRecord {
                     sylph_reads = Some(result.reads);
                     sylph_rpm = Some(result.rpm);
                 }
+                (PathogenDetectionTool::Vircov, PathogenDetectionMode::Sequence) => {
+                    vircov_reads = Some(result.reads);
+                    vircov_rpm = Some(result.rpm);
+                }
                 _ => {}
             }
         }
@@ -129,6 +137,8 @@ impl PathogenDetectionTableRecord {
             rank,
             name,
             lineage,
+            vircov_reads,
+            vircov_rpm,
             kraken_reads,
             kraken_rpm,
             bracken_reads,
