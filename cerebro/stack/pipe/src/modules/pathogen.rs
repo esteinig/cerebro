@@ -244,6 +244,46 @@ impl PathogenDetection {
 
         let mut detection_map: HashMap<String, PathogenDetectionRecord> = HashMap::new();
 
+         // Vircov alignment for pathogen detection summary record
+         if let Some(vircov_summary) = &output.profile.vircov {
+            for record in &vircov_summary.records {
+
+                let taxid = match &record.taxid {
+                    Some(taxid) => taxid,
+                    None => return Err(WorkflowError::PathogenTaxidAnnotationMissing)
+                };
+
+                let taxname = match &record.name {
+                    Some(taxname) => taxname,
+                    None => return Err(WorkflowError::PathogenTaxnameAnnotationMissing)
+                };
+
+                let remap_reads = match record.remap_alignments {
+                    Some(reads) => reads,
+                    None => return Err(WorkflowError::PathogenRemapDataMissing)
+                };
+
+
+                let taxid = taxid.trim().to_string();
+                let name = taxname.trim().to_string();
+                let rank = PathogenDetectionRank::Species; // alignment always species-level for now
+                let reads = remap_reads;
+                let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
+
+                let entry = detection_map
+                    .entry(taxid.clone())
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
+                entry.add_result(
+                    PathogenDetectionTool::Vircov,
+                    PathogenDetectionMode::Sequence,
+                    reads,
+                    rpm,
+                    abundance,
+                );
+            }
+        }
+
         // Process Kraken2 reports
         if let Some(kraken_report) = &output.profile.kraken2 {
             for record in &kraken_report.records {
@@ -496,7 +536,10 @@ impl PathogenDetection {
         let taxonomy = ncbi::load(taxonomy_directory)?;
 
         let mut taxa = HashMap::new();
+
+        // Pathogen detection records
         for record in &self.records {
+
             let mut taxon = match Taxon::from_taxid(record.taxid.clone(), &taxonomy, true) {
                 Ok(taxon) => taxon,
                 Err(err) => {
@@ -512,6 +555,7 @@ impl PathogenDetection {
             taxon.evidence.records.push(record.clone());
             taxa.insert(record.taxid.clone(), taxon);
         }
+
         Ok(taxa)
     }
     pub fn write_records(records: &Vec<PathogenDetectionRecord>, path: &Path) -> Result<(), WorkflowError> {
@@ -635,6 +679,7 @@ pub enum PathogenDetectionTool {
     Kmcp,
     Bracken,
     Sylph,
+    Vircov
 }
 impl PathogenDetectionTool {
     pub fn to_string(&self) -> String {
@@ -645,6 +690,7 @@ impl PathogenDetectionTool {
             Self::Kmcp => "Kmcp".to_string(),
             Self::Bracken => "Bracken".to_string(),
             Self::Sylph => "Sylph".to_string(),
+            Self::Vircov => "Vircov".to_string(),
         }
     }
 }

@@ -328,6 +328,21 @@ pub enum WorkflowError {
     /// most likely due to not having a taxid field annotation in Vircov
     #[error("taxid annotation missing for alignment record")]
     PanviralTaxidAnnotationMissing,
+
+    /// Represents a failure to obtain the taxid for an alignment record
+    /// most likely due to not having a 'taxid' field annotation in Vircov
+    #[error("taxid annotation missing for alignment record")]
+    PathogenTaxidAnnotationMissing,
+
+    /// Represents a failure to obtain the taxon name for an alignment record
+    /// most likely due to not having a 'name' field annotation in Vircov
+    #[error("name annotation missing for alignment record")]
+    PathogenTaxnameAnnotationMissing,
+
+    /// Represents a failure to obtain the remappign stage data for an alignment record
+    /// most likely due to not having run the full pipeline in Vircov
+    #[error("remap data missing for alignment record")]
+    PathogenRemapDataMissing,
 }
 
 #[derive(Error, Debug)]
