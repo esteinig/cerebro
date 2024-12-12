@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use cerebro_model::api::watchers::model::WatcherFormat;
+use cerebro_model::api::{towers::model::Pipeline, watchers::model::WatcherFormat};
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production file system watcher 
@@ -101,6 +101,11 @@ pub enum Commands {
     .multiple(true)
     .args(&["name", "location", "format"])
 )]
+#[clap(group = ArgGroup::new("automatic")
+    .required(false)
+    .multiple(true)
+    .args(&["tower_id", "pipeline"])
+)]
 pub struct WatchArgs {
     /// File path to watch recursively for input folders
     #[clap(long, short = 'p')]
@@ -154,6 +159,15 @@ pub struct WatchArgs {
     /// Slack channel
     #[clap(long, env = "CEREBRO_SLACK_CHANNEL", hide_env_values = true)]
     pub slack_channel: Option<String>,
+
+    /// Tower identifier for a registered and tower to access staging area
+    #[clap(long, group = "automatic", help_heading = "Automatic Launch")]
+    pub tower_id: Option<String>,
+    /// Pipeline to launch when files are pulled by the tower
+    #[clap(long, group = "automatic", help_heading = "Automatic Launch")]
+    pub pipeline: Option<Pipeline>,
+
+
 }
 
 

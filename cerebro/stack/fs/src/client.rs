@@ -1,5 +1,5 @@
 use std::{collections::HashMap, fs::File, io::{BufWriter, Write}, path::PathBuf};
-use cerebro_model::api::{files::model::FileType, stage::model::StagedSample};
+use cerebro_model::api::{files::model::FileType, stage::model::{FileId, StagedSample}};
 use chrono::Utc;
 use anyhow::Result;
 use reqwest::StatusCode;
@@ -233,8 +233,9 @@ impl FileSystemClient {
         file_type: Option<FileType>,
         upload_config: UploadConfig,
         watcher: ProductionWatcher,
-    ) -> Result<(), FileSystemError> {
+    ) -> Result<Vec<FileId>, FileSystemError> {
 
+        let mut file_identifiers = Vec::new();
         for (sample_id, files) in files { 
 
             for file in files {
@@ -259,8 +260,9 @@ impl FileSystemClient {
                     false
                 )?;
 
+                let file_id = uuid::Uuid::new_v4().to_string();
                 let file_schema = RegisterFileSchema {
-                    id: uuid::Uuid::new_v4().to_string(),
+                    id: file_id.clone(),
                     run_id: Some(run_id.clone()),
                     sample_id: Some(sample_id.clone()),
                     date: Utc::now().to_string(),
@@ -272,16 +274,18 @@ impl FileSystemClient {
                     watcher: Some(watcher.clone())
                 };
 
-                log::info!("{:#?}", file_schema);
+                log::debug!("{:#?}", file_schema);
 
                 log::info!("Registering file with Cerebro API");
                 self.api_client.register_file(
                     file_schema
                 )?;
+
+                file_identifiers.push(file_id);
             }
             
         }
 
-        Ok(())
+        Ok(file_identifiers)
     }
 }

@@ -193,21 +193,21 @@ impl CerebroClient {
             project
         })
     }
-    fn log_team_warning(&self) {
+    pub fn log_team_warning(&self) {
         if let None = self.team {
-            log::warn!("No team configured - you may need this for data access!");
+            log::warn!("No team configured for authentication - you may need this for data access");
             log::warn!("Use team name or identifier with global argument '--team' or environment variable '$CEREBRO_USER_TEAM'")
         }
     }
-    fn log_db_warning(&self) {
+    pub fn log_db_warning(&self) {
         if let None = self.db {
-            log::warn!("No database configured - you may need this for data access!");
+            log::warn!("No database configured for authentication - you may need this for data access");
             log::warn!("Use database name or identifier with global argument '--db' or environment variable '$CEREBRO_USER_DB'")
         }
     }
-    fn log_project_warning(&self) {
+    pub fn log_project_warning(&self) {
         if let None = self.project {
-            log::warn!("No database project configured - you may need this for data access!");
+            log::warn!("No database project configured for authentication - you may need this for data access");
             log::warn!("Use project name or identifier with global argument '--project' or environment variable '$CEREBRO_USER_PROJECT'")
         }
     }

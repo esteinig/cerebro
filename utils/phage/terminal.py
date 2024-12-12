@@ -303,10 +303,13 @@ def plot_host_biomass(
 @app.command()
 def plot_rna_phage(
     qc_controls: Path = typer.Option(
-        ..., help="Quality controlue module extraction table of internal controls"
+        ..., help="Quality control module table controls"
     ),
     metadata: Path = typer.Option(
         ..., help="Metadata table of RNA phage experiments (and checks on T4)"
+    ),
+    experiment: str = typer.Option(
+        "phage", help="Experiment column in metadata"
     ),
     plot: Path = typer.Option(
         "rna_phage.png", help="Output plot path"
@@ -314,7 +317,7 @@ def plot_rna_phage(
 ):
 
     """
-    Plot RNA phage experiment for T4-Monash
+    DNA/RNA phage plots
     """
 
     df = pandas.read_csv(qc_controls, sep="\t", header=0)
@@ -328,20 +331,18 @@ def plot_rna_phage(
     plot_dna_phage_comparison(df=df)
 
     # MS2-RNA phage
-    plot_rna_phage_comparison(df=df, meta=meta)
+    plot_rna_phage_comparison(df=df, meta=meta, experiment=experiment)
 
 
-def plot_rna_phage_comparison(df: pandas.DataFrame, meta: pandas.DataFrame):
+def plot_rna_phage_comparison(df: pandas.DataFrame, meta: pandas.DataFrame, experiment: str):
 
     df_rna_phage = df[df["reference"] == "MS2-RNA"]
 
-    meta = meta[meta["experiment"] == "phage"]
+    meta = meta[meta["experiment"] == experiment]
     meta_exp = meta[meta["nucleic_acid"] == "rna"]
 
     df_rna_phage_experiment = df_rna_phage[df_rna_phage["id"].isin(meta_exp["id"])]
     df_rna_phage_experiment = df_rna_phage_experiment.merge(meta_exp[["id", "host", "label"]], on="id", how="left")
-
-    print(df_rna_phage_experiment)
     
     hue_order = ["high", "medium", "low", "extraction", "library"]
 

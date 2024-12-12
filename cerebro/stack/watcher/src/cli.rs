@@ -6,6 +6,7 @@ use cerebro_fs::client::{FileSystemClient, UploadConfig};
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_watcher::utils::WatcherConfigArgs;
 use cerebro_watcher::utils::WatcherSlackArgs;
+use cerebro_watcher::watcher::AutoTowerConfig;
 use cerebro_watcher::watcher::CerebroWatcher;
 use cerebro_watcher::utils::{init_logger, UploadConfigArgs};
 use cerebro_watcher::terminal::{App, Commands};
@@ -57,9 +58,10 @@ fn main() -> anyhow::Result<()> {
                 api_client, 
                 fs_client, 
                 UploadConfig::from_args(args), 
-                SlackConfig::from_args(args)
+                SlackConfig::from_args(args),
+                AutoTowerConfig::from_args(args)
             )?;
-
+            
             watcher.watch(
                 &args.path, 
                 Duration::from_secs(args.interval),

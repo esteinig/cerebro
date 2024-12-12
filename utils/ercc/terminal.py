@@ -4,122 +4,18 @@ import pandas as pd
 import importlib.resources
 
 from pathlib import Path
-from ..utils import read_qc_table, YESTERDAY_MEDIUM
+from ..utils import YESTERDAY_MEDIUM
+
+import numpy as np
 
 from matplotlib import pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
+from typing import List
 
 warnings.filterwarnings("ignore")
 
 app = typer.Typer(add_completion=False)
-
-@app.command()
-def plot_detroit_spikes(
-    qc_table: Path = typer.Option(
-        ..., help="Quality control table including ERCC/EDCC data"
-    ),
-    min_ercc: int = typer.Option(
-        None, help="Minimum constructs to include sample from table"
-    ),
-    biomass_column: str = typer.Option(
-        "total_biomass", help="Biomass column to plot on y-axis"
-    ),
-    detroit_column: str = typer.Option(
-        "detroit_input", help="Biomass of Detroit cells input to sample"
-    ),
-    biomass_label: str = typer.Option(
-        "Host Biomass", help="Biomass super title"
-    ),
-    pipeline_variant: str = typer.Option(
-        None, help="Pipeline variant description"
-    ),
-    constructs: int = typer.Option(
-        92, help="Total distinct constructs in the ERCC/EDCC input"
-    ),
-    prefix: str = typer.Option(
-        "detroit_", help="Plot prefix"
-    )
-):
-    
-    """
-    Plot the Detroit cell spike-in experiment quality control results
-    """
-
-    df = read_qc_table(qc_table, remove_ntc=True, min_ercc_constructs=min_ercc)
-
-    df[biomass_column] = df[biomass_column].astype(float)
-    df["biomass_error"] = df[biomass_column] - df[detroit_column]
-    df["nucleic_acid"] = ["DNA" if "DNA" in identifier else "RNA" for identifier in df.id]
-
-    fig1, axes1 = plt.subplots(nrows=2, ncols=2, figsize=(12,12))
-    fig2, axes2 = plt.subplots(nrows=2, ncols=2, figsize=(12,12))
-    fig3, axes3 = plt.subplots(nrows=2, ncols=2, figsize=(12,12))
-    
-    panel_indices = [(0, 0), (0, 1), (1, 0), (1, 1)]
-    for (i, (ercc_input_mass, group_df)) in enumerate(df.groupby("ercc_input_mass")):
-        
-        ax1 = axes1[panel_indices[i][0], panel_indices[i][1]]
-        sns.barplot(x=detroit_column, y="ercc_constructs", hue="nucleic_acid", data=group_df, ax=ax1, palette=YESTERDAY_MEDIUM)
-        ax1.set_title(f"\nInput: {ercc_input_mass} pg")
-        ax1.set_xlabel("Detroit cell input biomass (pg)")
-        ax1.set_ylabel("Constructs detected\n")
-        ax1.set_ylim(0, constructs)
-        legend = ax1.get_legend()
-        legend.set_title(None) 
-        sns.despine()
-        ax1.grid(False)
-
-        ax2 = axes2[panel_indices[i][0], panel_indices[i][1]]
-        sns.barplot(x=detroit_column, y=biomass_column, hue="nucleic_acid", data=group_df, ax=ax2, palette=YESTERDAY_MEDIUM)
-        sns.stripplot(x=detroit_column, y=biomass_column, hue="nucleic_acid", data=group_df, ax=ax2, palette=YESTERDAY_MEDIUM, dodge=True, edgecolor="black", linewidth=2)
-        ax2.set_title(f"\nInput: {ercc_input_mass} pg")
-        ax2.set_xlabel("Detroit cell input biomass (pg)")
-        ax2.set_ylabel("Estimated biomass (pg)\n")
-        legend = ax2.get_legend()
-        legend.set_title(None) 
-        sns.despine()
-        ax2.grid(False)
-
-        ax3 = axes3[panel_indices[i][0], panel_indices[i][1]]
-        sns.barplot(x=detroit_column, y="biomass_error", hue="nucleic_acid", data=group_df, ax=ax3, palette=YESTERDAY_MEDIUM)
-        sns.stripplot(x=detroit_column, y="biomass_error", hue="nucleic_acid", data=group_df, ax=ax3, palette=YESTERDAY_MEDIUM, dodge=True, edgecolor="black", linewidth=2)
-        ax3.set_title(f"\nInput: {ercc_input_mass} pg")
-        ax3.set_xlabel("Detroit cell input biomass (pg)")
-        ax3.set_ylabel("Delta estimated - cell input biomass (pg)\n")
-        legend = ax3.get_legend()
-        legend.set_title(None) 
-        sns.despine()
-        ax3.grid(False)
-
-    fig4, axes4 = plt.subplots(nrows=1, ncols=1, figsize=(8,8))
-
-    sns.stripplot(x=detroit_column, y="ercc_percent", hue="ercc_input_mass", data=df, palette=YESTERDAY_MEDIUM, ax=axes4, size=16)
-    axes4.set_xlabel("\nDetroit cell input biomass (pg)")
-    axes4.set_ylabel("Proportion of total reads (%)\n")
-    legend = axes4.get_legend()
-    legend.set_title("Input (pg)") 
-    sns.despine()
-    axes4.grid(False)
-
-
-    fig1_suptitle = "Total constructs" + f"\n{pipeline_variant}" if pipeline_variant else ""
-    fig1.suptitle(fig1_suptitle, fontsize=16, fontweight="bold")
-    fig2_suptitle = biomass_label + f"\n{pipeline_variant}" if pipeline_variant else ""
-    fig2.suptitle(fig2_suptitle, fontsize=16, fontweight="bold")
-    fig3_suptitle = biomass_label+" ERROR" + f"\n{pipeline_variant}" if pipeline_variant else ""
-    fig3.suptitle(fig3_suptitle, fontsize=16, fontweight="bold")
-    fig4_suptitle = f"ERCC/EDCC Proportions" + f"\n{pipeline_variant}" if pipeline_variant else ""
-    fig4.suptitle(fig4_suptitle, fontsize=16, fontweight="bold")
-
-
-    fig1.savefig(f"{prefix}_constructs_detected.png", dpi=300,  transparent=False)
-    fig2.savefig(f"{prefix}_biomass_estimated.png", dpi=300,  transparent=False)
-    fig3.savefig(f"{prefix}_biomass_error.png", dpi=300,  transparent=False)
-    fig4.savefig(f"{prefix}_constructs_proportions.png", dpi=300,  transparent=False)
-
-    plt.close()
-
 
 def load_reference(ercc_reference: Path) -> pd.DataFrame:
     if ercc_reference is None:
@@ -236,4 +132,298 @@ def plot_ercc_controls(
 
         fig.tight_layout()
         fig.savefig(f"{library}.png", dpi=300, transparent=False)
+
+
+@app.command()
+def plot_qc_overview(
+    qc_reads: Path = typer.Option(..., help="Quality control summary table"),
+    metadata: Path  = typer.Option(..., help="Experiment metadata table"),
+    column: str = typer.Option("ercc_constructs", help="Data to show for comparison"),
+    experiment: str = typer.Option("pool", help="Subset by metadata column for experiment"),
+    log_scale: bool = typer.Option(False, help="Log scale for plot"),
+    title: str = typer.Option("ERCC Constructs", help="Plot titles"),
+    output: Path  = typer.Option("ercc_constructs.png", help="POutput plot file"),
+):
+    
+    """Quality control summary overview from experiment """
+
+    qc = pd.read_csv(qc_reads, sep="\t", header=0)
+    metadata = pd.read_csv(metadata, sep="\t", header=0)
+    
+    # Remove the sample identifier from the sequencing library
+    qc["id"] = qc["id"].str.replace(r"(_[^_]*)$", "", regex=True)
+    
+    # Merge metadata with QC table
+    merged_data = qc.merge(metadata, on="id", how="left")
+
+    merged_data = merged_data[merged_data["experiment"] == experiment]
+
+    # Remove the repeat identifier from the sequencing library
+    merged_data["id"] = merged_data["id"].str.replace(r"__P[0-9]+", "", regex=True)
+    merged_data["id"] = merged_data["id"].str.replace(r"__RPT[0-9]+", "", regex=True)
+
+    plot_grouped_qc(merged_data=merged_data, column=column, log_scale=log_scale, title=title, output=output, hue="label")
+
+
+@app.command()
+def plot_internal_controls_overview(
+    qc_controls: Path = typer.Option(..., help="Quality control module table controls"),
+    metadata: Path  = typer.Option(..., help="Experiment metadata table"),
+    column: str = typer.Option("coverage", help="Data to show for comparison"),
+    experiment: str = typer.Option("pool", help="Subset by metadata column for experiment"),
+    log_scale: bool = typer.Option(False, help="Log scale for plot"),
+    title: str = typer.Option("Genome coverage (%)", help="Plot titles"),
+    output: Path  = typer.Option("internal_controls.png", help="Output plot file"),
+    dna_control: str = typer.Option("T4-DNA", help="Internal DNA control"),
+    rna_control: str = typer.Option("MS2-RNA", help="Internal RNA control"),
+):
+    
+    """Controls overview from experiment """
+
+    controls = pd.read_csv(qc_controls, sep="\t", header=0)
+    metadata = pd.read_csv(metadata, sep="\t", header=0)
+    
+    # Remove ERCC from controls table
+    controls = controls[~controls["reference"].str.startswith("ERCC")]
+
+    # Remove the sample identifier from the sequencing library
+    controls["id"] = controls["id"].str.replace(r"(_[^_]*)$", "", regex=True)
+    
+    # Merge metadata with controls table
+    merged_data = controls.merge(metadata, on="id", how="left")
+
+    merged_data = merged_data[merged_data["experiment"] == experiment]
+
+    # Remove the repeat identifier from the sequencing library
+    merged_data["id"] = merged_data["id"].str.replace(r"__P[0-9]+", "", regex=True)
+    merged_data["id"] = merged_data["id"].str.replace(r"__RPT[0-9]+", "", regex=True)
+
+    plot_grouped_controls(merged_data=merged_data, column=column, log_scale=log_scale, title=title, output=output, hue="label", dna_control=dna_control, rna_control=rna_control)
+
+
+@app.command()
+def plot_positive_controls_overview(
+    species: Path = typer.Option(..., help="Species output table"),
+    metadata: Path  = typer.Option(..., help="Experiment metadata table"),
+    experiment: str = typer.Option("pool", help="Subset by metadata column for experiment"),
+    log_scale: bool = typer.Option(False, help="Log scale for plot"),
+    title: str = typer.Option("Genome coverage (%)", help="Plot titles"),
+    output: Path  = typer.Option("internal_controls.png", help="Output plot file"),
+):
+    
+    """Controls overview from experiment """
+
+    species = pd.read_csv(species, sep="\t", header=0)
+    metadata = pd.read_csv(metadata, sep="\t", header=0)
+
+    positive_controls = [
+        "Imtechella halotolerans", "Truepera radiovictrix", "Allobacillus halotolerans",
+        "Orthopoxvirus vaccinia", "Betacoronavirus muris",
+        "Saccharomyces cerevisiae", "Pneumocystis jirovecii"
+    ]
+    
+    # Remove the sample identifier from the sequencing library
+    species["id"] = species["id"].str.replace(r"(_[^_]*)$", "", regex=True)
+    
+    # Merge metadata with controls table
+    merged_data = species.merge(metadata, on="id", how="left")
+    merged_data = merged_data[merged_data["experiment"] == experiment]
+
+    # Remove the repeat identifier from the sequencing library
+    merged_data["id"] = merged_data["id"].str.replace(r"__P[0-9]+", "", regex=True)
+    merged_data["id"] = merged_data["id"].str.replace(r"__RPT[0-9]+", "", regex=True)
+
+    plot_grouped_positive_controls(merged_data=merged_data, log_scale=log_scale, title=title, output=output, positive_controls=positive_controls)
+
+def plot_grouped_positive_controls(merged_data: pd.DataFrame, title: str, output: Path, log_scale: bool = False, positive_controls: List[str] = None):
+
+    custom_colors = [
+        '#A0C4FF',  # Soft light blue
+        '#6495ED',  # Cornflower blue
+        '#4169E1',  # Royal blue (slightly more saturated)
+        '#8068dd',  # Muted dark mauve/purple
+        '#c1a6eb',  # Soft muted purple
+        '#E377C2',  # Soft pinkish-red
+        '#FF99CC'   # Soft pastel pink
+    ]
+
+    classifiers = ["kraken", "bracken", "metabuli", "ganon"]
+    merged_data = merged_data[merged_data["name"].isin(positive_controls)]
+    
+    # Separate DNA and RNA data
+    dna_data = merged_data[merged_data["nucleic_acid"] == "dna"]
+    rna_data = merged_data[merged_data["nucleic_acid"] == "rna"]
+    
+    # Create figure with extra space at bottom for legend
+    fig, axes = plt.subplots(nrows=len(classifiers), ncols=2, figsize=(12, 20), gridspec_kw={'bottom': 0.15})
+    
+    # Store handles and labels for legend
+    handles_list = []
+    labels_list = []
+    
+    for i, classifier in enumerate(classifiers):
+        if log_scale:
+            dna_data[f"{classifier}_rpm"] = np.log10(dna_data[f"{classifier}_rpm"])
+            rna_data[f"{classifier}_rpm"] = np.log10(rna_data[f"{classifier}_rpm"])
+        
+        # DNA
+        ax = axes[i][0]
+        dna_bp = sns.barplot(
+            x="label", y=f"{classifier}_rpm", hue="name",
+            data=dna_data, hue_order=positive_controls,
+            ax=ax, palette=custom_colors
+        )
+        sns.stripplot(
+            x="label", y=f"{classifier}_rpm", hue="name",
+            data=dna_data, hue_order=positive_controls,
+            ax=ax, palette=custom_colors, dodge=True,
+            edgecolor="black", linewidth=2, legend=False
+        )
+        ax.set_title(f"\nDNA ({classifier.capitalize()})")
+        ax.set_xlabel("\n")
+        ax.set_ylabel(f"{classifier.capitalize()} RPM {'(log10)' if log_scale else ''}\n")
+        ax.set_ylim(0)
+        
+        # RNA
+        ax = axes[i][1]
+        rna_bp = sns.barplot(
+            x="label", y=f"{classifier}_rpm", hue="name",
+            data=rna_data, hue_order=positive_controls,
+            ax=ax, palette=custom_colors
+        )
+        sns.stripplot(
+            x="label", y=f"{classifier}_rpm", hue="name",
+            data=rna_data, hue_order=positive_controls,
+            ax=ax, palette=custom_colors, dodge=True,
+            edgecolor="black", linewidth=2, legend=False
+        )
+        ax.set_title(f"\nRNA ({classifier.capitalize()})")
+        ax.set_xlabel("\n")
+        ax.set_ylabel(f"{classifier.capitalize()} RPM {'(log10)' if log_scale else ''}\n")
+        ax.set_ylim(0)
+        
+        # Collect handles and labels from the first subplot (DNA)
+        if i == 0:
+            handles, labels = ax.get_legend_handles_labels()
+            handles_list.extend(handles)
+            labels_list.extend(labels)
+    
+    # Remove individual legends
+    for ax in axes.flat:
+        if ax.get_legend():
+            ax.get_legend().remove()
+    
+    # Create a single legend at the bottom of the figure
+    fig.legend(
+        handles_list, 
+        labels_list, 
+        loc='lower center', 
+        bbox_to_anchor=(0.5, 0.08),  # Adjust this to position the legend
+        ncol=3,  # Arrange legend in one row
+        title=None
+    )
+    
+    # Adjust layout and save the figure
+    plt.tight_layout()
+    fig.savefig(output, dpi=300, bbox_inches='tight')
+    fig.suptitle("Positive Controls\n", fontsize=24)
+    plt.close(fig)
+
+
+def plot_grouped_qc(merged_data: pd.DataFrame, title: str, output: Path, column: str = "ercc_constructs", hue: str = "label", log_scale: bool = False, dna_phage_control: str = None, rna_phage_control: str = None, positive_controls: List[str] = None):
+    
+    if log_scale:
+        merged_data[column] = np.log10(merged_data[column])
+
+    # Separate DNA and RNA data
+    dna_data = merged_data[merged_data["nucleic_acid"] == "dna"]
+    rna_data = merged_data[merged_data["nucleic_acid"] == "rna"]
+
+    hue_order = sorted(merged_data[hue].unique())
+
+    # Create grouped bar plot for DNA
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
+
+    sns.barplot(
+        x="host",
+        y=column,
+        hue=hue,
+        hue_order=hue_order,
+        data=dna_data,
+        ax=axes[0],
+        palette="Blues",
+        dodge=True,
+    )
+    sns.stripplot(
+        x="host",
+        y=column,
+        hue=hue,
+        hue_order=hue_order,
+        data=dna_data,
+        ax=axes[0],
+        color="black",
+        dodge=True,
+        edgecolor="gray",
+        linewidth=0.5,
+        alpha=0.7,
+        legend=None,
+    )
+    
+    if column == "ercc_constructs":
+        axes[0].axhline(60, color="gray", linestyle="--", linewidth=1)  # Horizontal line
+        axes[0].set_ylim(0, 92)
+
+    axes[0].set_title("DNA")
+    axes[0].set_ylabel(title)
+    axes[0].set_xlabel(None)
+
+    legend = axes[0].get_legend()
+    if legend:
+        legend.set_title(None)
+
+    # Create grouped bar plot for RNA
+    sns.barplot(
+        x="host",
+        y=column,
+        hue=hue,
+        hue_order=hue_order,
+        data=rna_data,
+        ax=axes[1],
+        palette="Greens",
+        dodge=True,
+    )
+    sns.stripplot(
+        x="host",
+        y=column,
+        hue=hue,
+        hue_order=hue_order,
+        data=rna_data,
+        ax=axes[1],
+        color="black",
+        dodge=True,
+        edgecolor="gray",
+        linewidth=0.5,
+        alpha=0.7,
+        legend=None,
+    )
+
+    if column == "ercc_constructs":
+        axes[1].axhline(60, color="gray", linestyle="--", linewidth=1)  # Horizontal line
+        axes[1].set_ylim(0, 92)
+
+
+    
+    axes[1].set_title("RNA")
+    axes[1].set_ylabel(title)
+    axes[1].set_xlabel(None)
+
+    legend = axes[1].get_legend()
+    if legend:
+        legend.set_title(None)
+
+    # Adjust layout and save the figure
+    fig.tight_layout()
+    plt.savefig(output, dpi=300)
+    plt.close(fig)
+
 

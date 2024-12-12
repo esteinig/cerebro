@@ -1,6 +1,8 @@
 
 
 
+use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
+use cerebro_model::api::towers::model::Pipeline;
 use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use cerebro_fs::client::{FileSystemClient, UploadConfig};
 use cerebro_model::api::watchers::model::ProductionWatcher;
@@ -12,15 +14,33 @@ use std::time::Duration;
 use notify::EventKind;
 use std::thread;
 
+use crate::terminal::WatchArgs;
 use crate::utils::FileGetter;
 use crate::error::WatcherError;
+
+
+#[derive(Clone, Debug)]
+pub struct AutoTowerConfig {
+    pub id: String,
+    pub pipeline: Pipeline
+}
+impl AutoTowerConfig {
+    pub fn from_args(args: &WatchArgs) -> Option<Self> {
+        match (&args.tower_id, &args.pipeline) {
+            (Some(id), Some(pipeline)) => Some(Self { id: id.clone(), pipeline: pipeline.clone() }),
+            _ => None
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CerebroWatcher {
     pub config: ProductionWatcher,
     pub upload_config: UploadConfig,
     pub api_client: CerebroClient,
     pub fs_client: FileSystemClient,
-    pub slack_tools: Option<SlackTools>
+    pub slack_tools: Option<SlackTools>,
+    pub auto_tower_config: Option<AutoTowerConfig>,
 }
 impl CerebroWatcher {
     pub fn new(
@@ -28,7 +48,8 @@ impl CerebroWatcher {
         api_client: CerebroClient, 
         fs_client: FileSystemClient,
         upload_config: UploadConfig,
-        slack_config: Option<SlackConfig>
+        slack_config: Option<SlackConfig>,
+        auto_tower_config: Option<AutoTowerConfig>,
     ) -> Result<Self, WatcherError> {
         
         let slack_tools = match slack_config {
@@ -43,12 +64,22 @@ impl CerebroWatcher {
             _ => None
         };
 
+        if let Some(_) = auto_tower_config {
+            // Tower requires full team, database and project authentication 
+            // for staging samples and configure pipeline output deposition
+
+            api_client.log_team_warning();
+            api_client.log_db_warning();
+            api_client.log_project_warning();
+        }
+
         Ok(Self {
             config,
             upload_config,
             api_client,
             fs_client,
             slack_tools,
+            auto_tower_config
         })
     }
     pub fn watch<P: AsRef<Path>>(&self, path: P, interval: Duration, timeout: Duration, timeout_interval: Duration) -> Result<(), WatcherError> {
@@ -153,7 +184,25 @@ impl CerebroWatcher {
                                                         watcher_config
                                                     ) {
                                                         Err(err) => log::error!("Error uploading read files to Cerebro FS: {}", err.to_string()),
-                                                        Ok(()) => log::info!("Uploaded files for run: {run_id}")
+                                                        Ok(file_ids) => {
+                                                            log::info!("Uploaded files for run: {run_id}");
+
+                                                            if let Some(tower_config) = &watcher.auto_tower_config {
+
+                                                                let schema = RegisterStagedSampleSchema::new(
+                                                                    &tower_config.id,
+                                                                    tower_config.pipeline.clone(),
+                                                                    Some(file_ids),
+                                                                    Some(run_id.to_string())
+                                                                );
+
+                                                                if let Err(err) = watcher.api_client.register_staged_samples(&schema) {
+                                                                    log::error!("Failed to register samples to tower staging area");
+                                                                    log::error!("{err}");
+                                                                }
+
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
