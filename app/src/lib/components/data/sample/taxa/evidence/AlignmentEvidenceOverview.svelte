@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { formatAsThousands } from "$lib/utils/helpers";
-	import type { VircovScanRemapRecord } from "$lib/utils/types";
+	import type { VircovRecord } from "$lib/utils/types";
 
-    export let evidence: VircovScanRemapRecord[];
+    export let evidence: VircovRecord[];
 
     evidence.sort((a, b) => a.scan_reads < b.scan_reads ? 1 : -1);
 
@@ -66,7 +66,7 @@
                             </td>
 
                             <td class="text-right">
-                                <span class="text-xs">{record.remap_mean_depth?.toFixed(1) ?? "-"}</span>
+                                <span class="text-xs">{record.remap_depth?.toFixed(1) ?? "-"}</span>
                                 
                             </td>
                         </tr>

@@ -1,6 +1,3 @@
-
-use std::fs::create_dir_all;
-
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
@@ -92,18 +89,11 @@ fn main() -> anyhow::Result<()> {
 
             if !args.no_upload {
 
-                // A little weird, but for the uploads we authenticate
-                // with the team derived from the command line or 
-                // staging data, so we need to reset the global
-                // team authentication option
                 let mut client = client.clone();
-                client.team = Some(team.clone());
-                
+                client.set_data_auth(&team, &database, &project);  // can be from staged sample
+
                 client.upload_models(
-                    &Vec::from([cerebro]), 
-                    &team, 
-                    &project, 
-                    Some(&database)
+                    &Vec::from([cerebro])
                 )?;
             }
             
@@ -149,18 +139,11 @@ fn main() -> anyhow::Result<()> {
 
             if !args.no_upload {
                 
-                // A little weird, but for the uploads we authenticate
-                // with the team derived from the command line or 
-                // staging data, so we need to reset the global
-                // team authentication option
                 let mut client = client.clone();
-                client.team = Some(team.clone());
+                client.set_data_auth(&team, &database, &project); // can be from staged sample
 
                 client.upload_models(
-                    &Vec::from([cerebro]), 
-                    &team, 
-                    &project, 
-                    Some(&database)
+                    &Vec::from([cerebro])
                 )?;
             }
             
@@ -172,19 +155,7 @@ fn main() -> anyhow::Result<()> {
                 models.push(Cerebro::from_json(path)?)
             }
             
-            // A little weird, but for the uploads we authenticate
-            // with the team derived from the command line or 
-            // staging data, so we need to reset the global
-            // team authentication option
-            let mut client = client.clone();
-            client.team = Some(args.team_name.clone());
-
-            client.upload_models(
-                &models, 
-                &args.team_name, 
-                &args.project_name, 
-                args.db_name.as_ref()
-            )?;
+            client.upload_models(&models)?;
 
         }
         Commands::Tower(subcommand) => {

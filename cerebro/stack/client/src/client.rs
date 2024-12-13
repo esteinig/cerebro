@@ -211,6 +211,11 @@ impl CerebroClient {
             log::warn!("Use project name or identifier with global argument '--project' or environment variable '$CEREBRO_USER_PROJECT'")
         }
     }
+    pub fn set_data_auth(&mut self, team: &str, database: &str, project: &str) {
+        self.team = Some(team.to_string());
+        self.db = Some(database.to_string());
+        self.project = Some(project.to_string());
+    }
     fn load_token(
         token: Option<String>,
         token_file: Option<PathBuf>,
@@ -1087,331 +1092,38 @@ impl CerebroClient {
     }
 
     pub fn upload_models(
-        &mut self,
-        models: &[Cerebro],
-        team_name: &str,
-        project_name: &str,
-        db_name: Option<&String>,
+        &self,
+        models: &[Cerebro]
     ) -> Result<(), HttpClientError> {
-
 
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
-
-        let urls = self.get_database_and_project_queries(
-            &self.routes.url(Route::DataCerebroInsertModel),
-            team_name,
-            Some(project_name),
-            db_name,
-        )?;
-
-        for url in &urls {
-            for model in models {
-                if model.sample.id.is_empty() {
-                    return Err(HttpClientError::ModelSampleIdentifierEmpty);
-                }
-
-                let response = self.send_request_with_team_db_project(
-                    self.client
-                        .post(url)
-                        .json(model)
-                )?;
-
-                self.handle_response::<serde_json::Value>(
-                    response,
-                    Some(&format!(
-                        "Model for sample library {} uploaded successfully",
-                        model.sample.id
-                    )),
-                    "Upload failed",
-                )?;
+        
+        for model in models {
+            
+            if model.sample.id.is_empty() {
+                return Err(HttpClientError::ModelSampleIdentifierEmpty);
             }
+            
+            let url = format!("{}", self.routes.url(Route::DataCerebroInsertModel));
+
+            let response = self.send_request_with_team_db_project(
+                self.client
+                    .post(url)
+                    .json(model)
+            )?;
+
+            self.handle_response::<serde_json::Value>(
+                response,
+                Some(&format!(
+                    "Model for sample library {} uploaded successfully",
+                    model.sample.id
+                )),
+                "Upload failed",
+            )?;
         }
+
         Ok(())
     }
-    // pub fn taxa_summary(
-    //     &self, 
-    //     team_name: &str, 
-    //     project_name: &str, 
-    //     db_name: Option<&String>, 
-    //     filter_config: Option<&PathBuf>,
-    //     run_ids: Option<Vec<String>>, 
-    //     sample_ids: Option<Vec<String>>, 
-    //     workflow_ids: Option<Vec<String>>, 
-    //     workflow_names: Option<Vec<String>>,
-    //     output: &PathBuf
-    // ) -> Result<(), HttpClientError> {
-
-    //     let run_ids = run_ids.unwrap_or(Vec::new());
-    //     let sample_ids = sample_ids.unwrap_or(Vec::new());
-    //     let workflow_ids = workflow_ids.unwrap_or(Vec::new());
-    //     let workflow_names = workflow_names.unwrap_or(Vec::new());
-
-    //     let taxa_summary_schema = TaxaSummarySchema {
-    //         run_ids: run_ids.clone(),
-    //         sample_ids: sample_ids.clone(),
-    //         workflow_ids: workflow_ids.clone(),
-    //         workflow_names: workflow_names.clone(),
-    //         filter_config: match filter_config { 
-    //             Some(path) => TaxonFilterConfig::from_path(&path).map_err(|err| HttpClientError::DeserializeFilter(err))?, 
-    //             None => TaxonFilterConfig::default() 
-    //         }
-    //     };
-
-    //     let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
-
-    //     if urls.len() > 1 {
-    //         log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-    //         log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
-    //         for (i, url) in urls.iter().enumerate() {
-    //             log::warn!("Index: {i} @ {url}");
-    //         }
-    //     }
-
-    //     for (i, url) in urls.iter().enumerate() {
-    //         log::info!(
-    //             "Taxa summary query: project={} team={} run_ids={:?} sample_ids={:?} workflow_ids={:?} workflow_names={:?}", 
-    //             &project_name, &team_name, &run_ids, &sample_ids, &workflow_ids, &workflow_names
-    //         );
-
-    //         let response = self.client.post(format!("{}&csv=true", url))
-    //             .header(AUTHORIZATION, self.get_token_bearer(None))
-    //             .json(&taxa_summary_schema)
-    //             .send()?;
-
-    //         let status = response.status();
-    
-    //         match status.is_success() {
-    //             true => {
-    //                 log::info!("Taxa summary retrieved for project {} of team {}", &project_name, &team_name);
-
-    //                 let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-    //                     HttpClientError::ResponseFailure(
-    //                         status, 
-    //                         String::from("failed to obtain data for taxa summary")
-    //                     )
-    //                 })?;
-                    
-    //                 let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
-
-    //                 let mut file = File::create(&output_name).unwrap();
-    //                 write!(file, "{}", data_response.data.csv).unwrap();
-    //             },
-    //             false => {
-    //                 let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-    //                     HttpClientError::ResponseFailure(
-    //                         status, 
-    //                         String::from("failed to make request for taxa summary")
-    //                     )
-    //                 })?;
-    //                 return Err(HttpClientError::ResponseFailure(
-    //                     status, 
-    //                     error_response.message
-    //                 ))
-    //             }
-    //         };
-    //     }
-        
-    //     Ok(())
-    // }
-    // pub fn qc_summary(
-    //     &self, 
-    //     team_name: &str, 
-    //     project_name: &str, 
-    //     db_name: Option<&String>, 
-    //     cerebro_ids: Option<Vec<String>>, 
-    //     sample_ids: Option<Vec<String>>, 
-    //     ercc_pg: Option<f64>,
-    //     output: &PathBuf
-    // ) -> Result<(), HttpClientError> {
-
-    //     let cerebro_ids = cerebro_ids.unwrap_or(Vec::new());
-    //     let sample_ids = sample_ids.unwrap_or(Vec::new());
-
-    //     let qc_summary_schema = SampleSummaryQcSchema {
-    //         cerebro_ids: cerebro_ids.clone(),
-    //         sample_ids: sample_ids.clone()
-    //     };
-
-    //     let urls = self.get_database_and_project_queries(&self.routes.data_cerebro_taxa_summary, team_name, Some(project_name), db_name)?;
-
-    //     if urls.len() > 1 {
-    //         log::warn!("Project `{}` exists for multiple databases belonging to team `{}`", &project_name, &team_name);
-    //         log::warn!("Fetching data for all projects - otherwise, specify the index of a specific database with `--db-index`:");
-    //         for (i, url) in urls.iter().enumerate() {
-    //             log::warn!("Index: {i} @ {url}");
-    //         }
-    //     }
-
-    //     for (i, url) in urls.iter().enumerate() {
-    //         log::info!(
-    //             "Quality summary query: project={} team={} cerebro_ids={:?} sample_ids={:?} ercc_pg={:?}", 
-    //             &project_name, &team_name, &cerebro_ids, &sample_ids, &ercc_pg
-    //         );
-
-    //         let response = self.client.post(format!("{}&csv=true{}", url, match ercc_pg { Some(pg) => format!("&ercc={:.2}", pg), None => String::new() } ))
-    //             .header(AUTHORIZATION, self.get_token_bearer(None))
-    //             .json(&qc_summary_schema)
-    //             .send()?;
-
-    //         let status = response.status();
-    
-    //         match status.is_success() {
-    //             true => {
-    //                 log::info!("QC summary retrieved for project `{}` of team `{}`", &project_name, &team_name);
-
-    //                 let data_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-    //                     HttpClientError::ResponseFailure(
-    //                         status, 
-    //                         String::from("failed to obtain data for quality summary")
-    //                     )
-    //                 })?;
-                    
-    //                 let output_name = match i { 0 => output.clone(), _ => output.with_extension(format!("{}", &i)) };
-
-    //                 let mut file = File::create(&output_name).unwrap();
-    //                 write!(file, "{}", data_response.data.csv).unwrap();
-    //             },
-    //             false => {
-    //                 let error_response: TaxaSummaryDataResponse = response.json().map_err(|_| {
-    //                     HttpClientError::ResponseFailure(
-    //                         status, 
-    //                         String::from("failed to make request for quality summary")
-    //                     )
-    //                 })?;
-    //                 return Err(HttpClientError::ResponseFailure(status, error_response.message))
-    //             }
-    //         };
-    //     }
-        
-    //     Ok(())
-    // }
-    // pub fn get_database(&self, team_name: &str, db_name: &str) -> Result<TeamDatabase, HttpClientError> {
-
-    //     let url = format!("{}?name={}", &self.routes.data_user_self_teams, team_name);
-        
-    //     // Request data on a team project for insertion of new data
-    //     // log::info!("Getting user team for database ({})", &url);
-
-    //     let response = self.client.get(url)
-    //         .header(AUTHORIZATION, self.get_token_bearer(None))
-    //         .send()?;
-        
-    //     let status = response.status();
-
-    //     let team = match status.is_success() {
-    //         true => {
-    //             let team_response: UserSelfTeamResponse = response.json()?;
-    //             team_response.data.team
-    //         }
-    //         false => {
-    //             let error_response: ErrorResponse = response.json().map_err(|_| {
-    //                 HttpClientError::ResponseFailure(
-    //                     status, 
-    //                     String::from("failed to make request")
-    //                 )
-    //             })?;
-    //             return Err(HttpClientError::ResponseFailure(
-    //                 status, 
-    //                 error_response.message
-    //             ))
-    //         }
-    //     };
-
-    //     get_database_by_name(&team.databases, db_name)
-    // }
-    pub fn get_database_and_project_queries(&self, route: &str, team_name: &str, project_name: Option<&str>, db_name: Option<&String>) -> Result<Vec<String>, HttpClientError> {
-
-        let url = format!("{}?name={}", &self.routes.url(Route::DataUserSelfTeams), team_name);
-        
-        // Request data on a team project for insertion of new data
-        // log::info!("Getting user team for database verification ({})", &url);
-        
-        let response = self.send_request_with_team(
-            self.client.get(&url)
-        )?;
-        
-        log::info!("{url}");
-
-        let status = response.status();
-
-        let team = match status.is_success() {
-            true => {
-                let team_response: UserSelfTeamResponse = response.json()?;
-                team_response.data.team
-            }
-            false => {
-                let error_response: ErrorResponse = response.json().map_err(|_| {
-                    HttpClientError::ResponseFailure(
-                        status
-                    )
-                })?;
-                return Err(HttpClientError::ResponseFailure(
-                    status
-                ))
-            }
-        };
-
-        if team.databases.is_empty() {
-            log::error!("No team databases exist - this is unusual, please contact system administrator");
-            return Err(HttpClientError::TeamDatabasesNotFound)
-        }
-
-        let mut urls = Vec::new();
-        for database in &team.databases {
-
-            // If specific database name requested, check if this is it,
-            // otherwise use all databases for this team for data insertion
-            if let Some(name) = db_name {
-                if &database.name != name && &database.id != name {  // TODO: added the identifier check 
-                    log::info!("Requested database ({}) - skipping team database ({})", &name, &database.name);
-                    continue
-                }
-            }
-            match project_name {
-                Some(name) => {
-                    let project = get_project_by_name(&database.projects, name)?;
-                    urls.push(format!("{}?db={}&project={}", &route, database.id, project.id))
-                },
-                None => {
-                    urls.push(format!("{}?db={}", &route, database.id))
-                }
-            }
-        }    
-
-        Ok(urls)
-    }
 }
-
-
-fn get_project_by_name(projects: &Vec<ProjectCollection>, project_name: &str) -> Result<ProjectCollection, HttpClientError>   {
-    let matches: Vec<&ProjectCollection> = projects.into_iter().filter(|x| x.name == project_name || x.id == project_name).collect(); // TODO: added the identifier check 
-
-    if matches.len() > 0 {
-        Ok(matches[0].to_owned())
-    } else {
-        let valid_project_name_string = projects.iter()
-            .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
-            .collect::<Vec<String>>()
-            .join(", ");
-    
-        Err(HttpClientError::InsertModelProjectParameter(valid_project_name_string))
-    }
-}
-
-
-// fn get_database_by_name(databases: &Vec<TeamDatabase>, db_name: &str) -> Result<TeamDatabase, HttpClientError>   {
-//     let matches: Vec<&TeamDatabase> = databases.into_iter().filter(|x| x.name == db_name).collect();
-
-//     if matches.len() > 0 {
-//         Ok(matches[0].to_owned())
-//     } else {
-//         let valid_database_name_string = databases.iter()
-//             .map(|project| project.name.to_owned()) // replace `field_name` with the actual field name
-//             .collect::<Vec<String>>()
-//             .join(", ");
-//         Err(HttpClientError::InsertModelDatabaseParameter(valid_database_name_string))
-//     }
-// }
-

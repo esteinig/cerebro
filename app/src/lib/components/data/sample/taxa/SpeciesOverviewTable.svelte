@@ -204,8 +204,10 @@
                     <div class="text-right">Bracken</div>
                     <div class="text-right">Metabuli</div>
                     <div class="text-right">Ganon2</div>
-                    <div class="text-right">Kmcp</div>
-                    <div class="text-right">Sylph</div>
+                    <div class="text-right">Vircov</div>
+                    
+                    <!-- <div class="text-right">Kmcp</div>
+                    <div class="text-right">Sylph</div> -->
                     <div class="text-right">Modules</div>
                 </div>
             </ListBoxItem>
@@ -225,8 +227,9 @@
                         <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                        <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                        <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                        <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
                         <div class="flex justify-end gap-x-1 items-center align-center pt-1">
 
                             <div class="grid grid-cols-7 sm:grid-cols-7 md:grid-cols-7 gap-x-1 text-sm">

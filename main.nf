@@ -96,24 +96,35 @@ workflow production {
     
     /* Panviral enrichment */
 
-    def panviralDB = getPanviralEnrichmentDatabases();
+    if (params.panviralEnrichment.enabled) {
+        
+        def panviralDB = getPanviralEnrichmentDatabases();
 
-    PanviralEnrichment(
-        pairedReadsFromStage(pipelines.panviral),
-        panviralDB.panviralEnrichment, 
-        panviralDB.qualityControl,
-        productionConfig,
-        stagedFileDataFromStage(pipelines.panviral)
-    )
+        PanviralEnrichment(
+            pairedReadsFromStage(pipelines.panviral),
+            panviralDB.panviralEnrichment, 
+            panviralDB.qualityControl,
+            productionConfig,
+            stagedFileDataFromStage(pipelines.panviral)
+        )
+    }
 
     /* Pathogen detection */
     
-    // def pathogenDB = getPathogenDetectionDatabases();
+    if (params.pathogenDetection.enabled) {
 
-    // PathogenDetection(
-    //     pairedReadsFromStage(pipelines.pathogen),
-    //     pathogenDB.qualityControl,
-    // )   
+        def pathogenDB = getPathogenDetectionDatabases();
+
+        PathogenDetection(
+            pairedReadsFromStage(pipelines.pathogen),
+            pathogenDB.qualityControl,
+            pathogenDB.taxonomicProfile,
+            pathogenDB.metagenomeAssembly,
+            productionConfig,
+            stagedFileDataFromStage(pipelines.pathogen)
+        )   
+    }
+   
 
 }
 
@@ -135,6 +146,8 @@ workflow pathogen {
             pathogenDB.qualityControl,
             pathogenDB.taxonomicProfile,
             pathogenDB.metagenomeAssembly,
+            null,
+            null
         )   
     } else {
         PathogenDetection(
@@ -147,6 +160,8 @@ workflow pathogen {
             pathogenDB.qualityControl,
             pathogenDB.taxonomicProfile,
             pathogenDB.metagenomeAssembly,
+            null,  
+            null  
         )   
     }
     
@@ -172,8 +187,8 @@ workflow panviral {
         ),
         panviralDB.panviralEnrichment, 
         panviralDB.qualityControl,
-        null, // staged file data for production
-        null  // production configuration
+        null,
+        null
     )
 
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { page } from "$app/stores";
-	import type { CandidateTaxonFormData, CerebroFilterConfig, PriorityTaxonSchema, Taxon, TaxonOverview } from "$lib/utils/types";
+	import type { CandidateTaxonFormData, TaxonFilterConfig, PriorityTaxonSchema, Taxon, TaxonOverview } from "$lib/utils/types";
 	import { ProgressRadial, getToastStore } from "@skeletonlabs/skeleton";
 	import { onMount } from "svelte";
     import type { ModalComponent, ModalSettings, ToastSettings } from "@skeletonlabs/skeleton";
@@ -13,7 +13,7 @@
 
     export let taxid: string;
     export let taxonOverview: TaxonOverview;
-    export let serverFilterConfig: CerebroFilterConfig;
+    export let serverFilterConfig: TaxonFilterConfig;
     export let selectedIdentifiers: string[];
     export let selectedTags: string[];
     export let candidateButton: boolean = true;
@@ -140,7 +140,7 @@
                     <AlignmentEvidenceOverview evidence={taxonData.evidence.alignment}></AlignmentEvidenceOverview>
                 </div>
             {/if}
-            {#if taxonData.evidence.kmer.length} 
+            <!-- {#if taxonData.evidence.kmer.length} 
                 <div class="mb-8">
                     <p class="text-secondary-500 opacity-90 mb-2">K-mer</p>
                     <KmerEvidenceOverview evidence={taxonData.evidence.kmer}></KmerEvidenceOverview>
@@ -151,7 +151,7 @@
                     <p class="text-tertiary-500 opacity-90 mb-2">Assembly</p>
                     <AssemblyEvidenceOverview evidence={taxonData.evidence.assembly}></AssemblyEvidenceOverview>
                 </div>
-            {/if}
+            {/if} -->
         {/if}
     {/if}
 </div>

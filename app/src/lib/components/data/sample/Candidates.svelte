@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
-    import type { Cerebro, CerebroFilterConfig, PriorityTaxon, TaxonOverview } from "$lib/utils/types";
+    import type { Cerebro, TaxonFilterConfig, PriorityTaxon, TaxonOverview } from "$lib/utils/types";
 	import { SlideToggle } from "@skeletonlabs/skeleton";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import CandidateTaxaTable from "./taxa/candidates/CandidateTaxaTable.svelte";
@@ -15,7 +15,7 @@
     let selectedIdentifiers: string[];
     let taxaOverview: TaxonOverview[];
     let modelNameTags: Map<string, string[]>;
-    let serverFilterConfigs: CerebroFilterConfig[];
+    let serverFilterConfigs: TaxonFilterConfig[];
 
     let showEvidenceTable: boolean = false;
 

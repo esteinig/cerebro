@@ -25,7 +25,12 @@ workflow PathogenDetection {
         qualityControlDatabases
         taxonomicProfileDatabases
         metagenomeAssemblyDatabases
+        productionConfig
+        stagedFileData
     main:
+
+        cerebroWorkflow = "panviral-enrichment"
+        workflowStarted = java.time.LocalDateTime.now()
 
         /* Read and background controls module */
 
@@ -53,6 +58,21 @@ workflow PathogenDetection {
             )
         }
 
+        /* Production */
+
+        if (params.cerebroProduction.enabled) {
+            
+            PipelineConfig(cerebroWorkflow, workflowStarted)
+            
+            UploadOutput(
+                stagedFileData.mix(ProcessOutput.out.results) | groupTuple | map { d -> d.flatten() }, 
+                taxonomicProfileDatabases.taxonomy, 
+                PipelineConfig.out.config,
+                productionConfig.apiUrl,
+                productionConfig.authToken
+            )
+
+        }
 
 }
 
@@ -63,7 +83,12 @@ workflow PathogenDetectionNanopore {
         qualityControlDatabases
         taxonomicProfileDatabases
         metagenomeAssemblyDatabases
+        productionConfig
+        stagedFileData
     main:
+
+        cerebroWorkflow = "panviral-enrichment"
+        workflowStarted = java.time.LocalDateTime.now()
 
         /* Read and background controls module */
 
@@ -90,6 +115,7 @@ workflow PathogenDetectionNanopore {
                 metagenomeAssemblyDatabases
             )
         }
+
 
 
 }
@@ -193,11 +219,13 @@ workflow TaxonomicProfile {
 
         json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
         tables = PathogenDetectionTable(json | collect, databases.taxonomy)
-    
+
+
     emit:
         reads   = reads
         results = results
         tables  = tables
+        json    = json
 
 }
 
@@ -301,7 +329,6 @@ workflow TaxonomicProfileNanopore {
         )
 
 
-        // process results to json and get tables
         json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputNanopore
         tables = PathogenDetectionTableNanopore(json | collect, databases.taxonomy)
     

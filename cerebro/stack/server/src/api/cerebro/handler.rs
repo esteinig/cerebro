@@ -1510,14 +1510,14 @@ type MongoDatabaseName = String;
 pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db: &DatabaseId, project: &ProjectId, user_guard: &jwt::JwtDataMiddleware) -> Result<(MongoDatabaseName, Collection<Cerebro>), HttpResponse> {
     
     let (database, project) = {
-            let database_matches: Vec<&TeamDatabase> = user_guard.team.databases.iter().filter(|x| &x.id == db).collect();
+            let database_matches: Vec<&TeamDatabase> = user_guard.team.databases.iter().filter(|x| &x.id == db || &x.name == db).collect();
 
             if database_matches.len() != 1 {
                 return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested database"})))
             }
 
             let database_match = database_matches[0];
-            let project_matches: Vec<&ProjectCollection> = database_match.projects.iter().filter(|x| &x.id == project).collect();
+            let project_matches: Vec<&ProjectCollection> = database_match.projects.iter().filter(|x| &x.id == project || &x.name == project).collect();
 
             if project_matches.len() != 1 {
                 return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested project"})))

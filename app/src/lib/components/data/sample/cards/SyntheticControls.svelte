@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { ERCC_CONCENTRATIONS, ERCC_GROUPS } from "$lib/utils/helpers";
+	import { ERCC_CONCENTRATIONS, ERCC_GROUPS, getCssVariableAsHex } from "$lib/utils/helpers";
 	import type { Cerebro, ErccControl } from "$lib/utils/types";
 	import { sampleCorrelation } from "simple-statistics";
 	import { ScatterChart, ChartTheme, ScaleTypes } from "@carbon/charts-svelte";
+	import { storeTheme } from "$lib/stores/stores";
 
 	export let selectedModel: Cerebro;
 
@@ -71,7 +72,7 @@
 	const getGroupCoefficients = (correlationData: CorrelationData[]): GroupCoefficients => {
 		const calculateGroup = (group: string) => {
 			const filteredData = correlationData.filter((x) => x.group === group);
-			if (filteredData.length === 0) return 0;
+			if (filteredData.length < 2) return 0; // for correlations to compute each group must have at least two representatives otherwise not conducted
 			return sampleCorrelation(
 				filteredData.map((x) => x.concentration),
 				filteredData.map((x) => x.alignments)
@@ -105,12 +106,11 @@
 	let groupColors: Record<string, string> = {};
 
 	if (typeof window !== "undefined") {
-		const style = getComputedStyle(document.body);
 		groupColors = {
-			'A': `rgb(${style.getPropertyValue("--color-primary-200").split(" ").join(",")})`,
-			'B': `rgb(${style.getPropertyValue("--color-primary-400").split(" ").join(",")})`,
-			'C': `rgb(${style.getPropertyValue("--color-primary-600").split(" ").join(",")})`,
-			'D': `rgb(${style.getPropertyValue("--color-primary-800").split(" ").join(",")})`,
+			'A': getCssVariableAsHex("--color-primary-200", $storeTheme) ?? "#ffffff",
+			'B':  getCssVariableAsHex("--color-primary-400", $storeTheme) ?? "#ffffff",
+			'C':  getCssVariableAsHex("--color-primary-600", $storeTheme) ?? "#ffffff",
+			'D':  getCssVariableAsHex("--color-primary-200", $storeTheme) ?? "#ffffff",
 		};
 	}
 
@@ -180,5 +180,3 @@ variables but it is eluding me...
         --cds-grid-bg: rgb(0, 0, 0, 0);
    }
 </style>
-
-<link rel="stylesheet" href="/carbon.css">

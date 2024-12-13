@@ -2,7 +2,7 @@
 	import { invalidate } from '$app/navigation';
     import { page } from '$app/stores';
 	import { CerebroApi, type ApiResponse } from '$lib/utils/api';
-	import { PriorityTaxonType, type CandidateTaxonFormData, type Taxon, type PriorityTaxonSchema, type CerebroFilterConfig, type TaxonOverview } from '$lib/utils/types';
+	import { PriorityTaxonType, type CandidateTaxonFormData, type Taxon, type PriorityTaxonSchema, type TaxonOverview, type TaxonFilterConfig } from '$lib/utils/types';
 
 
 	/** Exposes parent props to this component. */
@@ -12,7 +12,7 @@
     export let taxonOverview: TaxonOverview;
     export let selectedIdentifiers: string[];
     export let selectedTags: string[];
-    export let serverFilterConfig: CerebroFilterConfig;
+    export let serverFilterConfig: TaxonFilterConfig;
 
 
 	// Stores
