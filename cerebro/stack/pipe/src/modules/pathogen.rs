@@ -265,7 +265,10 @@ impl PathogenDetection {
 
                 let taxname = match &record.name {
                     Some(taxname) => taxname,
-                    None => &record.bin.clone().ok_or(WorkflowError::PathogenTaxnameAnnotationMissing)?
+                    None => match &record.bin {
+                        Some(bin) => bin,  // fallback
+                        None => return Err(WorkflowError::PathogenTaxnameAnnotationMissing)
+                    }
                 };
 
                 let remap_reads = match record.remap_alignments {
