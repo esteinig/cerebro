@@ -67,6 +67,8 @@ def getMetagenomeAssemblyDatabases() {
 
     def magParams = params.pathogenDetection.metagenomeAssembly;
 
+    log.info "$params"
+
     return [
         ncbiDatabase:       magParams.ncbiDatabase    ?  getPathogenAssemblyNcbiDatabase(magParams)          :  Channel.empty(),
         sylphDatabase:      magParams.contigProfile   ?  getPathogenAssemblySylphDatabase(magParams)         :  Channel.empty(),
