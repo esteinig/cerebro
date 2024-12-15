@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use taxonomy::{ncbi, GeneralTaxonomy};
 use vircov::vircov::VircovSummary;
 
 use std::path::Path;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::utils::{is_file_empty, read_tsv};
 use crate::error::WorkflowError;
 use crate::utils::{get_file_by_name, get_file_component, FileComponent};
+use super::mag::{BlastTaxidMethod, MagFiles, MagOutput};
 use super::quality::{QualityControlFiles, QualityControlOutput};
 
 #[derive(Debug, Clone)]
@@ -43,34 +45,10 @@ impl PathogenProfileFiles {
 }
 
 #[derive(Debug, Clone)]
-pub struct PathogenAssemblyFiles {
-
-}
-impl PathogenAssemblyFiles {
-    pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
-        
-        Ok(Self { })
-    }
-}
-
-
-pub struct PathogenAssemblyOutput {
-    
-}
-impl PathogenAssemblyOutput {
-    pub fn from_files(id: &str, files: &PathogenProfileFiles) -> Result<Self, WorkflowError> {
-
-        Ok(Self {
-            
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct PathogenFiles {
     pub qc: QualityControlFiles,
     pub profile: PathogenProfileFiles,
-    pub assembly: PathogenAssemblyFiles
+    pub mag: MagFiles
 }
 impl PathogenFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
@@ -78,7 +56,7 @@ impl PathogenFiles {
         Ok(Self{
             qc: QualityControlFiles::from(path, id)?,
             profile: PathogenProfileFiles::from(path, id)?,
-            assembly: PathogenAssemblyFiles::from(path, id)?
+            mag: MagFiles::from(&path, &id)?
         })
     }
 }
@@ -144,11 +122,22 @@ pub struct PathogenOutput {
     pub id: String,
     pub qc: QualityControlOutput,
     pub profile: PathogenProfileOutput,
-    pub assembly: PathogenAssemblyOutput
+    pub mag: MagOutput
 }
 impl PathogenOutput {
 
-    pub fn from(path: &PathBuf, id: Option<String>) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
+
+        let taxonomy = match taxonomy {
+            Some(path) => Some(ncbi::load(&path)?),
+            None => {
+                match blast_taxid {
+                    BlastTaxidMethod::LCA => return Err(WorkflowError::TaxonomyNotProvided),
+                    BlastTaxidMethod::HighestBitscore => None
+                }
+                
+            }
+        };
 
         let id = match id {
             Some(id) => id,
@@ -161,7 +150,7 @@ impl PathogenOutput {
             id: id.to_string(),
             qc: QualityControlOutput::from_files(&id, &files.qc)?,
             profile: PathogenProfileOutput::from_files(&id, &files.profile)?,
-            assembly: PathogenAssemblyOutput::from_files(&id, &files.profile)?
+            mag: MagOutput::from_files(&id, &files.mag, taxonomy.as_ref(), blast_taxid)?
         })
     }
 }

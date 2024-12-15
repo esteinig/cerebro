@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
 use vircov::vircov::VircovRecord;
 use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
-use crate::modules::mag::AssemblyRecord;
+use crate::modules::assembly::AssemblyRecord;
 use crate::modules::pathogen::{PathogenDetectionRecord, PathogenDetectionResult};
 use crate::{error::WorkflowError, utils::get_colored_string};
 

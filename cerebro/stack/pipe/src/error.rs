@@ -46,6 +46,9 @@ pub enum WorkflowError {
     #[error("lineage string is too short: {0}")]
     LineageStringTooShort(String),
 
+    /// Indicates failure to provide a taxonomy
+    #[error("taxonomy nopt provided")]
+    TaxonomyNotProvided,
 
     /// Represents an error when failing to extract a sequence record header.
     #[error("failed to extract sequence record header")]

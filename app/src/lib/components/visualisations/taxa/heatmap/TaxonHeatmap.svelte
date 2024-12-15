@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as d3 from 'd3';
     import { selectedTaxa, selectedServerFilterConfig, storeTheme, navigationLoading } from '$lib/stores/stores';
-    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, PathogenDetectionMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName, FileTag, type Cerebro } from '$lib/utils/types';
+    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, AbundanceMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName, FileTag, type Cerebro } from '$lib/utils/types';
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { page } from '$app/stores';
     import { getCssVariableAsHex } from '$lib/utils/helpers';
@@ -13,7 +13,7 @@
     export let width: number = 1024;
     export let height: number = 768;
     export let tool: PathogenDetectionTool = PathogenDetectionTool.Ganon2;
-    export let mode: PathogenDetectionMode = PathogenDetectionMode.Sequence;
+    export let mode: AbundanceMode = AbundanceMode.Sequence;
     export let displayData: DisplayData = DisplayData.Rpm;
 
     let container: HTMLDivElement;
@@ -306,10 +306,10 @@
         </label>
 
         <label class="label">
-            <span class="font-medium mb-2">Classification mode</span>
+            <span class="font-medium mb-2">Classifier abundance</span>
             <select bind:value={mode} class="select">
-                <option value="{PathogenDetectionMode.Sequence}">{PathogenDetectionMode.Sequence}</option>
-                <option value="{PathogenDetectionMode.Profile}">{PathogenDetectionMode.Profile}</option>
+                <option value="{AbundanceMode.Sequence}">{AbundanceMode.Sequence}</option>
+                <option value="{AbundanceMode.Profile}">{AbundanceMode.Profile}</option>
             </select>
         </label>
 

@@ -3,7 +3,7 @@ use taxonomy::TaxRank;
 
 use crate::modules::pathogen::PathogenDetectionRank;
 use crate::modules::pathogen::PathogenDetectionTool;
-use crate::modules::pathogen::PathogenDetectionMode;
+use crate::modules::pathogen::AbundanceMode;
 
 use super::taxon::Taxon;
 
@@ -13,7 +13,7 @@ pub struct TaxonFilterConfig {
     pub rank: Option<PathogenDetectionRank>,      // Filter by specific taxonomic rank
     pub domains: Vec<String>,                     // Filter by domain names
     pub tools: Vec<PathogenDetectionTool>,        // Filter by specific detection tools
-    pub modes: Vec<PathogenDetectionMode>,        // Filter by detection modes (Sequence/Profile)
+    pub modes: Vec<AbundanceMode>,        // Filter by detection modes (Sequence/Profile)
     pub min_reads: u64,                           // Minimum read count for inclusion
     pub min_rpm: f64,                             // Minimum RPM (Reads per million) for inclusion
     pub min_abundance: f64,                       // Minimum abundance for inclusion

@@ -3,7 +3,7 @@
     import { DisplayData, DisplayTotal } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
-    import { PathogenDetectionMode } from "$lib/utils/types";
+    import { AbundanceMode } from "$lib/utils/types";
 
     // export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
     
@@ -13,7 +13,7 @@
     export let taxonOverview: TaxonOverview[] = [];
     export let modelNameTags: Map<string, string[]> = new Map();
 
-    let displayMode: PathogenDetectionMode = PathogenDetectionMode.Sequence;
+    let displayMode: AbundanceMode = AbundanceMode.Sequence;
     let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
@@ -32,7 +32,7 @@
     
     function transformTaxonOverview(
         overviews: TaxonOverview[],
-        mode: PathogenDetectionMode,
+        mode: AbundanceMode,
         field: DisplayData
     ): TaxonOverviewRecord[] {
 

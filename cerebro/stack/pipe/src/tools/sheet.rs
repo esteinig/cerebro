@@ -5,7 +5,7 @@ use wax::Glob;
 use csv::{ReaderBuilder, Writer};
 use std::path::Component;
 use serde::{Serialize, Deserialize};
-use std::{path::{Path, PathBuf}, collections::{HashMap, HashSet}};
+use std::{path::{Path, PathBuf}, collections::HashMap};
 use crate::{error::WorkflowError, utils::FileComponent};
 
 

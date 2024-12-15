@@ -1090,7 +1090,7 @@ export enum PathogenDetectionTool {
 }
 
 
-export enum PathogenDetectionMode {
+export enum AbundanceMode {
     Sequence = "Sequence",
     Profile = "Profile"
 }
@@ -1131,7 +1131,7 @@ export enum DomainName {
 
 export type PathogenDetectionResult = {
     tool: PathogenDetectionTool,
-    mode: PathogenDetectionMode,
+    mode: AbundanceMode,
     reads: number,
     rpm: number,
     abundance: number

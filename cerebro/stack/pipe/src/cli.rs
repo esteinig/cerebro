@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::{panviral::Panviral, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipe::{modules::{panviral::Panviral, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{mag::BlastTaxidMethod, panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -39,7 +39,9 @@ fn main() -> anyhow::Result<()> {
 
                     let output = PathogenOutput::from(
                         &args.input, 
-                        args.id.clone()
+                        args.id.clone(),
+                        args.taxonomy_directory.clone(),
+                        if args.blast_lca { BlastTaxidMethod::LCA } else { BlastTaxidMethod::HighestBitscore }
                     )?;
 
                     let quality_control = QualityControl::from_pathogen(&output);

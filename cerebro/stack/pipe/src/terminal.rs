@@ -381,27 +381,33 @@ pub struct ProcessArgs {
     /// Output file of processed panviral data
     #[clap(long, short = 'v')]
     pub panviral: Option<PathBuf>,
+    /// Taxonomy for metagenome assembly contig typing (BLAST) when using LCA
+    #[clap(long, short = 't')]
+    pub taxonomy_directory: Option<PathBuf>,
+    /// Compute LCA for taxid reassignment from BLAST hits
+    #[clap(long, short = 'l')]
+    pub blast_lca: bool,
     /// Output file of processed and filtered pathogen detection data
-    #[clap(long, short = 'f')]
+    #[clap(long)]
     pub filter_pathogen: Option<PathBuf>,
     /// Provide filters as JSON
-    #[clap(long, short = 'j')]
+    #[clap(long)]
     pub filter_json: Option<PathBuf>,
     /// Filter the output by taxids
-    #[clap(long, short = 't')]
+    #[clap(long)]
     pub filter_taxids: Option<Vec<String>>,
     /// Filter the output by taxnames
-    #[clap(long, short = 'n')]
+    #[clap(long)]
     pub filter_names: Option<Vec<String>>,
     /// Filter the output by taxranks
-    #[clap(long, short = 'r')]
+    #[clap(long)]
     pub filter_ranks: Option<Vec<PathogenDetectionRank>>,
     /// Paired-end reads (same identifier for each mate) used as input
     /// 
     /// Classifiers like Kraken2 or Metabuli output reads as unique reads
     /// identifiers that were classified, therefore the read counts are
     /// usually half of what they are expected.
-    #[clap(long, short = 'a')]
+    #[clap(long)]
     pub paired_end: bool,
 
 }

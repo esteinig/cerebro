@@ -99,31 +99,31 @@ impl PathogenDetectionTableRecord {
 
         for result in &record.results {
             match (result.tool.clone(), result.mode.clone()) {
-                (PathogenDetectionTool::Kraken2, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Kraken2, AbundanceMode::Sequence) => {
                     kraken_reads = Some(result.reads);
                     kraken_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Bracken, PathogenDetectionMode::Profile) => {
+                (PathogenDetectionTool::Bracken, AbundanceMode::Profile) => {
                     bracken_reads = Some(result.reads);
                     bracken_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Metabuli, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Metabuli, AbundanceMode::Sequence) => {
                     metabuli_reads = Some(result.reads);
                     metabuli_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Ganon2, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Ganon2, AbundanceMode::Sequence) => {
                     ganon_reads = Some(result.reads);
                     ganon_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Kmcp, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Kmcp, AbundanceMode::Sequence) => {
                     kmcp_reads = Some(result.reads);
                     kmcp_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Sylph, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Sylph, AbundanceMode::Sequence) => {
                     sylph_reads = Some(result.reads);
                     sylph_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Vircov, PathogenDetectionMode::Sequence) => {
+                (PathogenDetectionTool::Vircov, AbundanceMode::Sequence) => {
                     vircov_reads = Some(result.reads);
                     vircov_rpm = Some(result.rpm);
                 }
@@ -289,7 +289,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Vircov,
-                    PathogenDetectionMode::Sequence,
+                    AbundanceMode::Sequence,
                     reads,
                     rpm,
                     abundance,
@@ -312,7 +312,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Kraken2,
-                    PathogenDetectionMode::Sequence,
+                    AbundanceMode::Sequence,
                     reads,
                     rpm,
                     abundance,
@@ -335,7 +335,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Metabuli,
-                    PathogenDetectionMode::Sequence,
+                    AbundanceMode::Sequence,
                     reads,
                     rpm,
                     abundance,
@@ -358,7 +358,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Bracken,
-                    PathogenDetectionMode::Profile,
+                    AbundanceMode::Profile,
                     reads,
                     rpm,
                     abundance,
@@ -384,7 +384,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Sylph,
-                    PathogenDetectionMode::Sequence,
+                    AbundanceMode::Sequence,
                     estimated_reads,
                     rpm,
                     record.sequence_abundance,
@@ -408,7 +408,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Kmcp,
-                    PathogenDetectionMode::Sequence,
+                    AbundanceMode::Sequence,
                     reads,
                     rpm,
                     abundance,
@@ -431,7 +431,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Kmcp,
-                    PathogenDetectionMode::Profile,
+                    AbundanceMode::Profile,
                     reads,
                     rpm,
                     abundance,
@@ -454,7 +454,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Ganon2,
-                    PathogenDetectionMode::Sequence,
+                    AbundanceMode::Sequence,
                     reads,
                     rpm,
                     abundance,
@@ -478,7 +478,7 @@ impl PathogenDetection {
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
                     PathogenDetectionTool::Ganon2,
-                    PathogenDetectionMode::Profile,
+                    AbundanceMode::Profile,
                     reads,
                     rpm,
                     abundance,
@@ -716,11 +716,11 @@ impl PathogenDetectionTool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum PathogenDetectionMode {
+pub enum AbundanceMode {
     Sequence,
     Profile,
 }
-impl PathogenDetectionMode {
+impl AbundanceMode {
     pub fn to_string(&self) -> String {
         match self {
             Self::Sequence => "Sequence".to_string(),
@@ -732,7 +732,7 @@ impl PathogenDetectionMode {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PathogenDetectionResult {
     pub tool: PathogenDetectionTool,
-    pub mode: PathogenDetectionMode,
+    pub mode: AbundanceMode,
     pub reads: u64,
     pub rpm: f64,
     pub abundance: f64,
@@ -741,7 +741,7 @@ pub struct PathogenDetectionResult {
 impl PathogenDetectionResult {
     pub fn new(
         tool: PathogenDetectionTool,
-        mode: PathogenDetectionMode,
+        mode: AbundanceMode,
         reads: u64,
         rpm: f64,
         abundance: f64,
@@ -779,7 +779,7 @@ impl PathogenDetectionRecord {
     pub fn add_result(
         &mut self,
         tool: PathogenDetectionTool,
-        mode: PathogenDetectionMode,
+        mode: AbundanceMode,
         reads: u64,
         rpm: f64,
         abundance: f64
