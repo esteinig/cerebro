@@ -1,4 +1,5 @@
 <script lang="ts">
+    import '@carbon/charts-svelte/styles.css'
     import { MeterChart, ChartTheme } from '@carbon/charts-svelte'
     import { Statuses } from '@carbon/charts';
 	import { type Cerebro } from '$lib/utils/types';
@@ -220,24 +221,17 @@
 </div>
 
 <style lang="postcss">
-    :root {
-         --cds-grid-bg: rgba(0, 0, 0, 0);
-    }
-    .qc-meter-chart {
-        --cds-grid-bg: rgba(0, 0, 0, 0.1); /* Set desired background */
-    }
     /* Scoped globally but applied only within this component */
-    :global(.proportional-meter-total) {
+    :global(.qc-meter-chart .proportional-meter-total) {
         display: none;
     }
     /* Scoped globally but applied only within this component */
-    :global(.proportional-meter-title) {
+    :global(.qc-meter-chart .proportional-meter-title) {
         display: none;
     }
     /* Scoped globally but applied only within this component */
-    :global(.status-indicator) {
+    :global(.qc-meter-chart .status-indicator) {
         display: none;
     }
 </style>
  
-<link rel="stylesheet" href="/carbon.css">

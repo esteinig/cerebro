@@ -295,12 +295,13 @@
         <label class="label">
             <span class="font-medium mb-2">Read classifier</span>
             <select bind:value={tool} class="select">
-                <option value="{PathogenDetectionTool.Ganon2}">{PathogenDetectionTool.Ganon2}</option>
                 <option value="{PathogenDetectionTool.Kraken2}">{PathogenDetectionTool.Kraken2}</option>
+                <option value="{PathogenDetectionTool.Ganon2}">{PathogenDetectionTool.Ganon2}</option>
                 <option value="{PathogenDetectionTool.Bracken}">{PathogenDetectionTool.Bracken}</option>
                 <option value="{PathogenDetectionTool.Metabuli}">{PathogenDetectionTool.Metabuli}</option>
                 <option value="{PathogenDetectionTool.Kmcp}">{PathogenDetectionTool.Kmcp}</option>
                 <option value="{PathogenDetectionTool.Sylph}">{PathogenDetectionTool.Sylph}</option>
+                <option value="{PathogenDetectionTool.Vircov}">{PathogenDetectionTool.Vircov}</option>
             </select>
         </label>
 

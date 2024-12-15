@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use taxonomy::ncbi;
 use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::panviral::PanviralOutput, taxa::taxon::Taxon, utils::read_tsv};
+use crate::{error::WorkflowError, nextflow::panviral::PanviralOutput, taxa::taxon::{Taxon, TaxonExtraction}, utils::read_tsv};
 
 use super::quality::QualityControl;
 
@@ -46,36 +46,45 @@ impl Panviral {
         let pathogen = serde_json::from_reader(reader)?;
         Ok(pathogen)
     }
-    // Uses the provided taxonomy to create the taxon structs for the database model
-    pub fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
+}
 
+impl TaxonExtraction for Panviral {
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
         let taxonomy = ncbi::load(taxonomy_directory)?;
-
-        let mut taxa = HashMap::new();
+    
+        let mut taxa: HashMap<String, Taxon> = HashMap::new();
         for record in &self.records {
-
             let taxid = match &record.taxid {
                 None => {
                     log::error!("Taxid not found for record with reference sequence: {}", record.reference);
-                    return Err(WorkflowError::PanviralTaxidAnnotationMissing)
+                    return Err(WorkflowError::PanviralTaxidAnnotationMissing);
                 },
-                Some(taxid) => taxid
+                Some(taxid) => taxid,
             };
-
-            let mut taxon = match Taxon::from_taxid(taxid.clone(), &taxonomy, true) {
-                Err(err) => {
-                    log::error!("Failed to find taxid '{}' in provided taxonomy", taxid);
-                    if strict {
-                        return Err(err)
-                    } else {
-                        log::warn!("Strict mode is not enabled - detection of taxid '{}' will be skipped", taxid);
-                        continue;
-                    }
-                },
-                Ok(taxon) => taxon,
-            };
-            taxon.evidence.alignment.push(record.clone());
-            taxa.insert(taxid.clone(), taxon);
+    
+            if let Some(existing_taxon) = taxa.get_mut(taxid) {
+                // If the taxid is already present, update its evidence
+                existing_taxon.evidence.alignment.push(record.clone());
+            } else {
+                // Otherwise, create a new Taxon and insert it into the HashMap
+                let mut taxon = match Taxon::from_taxid(taxid.clone(), &taxonomy, true) {
+                    Err(err) => {
+                        log::error!("Failed to find taxid '{}' in provided taxonomy", taxid);
+                        if strict {
+                            return Err(err);
+                        } else {
+                            log::warn!(
+                                "Strict mode is not enabled - detection of taxid '{}' will be skipped",
+                                taxid
+                            );
+                            continue;
+                        }
+                    },
+                    Ok(taxon) => taxon,
+                };
+                taxon.evidence.alignment.push(record.clone());
+                taxa.insert(taxid.clone(), taxon);
+            }
         }
         Ok(taxa)
     }

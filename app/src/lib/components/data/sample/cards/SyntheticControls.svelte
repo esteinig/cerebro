@@ -1,4 +1,5 @@
 <script lang="ts">
+    import '@carbon/charts-svelte/styles.css'
 	import { ERCC_CONCENTRATIONS, ERCC_GROUPS, getCssVariableAsHex } from "$lib/utils/helpers";
 	import type { Cerebro, ErccControl } from "$lib/utils/types";
 	import { sampleCorrelation } from "simple-statistics";
@@ -156,7 +157,9 @@
             <span class="ml-5 text-xs opacity-40">r<sup>2</sup><sub>C</sub> = {groupCoefficients.C.toFixed(4)}</span>
             <span class="ml-5 text-xs opacity-40">r<sup>2</sup><sub>D</sub> = {groupCoefficients.D.toFixed(4)}</span>
         </p>
-        <ScatterChart data={correlationData} options={correlationPlotOptions}></ScatterChart>
+        <div class="qc-ercc-chart">
+            <ScatterChart data={correlationData} options={correlationPlotOptions}></ScatterChart>
+        </div>
         
     {:else}
         <div class="flex justify-center">
@@ -168,15 +171,10 @@
 
 </div>
 
-<!-- 
-Overwrite the root variable that is responsible
-for setting the background colors of the Carbon  
-plot - there is probably a way to adjust these 
-to the Skeleton UI / Tailwind color scheme 
-variables but it is eluding me...
--->
+
 <style lang="postcss">
-   :root {
-        --cds-grid-bg: rgb(0, 0, 0, 0);
-   }
+	/* Scoped globally but applied only within this component */
+    :global(.qc-ercc-chart .chart-grid-backdrop) {
+        display: none;
+    }
 </style>

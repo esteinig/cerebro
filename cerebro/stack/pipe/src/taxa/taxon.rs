@@ -11,6 +11,10 @@ use crate::modules::pathogen::{PathogenDetectionRecord, PathogenDetectionResult}
 use crate::{error::WorkflowError, utils::get_colored_string};
 
 
+pub trait TaxonExtraction {
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError>;
+}
+
 fn _get_annotations(taxon: &Taxon, annotations: &Vec<TaxonAnnotations>) -> Option<String> {
 
     let annotation_strings: Vec<String> = annotations.iter().map(|data| {

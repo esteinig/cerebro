@@ -96,34 +96,28 @@ workflow production {
     
     /* Panviral enrichment */
 
-    if (params.panviralEnrichment.enabled) {
-        
-        def panviralDB = getPanviralEnrichmentDatabases();
+    def panviralDB = getPanviralEnrichmentDatabases();
 
-        PanviralEnrichment(
-            pairedReadsFromStage(pipelines.panviral),
-            panviralDB.panviralEnrichment, 
-            panviralDB.qualityControl,
-            productionConfig,
-            stagedFileDataFromStage(pipelines.panviral)
-        )
-    }
+    PanviralEnrichment(
+        pairedReadsFromStage(pipelines.panviral),
+        panviralDB.panviralEnrichment, 
+        panviralDB.qualityControl,
+        productionConfig,
+        stagedFileDataFromStage(pipelines.panviral)
+    )
 
     /* Pathogen detection */
     
-    if (params.pathogenDetection.enabled) {
+    // def pathogenDB = getPathogenDetectionDatabases();
 
-        def pathogenDB = getPathogenDetectionDatabases();
-
-        PathogenDetection(
-            pairedReadsFromStage(pipelines.pathogen),
-            pathogenDB.qualityControl,
-            pathogenDB.taxonomicProfile,
-            pathogenDB.metagenomeAssembly,
-            productionConfig,
-            stagedFileDataFromStage(pipelines.pathogen)
-        )   
-    }
+    // PathogenDetection(
+    //     pairedReadsFromStage(pipelines.pathogen),
+    //     pathogenDB.qualityControl,
+    //     pathogenDB.taxonomicProfile,
+    //     pathogenDB.metagenomeAssembly,
+    //     productionConfig,
+    //     stagedFileDataFromStage(pipelines.pathogen)
+    // )   
    
 
 }

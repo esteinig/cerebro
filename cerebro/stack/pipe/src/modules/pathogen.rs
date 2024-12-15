@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Pat
 use serde::{Deserialize, Serialize};
 use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
 
-use crate::{error::WorkflowError, nextflow::pathogen::{PathogenOutput, SylphReportRecord}, taxa::taxon::Taxon, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{PathogenOutput, SylphReportRecord}, taxa::taxon::{Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
 
 use super::quality::QualityControl;
 
@@ -273,7 +273,7 @@ impl PathogenDetection {
 
                 let remap_reads = match record.remap_alignments {
                     Some(reads) => reads,
-                    None => return Err(WorkflowError::PathogenRemapDataMissing)
+                    None => continue // remapping stage unsuccessful - can occur when very few reads detectec in scanning stage
                 };
 
 
@@ -543,34 +543,6 @@ impl PathogenDetection {
             .cloned()
             .collect()
     }
-    // Uses the provided taxonomy to create the taxon structs for the database model
-    pub fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
-
-        let taxonomy = ncbi::load(taxonomy_directory)?;
-
-        let mut taxa = HashMap::new();
-
-        // Pathogen detection records
-        for record in &self.records {
-
-            let mut taxon = match Taxon::from_taxid(record.taxid.clone(), &taxonomy, true) {
-                Ok(taxon) => taxon,
-                Err(err) => {
-                    log::error!("Failed to find taxid '{}' in provided taxonomy", record.taxid);
-                    if strict {
-                        return Err(err)
-                    } else {
-                        log::warn!("Strict mode is not enabled - detection of taxid '{}' will be skipped", record.taxid);
-                        continue;
-                    }
-                }
-            };
-            taxon.evidence.records.push(record.clone());
-            taxa.insert(record.taxid.clone(), taxon);
-        }
-
-        Ok(taxa)
-    }
     pub fn write_records(records: &Vec<PathogenDetectionRecord>, path: &Path) -> Result<(), WorkflowError> {
         write_tsv(&records, path, true)
     }
@@ -596,6 +568,41 @@ impl PathogenDetection {
         let reader = BufReader::new(File::open(path)?);
         let pathogen = serde_json::from_reader(reader)?;
         Ok(pathogen)
+    }
+}
+
+impl TaxonExtraction for PathogenDetection {
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
+        let taxonomy = ncbi::load(taxonomy_directory)?;
+
+        let mut taxa: HashMap<String, Taxon> = HashMap::new();
+        for record in &self.records {
+
+            if let Some(existing_taxon) = taxa.get_mut(&record.taxid) {
+                // If the taxid is already present, update its evidence
+                existing_taxon.evidence.records.push(record.clone());
+            } else {
+                // Otherwise, create a new Taxon and insert it into the HashMap
+                let mut taxon = match Taxon::from_taxid(record.taxid.clone(), &taxonomy, true) {
+                    Err(err) => {
+                        log::error!("Failed to find taxid '{}' in provided taxonomy", &record.taxid);
+                        if strict {
+                            return Err(err);
+                        } else {
+                            log::warn!(
+                                "Strict mode is not enabled - detection of taxid '{}' will be skipped",
+                                record.taxid
+                            );
+                            continue;
+                        }
+                    },
+                    Ok(taxon) => taxon,
+                };
+                taxon.evidence.records.push(record.clone());
+                taxa.insert(record.taxid.clone(), taxon);
+            }
+        }
+        Ok(taxa)
     }
 }
 

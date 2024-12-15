@@ -1,4 +1,5 @@
 <script lang="ts">
+    import '@carbon/charts-svelte/styles.css'
 	import { BarChartSimple, ChartTheme, ScaleTypes } from '@carbon/charts-svelte';
 	import type { OrganismControl, Cerebro } from '$lib/utils/types';
 
@@ -59,6 +60,7 @@
 		grid: {
 			y: { enabled: false },
 			x: { enabled: false },
+			backgroundColor: "transparent"
 		},
 		axes: {
 			left: {
@@ -92,7 +94,11 @@
     <p class="text-xs opacity-60 flex justify-start pb-8">
         <span>Internal control coverage</span>
     </p>
-        <BarChartSimple data={organismControlData} options={barChartOptions} />
+
+	<div class="qc-internal-controls">
+    	<BarChartSimple data={organismControlData} options={barChartOptions} />
+	</div>
+	
     {:else}
         <div class="flex justify-center">
             <p class="text-sm opacity-60 pt-24">No organism control data available</p>
@@ -101,17 +107,9 @@
 </div>
 
 
-<!-- 
-Overwrite the root variable that is responsible
-for setting the background colors of the Carbon  
-plot - there is probably a way to adjust these 
-to the Skeleton UI / Tailwind color scheme 
-variables but it is eluding me...
--->
 <style lang="postcss">
-    :root {
-         --cds-grid-bg: rgb(0, 0, 0, 0);
+	/* Scoped globally but applied only within this component */
+    :global(.qc-internal-controls .chart-grid-backdrop) {
+        display: none;
     }
 </style>
- 
-<link rel="stylesheet" href="/carbon.css">

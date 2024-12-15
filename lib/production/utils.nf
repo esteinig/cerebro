@@ -13,10 +13,12 @@ def getProductionConfig() {
 /* Panviral Enrichment */
 
 def getPanviralEnrichmentDatabases() {
+
     return [
         panviralEnrichment: getPanviralEnrichmentVirusDatabases(),
         qualityControl: getQualityControlDatabases(),
     ]
+    
 }
 
 def getPanviralEnrichmentVirusDatabases() {
@@ -43,6 +45,7 @@ def getPanviralEnrichmentTaxonomy() {
 /* Pathogen Detection */
 
 def getPathogenDetectionDatabases() {
+    
     return [
         qualityControl: getQualityControlDatabases(),
         taxonomicProfile: getTaxonomicProfileDatabases(),
@@ -66,8 +69,6 @@ def getQualityControlDatabases() {
 def getMetagenomeAssemblyDatabases() {
 
     def magParams = params.pathogenDetection.metagenomeAssembly;
-
-    log.info "$params"
 
     return [
         ncbiDatabase:       magParams.ncbiDatabase    ?  getPathogenAssemblyNcbiDatabase(magParams)          :  Channel.empty(),
