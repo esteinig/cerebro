@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
 use vircov::vircov::VircovRecord;
 use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
-use crate::modules::assembly::AssemblyRecord;
+use crate::modules::mag::MagRecord;
 use crate::modules::pathogen::{PathogenDetectionRecord, PathogenDetectionResult};
 use crate::{error::WorkflowError, utils::get_colored_string};
 
@@ -171,7 +171,7 @@ impl Taxon {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonEvidence {
     pub alignment: Vec<VircovRecord>,
-    pub assembly: Vec<AssemblyRecord>,
+    pub assembly: Vec<MagRecord>,
     pub records: Vec<PathogenDetectionRecord>,
 }
 
@@ -255,16 +255,6 @@ impl TaxonLevel {
             species_name
         })
 
-    }
-    pub fn test_case() -> Self {
-        Self {  
-            domain_taxid: Some("1".into()),
-            domain_name: Some("Eukaryota".into()),
-            genus_taxid: Some("10".into()),
-            genus_name: Some("Homo".into()),
-            species_taxid: Some("9606".into()),
-            species_name: Some("Home sapiens".into())
-        }
     }
 }
 

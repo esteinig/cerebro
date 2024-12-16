@@ -29,6 +29,9 @@ pub struct PathogenDetectionTableRecord {
     kmcp_rpm: Option<f64>,
     sylph_reads: Option<u64>,
     sylph_rpm: Option<f64>,
+    blast_contigs: Option<u64>,
+    blast_bases: Option<u64>,
+    blast_bpm: Option<f64>,
 }
 impl PathogenDetectionTableRecord {
     pub fn from_record(
@@ -96,6 +99,9 @@ impl PathogenDetectionTableRecord {
         let mut sylph_rpm = None;
         let mut vircov_reads = None;
         let mut vircov_rpm = None;
+        let mut blast_contigs = None;
+        let mut blast_bases = None;
+        let mut blast_bpm = None;
 
         for result in &record.results {
             match (result.tool.clone(), result.mode.clone()) {
@@ -123,9 +129,31 @@ impl PathogenDetectionTableRecord {
                     sylph_reads = Some(result.reads);
                     sylph_rpm = Some(result.rpm);
                 }
+                 // Alignment can be multiple per taxonomic identifier (segments, contigs)
                 (PathogenDetectionTool::Vircov, AbundanceMode::Sequence) => {
-                    vircov_reads = Some(result.reads);
-                    vircov_rpm = Some(result.rpm);
+                    vircov_reads = Some(match vircov_reads {
+                        Some(existing) => existing + result.reads,
+                        None => result.reads,
+                    });
+                    vircov_rpm = Some(match vircov_rpm {
+                        Some(existing) => existing + result.rpm,
+                        None => result.rpm,
+                    });
+                }
+                // Assembly can be multiple per taxonomic identifier (contigs)
+                (PathogenDetectionTool::NcbiBlastContig, AbundanceMode::Bases) => {
+                    blast_contigs = Some(match blast_contigs {
+                        Some(existing) => existing + 1,
+                        None => 1,
+                    });
+                    blast_bases = Some(match blast_bases {
+                        Some(existing) => existing + result.bases,
+                        None => result.bases,
+                    });
+                    blast_bpm = Some(match blast_bpm {
+                        Some(existing) => existing + result.bpm,
+                        None => result.bpm,
+                    });
                 }
                 _ => {}
             }
@@ -151,6 +179,9 @@ impl PathogenDetectionTableRecord {
             kmcp_rpm,
             sylph_reads,
             sylph_rpm,
+            blast_contigs,
+            blast_bases,
+            blast_bpm
         })
     }
 
@@ -214,6 +245,15 @@ fn compute_rpm(reads: u64, input_reads: u64) -> Option<f64> {
     }
 }
 
+
+fn compute_bpm(bases: u64, input_bases: u64) -> Option<f64> {
+    if input_bases == 0 {
+        None  // Cannot compute BPM when input_bases is 0
+    } else {
+        Some((bases as f64 / input_bases as f64) * 1_000_000.0)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathogenDetectionFilter {
     pub taxids: Option<Vec<String>>,
@@ -249,8 +289,12 @@ impl PathogenDetection {
         quality: &QualityControl,
         paired_end: bool,
     ) -> Result<Self, WorkflowError> {
+
         let input_reads = quality.reads.input_reads;
+        let input_bases = quality.reads.input_bases;
+
         let classifier_reads = quality.reads.output_reads;
+        let classifier_bases = quality.reads.output_bases;
 
         let mut detection_map: HashMap<String, PathogenDetectionRecord> = HashMap::new();
 
@@ -292,6 +336,32 @@ impl PathogenDetection {
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
+                    0,
+                    0.0,
+                    abundance,
+                );
+            }
+        }
+
+        if let Some(records) = &output.mag.ncbi_blast {
+            for record in records {
+                let taxid = record.taxid.trim().to_string();
+                let name = record.taxname.trim().to_string();
+                let rank = PathogenDetectionRank::from_str(&record.taxrank);
+                let bases = record.length;
+                let bpm = compute_bpm(record.length, input_bases).unwrap_or(0.0);
+                let abundance = (bases as f64 / classifier_bases as f64) * 100.0;
+
+                let entry = detection_map
+                    .entry(taxid.clone())
+                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
+                entry.add_result(
+                    PathogenDetectionTool::NcbiBlastContig,
+                    AbundanceMode::Bases,
+                    0,
+                    0.0,
+                    bases,
+                    bpm,
                     abundance,
                 );
             }
@@ -315,6 +385,8 @@ impl PathogenDetection {
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -338,6 +410,8 @@ impl PathogenDetection {
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -361,6 +435,8 @@ impl PathogenDetection {
                     AbundanceMode::Profile,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -387,6 +463,8 @@ impl PathogenDetection {
                     AbundanceMode::Sequence,
                     estimated_reads,
                     rpm,
+                    0,
+                    0.0,
                     record.sequence_abundance,
                 );
             }
@@ -411,6 +489,8 @@ impl PathogenDetection {
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -434,6 +514,8 @@ impl PathogenDetection {
                     AbundanceMode::Profile,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -457,6 +539,8 @@ impl PathogenDetection {
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -481,6 +565,8 @@ impl PathogenDetection {
                     AbundanceMode::Profile,
                     reads,
                     rpm,
+                    0,
+                    0.0,
                     abundance,
                 );
             }
@@ -693,6 +779,7 @@ impl From<PathogenDetectionRank> for TaxRank {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PathogenDetectionTool {
+    NcbiBlastContig,
     Kraken2,
     Metabuli,
     Ganon2,
@@ -704,6 +791,7 @@ pub enum PathogenDetectionTool {
 impl PathogenDetectionTool {
     pub fn to_string(&self) -> String {
         match self {
+            Self::NcbiBlastContig => "NcbiBlastContig".to_string(),
             Self::Kraken2 => "Kraken2".to_string(),
             Self::Metabuli => "Metabuli".to_string(),
             Self::Ganon2 => "Ganon2".to_string(),
@@ -718,12 +806,14 @@ impl PathogenDetectionTool {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AbundanceMode {
     Sequence,
+    Bases,
     Profile,
 }
 impl AbundanceMode {
     pub fn to_string(&self) -> String {
         match self {
             Self::Sequence => "Sequence".to_string(),
+            Self::Bases => "Bases".to_string(),
             Self::Profile => "Profile".to_string(),
         }
     }
@@ -735,6 +825,8 @@ pub struct PathogenDetectionResult {
     pub mode: AbundanceMode,
     pub reads: u64,
     pub rpm: f64,
+    pub bases: u64,
+    pub bpm: f64,
     pub abundance: f64,
 }
 
@@ -744,6 +836,8 @@ impl PathogenDetectionResult {
         mode: AbundanceMode,
         reads: u64,
         rpm: f64,
+        bases: u64, 
+        bpm: f64,
         abundance: f64,
     ) -> Self {
         Self {
@@ -751,6 +845,8 @@ impl PathogenDetectionResult {
             mode,
             reads,
             rpm,
+            bases,
+            bpm,
             abundance
         }
     }
@@ -782,9 +878,11 @@ impl PathogenDetectionRecord {
         mode: AbundanceMode,
         reads: u64,
         rpm: f64,
+        bases: u64,
+        bpm: f64,
         abundance: f64
     ) {
-        let result = PathogenDetectionResult::new(tool, mode, reads, rpm, abundance);
+        let result = PathogenDetectionResult::new(tool, mode, reads, rpm, bases, bpm, abundance);
         self.results.push(result);
     }
 }

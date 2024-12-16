@@ -1,15 +1,14 @@
 use std::collections::HashMap;
-use std::fs::File;
-use std::{collections::HashSet, path::Path};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use taxonomy::TaxRank;
 use taxonomy::{GeneralTaxonomy, Taxonomy};
 use itertools::Itertools;
 use crate::utils::{
     get_file_by_name, get_file_component, read_tsv, FileComponent
 };
 
-use std::io::{BufRead, BufReader};
 use crate::error::WorkflowError;
 
 
@@ -31,7 +30,7 @@ impl MagFiles {
 #[derive(Debug, Clone)]
 pub struct MagOutput {
     pub id: String,
-    pub ncbi_blast: Vec<ContigBlastRecord>,
+    pub ncbi_blast: Option<Vec<ContigBlastRecord>>,
     
 }
 impl MagOutput {
@@ -48,11 +47,8 @@ impl MagOutput {
         Ok(Self{
             id: id.to_string(),
             ncbi_blast: match files.ncbi_blast { 
-                Some(ref path) => Self::parse_blast_records(&id, path, taxonomy, blast_taxid)?, 
-                None => {
-                    log::error!("No NCBI BLAST file detected for: {id}");
-                    return Err(WorkflowError::PipelineOutputNotFound)
-                }
+                Some(ref path) => Some(Self::parse_blast_records(&id, path, taxonomy, blast_taxid)?), 
+                None => None
             },
         })
     }
@@ -61,11 +57,8 @@ impl MagOutput {
         Ok(Self{
             id: id.to_string(),
             ncbi_blast: match files.ncbi_blast { 
-                Some(ref path) => Self::parse_blast_records(&id, path, taxonomy, blast_taxid)?, 
-                None => {
-                    log::error!("No NCBI BLAST file detected for: {id}");
-                    return Err(WorkflowError::PipelineOutputNotFound)
-                }
+                Some(ref path) => Some(Self::parse_blast_records(&id, path, taxonomy, blast_taxid)?), 
+                None => None
             },
         })
     }
@@ -124,31 +117,6 @@ pub enum BlastTaxidMethod {
     HighestBitscore, // Use the taxid of the record with the highest bitscore
 }
 
-
-// qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxids sscinames stitle 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct DiamondRecord {
-    pub id: String,
-    pub db: String,
-    pub qid: String,
-    pub qlen: u64,
-    pub qstart: u64,
-    pub qend: u64,
-    pub sid: String,
-    pub slen: u64,
-    pub sstart: u64,
-    pub send: u64,
-    pub length: u64,
-    pub nident: u64,
-    pub pident: f64,
-    pub evalue: f64,
-    pub bitscore: f64,
-    pub taxids: Vec<String>,
-    pub taxnames: Vec<String>,
-    pub title: String
-}
- 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ContigBlastRecord {
     pub id: String,
@@ -159,11 +127,12 @@ pub struct ContigBlastRecord {
     pub evalue: f64,
     pub bitscore: f64,
     pub taxid: String,
+    pub taxname: String,
+    pub taxrank: String,
     pub title: String,
     pub reference: String,
     pub reference_length: u64,
     pub read_coverage: f64,           // if present in contig name e.g. from spades output
-    pub bpm: f64,
 }
 impl ContigBlastRecord {
     pub fn from_blast_records(id: &str, records: &Vec<BlastRecord>, taxonomy: Option<&GeneralTaxonomy>, method: BlastTaxidMethod) -> Result<Self, WorkflowError> {
@@ -185,10 +154,10 @@ impl ContigBlastRecord {
         };
         
 
-        let (record, taxid) = match method {
+        let (record, taxid, taxrank) = match method {
             BlastTaxidMethod::HighestBitscore => {
                 match records.into_iter().max_by(|a, b| a.bitscore.total_cmp(&b.bitscore)){
-                    Some(record) => (record.clone(), record.taxid.to_owned()),
+                    Some(record) => (record.clone(), record.taxid.to_owned(), TaxRank::Species),
                     None => return Err(WorkflowError::BlastLcaRecordExtractionEvalue)
                 }
             },
@@ -213,8 +182,14 @@ impl ContigBlastRecord {
                     }
                 };
 
+
                 match records.into_iter().max_by(|a, b| a.bitscore.total_cmp(&b.bitscore)){
-                    Some(record) => (record.clone(), if no_lca_taxid { record.taxid.to_owned() } else { lca_taxid } ),
+                    Some(record) => {
+                        let taxid = if no_lca_taxid { record.taxid.to_owned() } else { lca_taxid };
+
+                        let taxrank = taxonomy.rank(taxid.as_str())?;
+                        (record.clone(), taxid, taxrank)
+                    },
                     None => return Err(WorkflowError::BlastLcaRecordExtractionEvalue)
                 }
             }
@@ -229,70 +204,14 @@ impl ContigBlastRecord {
             evalue: record.evalue,
             bitscore: record.bitscore,
             taxid: taxid.to_string(),
+            taxname: record.taxname,
+            taxrank: format!("{taxrank}"),
             read_coverage,
             reference: record.sid,
             reference_length: record.slen,
-            title: record.title,
-            bpm: 0.0
+            title: record.title
         })
-    }
-    pub fn from_diamond_records(id: &str, records: Vec<DiamondRecord>, taxonomy: &GeneralTaxonomy) -> Result<Self, WorkflowError> {
-        let (record_length, record_name) = match records.get(0) {
-            Some(record) => (record.qlen, record.qid.clone()),
-            None => return Err(WorkflowError::BlastLcaRecordExtraction)
-        };
-
-        // Extraction of coverage from MetaSpades assembly output
-        let record_name_components: Vec<&str> = record_name.split("_").collect();
-        let read_coverage = match record_name_components.contains(&"cov") {
-            true => match record_name_components.last(){
-                Some(cov) => cov.parse::<f64>().map_err(WorkflowError::BlastLcaFloatFieldConversion)?,
-                None => return Err(WorkflowError::BlastLcaCovExtraction)
-            },
-            false => 0.0
-        };
-        
-        let mut taxids: Vec<String> = Vec::new();
-        for record in &records {
-            for taxid in &record.taxids {
-                taxids.push(taxid.to_string())
-            }
-        };
-        let taxids_unique: Vec<String> = taxids.iter().unique().map(|x| x.to_string()).collect();
-
-        // Find the LCA of all hits against this contig
-        let (failed_taxids, lca_taxid) = get_lca_taxid(taxids_unique.clone(), taxonomy)?;
-       
-        if !failed_taxids.is_empty() {
-            let proportion_failed = failed_taxids.len() as f64 / taxids_unique.len() as f64;
-            if proportion_failed >= 0.5 {
-                log::warn!("Failed to detect a significant proportion (>= 50%) of unique taxids from all hits for contig {}: {:?} ({:.2} %) in the reference taxonomy. LCA classification for this contig is ignored.", &record_name, &failed_taxids, proportion_failed*100.0);
-                return Err(WorkflowError::BlastLcaTaxidsNotFound)
-            }
-        }
-
-        let highest_bitscore = match records.into_iter().max_by(|a, b| a.bitscore.total_cmp(&b.bitscore)){
-            Some(record) => record,
-            None => return Err(WorkflowError::BlastLcaRecordExtractionEvalue)
-        };
-        
-        Ok(Self { 
-            id: id.to_string(),
-            length: record_length,
-            alignment: highest_bitscore.length,
-            coverage: (highest_bitscore.length as f64/highest_bitscore.qlen as f64)*100.0,
-            identity: highest_bitscore.pident,
-            evalue: highest_bitscore.evalue,
-            bitscore: highest_bitscore.bitscore,
-            taxid: lca_taxid.to_string(),
-            read_coverage,
-            reference: highest_bitscore.sid,
-            reference_length: highest_bitscore.slen,
-            title: highest_bitscore.title,
-            bpm: 0.
-        } )
-    }
-    
+    }    
 }
 
 

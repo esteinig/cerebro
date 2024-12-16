@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use taxonomy::{ncbi, GeneralTaxonomy};
+use taxonomy::ncbi;
 use vircov::vircov::VircovSummary;
 
 use std::path::Path;
