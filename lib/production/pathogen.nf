@@ -65,6 +65,8 @@ workflow PathogenDetection {
 
         results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
         
+        /* Table output */
+
         PathogenDetectionTable(
             ProcessOutputIllumina.out.results | collect, 
             taxonomicProfileDatabases.taxonomy

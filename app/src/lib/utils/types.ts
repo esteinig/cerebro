@@ -1086,19 +1086,23 @@ export enum PathogenDetectionTool {
     Ganon2 = "Ganon2",
     Kmcp = "Kmcp",
     Bracken = "Bracken",
-    Sylph = "Sylph"
+    Sylph = "Sylph",
+    BlastContig = "BlastContig"
 }
 
 
 export enum AbundanceMode {
     Sequence = "Sequence",
-    Profile = "Profile"
+    Profile = "Profile",
+    Bases = "Bases"
 }
 
 
 export enum DisplayData {
     Reads = "reads",
+    Bases = "bases",
     Rpm = "rpm",
+    Bpm = "bpm",
     Abundance = "abundance"
 }
 
@@ -1134,23 +1138,9 @@ export type PathogenDetectionResult = {
     mode: AbundanceMode,
     reads: number,
     rpm: number,
+    bases: number,
+    bpm: number,
     abundance: number
-}
-
-
-export type Kraken2UniqRecord = {
-    id: string,
-    db: string,
-    tool: string,
-    percent: string,
-    reads: number,
-    reads_direct: number,
-    kmers: number,
-    kmers_unique: number,
-    tax_level: string,
-    taxid: string,
-    taxname: string,
-    rpm: number
 }
 
 export enum Aligner {
@@ -1158,7 +1148,6 @@ export enum Aligner {
     Minimap2 = "minimap2",
     Strobealign = "strobealign"
 }
-
 
 export enum ConsensusAssembler {
     Ivar = "Ivar"
@@ -1196,42 +1185,16 @@ export type VircovRecord = {
 };
 
 
-export type BlastLcaRecord = {
-    id: string,
-    db: string,
-    tool: string,
-    length: number,    
-    alignment: number,
-    coverage: number,         
-    identity: number,
-    evalue: number,
-    bitscore: number,
-    taxid: string,
-    title: string,
-    reference: string,
-    reference_length: number,
-    read_coverage: number,           // if present in contig name e.g. from spades output
-    bpm: number,
-}
-
-export type GenusOverview = {
-    taxid: string,
-    genus: string,                // used to later map back the tags
-    domain: string | null,
-    species: TaxonOverview[]
-}
-
-
 export type TaxonOverview = {
     taxid: string,
     name: string,                // used to later map back the tags
     domain: string | null,
     genus: string | null,
-    evidence: PathogenDetectionResult[],
     kmer: boolean,
     alignment: boolean,
     assembly: boolean,
-    sample_names: Array<string>         // unique names of all evidence records (matching `Cerebro.name` field)
+    sample_names: Array<string>,       // unique names of all evidence records (matching `Cerebro.name` field)
+    evidence: PathogenDetectionResult[],
 }
 
 export type TaxonOverviewRecord = {
@@ -1250,6 +1213,7 @@ export type TaxonOverviewRecord = {
     sylph: number;
     bracken: number;
     vircov: number;
+    blast: number;
     total: number;
 };
 

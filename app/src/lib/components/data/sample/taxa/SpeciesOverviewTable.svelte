@@ -21,9 +21,9 @@
     let selectedTaxid: string;
 
     function getNumberPrecision(displayData: DisplayData): number {
-        if (displayData == DisplayData.Reads) {
+        if (displayData == DisplayData.Reads || displayData == DisplayData.Bases) {
             return 0
-        } else if (displayData == DisplayData.Rpm)  {
+        } else if (displayData == DisplayData.Rpm || displayData == DisplayData.Bpm)  {
             return 2
         } else {
             return 4
@@ -45,6 +45,7 @@
                 kmcp: 0,
                 bracken: 0,
                 sylph: 0,
+                blast: 0
             };
 
             let contributingTools = 0; // Track the number of tools contributing to the average
@@ -205,6 +206,7 @@
                     <div class="text-right">Metabuli</div>
                     <div class="text-right">Ganon2</div>
                     <div class="text-right">Vircov</div>
+                    <div class="text-right">Blast</div>
                     
                     <!-- <div class="text-right">Kmcp</div>
                     <div class="text-right">Sylph</div> -->
@@ -264,6 +266,11 @@
                                     <div></div>
                                 {/if}
                                 {#if overview.vircov > 0}
+                                    <div class="rounded-full bg-tertiary-400 h-2 w-2"></div>
+                                {:else}
+                                    <div></div>
+                                {/if}
+                                {#if overview.blast > 0}
                                     <div class="rounded-full bg-tertiary-400 h-2 w-2"></div>
                                 {:else}
                                     <div></div>

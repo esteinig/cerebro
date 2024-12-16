@@ -141,7 +141,7 @@ impl PathogenDetectionTableRecord {
                     });
                 }
                 // Assembly can be multiple per taxonomic identifier (contigs)
-                (PathogenDetectionTool::BlastContig, AbundanceMode::Bases) => {
+                (PathogenDetectionTool::Blast, AbundanceMode::Bases) => {
                     blast_contigs = Some(match blast_contigs {
                         Some(existing) => existing + 1,
                         None => 1,
@@ -356,7 +356,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::BlastContig,
+                    PathogenDetectionTool::Blast,
                     AbundanceMode::Bases,
                     0,
                     0.0,
@@ -779,7 +779,7 @@ impl From<PathogenDetectionRank> for TaxRank {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PathogenDetectionTool {
-    BlastContig,
+    Blast,
     Kraken2,
     Metabuli,
     Ganon2,
@@ -791,7 +791,7 @@ pub enum PathogenDetectionTool {
 impl PathogenDetectionTool {
     pub fn to_string(&self) -> String {
         match self {
-            Self::BlastContig => "BlastContig".to_string(),
+            Self::Blast => "Blast".to_string(),
             Self::Kraken2 => "Kraken2".to_string(),
             Self::Metabuli => "Metabuli".to_string(),
             Self::Ganon2 => "Ganon2".to_string(),

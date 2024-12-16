@@ -208,9 +208,9 @@
     };
 
     function getNumberPrecision(displayData: DisplayData): number {
-        if (displayData == DisplayData.Reads) {
+        if (displayData == DisplayData.Reads || displayData == DisplayData.Bases) {
             return 0
-        } else if (displayData == DisplayData.Rpm)  {
+        } else if (displayData == DisplayData.Rpm || displayData == DisplayData.Bpm)  {
             return 2
         } else {
             return 4
@@ -293,7 +293,7 @@
     <!-- Second Column: Controls -->
     <div class="col-span-1 h-full flex flex-col gap-4 p-4 pt-16">
         <label class="label">
-            <span class="font-medium mb-2">Read classifier</span>
+            <span class="font-medium mb-2">Classifier</span>
             <select bind:value={tool} class="select">
                 <option value="{PathogenDetectionTool.Kraken2}">{PathogenDetectionTool.Kraken2}</option>
                 <option value="{PathogenDetectionTool.Ganon2}">{PathogenDetectionTool.Ganon2}</option>
@@ -302,14 +302,16 @@
                 <option value="{PathogenDetectionTool.Kmcp}">{PathogenDetectionTool.Kmcp}</option>
                 <option value="{PathogenDetectionTool.Sylph}">{PathogenDetectionTool.Sylph}</option>
                 <option value="{PathogenDetectionTool.Vircov}">{PathogenDetectionTool.Vircov}</option>
+                <option value="{PathogenDetectionTool.BlastContig}">{PathogenDetectionTool.BlastContig}</option>
             </select>
         </label>
 
         <label class="label">
-            <span class="font-medium mb-2">Classifier abundance</span>
+            <span class="font-medium mb-2">Abundance</span>
             <select bind:value={mode} class="select">
                 <option value="{AbundanceMode.Sequence}">{AbundanceMode.Sequence}</option>
                 <option value="{AbundanceMode.Profile}">{AbundanceMode.Profile}</option>
+                <option value="{AbundanceMode.Bases}">{AbundanceMode.Bases}</option>
             </select>
         </label>
 
@@ -317,7 +319,9 @@
             <span class="font-medium mb-2">Data values</span>
             <select bind:value={displayData} class="select">
                 <option value="{DisplayData.Rpm}">Reads per million (RPM)</option>
+                <option value="{DisplayData.Bpm}">Bases per million (Bpm)</option>
                 <option value="{DisplayData.Reads}">Reads</option>
+                <option value="{DisplayData.Bases}">Bases</option>
                 <option value="{DisplayData.Abundance}">Abundance</option>
             </select>
         </label>
