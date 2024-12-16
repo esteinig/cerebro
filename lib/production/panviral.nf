@@ -40,7 +40,7 @@ workflow PanviralEnrichment {
         QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | ProcessOutput
 
         PipelineConfig(
-            ProcessOutput.out.samples,
+            ProcessOutput.out.samples | collect,
             cerebroWorkflow, 
             workflowStarted
         )

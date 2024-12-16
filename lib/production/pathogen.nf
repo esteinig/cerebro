@@ -74,7 +74,7 @@ workflow PathogenDetection {
         )
 
         PipelineConfig(
-            ProcessOutputIllumina.out.samples,
+            ProcessOutputIllumina.out.samples | collect,
             cerebroWorkflow, 
             workflowStarted
         )
