@@ -34,13 +34,15 @@ workflow PanviralEnrichment {
             params.panviralEnrichment.vircovArgs
         )
 
+
         VirusRecovery.out.results | map { d -> d[1] } | collect | PanviralTable
 
         QualityControl.out.results.mix(VirusRecovery.out.results) | groupTuple | ProcessOutput
 
+        PipelineConfig(cerebroWorkflow, workflowStarted)
+
         if (params.cerebroProduction.enabled) {
             
-            PipelineConfig(cerebroWorkflow, workflowStarted)
             
             UploadOutput(
                 stagedFileData.mix(ProcessOutput.out.results) | groupTuple | map { d -> d.flatten() }, 

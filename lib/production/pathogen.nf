@@ -63,20 +63,15 @@ workflow PathogenDetection {
             params.pathogenDetection.metagenomeAssembly.enabled ? MetagenomeAssembly.out.results : Channel.empty()
         )
 
+
         results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
         
-        /* Pathogen Table */
-
         PathogenDetectionTable(
             ProcessOutputIllumina.out.results | collect, 
             taxonomicProfileDatabases.taxonomy
         )
 
-        /* Pipeline Config */
-
         PipelineConfig(cerebroWorkflow, workflowStarted)
-
-        /* Production */
 
         if (params.cerebroProduction.enabled) {
             
