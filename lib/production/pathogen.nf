@@ -16,7 +16,7 @@ include { ContigCoverageNanopore as MetaSpadesCoverageNanopore; ContigCoverageNa
 include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../processes/pathogen";
 include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "../processes/pathogen";
 include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "../processes/pathogen";
-include { BlastContigs as MegahitBlastNcbi; BlastContigs as MetaSpadesBlastNcbi } from "../processes/pathogen";
+include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "../processes/pathogen";
 
 workflow PathogenDetection {
 
@@ -44,8 +44,7 @@ workflow PathogenDetection {
         if (params.pathogenDetection.taxonomicProfile.enabled) {
             TaxonomicProfile(
                 QualityControl.out.reads, 
-                taxonomicProfileDatabases,
-                QualityControl.out.results
+                taxonomicProfileDatabases
             )
         }
         
@@ -57,6 +56,15 @@ workflow PathogenDetection {
                 metagenomeAssemblyDatabases
             )
         }
+
+
+        results = qualityControlResults.mix(
+            params.pathogenDetection.taxonomicProfile.enabled ? TaxonomicProfile.out.results : Channel.empty(),
+            params.pathogenDetection.metagenomeAssembly.enabled ? MetagenomeAssembly.out.results : Channel.empty()
+        )
+
+        json = results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
+        tables = PathogenDetectionTable(json | collect, databases.taxonomy)
 
         /* Production */
 
@@ -76,56 +84,10 @@ workflow PathogenDetection {
 
 }
 
-workflow PathogenDetectionNanopore {
-
-    take:
-        reads
-        qualityControlDatabases
-        taxonomicProfileDatabases
-        metagenomeAssemblyDatabases
-        productionConfig
-        stagedFileData
-    main:
-
-        cerebroWorkflow = "panviral-enrichment"
-        workflowStarted = java.time.LocalDateTime.now()
-
-        /* Read and background controls module */
-
-        QualityControlNanopore(
-            reads, 
-            qualityControlDatabases
-        )
-
-        /* Taxonomic read classification and profiling module */
-
-        if (params.pathogenDetection.taxonomicProfile.enabled) {
-            TaxonomicProfileNanopore(
-                QualityControlNanopore.out.reads, 
-                taxonomicProfileDatabases,
-                QualityControlNanopore.out.results
-            )
-        }
-        
-        /* Metagenome assembly and taxonomic profiling module */
-
-        if (params.pathogenDetection.metagenomeAssembly.enabled) {
-            MetagenomeAssemblyNanopore(
-                QualityControlNanopore.out.reads,
-                metagenomeAssemblyDatabases
-            )
-        }
-
-
-
-}
-
-
 workflow TaxonomicProfile {
     take:
         reads
         databases
-        qualityControlResults
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
 
@@ -217,15 +179,8 @@ workflow TaxonomicProfile {
             (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
         )
 
-        json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
-        tables = PathogenDetectionTable(json | collect, databases.taxonomy)
-
-
     emit:
-        reads   = reads
         results = results
-        tables  = tables
-        json    = json
 
 }
 
@@ -272,7 +227,7 @@ workflow MetagenomeAssembly {
 
             
             if (magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) {
-                MetaSpadesBlastNcbi(
+                MetaSpadesBlast(
                     MetaSpades.out.contigs,
                     databases.contigProfile,
                     magParams.contigProfileIndex,
@@ -318,7 +273,7 @@ workflow MetagenomeAssembly {
             }
 
             if (magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) {
-                MegahitBlastNcbi(
+                MegahitBlast(
                     Megahit.out.contigs,
                     databases.contigProfile,
                     magParams.contigProfileIndex,
@@ -329,184 +284,233 @@ workflow MetagenomeAssembly {
             }
         }
 
-}
-
-
-
-
-workflow TaxonomicProfileNanopore {
-    take:
-        reads
-        databases
-        qualityControlResults
-    main:
-        profileParams = params.pathogenDetection.taxonomicProfile
-
-        profileParams = params.pathogenDetection.taxonomicProfile
-
-        if (profileParams.alignment) {
-            VircovNanopore(
-                reads,
-                databases.vircovDatabase,
-                profileParams.alignmentMethod,
-                profileParams.alignmentSecondary,
-                params.resources.threads.vircovRemap,
-                params.resources.threads.vircovParallel
-            )
-        }
-
-        if (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) {
-            Kraken2Nanopore(
-                reads,
-                databases.krakenDatabase,
-                profileParams.krakenConfidence,
-                profileParams.krakenMemoryMapping
-            )
-            if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
-                BrackenNanopore(
-                    Kraken2Nanopore.out.bracken,
-                    profileParams.brackenReadLength,
-                    profileParams.brackenRank,
-                    profileParams.brackenMinReads
-                )
-            }
-        }
-        
-        if (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) {
-            MetabuliNanopore(
-                reads,
-                databases.metabuliDatabase
-            )
-        }
-
-        if (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) {
-            GanonReadsNanopore(
-                reads,
-                databases.ganonDatabase,
-                profileParams.ganonDatabasePrefix,
-                profileParams.ganonMultipleMatches
-            )
-        }
-
-        if ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) {
-            KmcpNanopore(
-                reads,
-                databases.kmcpDatabase,
-                profileParams.kmcpMode,
-                profileParams.kmcpLevel,
-                profileParams.kmcpMinQueryCoverage
-            )
-        }
-
-        if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
-            GanonProfileNanopore(
-                reads,
-                databases.ganonDatabase,
-                profileParams.ganonDatabasePrefix,
-                profileParams.ganonMultipleMatches
-            )
-        }
-
-
-        if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
-            SylphNanopore(
-                reads,
-                databases.sylphDatabase,
-                databases.sylphMetadata,
-                profileParams.sylphMinNumberKmers,
-                profileParams.sylphQueryCompression
-            )
-        }
-
-
-        vircovResults = profileParams.alignment  ? VircovNanopore.out.results : Channel.empty()
-
-        results = vircovResults.mix(
-            (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? KmcpNanopore.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? BrackenNanopore.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? MetabuliNanopore.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReadsNanopore.out.results : Channel.empty(),
-            (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2Nanopore.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfileNanopore.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? SylphNanopore.out.results : Channel.empty()
+        results = Channel.empty().mix(
+            (magParams.assemblyMethod.contains("megahit") && magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) ? MegahitBlast.out.results : Channel.empty(),
+            (magParams.assemblyMethod.contains("metaspades") && magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) ? MetaSpadesBlast.out.results : Channel.empty()
         )
 
-
-        json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputNanopore
-        tables = PathogenDetectionTableNanopore(json | collect, databases.taxonomy)
-    
     emit:
-        reads   = reads
         results = results
-        tables  = tables
 }
 
 
 
-workflow MetagenomeAssemblyNanopore {
-    take:
-        reads
-        databases
-    main:
+// workflow PathogenDetectionNanopore {
 
-        magParams = params.pathogenDetection.metagenomeAssembly
+//     take:
+//         reads
+//         qualityControlDatabases
+//         taxonomicProfileDatabases
+//         metagenomeAssemblyDatabases
+//         productionConfig
+//         stagedFileData
+//     main:
 
-        if (magParams.assemblyMethod.contains("metaspades")) {
+//         cerebroWorkflow = "panviral-enrichment"
+//         workflowStarted = java.time.LocalDateTime.now()
+
+//         /* Read and background controls module */
+
+//         QualityControlNanopore(
+//             reads, 
+//             qualityControlDatabases
+//         )
+
+//         /* Taxonomic read classification and profiling module */
+
+//         if (params.pathogenDetection.taxonomicProfile.enabled) {
+//             TaxonomicProfileNanopore(
+//                 QualityControlNanopore.out.reads, 
+//                 taxonomicProfileDatabases,
+//                 QualityControlNanopore.out.results
+//             )
+//         }
+        
+//         /* Metagenome assembly and taxonomic profiling module */
+
+//         if (params.pathogenDetection.metagenomeAssembly.enabled) {
+//             MetagenomeAssemblyNanopore(
+//                 QualityControlNanopore.out.reads,
+//                 metagenomeAssemblyDatabases
+//             )
+//         }
+
+
+// }
+
+// workflow TaxonomicProfileNanopore {
+//     take:
+//         reads
+//         databases
+//         qualityControlResults
+//     main:
+//         profileParams = params.pathogenDetection.taxonomicProfile
+
+//         profileParams = params.pathogenDetection.taxonomicProfile
+
+//         if (profileParams.alignment) {
+//             VircovNanopore(
+//                 reads,
+//                 databases.vircovDatabase,
+//                 profileParams.alignmentMethod,
+//                 profileParams.alignmentSecondary,
+//                 params.resources.threads.vircovRemap,
+//                 params.resources.threads.vircovParallel
+//             )
+//         }
+
+//         if (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) {
+//             Kraken2Nanopore(
+//                 reads,
+//                 databases.krakenDatabase,
+//                 profileParams.krakenConfidence,
+//                 profileParams.krakenMemoryMapping
+//             )
+//             if (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) {
+//                 BrackenNanopore(
+//                     Kraken2Nanopore.out.bracken,
+//                     profileParams.brackenReadLength,
+//                     profileParams.brackenRank,
+//                     profileParams.brackenMinReads
+//                 )
+//             }
+//         }
+        
+//         if (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) {
+//             MetabuliNanopore(
+//                 reads,
+//                 databases.metabuliDatabase
+//             )
+//         }
+
+//         if (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) {
+//             GanonReadsNanopore(
+//                 reads,
+//                 databases.ganonDatabase,
+//                 profileParams.ganonDatabasePrefix,
+//                 profileParams.ganonMultipleMatches
+//             )
+//         }
+
+//         if ((profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp"))) {
+//             KmcpNanopore(
+//                 reads,
+//                 databases.kmcpDatabase,
+//                 profileParams.kmcpMode,
+//                 profileParams.kmcpLevel,
+//                 profileParams.kmcpMinQueryCoverage
+//             )
+//         }
+
+//         if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
+//             GanonProfileNanopore(
+//                 reads,
+//                 databases.ganonDatabase,
+//                 profileParams.ganonDatabasePrefix,
+//                 profileParams.ganonMultipleMatches
+//             )
+//         }
+
+
+//         if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
+//             SylphNanopore(
+//                 reads,
+//                 databases.sylphDatabase,
+//                 databases.sylphMetadata,
+//                 profileParams.sylphMinNumberKmers,
+//                 profileParams.sylphQueryCompression
+//             )
+//         }
+
+
+//         vircovResults = profileParams.alignment  ? VircovNanopore.out.results : Channel.empty()
+
+//         results = vircovResults.mix(
+//             (profileParams.profiler && profileParams.profilerMethod.contains("kmcp")) || (profileParams.classifier && profileParams.classifierMethod.contains("kmcp")) ? KmcpNanopore.out.results : Channel.empty(),
+//             (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) && (profileParams.profiler && profileParams.profilerMethod.contains("bracken")) ? BrackenNanopore.out.results : Channel.empty(),
+//             (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? MetabuliNanopore.out.results : Channel.empty(),
+//             (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReadsNanopore.out.results : Channel.empty(),
+//             (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2Nanopore.out.results : Channel.empty(),
+//             (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfileNanopore.out.results : Channel.empty(),
+//             (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? SylphNanopore.out.results : Channel.empty()
+//         )
+
+
+//         json = results.mix(qualityControlResults) | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputNanopore
+//         tables = PathogenDetectionTableNanopore(json | collect, databases.taxonomy)
+    
+//     emit:
+//         reads   = reads
+//         results = results
+//         tables  = tables
+// }
+
+
+
+// workflow MetagenomeAssemblyNanopore {
+//     take:
+//         reads
+//         databases
+//     main:
+
+//         magParams = params.pathogenDetection.metagenomeAssembly
+
+//         if (magParams.assemblyMethod.contains("metaspades")) {
             
-            metaspadesAssemblyCoverage = MetaSpadesNanopore(
-                reads,
-                magParams.assemblyKmerList,
-                magParams.assemblyMinContigLength,
-                magParams.assemblyArgs
-            ) | MetaSpadesCoverageNanopore
+//             metaspadesAssemblyCoverage = MetaSpadesNanopore(
+//                 reads,
+//                 magParams.assemblyKmerList,
+//                 magParams.assemblyMinContigLength,
+//                 magParams.assemblyArgs
+//             ) | MetaSpadesCoverageNanopore
             
-            if (magParams.binningMethod.contains("concoct")) {
-                MetaSpadesConcoct(
-                    metaspadesAssemblyCoverage,
-                    magParams.binningChunkSize,
-                    magParams.binningReadLength,
-                    magParams.binningMinBinSize,
-                    0
-                )
-            }
-            if (magParams.binningMethod.contains("metabat2")) {
-                MetaSpadesMetabat2(
-                    metaspadesAssemblyCoverage,
-                    magParams.binningMinBinSize,
-                    magParams.binningMinContigLength
-                )
-            }
+//             if (magParams.binningMethod.contains("concoct")) {
+//                 MetaSpadesConcoct(
+//                     metaspadesAssemblyCoverage,
+//                     magParams.binningChunkSize,
+//                     magParams.binningReadLength,
+//                     magParams.binningMinBinSize,
+//                     0
+//                 )
+//             }
+//             if (magParams.binningMethod.contains("metabat2")) {
+//                 MetaSpadesMetabat2(
+//                     metaspadesAssemblyCoverage,
+//                     magParams.binningMinBinSize,
+//                     magParams.binningMinContigLength
+//                 )
+//             }
 
 
-        }
+//         }
 
-        if (magParams.assemblyMethod.contains("megahit")) {
+//         if (magParams.assemblyMethod.contains("megahit")) {
             
-            megahitAssemblyCoverage = MegahitNanopore(
-                reads,
-                magParams.assemblyKmerList,
-                magParams.assemblyMinContigLength,
-                magParams.assemblyArgs
-            ) | MegahitCoverageNanopore
+//             megahitAssemblyCoverage = MegahitNanopore(
+//                 reads,
+//                 magParams.assemblyKmerList,
+//                 magParams.assemblyMinContigLength,
+//                 magParams.assemblyArgs
+//             ) | MegahitCoverageNanopore
             
-            if (magParams.binningMethod.contains("concoct")) {
-                MegahitConcoct(
-                    megahitAssemblyCoverage,
-                    magParams.binningChunkSize,
-                    magParams.binningReadLength,
-                    magParams.binningMinBinSize,
-                    0
-                )
-            }
+//             if (magParams.binningMethod.contains("concoct")) {
+//                 MegahitConcoct(
+//                     megahitAssemblyCoverage,
+//                     magParams.binningChunkSize,
+//                     magParams.binningReadLength,
+//                     magParams.binningMinBinSize,
+//                     0
+//                 )
+//             }
 
-            if (magParams.binningMethod.contains("metabat2")) {
-                MegahitMetabat2(
-                    megahitAssemblyCoverage,
-                    magParams.binningMinBinSize,
-                    magParams.binningMinContigLength,
-                )
-            }
+//             if (magParams.binningMethod.contains("metabat2")) {
+//                 MegahitMetabat2(
+//                     megahitAssemblyCoverage,
+//                     magParams.binningMinBinSize,
+//                     magParams.binningMinContigLength,
+//                 )
+//             }
 
-        }
+//         }
 
-}
+// }
