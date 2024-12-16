@@ -230,6 +230,109 @@ workflow TaxonomicProfile {
 }
 
 
+workflow MetagenomeAssembly {
+    take:
+        reads
+        databases
+    main:
+    
+        magParams = params.pathogenDetection.metagenomeAssembly
+
+        if (magParams.assemblyMethod.contains("metaspades")) {
+            
+            metaspadesAssemblyCoverage = MetaSpades(
+                reads,
+                magParams.assemblyKmerList,
+                magParams.assemblyMinContigLength,
+                magParams.assemblyArgs
+            ) | MetaSpadesCoverage
+            
+            if (magParams.binningMethod.contains("concoct")) {
+                MetaSpadesConcoct(
+                    metaspadesAssemblyCoverage,
+                    magParams.binningChunkSize,
+                    magParams.binningReadLength,
+                    magParams.binningMinBinSize,
+                    0
+                )
+            }
+            if (magParams.binningMethod.contains("metabat2")) {
+                MetaSpadesMetabat2(
+                    metaspadesAssemblyCoverage,
+                    magParams.binningMinBinSize,
+                    magParams.binningMinContigLength
+                )
+            }
+            if (magParams.binningMethod.contains("semibin2")) {
+                MetaSpadesSemiBin2(
+                    metaspadesAssemblyCoverage,
+                    magParams.binningMinContigLength
+                )
+            }
+
+            
+            if (magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) {
+                MetaSpadesBlastNcbi(
+                    MetaSpades.out.contigs,
+                    databases.contigProfile,
+                    magParams.contigProfileIndex,
+                    magParams.contigProfileBlastMinPercentIdentity,
+                    magParams.contigProfileBlastMinEvalue,
+                    magParams.contigProfileBlastMaxTargetSeqs,
+                )
+            }
+        }
+
+        if (magParams.assemblyMethod.contains("megahit")) {
+            
+            megahitAssemblyCoverage = Megahit(
+                reads,
+                magParams.assemblyKmerList,
+                magParams.assemblyMinContigLength,
+                magParams.assemblyArgs
+            ) | MegahitCoverage
+            
+            if (magParams.binningMethod.contains("concoct")) {
+                MegahitConcoct(
+                    megahitAssemblyCoverage,
+                    magParams.binningChunkSize,
+                    magParams.binningReadLength,
+                    magParams.binningMinBinSize,
+                    0
+                )
+            }
+
+            if (magParams.binningMethod.contains("metabat2")) {
+                MegahitMetabat2(
+                    megahitAssemblyCoverage,
+                    magParams.binningMinBinSize,
+                    magParams.binningMinContigLength,
+                )
+            }
+
+            if (magParams.binningMethod.contains("semibin2")) {
+                MegahitSemiBin2(
+                    megahitAssemblyCoverage,
+                    magParams.binningMinContigLength
+                )
+            }
+
+            if (magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) {
+                MegahitBlastNcbi(
+                    Megahit.out.contigs,
+                    databases.contigProfile,
+                    magParams.contigProfileIndex,
+                    magParams.contigProfileBlastMinPercentIdentity,
+                    magParams.contigProfileBlastMinEvalue,
+                    magParams.contigProfileBlastMaxTargetSeqs,
+                )
+            }
+        }
+
+}
+
+
+
 
 workflow TaxonomicProfileNanopore {
     take:
@@ -406,111 +509,4 @@ workflow MetagenomeAssemblyNanopore {
 
         }
 
-}
-
-workflow MetagenomeAssembly {
-    take:
-        reads
-        databases
-    main:
-    
-        magParams = params.pathogenDetection.metagenomeAssembly
-
-        if (magParams.assemblyMethod.contains("metaspades")) {
-            
-            metaspadesAssemblyCoverage = MetaSpades(
-                reads,
-                magParams.assemblyKmerList,
-                magParams.assemblyMinContigLength,
-                magParams.assemblyArgs
-            ) | MetaSpadesCoverage
-            
-            if (magParams.binningMethod.contains("concoct")) {
-                MetaSpadesConcoct(
-                    metaspadesAssemblyCoverage,
-                    magParams.binningChunkSize,
-                    magParams.binningReadLength,
-                    magParams.binningMinBinSize,
-                    0
-                )
-            }
-            if (magParams.binningMethod.contains("metabat2")) {
-                MetaSpadesMetabat2(
-                    metaspadesAssemblyCoverage,
-                    magParams.binningMinBinSize,
-                    magParams.binningMinContigLength
-                )
-            }
-            if (magParams.binningMethod.contains("semibin2")) {
-                MetaSpadesSemiBin2(
-                    metaspadesAssemblyCoverage,
-                    magParams.binningMinContigLength
-                )
-            }
-
-            if (magParams.ncbiDatabase && magParams.ncbiDatabaseMethod.contains("blast")) {
-                MetaSpadesBlastNcbi(
-                    MetaSpades.out.contigs,
-                    databases.ncbiDatabase,
-                    magParams.ncbiDatabaseBlastPrefix,
-                    magParams.ncbiDatabaseBlastMinPercentIdentity,
-                    magParams.ncbiDatabaseBlastMinEvalue,
-                    magParams.ncbiDatabaseBlastMaxTargetSeqs,
-                )
-
-            }
-        }
-
-        if (magParams.assemblyMethod.contains("megahit")) {
-            
-            megahitAssemblyCoverage = Megahit(
-                reads,
-                magParams.assemblyKmerList,
-                magParams.assemblyMinContigLength,
-                magParams.assemblyArgs
-            ) | MegahitCoverage
-            
-            if (magParams.binningMethod.contains("concoct")) {
-                MegahitConcoct(
-                    megahitAssemblyCoverage,
-                    magParams.binningChunkSize,
-                    magParams.binningReadLength,
-                    magParams.binningMinBinSize,
-                    0
-                )
-            }
-
-            if (magParams.binningMethod.contains("metabat2")) {
-                MegahitMetabat2(
-                    megahitAssemblyCoverage,
-                    magParams.binningMinBinSize,
-                    magParams.binningMinContigLength,
-                )
-            }
-
-            if (magParams.binningMethod.contains("semibin2")) {
-                MegahitSemiBin2(
-                    megahitAssemblyCoverage,
-                    magParams.binningMinContigLength
-                )
-            }
-
-            if (magParams.ncbiDatabase && magParams.ncbiDatabaseMethod.contains("blast")) {
-                MegahitBlastNcbi(
-                    Megahit.out.contigs,
-                    databases.ncbiDatabase,
-                    magParams.ncbiDatabaseBlastPrefix,
-                    magParams.ncbiDatabaseBlastMinPercentIdentity,
-                    magParams.ncbiDatabaseBlastMinEvalue,
-                    magParams.ncbiDatabaseBlastMaxTargetSeqs,
-                )
-            }
-        }
-
-        
-
-
-        
-
-        
 }
