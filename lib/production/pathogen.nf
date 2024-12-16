@@ -230,7 +230,7 @@ workflow MetagenomeAssembly {
                 MetaSpadesBlast(
                     MetaSpades.out.contigs,
                     databases.contigProfile,
-                    magParams.contigProfileIndex,
+                    magParams.contigProfileBlastPrefix,
                     magParams.contigProfileBlastMinPercentIdentity,
                     magParams.contigProfileBlastMinEvalue,
                     magParams.contigProfileBlastMaxTargetSeqs,
@@ -276,7 +276,7 @@ workflow MetagenomeAssembly {
                 MegahitBlast(
                     Megahit.out.contigs,
                     databases.contigProfile,
-                    magParams.contigProfileIndex,
+                    magParams.contigProfileBlastPrefix,
                     magParams.contigProfileBlastMinPercentIdentity,
                     magParams.contigProfileBlastMinEvalue,
                     magParams.contigProfileBlastMaxTargetSeqs,
