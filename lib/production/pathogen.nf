@@ -73,10 +73,13 @@ workflow PathogenDetection {
             taxonomicProfileDatabases.taxonomy
         )
 
-        PipelineConfig(cerebroWorkflow, workflowStarted)
+        PipelineConfig(
+            ProcessOutputIllumina.out.samples,
+            cerebroWorkflow, 
+            workflowStarted
+        )
 
         if (params.cerebroProduction.enabled) {
-            
             
             UploadOutput(
                 stagedFileData.mix(ProcessOutputIllumina.out.results) | groupTuple | map { d -> d.flatten() }, 

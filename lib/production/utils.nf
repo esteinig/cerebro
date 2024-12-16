@@ -544,6 +544,7 @@ process PipelineConfig {
     publishDir "$params.outputDirectory", mode: "copy", pattern: "config.json"
 
     input:
+        val samples
         val cerebroWorkflow
         val started
 
