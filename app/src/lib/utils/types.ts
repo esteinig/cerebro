@@ -1087,7 +1087,7 @@ export enum PathogenDetectionTool {
     Kmcp = "Kmcp",
     Bracken = "Bracken",
     Sylph = "Sylph",
-    BlastContig = "BlastContig"
+    Blast = "Blast"
 }
 
 

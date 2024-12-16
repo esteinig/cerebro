@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ClientFilterConfig, TaxonHighlightConfig, TaxonOverview, TaxonOverviewRecord } from "$lib/utils/types";
-    import { DisplayData, DisplayTotal } from "$lib/utils/types";
+    import { DisplayData, DisplayTotal, PathogenDetectionTool } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
     import { AbundanceMode } from "$lib/utils/types";
@@ -52,7 +52,12 @@
 
             overview.evidence.forEach((result) => {
                 if (result.mode === mode) {
-                    const key = result.tool.toLowerCase() as keyof typeof aggregatedResults;
+                    let key = result.tool.toLowerCase() as keyof typeof aggregatedResults;
+
+                    if (result.tool === PathogenDetectionTool.Blast) {
+                        key = DisplayData.Bases.toLowerCase() as keyof typeof aggregatedResults;
+                    }
+
                     if (key in aggregatedResults) {
                         if (result[field] > 0) {
                             contributingTools++;
@@ -94,7 +99,7 @@
         return names.map(name => modelNameTags.get(name)).filter(isTagData);
     }
 
-    const applyClientSideFilters = (taxondOverview: TaxonOverview[], clientFilterConfig: ClientFilterConfig | null): TaxonOverview[] => {
+    const applyClientSideFilters = (taxonOverview: TaxonOverview[], clientFilterConfig: ClientFilterConfig | null): TaxonOverview[] => {
         
         if (clientFilterConfig === null) {
             return taxonOverview
