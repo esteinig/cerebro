@@ -18,6 +18,8 @@ include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "..
 include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "../processes/pathogen";
 include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "../processes/pathogen";
 
+include { PipelineConfig } from "./utils";
+
 workflow PathogenDetection {
 
     take:
