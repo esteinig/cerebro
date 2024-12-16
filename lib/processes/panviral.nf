@@ -62,7 +62,7 @@ process ProcessOutput {
 
     output:
     tuple (val(sampleID), path("${sampleID}.qc.json"), path("${sampleID}.pv.json"), emit: results)
-    val(sampleID) emit: samples
+    val(sampleID), emit: samples
 
     script:
 

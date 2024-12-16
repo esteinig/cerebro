@@ -817,8 +817,8 @@ process ProcessOutputIllumina {
 
     output:
     tuple (path("${sampleID}.qc.json"), path("${sampleID}.pd.json"), emit: results)
-    val(sampleID) emit: samples
-    
+    val(sampleID), emit: samples
+
     script:
 
     """
