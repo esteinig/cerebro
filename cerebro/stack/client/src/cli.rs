@@ -87,17 +87,42 @@ fn main() -> anyhow::Result<()> {
                 cerebro.write_json(&model)?;
             }
 
-            if !args.no_upload {
 
-                let mut client = client.clone();
-                client.set_data_auth(&team, &database, &project);  // can be from staged sample
+            let mut client = client.clone();
+            client.set_data_auth(&team, &database, &project);  // can be from staged sample
 
-                client.upload_models(
-                    &Vec::from([cerebro])
-                )?;
-            }
+            client.upload_models(
+                &Vec::from([cerebro])
+            )?;
             
         },
+        // Process and upload sample model to database
+        Commands::CreatePathogen( args ) => {
+
+            let quality = QualityControl::from_json(&args.quality)?;
+            let pathogen = PathogenDetection::from_json(&args.pathogen)?;
+
+            if quality.id != pathogen.id {
+                return Err(HttpClientError::PathogenIdentifiersNotMatched(quality.id, pathogen.id).into())
+            }
+
+            let cerebro = Cerebro::from(
+                &quality.id,
+                &quality,
+                &pathogen.get_taxa(
+                    &args.taxonomy, 
+                    args.strict
+                )?,
+                args.sample_sheet.clone(),
+                args.pipeline_config.clone(),
+                args.run_id.clone()
+            )?;
+
+            
+            cerebro.write_json(&args.model)?;
+
+
+        }
         // Process and upload sample model to database
         Commands::UploadPanviral( args ) => {
             
@@ -136,18 +161,40 @@ fn main() -> anyhow::Result<()> {
             if let Some(model) = &args.model {
                 cerebro.write_json(&model)?;
             }
-
-            if !args.no_upload {
                 
-                let mut client = client.clone();
-                client.set_data_auth(&team, &database, &project); // can be from staged sample
+            let mut client = client.clone();
+            client.set_data_auth(&team, &database, &project); // can be from staged sample
 
-                client.upload_models(
-                    &Vec::from([cerebro])
-                )?;
-            }
+            client.upload_models(
+                &Vec::from([cerebro])
+            )?;
             
         },
+        // Process and upload sample model to database
+        Commands::CreatePanviral( args ) => {
+
+            let quality = QualityControl::from_json(&args.quality)?;
+            let panviral = Panviral::from_json(&args.panviral)?;
+
+            if quality.id != panviral.id {
+                return Err(HttpClientError::PanviralIdentifiersNotMatched(quality.id, panviral.id).into())
+            }
+
+            let cerebro = Cerebro::from(
+                &quality.id,
+                &quality,
+                &panviral.get_taxa(
+                    &args.taxonomy, 
+                    args.strict
+                )?,
+                args.sample_sheet.clone(),
+                args.pipeline_config.clone(),
+                args.run_id.clone()
+            )?;
+
+            cerebro.write_json(&args.model)?;
+
+        }
         Commands::UploadModel( args ) => {
 
             let mut models = Vec::new();
