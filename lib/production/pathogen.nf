@@ -58,7 +58,7 @@ workflow PathogenDetection {
         }
 
 
-        results = qualityControlResults.mix(
+        results = QualityControl.out.results.mix(
             params.pathogenDetection.taxonomicProfile.enabled ? TaxonomicProfile.out.results : Channel.empty(),
             params.pathogenDetection.metagenomeAssembly.enabled ? MetagenomeAssembly.out.results : Channel.empty()
         )
