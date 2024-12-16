@@ -65,18 +65,21 @@ workflow PathogenDetection {
 
         results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
         
-        /* Table output */
+        /* Pathogen Table */
 
         PathogenDetectionTable(
             ProcessOutputIllumina.out.results | collect, 
             taxonomicProfileDatabases.taxonomy
         )
 
+        /* Pipeline Config */
+
+        PipelineConfig(cerebroWorkflow, workflowStarted)
+
         /* Production */
 
         if (params.cerebroProduction.enabled) {
             
-            PipelineConfig(cerebroWorkflow, workflowStarted)
             
             UploadOutput(
                 stagedFileData.mix(ProcessOutputIllumina.out.results) | groupTuple | map { d -> d.flatten() }, 

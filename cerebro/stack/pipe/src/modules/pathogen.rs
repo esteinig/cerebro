@@ -245,7 +245,6 @@ fn compute_rpm(reads: u64, input_reads: u64) -> Option<f64> {
     }
 }
 
-
 fn compute_bpm(bases: u64, input_bases: u64) -> Option<f64> {
     if input_bases == 0 {
         None  // Cannot compute BPM when input_bases is 0
@@ -344,6 +343,7 @@ impl PathogenDetection {
         }
 
         if let Some(records) = &output.mag.ncbi_blast {
+
             for record in records {
                 let taxid = record.taxid.trim().to_string();
                 let name = record.taxname.trim().to_string();
