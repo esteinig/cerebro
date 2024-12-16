@@ -295,48 +295,50 @@ workflow MetagenomeAssembly {
 
 
 
-// workflow PathogenDetectionNanopore {
+workflow PathogenDetectionNanopore {
 
-//     take:
-//         reads
-//         qualityControlDatabases
-//         taxonomicProfileDatabases
-//         metagenomeAssemblyDatabases
-//         productionConfig
-//         stagedFileData
-//     main:
+    take:
+        reads
+        qualityControlDatabases
+        taxonomicProfileDatabases
+        metagenomeAssemblyDatabases
+        productionConfig
+        stagedFileData
+    main:
 
-//         cerebroWorkflow = "panviral-enrichment"
-//         workflowStarted = java.time.LocalDateTime.now()
+        log.info "Not implemented"
 
-//         /* Read and background controls module */
+        // cerebroWorkflow = "panviral-enrichment"
+        // workflowStarted = java.time.LocalDateTime.now()
 
-//         QualityControlNanopore(
-//             reads, 
-//             qualityControlDatabases
-//         )
+        // /* Read and background controls module */
 
-//         /* Taxonomic read classification and profiling module */
+        // QualityControlNanopore(
+        //     reads, 
+        //     qualityControlDatabases
+        // )
 
-//         if (params.pathogenDetection.taxonomicProfile.enabled) {
-//             TaxonomicProfileNanopore(
-//                 QualityControlNanopore.out.reads, 
-//                 taxonomicProfileDatabases,
-//                 QualityControlNanopore.out.results
-//             )
-//         }
+        // /* Taxonomic read classification and profiling module */
+
+        // if (params.pathogenDetection.taxonomicProfile.enabled) {
+        //     TaxonomicProfileNanopore(
+        //         QualityControlNanopore.out.reads, 
+        //         taxonomicProfileDatabases,
+        //         QualityControlNanopore.out.results
+        //     )
+        // }
         
-//         /* Metagenome assembly and taxonomic profiling module */
+        // /* Metagenome assembly and taxonomic profiling module */
 
-//         if (params.pathogenDetection.metagenomeAssembly.enabled) {
-//             MetagenomeAssemblyNanopore(
-//                 QualityControlNanopore.out.reads,
-//                 metagenomeAssemblyDatabases
-//             )
-//         }
+        // if (params.pathogenDetection.metagenomeAssembly.enabled) {
+        //     MetagenomeAssemblyNanopore(
+        //         QualityControlNanopore.out.reads,
+        //         metagenomeAssemblyDatabases
+        //     )
+        // }
 
 
-// }
+}
 
 // workflow TaxonomicProfileNanopore {
 //     take:
