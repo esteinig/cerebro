@@ -19,8 +19,7 @@ pub struct QualityControlFiles {
     pub reads_qc_fastp: Option<PathBuf>,
     pub reads_qc_nanoq: Option<PathBuf>,
     pub deduplication: Option<PathBuf>,
-    pub internal_controls: Option<PathBuf>,
-    pub synthetic_controls: Option<PathBuf>,
+    pub controls: Option<PathBuf>,
     pub host_depletion: Option<PathBuf>,
     pub background_alignment: Option<PathBuf>,
     pub output_scan: Option<PathBuf>,
@@ -33,8 +32,7 @@ impl QualityControlFiles {
             reads_qc_fastp: get_file_by_name(&path, &id, ".fastp.json")?,
             reads_qc_nanoq: get_file_by_name(&path, &id, ".nanoq.json")?,
             deduplication: get_file_by_name(&path, &id, ".dedup.json")?,
-            internal_controls: get_file_by_name(&path, &id, ".controls.tsv")?,
-            synthetic_controls: get_file_by_name(&path, &id, ".synthetic.tsv")?,
+            controls: get_file_by_name(&path, &id, ".controls.tsv")?,
             host_depletion: get_file_by_name(&path, &id, ".host.json")?,
             background_alignment: get_file_by_name(&path, &id, ".background.tsv")?,
             output_scan: get_file_by_name(&path, &id, ".output.json")?,
@@ -48,8 +46,7 @@ pub struct QualityControlOutput {
     pub reads_qc_fastp: Option<FastpReport>,
     pub reads_qc_nanoq: Option<NanoqReport>,
     pub deduplication: Option<DeduplicationReport>,
-    pub internal_controls: Option<VircovSummary>,
-    pub synthetic_controls: Option<VircovSummary>,
+    pub controls: Option<VircovSummary>,
     pub host_depletion: Option<ScrubbyReport>,
     pub background_alignment: Option<VircovSummary>,
     pub output_scan: ScanReport,
@@ -93,11 +90,7 @@ impl QualityControlOutput {
                 Some(ref path) => Some(DeduplicationReport::from_json(path)?), 
                 None => None
             },
-            internal_controls: match qc_files.internal_controls { 
-                Some(ref path) => Some(VircovSummary::from_tsv(path, true)?), 
-                None => None
-            },
-            synthetic_controls: match qc_files.synthetic_controls { 
+            controls: match qc_files.controls { 
                 Some(ref path) => Some(VircovSummary::from_tsv(path, true)?), 
                 None => None
             },

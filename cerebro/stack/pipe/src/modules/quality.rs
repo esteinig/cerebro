@@ -100,24 +100,11 @@ impl QualityControl {
     }
     pub fn from_quality(output: &QualityControlOutput) -> Self {
 
-        let synthetic_controls = Controls::from(
+        let controls = Controls::from(
             &output.id,
-            output.synthetic_controls.clone(), 
+            output.controls.clone(), 
             ControlsConfig::default()
         );        
-
-        let internal_controls = Controls::from(
-            &output.id,
-            output.internal_controls.clone(), 
-            ControlsConfig::default()
-        );        
-
-
-        let controls = Controls::new(
-            synthetic_controls.ercc, 
-            internal_controls.organism, 
-            ControlsConfig::default()
-        );
 
         let background = Background::from(
             &output.id,
@@ -613,13 +600,13 @@ impl ReadQualityControl {
         let (output_reads, output_reads_percent, output_bases, output_bases_percent) = match output_scan {
             Some(scan_report) => {
                 let output_reads_percent = if input_reads == 0 {
-                    0.0 // otherwise is NaN
+                    0.0 // otherwise would be NaN!
                 } else {
                     (scan_report.reads as f64 / input_reads as f64)*100.0
                 };
 
                 let output_bases_percent = if input_bases == 0 {
-                    0.0  // otherwise is NaN
+                    0.0  // otherwise would be NaN!
                 } else {
                     (scan_report.bases as f64 / input_bases as f64)*100.0
                 };
@@ -1016,7 +1003,7 @@ pub enum RecordClass {
     #[serde(rename = "host")]
     HostBackground,
     #[serde(rename = "rrna")]
-    RrnaBackground,
+    RibosomalBackground,
     #[serde(rename = "plasmid")]
     PlasmidBackground,
     #[serde(rename = "univec")]
@@ -1039,7 +1026,7 @@ impl RecordClass {
         } else if record.reference.starts_with(&config.univec_id) {
             return RecordClass::UnivecBackground
         } else if record.reference.starts_with(&config.rrna_id) {
-            return RecordClass::RrnaBackground
+            return RecordClass::RibosomalBackground
         } else {
             return RecordClass::OtherBackground
         }

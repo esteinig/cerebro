@@ -90,13 +90,13 @@ process OutputScanNanopore {
 
 }
 
-process SyntheticControls { 
+process InternalControls {
     
     tag { sampleID }
-    label "qualitySyntheticControls"
+    label "qualityInternalControls"
 
-    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.synthetic.tsv"
-    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.synthetic.json"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -104,9 +104,9 @@ process SyntheticControls {
     val(aligner)
 
     output:
-    tuple (val(sampleID), path("${sampleID}__synthetic__R1.fq.gz"), path("${sampleID}__synthetic__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.synthetic.tsv"), emit: results)
-    path("${sampleID}.synthetic.json")
+    tuple (val(sampleID), path("${sampleID}__controls__R1.fq.gz"), path("${sampleID}__controls__R2.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.controls.tsv"), emit: results)
+    path("${sampleID}.controls.json")
 
     script:
 
@@ -114,11 +114,41 @@ process SyntheticControls {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    vircov coverage -i $forward -i $reverse -o ${sampleID}.synthetic.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
-    scrubby alignment -i $forward -i $reverse -a reads.txt -o ${sampleID}__synthetic__R1.fq.gz -o ${sampleID}__synthetic__R2.fq.gz --json ${sampleID}.synthetic.json
+    vircov coverage -i $forward -i $reverse -o ${sampleID}.controls.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
+    scrubby alignment -i $forward -i $reverse -a reads.txt -o ${sampleID}__controls__R1.fq.gz -o ${sampleID}__controls__R2.fq.gz --json ${sampleID}.controls.json
     """
     
 }
+
+
+process InternalControlsNanopore {
+    
+    tag { sampleID }
+    label "qualityInternalControls"
+
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
+    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
+
+    input:
+    tuple val(sampleID), path(reads)
+    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+
+    output:
+    tuple (val(sampleID), path("${sampleID}__controls.fq.gz"), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.controls.tsv"), emit: results)
+    path("${sampleID}.controls.json")
+
+    script:
+
+    alignmentIndex = index[0]
+
+    """
+    vircov coverage -i $reads -o ${sampleID}.controls.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
+    scrubby alignment -i $reads -a reads.txt -o ${sampleID}__controls.fq.gz --json ${sampleID}.controls.json
+    """
+    
+}
+
 
 process ReadQuality {
 
@@ -249,66 +279,6 @@ process HostDepletionNanopore {
     """
     scrubby reads -i $reads --index $alignmentIndex --aligner minimap2 --preset map-ont --threads $task.cpus -o ${sampleID}__host.fq.gz --json ${sampleID}.host.json
     """
-}
-
-
-process InternalControls {
-    
-    tag { sampleID }
-    label "qualityInternalControls"
-
-    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
-    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
-
-    input:
-    tuple val(sampleID), path(forward), path(reverse)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
-    val(aligner)
-
-    output:
-    tuple (val(sampleID), path("${sampleID}__controls__R1.fq.gz"), path("${sampleID}__controls__R2.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.controls.tsv"), emit: results)
-    path("${sampleID}.controls.json")
-
-    script:
-
-    indexName = index[0].getSimpleName()
-    alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
-
-    """
-    vircov coverage -i $forward -i $reverse -o ${sampleID}.controls.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
-    scrubby alignment -i $forward -i $reverse -a reads.txt -o ${sampleID}__controls__R1.fq.gz -o ${sampleID}__controls__R2.fq.gz --json ${sampleID}.controls.json
-    """
-    
-}
-
-
-process InternalControlsNanopore {
-    
-    tag { sampleID }
-    label "qualityInternalControls"
-
-    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.tsv"
-    publishDir "$params.outputDirectory/quality/$sampleID", mode: "copy", pattern: "${sampleID}.controls.json"
-
-    input:
-    tuple val(sampleID), path(reads)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
-
-    output:
-    tuple (val(sampleID), path("${sampleID}__controls.fq.gz"), emit: reads)
-    tuple (val(sampleID), path("${sampleID}.controls.tsv"), emit: results)
-    path("${sampleID}.controls.json")
-
-    script:
-
-    alignmentIndex = index[0]
-
-    """
-    vircov coverage -i $reads -o ${sampleID}.controls.tsv --aligner minimap2 --preset map-ont --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
-    scrubby alignment -i $reads -a reads.txt -o ${sampleID}__controls.fq.gz --json ${sampleID}.controls.json
-    """
-    
 }
 
 

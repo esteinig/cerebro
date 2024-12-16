@@ -5,7 +5,6 @@
 
 include { 
     InputScan
-    SyntheticControls
     ReadQuality
     Deduplication
     HostDepletion
@@ -23,14 +22,6 @@ workflow QualityControl {
     main:
 
         InputScan(reads)
-
-        if (params.qualityControl.syntheticControls) {
-            reads = SyntheticControls(
-                reads,
-                databases.syntheticControls,
-                params.qualityControl.syntheticControlsAligner
-            ).reads
-        }
 
         if (params.qualityControl.internalControls) {
             reads = InternalControls(
@@ -72,7 +63,6 @@ workflow QualityControl {
         
         // collect results by sample id
         results = InputScan.out.results.mix(
-            params.qualityControl.syntheticControls   ? SyntheticControls.out.results   : Channel.empty(), 
             params.qualityControl.readQuality         ? ReadQuality.out.results         : Channel.empty(), 
             params.qualityControl.readDeduplication   ? Deduplication.out.results       : Channel.empty(), 
             params.qualityControl.hostDepletion       ? HostDepletion.out.results       : Channel.empty(), 

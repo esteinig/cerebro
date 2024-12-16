@@ -59,7 +59,6 @@ def getQualityControlDatabases() {
     return [
         hostDepletion:       params.qualityControl.hostDepletion       ? getQualityHostDatabase(params.qualityControl)          :  Channel.empty(),
         internalControls:    params.qualityControl.internalControls    ? getQualityInternalControls(params.qualityControl)      :  Channel.empty(),
-        syntheticControls:   params.qualityControl.syntheticControls   ? getQualitySyntheticControls(params.qualityControl)     :  Channel.empty(),
         backgroundDepletion: params.qualityControl.backgroundDepletion ? getQualityBackgroundDatabase(params.qualityControl)    :  Channel.empty(),
     ]
 }
@@ -217,16 +216,6 @@ def getQualityInternalControls(qualityControlParams) {
         "pathogen detection :: quality control :: internal controls"
     )
 }
-def getQualitySyntheticControls(qualityControlParams) {
-
-    return getAlignmentReferenceIndex(
-        qualityControlParams.syntheticControlsReference, 
-        qualityControlParams.syntheticControlsIndex, 
-        qualityControlParams.syntheticControlsAligner,
-        "pathogen detection :: quality control :: synthetic controls"
-    )
-}
-
 
 /**
  * Retrieves the Bowtie2 or Bowtie21 index files based on the provided index prefix.

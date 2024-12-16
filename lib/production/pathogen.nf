@@ -29,7 +29,7 @@ workflow PathogenDetection {
         stagedFileData
     main:
 
-        cerebroWorkflow = "panviral-enrichment"
+        cerebroWorkflow = "pathogen-detection"
         workflowStarted = java.time.LocalDateTime.now()
 
         /* Read and background controls module */
@@ -63,8 +63,12 @@ workflow PathogenDetection {
             params.pathogenDetection.metagenomeAssembly.enabled ? MetagenomeAssembly.out.results : Channel.empty()
         )
 
-        json = results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
-        tables = PathogenDetectionTable(json | collect, taxonomicProfileDatabases.taxonomy)
+        results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
+        
+        PathogenDetectionTable(
+            ProcessOutputIllumina.out.results | collect, 
+            taxonomicProfileDatabases.taxonomy
+        )
 
         /* Production */
 
@@ -73,7 +77,7 @@ workflow PathogenDetection {
             PipelineConfig(cerebroWorkflow, workflowStarted)
             
             UploadOutput(
-                stagedFileData.mix(ProcessOutput.out.results) | groupTuple | map { d -> d.flatten() }, 
+                stagedFileData.mix(ProcessOutputIllumina.out.results) | groupTuple | map { d -> d.flatten() }, 
                 taxonomicProfileDatabases.taxonomy, 
                 PipelineConfig.out.config,
                 productionConfig.apiUrl,
