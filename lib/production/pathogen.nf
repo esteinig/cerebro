@@ -64,7 +64,7 @@ workflow PathogenDetection {
         )
 
         json = results | groupTuple | map { d -> [d[0], d[1..-1].flatten()] } | ProcessOutputIllumina
-        tables = PathogenDetectionTable(json | collect, databases.taxonomy)
+        tables = PathogenDetectionTable(json | collect, taxonomicProfileDatabases.taxonomy)
 
         /* Production */
 
