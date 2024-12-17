@@ -45,7 +45,7 @@ use cerebro_model::api::cerebro::schema::{
 use cerebro_model::api::cerebro::response::TaxaSummaryMongoPipeline;
 use cerebro_report::report::ClinicalReport;
 
-use cerebro_pipe::taxa::filters::*;
+use cerebro_pipe::taxa::{filters::*, taxon};
 use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
 use cerebro_pipe::taxa::taxon::{Taxon, aggregate};
 
@@ -715,6 +715,12 @@ struct TaxaQuery {
 }
 
 
+#[derive(Deserialize, Debug)]
+struct TaggedTaxa {
+    pub taxa: HashMap<String, Taxon>,
+    pub name: String,
+    pub sample_tags: Vec<String>
+}
 #[post("/cerebro/taxa")]
 async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
@@ -742,7 +748,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
     let filter_config = filter_config.into_inner();
 
     // Build MongoDB pipeline
-    let pipeline = get_matched_id_taxa_cerebro_pipeline(ids, date_range, run_ids, None);
+    let pipeline = get_matched_id_taxa_cerebro_pipeline(ids, date_range, run_ids);
     
     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
 
@@ -751,34 +757,38 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
         .await
     {
         Ok(cursor) => {
-            let cerebro_taxa = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
-            match cerebro_taxa.is_empty() {
+            let docs = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
+            match docs.is_empty() {
                 false => {
                     
                     // `cerebro_taxa` is a Vec<Hashmap<TaxId, Taxon>> for each requested 
                     //  Cerebro document but we need to transform from the BSON format
-                    let taxon_maps: Vec<HashMap<String, Taxon>> = cerebro_taxa.iter().map(
-                        |taxa| mongodb::bson::from_bson(taxa.into()).map_err(|_| {
+
+                    let mut tagged_taxa = Vec::new();
+                    for doc in docs {
+                        let tt: TaggedTaxa = mongodb::bson::from_bson(doc.into()).map_err(|_| {
                             HttpResponse::InternalServerError().json(serde_json::json!({
                                 "status": "error", "message": "Failed to transform retrieved taxa"
                             }))
-                        }).unwrap()
-                    ).collect();
+                        }).unwrap();
+                        tagged_taxa.push(tt)
+                    }
 
-                    // Aggregation loop of taxa evidence for requested - this may need to be
-                    // implemented with a task queue, especially if we do not aggregate
-                    // at species level later on (using a taxonomy)
+                    // Aggregation loop of taxa evidence for requested samples
                     let mut aggregated_taxa = HashMap::new();
-                    for tax_map in taxon_maps {
-                        aggregated_taxa = aggregate(&mut aggregated_taxa, &tax_map)
-                    }   
+                    for tt in &tagged_taxa {
+                        aggregated_taxa = aggregate(&mut aggregated_taxa, &tt.taxa)
+                    }               
 
-                    // let taxa: Vec<Taxon>= aggregated_taxa.values().cloned().collect();
-                    
-
+                    // Create sample name and tags map for filter
+                    let mut tag_map = HashMap::new();       
+                    for tt in tagged_taxa {
+                        tag_map.insert(tt.name, tt.sample_tags);
+                    }          
+                         
                     // Applying the rank/evidence filters from the post body - i.e. selected by user in filter interface
-                    let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config);
-
+                    let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config, &tag_map);
+                    
                     if query.overview.is_some_and(|x| x) {
                         // Summarize the evidence fields into a taxon overview, which is the first layer of the front-end `TaxonomyTable`
                         // let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();

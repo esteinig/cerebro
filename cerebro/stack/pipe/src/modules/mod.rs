@@ -1,4 +1,4 @@
 pub mod quality;
 pub mod pathogen;
-pub mod panviral;
-pub mod mag;
+pub mod alignment;
+pub mod assembly;

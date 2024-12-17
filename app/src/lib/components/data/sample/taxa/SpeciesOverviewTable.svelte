@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { ClientFilterConfig, TaxonHighlightConfig, TaxonOverview, TaxonOverviewRecord } from "$lib/utils/types";
-    import { DisplayData, DisplayTotal, PathogenDetectionTool } from "$lib/utils/types";
+	import type { ClientFilterConfig, TaxonHighlightConfig, Taxon, TaxonOverviewRecord } from "$lib/utils/types";
+    import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
     import { AbundanceMode } from "$lib/utils/types";
@@ -9,15 +9,14 @@
     
     // export let candidateButton: boolean = true;
 
+    export let taxa: Taxon[] = [];
     export let pagination: boolean = true;
-    export let taxonOverview: TaxonOverview[] = [];
-    export let modelNameTags: Map<string, string[]> = new Map();
 
     // Selected taxonomic identifier
     let selectedTaxid: string;
 
     // Container for filtered overview data
-    let filteredData: TaxonOverview[] = taxonOverview;
+    let filteredData: Taxon[] = taxa;
 
     // Container for filtered table row data
     let tableData: TaxonOverviewRecord[] = [];
@@ -27,24 +26,25 @@
     let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
+    let taxonEvidence: string | null = null;
+
     // Number precision to display in table
     function getNumberPrecision(displayData: DisplayData): number {
         if (displayData == DisplayData.Reads || displayData == DisplayData.Bases) {
             return 0
         } else if (displayData == DisplayData.Rpm || displayData == DisplayData.Bpm)  {
-            return 2
+            return 1
         } else {
             return 4
         }
     }
     
     function transformTaxonOverview(
-        overviews: TaxonOverview[],
+        taxa: Taxon[],
         mode: AbundanceMode,
         field: DisplayData
     ): TaxonOverviewRecord[] {
-        return overviews.map((overview) => {
-            console.log(overview)
+        return taxa.map((taxon) => {
             const aggregatedResults = {
                 vircov: 0,
                 kraken2: 0,
@@ -58,56 +58,53 @@
 
             let contributingTools = 0; // Track the number of tools contributing to the average
 
-            overview.evidence.forEach((result) => {
-                if (result.mode === mode) {
-                    let key = result.tool.toLowerCase() as keyof typeof aggregatedResults;
+            taxon.evidence.profile.forEach((record) => {
+                let key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
+                let data = field;
 
-                    if (result.tool === PathogenDetectionTool.Blast) {
-                        key = DisplayData.Bases.toLowerCase() as keyof typeof aggregatedResults;
-                    }
+                if (record.tool === ProfileTool.Blast) {
+                    data = DisplayData.Bases; // Use 'Bases' for Blast records.
+                }
 
-                    if (key in aggregatedResults) {
-                        if (result[field] > 0) {
-                            contributingTools++;
-                        }
-                        aggregatedResults[key] += result[field];
+                if (key in aggregatedResults) {
+                    aggregatedResults[key] += record[data]; // Always update aggregated results.
+                    
+                    // Exclude Blast contributions when counting tools
+                    if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
+                        contributingTools++;
                     }
                 }
             });
 
+            // Calculate the total sum, excluding 'blast'
+            const totalSum = Object.entries(aggregatedResults).reduce((sum, [key, value]) => {
+                return key === "blast" ? sum : sum + value; // Skip 'blast'
+            }, 0);
+
             // Calculate the average
-            const totalSum = Object.values(aggregatedResults).reduce((sum, value) => sum + value, 0);
             const average = contributingTools > 0 ? totalSum / contributingTools : 0;
 
             return {
-                taxid: overview.taxid,
-                name: overview.name,
-                domain: overview.domain,
-                genus: overview.genus,
-                sample_names: overview.sample_names,
-                kmer: overview.kmer,
-                alignment: overview.alignment,
-                assembly: overview.assembly,
+                taxid: taxon.taxid,
+                name: taxon.name,
+                domain: taxon.level.domain,
+                genus: taxon.level.genus,
+                profile: taxon.evidence.profile.length > 0,
+                alignment: taxon.evidence.alignment.length > 0,
+                assembly: taxon.evidence.assembly.length > 0,
                 ...aggregatedResults,
-                total: displayTotal == DisplayTotal.Sum ? totalSum : average,
+                total: displayTotal === DisplayTotal.Sum ? totalSum : average, // Use the adjusted total
             };
         }).sort((a, b) => b.total - a.total);
     }
 
-
-    const isTagData = (item: string[] | undefined): item is string[] => { return !!item }
-    
-    const getSelectedTags = (names: string[]) => {
-        return names.map(name => modelNameTags.get(name)).filter(isTagData);
-    }
-
-    const applyClientSideFilters = (taxonOverview: TaxonOverview[], clientFilterConfig: ClientFilterConfig | null): TaxonOverview[] => {
+    const applyClientSideFilters = (taxa: Taxon[], clientFilterConfig: ClientFilterConfig | null): Taxon[] => {
         
         if (clientFilterConfig === null) {
-            return taxonOverview
+            return taxa
         }
 
-        return taxonOverview.filter(taxonOverview => {
+        return taxa.filter(taxon => {
 
             // Filter decision
             let taxonomy: boolean = true;
@@ -117,22 +114,22 @@
 
             // Explicit taxonomy filters
             if ($selectedClientFilterConfig.domains.length) {
-                taxonomy = $selectedClientFilterConfig.domains.includes(taxonOverview.domain);
+                taxonomy = $selectedClientFilterConfig.domains.includes(taxon.level.domain);
             }
             if ($selectedClientFilterConfig.genera.length) {
-                taxonomy = $selectedClientFilterConfig.genera.includes(taxonOverview.genus);
+                taxonomy = $selectedClientFilterConfig.genera.includes(taxon.level.genus);
             }
             if ($selectedClientFilterConfig.species.length) {
-                taxonomy = $selectedClientFilterConfig.species.includes(taxonOverview.name);
+                taxonomy = $selectedClientFilterConfig.species.includes(taxon.level.species);
             }
 
-            if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxonOverview.name.includes(species))) {
+            if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxon.name.includes(species))) {
                 contam = false
             } else  {
                 contam = true
             }
 
-            if ($selectedTaxonHighlightConfig.syndrome.species.some(species => taxonOverview.name.includes(species))) {
+            if ($selectedTaxonHighlightConfig.syndrome.species.some(species => taxon.name.includes(species))) {
                 syndrome = true
             } else {
                 syndrome = false
@@ -145,7 +142,7 @@
     let paginationSettings: PaginationSettings = {
         page: 0,
         limit: 50,
-        size: taxonOverview.length,
+        size: taxa.length,
         amounts: [5, 10, 20, 50, 100, 500],
     };
 
@@ -192,9 +189,11 @@
         selectedTaxa.update(currentTaxa => {
             const index = currentTaxa.findIndex(taxon => taxon.taxid === overview.taxid);
             if (index > -1) {
+                taxonEvidence = null;
                 // If it exists, remove it
                 return currentTaxa.filter((_, i) => i !== index);
             } else {
+                taxonEvidence = overview.taxid;
                 // If it doesn't exist, add it
                 return [...currentTaxa, overview];
             }
@@ -208,20 +207,56 @@
         <ListBox>
             <ListBoxItem group="header" name="header" value="qc" active='variant-soft' hover='hover:cursor-default' rounded='rounded-token'>
                 <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm opacity-60">
-                    <div class="col-span-1">Domain</div>
-                    <div class="col-span-2">Species</div>
-                    <!-- <div class="col-span-1">Tags</div> -->
-                    <div class="text-right">{displayTotal}</div>
-                    <div class="text-right">Kraken2</div>
-                    <div class="text-right">Bracken</div>
-                    <div class="text-right">Metabuli</div>
-                    <div class="text-right">Ganon2</div>
-                    <div class="text-right">Vircov</div>
-                    <div class="text-right">Blast</div>
+                    <div class="col-span-1 flex flex-col items-start">
+                        <span>Domain</span>
+                    </div>
                     
+                    <div class="col-span-2 flex flex-col items-start">
+                        <span>Species</span>
+                    </div>
+                    
+                    <!-- <div class="col-span-1">Tags</div> -->
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>{displayTotal}</span>
+                        <span class="text-xs opacity-20">rpm</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Kraken2</span>
+                        <span class="text-xs opacity-20">rpm</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Bracken</span>
+                        <span class="text-xs opacity-20">rpm</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Metabuli</span>
+                        <span class="text-xs opacity-20">rpm</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Ganon2</span>
+                        <span class="text-xs opacity-20">rpm</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Vircov</span>
+                        <span class="text-xs opacity-20">rpm</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Blast</span>
+                        <span class="text-xs opacity-20">bp</span>
+                    </div>
+                    
+                    <div class="text-right flex flex-col items-end">
+                        <span>Modules</span>
+                    </div>
                     <!-- <div class="text-right">Kmcp</div> -->
                     <!-- <div class="text-right">Sylph</div> -->
-                    <div class="text-right">Modules</div>
                 </div>
             </ListBoxItem>
             {#each tableData as overview, i}
@@ -230,60 +265,56 @@
                     <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
                         <div class="opacity-70">{overview.domain}</div>
                         <div class="col-span-2 truncate italic">{overview.name}</div>
-                        <!-- <div class="col-span-1 truncate">
-                            {#each getSelectedTags(overview.sample_names) as tags}
-                                <span class="code bg-primary-500/30 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400 mr-1">{tags.join("-")}</span>
-                            {/each}
-                        </div> -->
                         <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                        <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
                         <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
                         <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                        <div class="flex justify-end items-center align-center pt-1">
+                        <div class="flex justify-end items-center  pt-1">
 
-                            <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 gap-x-0.5 text-sm">
+                            <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
+
+                                {#if overview.vircov > 0}
+                                    <div class="rounded-full bg-primary-500 h-2 w-2"></div>
+                                {:else}
+                                    <div></div>
+                                {/if}
                                 {#if overview.kraken2 > 0}
-                                    <div class="rounded-full bg-primary-600 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.bracken > 0}
-                                    <div class="rounded-full bg-primary-600 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.metabuli > 0}
-                                    <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.ganon2 > 0}
-                                    <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.kmcp > 0}
                                     <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}
-                                {#if overview.sylph > 0}
-                                    <div class="rounded-full bg-tertiary-200 h-2 w-2"></div>
+                                {#if overview.bracken > 0}
+                                    <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}
-                                {#if overview.vircov > 0}
-                                    <div class="rounded-full bg-tertiary-400 h-2 w-2"></div>
+                                {#if overview.metabuli > 0}
+                                    <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
+                                {:else}
+                                    <div></div>
+                                {/if}
+                                {#if overview.ganon2 > 0}
+                                    <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
+                                {:else}
+                                    <div></div>
+                                {/if}
+                                {#if overview.kmcp > 0}
+                                    <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
+                                {:else}
+                                    <div></div>
+                                {/if}
+                                {#if overview.sylph > 0}
+                                    <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}
                                 {#if overview.blast > 0}
-                                    <div class="rounded-full bg-tertiary-600 h-2 w-2"></div>
+                                    <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}
@@ -296,14 +327,7 @@
                         </div>
                     </div>
                     <!-- {#if taxonEvidence === overview.taxid}
-                        <TaxonEvidenceOverview 
-                            taxid={overview.taxid} 
-                            taxonOverview={overview} 
-                            serverFilterConfig={getServerConfig(i)} 
-                            selectedIdentifiers={selectedIdentifiers}
-                            selectedTags={getSelectedTags(overview.names).map(x => x.join("-"))}
-                            candidateButton={candidateButton}
-                        ></TaxonEvidenceOverview>
+                        <div>Evidence</div>
                     {/if} -->
                 </ListBoxItem>
             {/each}

@@ -108,7 +108,7 @@
         </div>
     </div>
 
-    <p class=""><span class="opacity-40">Module classification</span></p>
+    <p class=""><span class="opacity-40">Module</span></p>
     <div class="p-4">
         <span class="chip {clientFilterConfig.modules.alignment ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.alignment ? clientFilterConfig.modules.alignment = false : clientFilterConfig.modules.alignment = true }} on:keypress>
             {#if clientFilterConfig.modules.alignment}
@@ -121,15 +121,15 @@
             <span>Alignment</span>
             <div class="rounded-full bg-primary-500 h-2 w-2 ml-2"></div>
         </span>
-        <span class="chip {clientFilterConfig.modules.kmer ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.kmer ? clientFilterConfig.modules.kmer = false : clientFilterConfig.modules.kmer = true }} on:keypress>
-            {#if clientFilterConfig.modules.kmer}
+        <span class="chip {clientFilterConfig.modules.profile ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.profile ? clientFilterConfig.modules.profile = false : clientFilterConfig.modules.profile = true }} on:keypress>
+            {#if clientFilterConfig.modules.profile}
                 <span>
                     <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3 h-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
                 </span>
             {/if}
-            <span>K-mer</span>
+            <span>Profile</span>
             <div class="rounded-full bg-secondary-500 h-2 w-2 ml-2"></div>
         </span>
         <span class="chip {clientFilterConfig.modules.assembly ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.assembly ? clientFilterConfig.modules.assembly = false : clientFilterConfig.modules.assembly = true }} on:keypress>

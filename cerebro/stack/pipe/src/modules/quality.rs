@@ -9,7 +9,7 @@ use vircov::vircov::{VircovRecord, VircovSummary};
 
 
 use crate::error::WorkflowError;
-use crate::nextflow::pathogen::PathogenOutput;
+use crate::nextflow::pathogen::PathogenDetectionOutput;
 use crate::nextflow::panviral::PanviralOutput;
 use crate::nextflow::quality::QualityControlOutput;
 use crate::parsers::fastp::FastpReport;
@@ -95,7 +95,7 @@ impl QualityControl {
     pub fn from_panviral(output: &PanviralOutput) -> Self {
         Self::from_quality(&output.qc)
     }
-    pub fn from_pathogen(output: &PathogenOutput) -> Self {
+    pub fn from_pathogen(output: &PathogenDetectionOutput) -> Self {
         Self::from_quality(&output.qc)
     }
     pub fn from_quality(output: &QualityControlOutput) -> Self {

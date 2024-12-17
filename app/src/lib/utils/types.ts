@@ -1051,35 +1051,36 @@ export type Taxon = {
     taxid: string,
     rank: string,              // this is an enumeration in the `taxonomy` library, saved as string in model
     name: string,
-    lineage: Array<string>,
     level: TaxonLevel,
     evidence: TaxonEvidence
 }
 
 export type TaxonLevel = {
-    domain_taxid?: string,
-    domain_name?: string,
-    genus_taxid?: string,
-    genus_name?: string,
-    species_taxid?: string,
-    species_name?: string
+    domain: string | null,
+    genus: string | null,
+    species: string | null
 }
 
 export type TaxonEvidence = {
     alignment: VircovRecord[],
-    records: PathogenDetectionRecord[]
+    assembly: ContigRecord[],
+    profile: ProfileRecord[]
 }
 
-export type PathogenDetectionRecord = {
-    id: string,
-    taxid: string,
-    name: string,
-    rank: PathogenDetectionRank,
-    results: PathogenDetectionResult[]
+export type ContigRecord = {
+    id: string
 }
 
+// export type PathogenDetectionRecord = {
+//     id: string,
+//     taxid: string,
+//     name: string,
+//     rank: PathogenDetectionRank,
+//     results: ProfileRecord[]
+// }
 
-export enum PathogenDetectionTool {
+
+export enum ProfileTool {
     Vircov = "Vircov",
     Kraken2 = "Kraken2",
     Metabuli = "Metabuli",
@@ -1133,8 +1134,9 @@ export enum DomainName {
     Eukaryota = "Eukaryota"
 }
 
-export type PathogenDetectionResult = {
-    tool: PathogenDetectionTool,
+export type ProfileRecord = {
+    id: string,
+    tool: ProfileTool,
     mode: AbundanceMode,
     reads: number,
     rpm: number,
@@ -1194,7 +1196,7 @@ export type TaxonOverview = {
     alignment: boolean,
     assembly: boolean,
     sample_names: Array<string>,       // unique names of all evidence records (matching `Cerebro.name` field)
-    evidence: PathogenDetectionResult[],
+    evidence: ProfileRecord[],
 }
 
 export type TaxonOverviewRecord = {
@@ -1202,8 +1204,7 @@ export type TaxonOverviewRecord = {
     name: string;
     domain: string | null;
     genus: string | null;
-    sample_names: Array<string>;
-    kmer: boolean;
+    profile: boolean;
     alignment: boolean;
     assembly: boolean;
     kraken2: number;
@@ -1395,6 +1396,7 @@ export type TaxonFilterConfig = {  // ADD WORKFLOW ID
     min_reads: number,                 // Minimum read count for inclusion
     min_rpm: number,                   // Minimum RPM for inclusion
     min_abundance: number,             // Minimum abundance for inclusion
+    ntc_ratio: number | null           // NTC ratio if selected
 }
 
 // Client-side selection of taxa
@@ -1410,7 +1412,7 @@ export type ClientFilterConfig = {
 
 export type ClientFilterModules = {
     alignment: boolean,
-    kmer: boolean,
+    profile: boolean,
     assembly: boolean
 }
 export type ClientFilterMinimum = {

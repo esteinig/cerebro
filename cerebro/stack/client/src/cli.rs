@@ -3,7 +3,7 @@ use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
-use cerebro_pipe::modules::panviral::Panviral;
+use cerebro_pipe::modules::alignment::Alignment;
 use cerebro_pipe::modules::pathogen::PathogenDetection;
 use cerebro_pipe::modules::quality::QualityControl;
 use clap::Parser;
@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
         Commands::UploadPanviral( args ) => {
             
             let quality = QualityControl::from_json(&args.quality)?;
-            let panviral = Panviral::from_json(&args.panviral)?;
+            let panviral = Alignment::from_json(&args.panviral)?;
 
             if quality.id != panviral.id {
                 return Err(HttpClientError::PanviralIdentifiersNotMatched(quality.id, panviral.id).into())
@@ -174,7 +174,7 @@ fn main() -> anyhow::Result<()> {
         Commands::CreatePanviral( args ) => {
 
             let quality = QualityControl::from_json(&args.quality)?;
-            let panviral = Panviral::from_json(&args.panviral)?;
+            let panviral = Alignment::from_json(&args.panviral)?;
 
             if quality.id != panviral.id {
                 return Err(HttpClientError::PanviralIdentifiersNotMatched(quality.id, panviral.id).into())

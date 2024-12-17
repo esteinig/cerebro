@@ -76,6 +76,13 @@
                     <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.min_abundance} step="0.01"/>
                 </label>
             </div>
+
+            <div>
+                <label class="label">
+                    <span class="text-xs opacity-60">NTC Ratio (if selected)</span>
+                    <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.ntc_ratio} step="0.1"/>
+                </label>
+            </div>
         </div>
     </div>
 </div>

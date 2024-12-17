@@ -2,24 +2,33 @@ use std::{fs::File, io::{BufReader, BufWriter}, path::Path};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::WorkflowError, nextflow::mag::MagOutput, utils::read_tsv};
+use crate::{error::WorkflowError, nextflow::{mag::MetagenomeAssemblyOutput, pathogen::PathogenDetectionOutput}, utils::read_tsv};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct MagRecord {
-    id: String,
-    
+pub struct ContigRecord {
+    pub id: String
 }
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct MagDetection {
-    id: String,
-    records: Vec<MagRecord>
+pub struct MetagenomeAssembly {
+    pub id: String,
+    pub records: Vec<ContigRecord>
 }
-impl MagDetection {
+impl MetagenomeAssembly {
     pub fn from_mag(
-        output: &MagOutput,
+        output: &MetagenomeAssemblyOutput,
+    ) -> Result<Self, WorkflowError> {
+        
+        Ok(Self {
+            id: output.id.clone(),
+            records: Vec::new()
+        })
+
+    }
+    pub fn from_pathogen(
+        output: &PathogenDetectionOutput,
     ) -> Result<Self, WorkflowError> {
         
         Ok(Self {

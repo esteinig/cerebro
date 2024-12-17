@@ -1,12 +1,11 @@
 use anyhow::Result;
 use fancy_regex::Regex;
-use itertools::Itertools;
 use vircov::vircov::VircovRecord;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, collections::HashMap};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
 
-use crate::modules::mag::MagRecord;
+use crate::modules::assembly::ContigRecord;
 use crate::modules::pathogen::ProfileRecord;
 use crate::error::WorkflowError;
 
@@ -47,7 +46,7 @@ impl Taxon {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonEvidence {
     pub alignment: Vec<VircovRecord>,
-    pub assembly: Vec<MagRecord>,
+    pub assembly: Vec<ContigRecord>,
     pub profile: Vec<ProfileRecord>,
 }
 
@@ -68,19 +67,6 @@ pub struct TaxonLevel {
     pub species: Option<String>
 }
 impl TaxonLevel {
-    /// Creates a new instance of `TaxonLevel` given a taxonomic identifier with its corresponding
-    /// taxonomy and a flag, whether the domain rank conforms to NCBI definition of domain ("Superkingdom")
-    /// or whether the rank conforms to the traditional definition ("Domain"). A taxon level struct is a
-    /// convenience abstraction of the taxon lineage at domain, genus and species levels, so that later
-    /// a taxonomy does not have to be consulted to aggegate or filter taxa at these levels.
-    /// 
-    /// 
-    /// # Example
-    /// 
-    /// ```
-    /// let taxonomy = taxonomy::ncbi::load(taxonomy)?;
-    /// let taxon_level = TaxonLevel::new("9606", &taxonomy, true)
-    /// ```
     pub fn new(taxid: &str, taxonomy: &GeneralTaxonomy, ncbi_domain: bool) -> Result<Self, WorkflowError> {
 
         // Species abstraction
@@ -157,6 +143,14 @@ pub fn aggregate(parent_taxa: &mut HashMap<String, Taxon>, taxa: &HashMap<String
                 // If so, update the evidence of the taxon in the modules...
                 for record in &taxon.evidence.profile {
                     tax.evidence.profile.push(record.clone())
+                }
+                // If so, update the evidence of the taxon in the modules...
+                for record in &taxon.evidence.alignment {
+                    tax.evidence.alignment.push(record.clone())
+                }
+                // If so, update the evidence of the taxon in the modules...
+                for record in &taxon.evidence.assembly {
+                    tax.evidence.assembly.push(record.clone())
                 }
             },
             None => {

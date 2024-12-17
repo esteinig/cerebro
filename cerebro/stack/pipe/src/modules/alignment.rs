@@ -4,35 +4,38 @@ use serde::{Deserialize, Serialize};
 use taxonomy::ncbi;
 use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::panviral::PanviralOutput, taxa::taxon::{Taxon, TaxonExtraction}, utils::read_tsv};
-
-use super::quality::QualityControl;
+use crate::{error::WorkflowError, nextflow::{panviral::PanviralOutput, pathogen::PathogenDetectionOutput}, taxa::taxon::{Taxon, TaxonExtraction}, utils::read_tsv};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Panviral {
+pub struct Alignment {
     pub id: String,
-    pub paired_end: bool,
     pub records: Vec<VircovRecord>
 }
-impl Panviral {
+impl Alignment {
     pub fn from_panviral(
         output: &PanviralOutput,
-        quality: &QualityControl,
-        paired_end: bool,
     ) -> Result<Self, WorkflowError> {
        
         Ok(Self {
             id: output.id.clone(),
-            paired_end,
             records: output.vircov.records.clone()
         })
 
     }
-    pub fn from_tsv(&self, path: &Path, id: &str, paired_end: bool) -> Result<Self, WorkflowError> {
+    pub fn from_pathogen(
+        output: &PathogenDetectionOutput,
+    ) -> Result<Self, WorkflowError> {
+       
+        Ok(Self {
+            id: output.id.clone(),
+            records: output.profile.vircov.clone().map(|summary| summary.records).unwrap_or_default()
+        })
+
+    }
+    pub fn from_tsv(&self, path: &Path, id: &str) -> Result<Self, WorkflowError> {
         Ok(Self {
             id: id.to_string(),
-            paired_end,
             records: read_tsv(path, false, true)?
         })
     }
@@ -48,7 +51,7 @@ impl Panviral {
     }
 }
 
-impl TaxonExtraction for Panviral {
+impl TaxonExtraction for Alignment {
     fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
         let taxonomy = ncbi::load(taxonomy_directory)?;
     

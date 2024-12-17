@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::utils::{is_file_empty, read_tsv};
 use crate::error::WorkflowError;
 use crate::utils::{get_file_by_name, get_file_component, FileComponent};
-use super::mag::{BlastTaxidMethod, MagFiles, MagOutput};
+use super::mag::{BlastTaxidMethod, MetagenomeAssemblyFiles, MetagenomeAssemblyOutput};
 use super::quality::{QualityControlFiles, QualityControlOutput};
 
 #[derive(Debug, Clone)]
@@ -48,7 +48,7 @@ impl PathogenProfileFiles {
 pub struct PathogenFiles {
     pub qc: QualityControlFiles,
     pub profile: PathogenProfileFiles,
-    pub mag: MagFiles
+    pub mag: MetagenomeAssemblyFiles
 }
 impl PathogenFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
@@ -56,12 +56,12 @@ impl PathogenFiles {
         Ok(Self{
             qc: QualityControlFiles::from(path, id)?,
             profile: PathogenProfileFiles::from(path, id)?,
-            mag: MagFiles::from(&path, &id)?
+            mag: MetagenomeAssemblyFiles::from(&path, &id)?
         })
     }
 }
 
-pub struct PathogenProfileOutput {
+pub struct PathogenOutput {
     pub id: String,
     pub vircov: Option<VircovSummary>,
     pub kraken2: Option<KrakenReport>,
@@ -73,7 +73,7 @@ pub struct PathogenProfileOutput {
     pub ganon_reads: Option<GanonReadsReport>,
     pub ganon_abundance: Option<GanonAbundanceReport>,
 }
-impl PathogenProfileOutput {
+impl PathogenOutput {
     pub fn from_files(id: &str, files: &PathogenProfileFiles) -> Result<Self, WorkflowError> {
 
         Ok(Self {
@@ -118,13 +118,13 @@ impl PathogenProfileOutput {
     }
 }
 
-pub struct PathogenOutput {
+pub struct PathogenDetectionOutput {
     pub id: String,
     pub qc: QualityControlOutput,
-    pub profile: PathogenProfileOutput,
-    pub mag: MagOutput
+    pub profile: PathogenOutput,
+    pub assembly: MetagenomeAssemblyOutput
 }
-impl PathogenOutput {
+impl PathogenDetectionOutput {
 
     pub fn from(path: &PathBuf, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
 
@@ -149,8 +149,8 @@ impl PathogenOutput {
         Ok(Self{
             id: id.to_string(),
             qc: QualityControlOutput::from_files(&id, &files.qc)?,
-            profile: PathogenProfileOutput::from_files(&id, &files.profile)?,
-            mag: MagOutput::from_files(&id, &files.mag, taxonomy.as_ref(), blast_taxid)?
+            profile: PathogenOutput::from_files(&id, &files.profile)?,
+            assembly: MetagenomeAssemblyOutput::from_files(&id, &files.mag, taxonomy.as_ref(), blast_taxid)?
         })
     }
 }

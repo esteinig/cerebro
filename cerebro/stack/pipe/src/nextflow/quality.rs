@@ -11,8 +11,6 @@ use crate::utils::{get_file_by_name, get_file_component, FileComponent};
 use scrubby::report::ScrubbyReport;
 use vircov::vircov::VircovSummary;
 
-
-
 #[derive(Debug, Clone)]
 pub struct QualityControlFiles {
     pub input_scan: Option<PathBuf>,

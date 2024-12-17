@@ -32,7 +32,7 @@ const defaultClientFilterConfig: ClientFilterConfig = {
     species: [],
     modules: {
         alignment: false,
-        kmer: false,
+        profile: false,
         assembly: false
     } satisfies ClientFilterModules,
     minimum: {
@@ -45,13 +45,14 @@ const defaultClientFilterConfig: ClientFilterConfig = {
 }
 
 const defaultServerFilterConfig: TaxonFilterConfig = {
-    rank: PathogenDetectionRank.Genus,
+    rank: PathogenDetectionRank.Species,
     domains: [],            // Filter by domain names
     tools: [],              // Filter by specific detection tools
     modes: [],              // Filter by detection modes (Sequence/Profile)
     min_reads: 0,           // Minimum read count for inclusion
     min_rpm: 0.0,           // Minimum RPM for inclusion
     min_abundance: 0,       // Minimum abundance for inclusion
+    ntc_ratio: 10
 }
 
 
