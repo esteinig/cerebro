@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use cerebro_pipe::taxa::filters::TaxonFilterConfig;
-use cerebro_pipe::taxa::taxon::TaxonOverview;
 
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
@@ -81,7 +80,7 @@ pub struct PriorityTaxonSchema {
     pub evidence_tags: Vec<String>,            // joined tags, not arrays
     pub cerebro_identifiers: Vec<CerebroId>,   
     pub taxon_type: TaxonType,
-    pub taxon_overview: TaxonOverview,
+    // pub taxon_overview: TaxonOverview,
     pub filter_config: TaxonFilterConfig,
     pub decisions: Vec<PriorityTaxonDecision>
 }

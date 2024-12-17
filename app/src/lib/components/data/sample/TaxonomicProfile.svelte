@@ -10,6 +10,7 @@
 
     export let selectedIdentifiers: string[] = [];
     export let selectedModels: Cerebro[] = [];
+
     
     export let serverFilterConfig: TaxonFilterConfig;
 
@@ -25,6 +26,7 @@
 
 
     const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
+
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(

@@ -42,12 +42,12 @@ use cerebro_model::api::cerebro::schema::{
     PriorityTaxonSchema,
     ReportSchema
 };
-use cerebro_model::api::cerebro::response::{TaxonSummaryOverview, TaxaSummaryMongoPipeline};
+use cerebro_model::api::cerebro::response::TaxaSummaryMongoPipeline;
 use cerebro_report::report::ClinicalReport;
 
 use cerebro_pipe::taxa::filters::*;
 use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
-use cerebro_pipe::taxa::taxon::{Taxon, TaxonOverview, aggregate};
+use cerebro_pipe::taxa::taxon::{Taxon, aggregate};
 
 type CerebroIds = String;
 
@@ -781,10 +781,10 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
 
                     if query.overview.is_some_and(|x| x) {
                         // Summarize the evidence fields into a taxon overview, which is the first layer of the front-end `TaxonomyTable`
-                        let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
+                        // let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
                         
                         HttpResponse::Ok().json(serde_json::json!({
-                            "status": "success", "message": "Retrieved aggregated taxa overview with summary of evidence", "data": serde_json::json!({"taxa": taxa_overview})
+                            "status": "success", "message": "Retrieved aggregated taxa overview with summary of evidence", "data": serde_json::json!({"taxa": taxa})
                         }))
                     } else {
                         if let Some(taxid) = &query.taxid {
@@ -826,84 +826,84 @@ struct TaxaSummaryQuery {
 
 use futures::{future::ok, stream::once};
 
-#[post("/cerebro/taxa/summary")]
-async fn filtered_taxa_summary_handler(data: web::Data<AppState>, schema: web::Json<TaxaSummarySchema>, query: web::Query<TaxaSummaryQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+// #[post("/cerebro/taxa/summary")]
+// async fn filtered_taxa_summary_handler(data: web::Data<AppState>, schema: web::Json<TaxaSummarySchema>, query: web::Query<TaxaSummaryQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
-        Ok(authorized) => authorized,
-        Err(error_response) => return error_response
-    };
+//     let (_, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+//         Ok(authorized) => authorized,
+//         Err(error_response) => return error_response
+//     };
 
-    let pipeline = get_matched_taxa_summary_pipeline(&schema.sample_ids, &schema.run_ids, &schema.workflow_ids, &schema.workflow_names);
+//     let pipeline = get_matched_taxa_summary_pipeline(&schema.sample_ids, &schema.run_ids, &schema.workflow_ids, &schema.workflow_names);
     
-    // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
+//     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
 
-    match project_collection
-        .aggregate(pipeline, None)
-        .await
-    {
-        Ok(cursor) => {
-            let cerebro_taxa_summary = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
-            match cerebro_taxa_summary.is_empty() {
-                false => {
+//     match project_collection
+//         .aggregate(pipeline, None)
+//         .await
+//     {
+//         Ok(cursor) => {
+//             let cerebro_taxa_summary = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
+//             match cerebro_taxa_summary.is_empty() {
+//                 false => {
 
-                    let taxon_data: Vec<TaxaSummaryMongoPipeline> = cerebro_taxa_summary.iter().map(
-                        |taxa_summary| mongodb::bson::from_bson(taxa_summary.into()).map_err(|_| {
-                            HttpResponse::InternalServerError().json(serde_json::json!({
-                                "status": "error", "message": "Failed to transform retrieved taxa summary"
-                            }))
-                        }).unwrap()
-                    ).collect();
+//                     let taxon_data: Vec<TaxaSummaryMongoPipeline> = cerebro_taxa_summary.iter().map(
+//                         |taxa_summary| mongodb::bson::from_bson(taxa_summary.into()).map_err(|_| {
+//                             HttpResponse::InternalServerError().json(serde_json::json!({
+//                                 "status": "error", "message": "Failed to transform retrieved taxa summary"
+//                             }))
+//                         }).unwrap()
+//                     ).collect();
 
-                    let taxa_overview_data: Vec<Vec<TaxonSummaryOverview>> = taxon_data.into_iter().map(|taxa_summary| {
-                        let taxa: Vec<Taxon> = apply_filters(taxa_summary.taxa.clone().into_values().collect(), &schema.filter_config);
-                        let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
-                        let taxa_overview_summary: Vec<TaxonSummaryOverview> = taxa_overview.iter().map(|taxon_overview|{
-                            TaxonSummaryOverview::from_taxon_overview(&taxa_summary, &taxon_overview)
-                        }).collect();
-                        taxa_overview_summary
-                    }).collect();
+//                     let taxa_overview_data: Vec<Vec<TaxonSummaryOverview>> = taxon_data.into_iter().map(|taxa_summary| {
+//                         let taxa: Vec<Taxon> = apply_filters(taxa_summary.taxa.clone().into_values().collect(), &schema.filter_config);
+//                         let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
+//                         let taxa_overview_summary: Vec<TaxonSummaryOverview> = taxa_overview.iter().map(|taxon_overview|{
+//                             TaxonSummaryOverview::from_taxon_overview(&taxa_summary, &taxon_overview)
+//                         }).collect();
+//                         taxa_overview_summary
+//                     }).collect();
 
-                    let taxa_summary_overview: Vec<TaxonSummaryOverview> = taxa_overview_data.into_iter().flatten().collect();
+//                     let taxa_summary_overview: Vec<TaxonSummaryOverview> = taxa_overview_data.into_iter().flatten().collect();
                                         
-                    // Streaming responses due to size
+//                     // Streaming responses due to size
                     
-                    match query.csv {
-                        true => {
-                            let csv_string = as_csv_string(taxa_summary_overview).unwrap();
+//                     match query.csv {
+//                         true => {
+//                             let csv_string = as_csv_string(taxa_summary_overview).unwrap();
 
-                            let response = serde_json::to_string(&serde_json::json!({
-                                "status": "succes", "message": "Retrieved taxa summaries for requested samples", "data": serde_json::json!({"taxa_summary": [], "csv": csv_string})
-                            })).unwrap().try_into_bytes().unwrap();
+//                             let response = serde_json::to_string(&serde_json::json!({
+//                                 "status": "succes", "message": "Retrieved taxa summaries for requested samples", "data": serde_json::json!({"taxa_summary": [], "csv": csv_string})
+//                             })).unwrap().try_into_bytes().unwrap();
 
-                            let body = once(ok::<_, actix_web::Error>(response));
+//                             let body = once(ok::<_, actix_web::Error>(response));
 
-                            HttpResponse::Ok().content_type("application/json").streaming(body)
-                        },
-                        false => {
+//                             HttpResponse::Ok().content_type("application/json").streaming(body)
+//                         },
+//                         false => {
 
-                            let response = serde_json::to_string(&serde_json::json!({
-                                "status": "succes", "message": "Retrieved taxa summaries for requested samples", "data": serde_json::json!({"taxa_summary": taxa_summary_overview, "csv": ""})
-                            })).unwrap().try_into_bytes().unwrap();
+//                             let response = serde_json::to_string(&serde_json::json!({
+//                                 "status": "succes", "message": "Retrieved taxa summaries for requested samples", "data": serde_json::json!({"taxa_summary": taxa_summary_overview, "csv": ""})
+//                             })).unwrap().try_into_bytes().unwrap();
 
-                            let body = once(ok::<_, actix_web::Error>(response));
+//                             let body = once(ok::<_, actix_web::Error>(response));
 
-                            HttpResponse::Ok().content_type("application/json").streaming(body)
-                        }
-                    }
+//                             HttpResponse::Ok().content_type("application/json").streaming(body)
+//                         }
+//                     }
 
-                },
-                true => HttpResponse::Ok().json(serde_json::json!({
-                    "status": "fail", "message": "Failed to retrieve taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
-                }))
-            }
-        },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "status": "error", "message": "Error in retrieving taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
-        }))
-    }
+//                 },
+//                 true => HttpResponse::Ok().json(serde_json::json!({
+//                     "status": "fail", "message": "Failed to retrieve taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
+//                 }))
+//             }
+//         },
+//         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+//             "status": "error", "message": "Error in retrieving taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
+//         }))
+//     }
 
-}
+// }
 
 
 #[derive(Deserialize)]
@@ -1735,7 +1735,7 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(delete_sample_handler)
        .service(sample_qc_summary_handler)
        .service(sample_description_handler)
-       .service(filtered_taxa_summary_handler)
+    //    .service(filtered_taxa_summary_handler)
        .service(create_typst_report_handler)
        .service(get_report_from_storage_handler)
        .service(delete_stored_report_handler)

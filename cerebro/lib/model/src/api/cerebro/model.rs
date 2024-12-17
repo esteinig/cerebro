@@ -16,7 +16,7 @@ use cerebro_pipe::{
     modules::quality::QualityControl, 
     nextflow::sheet::SampleSheet, 
     taxa::filters::TaxonFilterConfig, 
-    taxa::taxon::{Taxon, TaxonOverview}
+    taxa::taxon::Taxon
 };
 
 use crate::api::users::model::{UserId, User};
@@ -82,6 +82,9 @@ pub enum ModelError {
     /// Indicates failure to obtain the sample tag regex capture match
     #[error("failed to get sample tag regex capture match")]
     SampleTagRegexCaptureMatch,
+    /// Indicates failure to calculate size of the model
+    #[error("failed to calculate the size of the model")]
+    ModelSizeCalculation,
     /// Indicates failure to construct the quality control summary from modules
     #[error("failed to construct quality control summary")]
     QualityControlSummary(#[source] WorkflowError),
@@ -157,6 +160,15 @@ impl Cerebro {
                 }
             )
     }
+    pub fn size(&self) -> Result<usize, ModelError> {
+        match serde_json::to_vec(self) {
+            Ok(json_bytes) => Ok(json_bytes.len()),
+            Err(_) => return Err(ModelError::ModelSizeCalculation)
+        }
+    }
+    pub fn size_mb(&self) -> Result<f64, ModelError> {
+        Ok(self.size()? as f64 / (1024.0 * 1024.0))
+    }
     pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
         let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
         Ok(model)
@@ -167,6 +179,7 @@ impl Cerebro {
         write!(file, "{}", json_string)?;
         Ok(())
     }
+   
 
 }
 
@@ -551,7 +564,7 @@ pub struct PriorityTaxon {
     pub evidence_tags: Vec<String>,            // joined tags, not arrays
     pub cerebro_identifiers: Vec<CerebroId>,   
     pub taxon_type: TaxonType,
-    pub taxon_overview: TaxonOverview,
+    // pub taxon_overview: TaxonOverview,
     pub filter_config: TaxonFilterConfig,
     pub decisions: Vec<PriorityTaxonDecision>
 }
@@ -559,12 +572,12 @@ impl PriorityTaxon {
     // A description of priority taxon for logging
     pub fn log_description(&self) -> String {
         format!(
-            "PriorityTaxon: cerebro_ids={} id={} date={} type={} name='{}' taxid={} tags={} comment='{}'", 
+            "PriorityTaxon: cerebro_ids={} id={} date={} type={} tags={} comment='{}'", 
             self.id, 
             self.date, 
             self.taxon_type, 
-            self.taxon_overview.name, 
-            self.taxon_overview.taxid, 
+            // self.taxon_overview.name, 
+            // self.taxon_overview.taxid, 
             self.evidence_tags.join(","),
             self.cerebro_identifiers.join(","),
             self.comment
@@ -581,7 +594,7 @@ impl PriorityTaxon {
             evidence_tags: schema.evidence_tags,          // joined tags, not arrays
             cerebro_identifiers:schema.cerebro_identifiers,  
             taxon_type: schema.taxon_type,
-            taxon_overview: schema.taxon_overview,
+            // taxon_overview: schema.taxon_overview,
             filter_config: schema.filter_config,
             decisions: schema.decisions,
         }

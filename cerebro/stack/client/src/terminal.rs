@@ -257,16 +257,7 @@ pub struct CreatePanviralArgs {
 pub struct UploadModelArgs {
     /// Processed database models(.json)
     #[clap(long, short = 'm', num_args(1..))]
-    pub models: Vec<PathBuf>,
-    /// Team name for model upload
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model upload
-    #[clap(long, short = 'p')]
-    pub project_name: String,
-    /// Database name for model upload, otherwise team default database
-    #[clap(long, short = 'd')]
-    pub db_name: Option<String>,
+    pub models: Vec<PathBuf>
 }
 
 #[derive(Debug, Args)]

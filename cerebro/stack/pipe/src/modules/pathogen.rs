@@ -666,7 +666,9 @@ impl TaxonExtraction for PathogenDetection {
 
             if let Some(existing_taxon) = taxa.get_mut(&record.taxid) {
                 // If the taxid is already present, update its evidence
-                existing_taxon.evidence.records.push(record.clone());
+                for profile_record in &record.results {
+                    existing_taxon.evidence.profile.push(profile_record.clone());
+                }
             } else {
                 // Otherwise, create a new Taxon and insert it into the HashMap
                 let mut taxon = match Taxon::from_taxid(record.taxid.clone(), &taxonomy, true) {
@@ -684,7 +686,10 @@ impl TaxonExtraction for PathogenDetection {
                     },
                     Ok(taxon) => taxon,
                 };
-                taxon.evidence.records.push(record.clone());
+                
+                for profile_record in &record.results {
+                    taxon.evidence.profile.push(profile_record.clone());
+                }
                 taxa.insert(record.taxid.clone(), taxon);
             }
         }
@@ -820,7 +825,7 @@ impl AbundanceMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PathogenDetectionResult {
+pub struct ProfileRecord {
     pub tool: PathogenDetectionTool,
     pub mode: AbundanceMode,
     pub reads: u64,
@@ -830,7 +835,7 @@ pub struct PathogenDetectionResult {
     pub abundance: f64,
 }
 
-impl PathogenDetectionResult {
+impl ProfileRecord {
     pub fn new(
         tool: PathogenDetectionTool,
         mode: AbundanceMode,
@@ -858,7 +863,7 @@ pub struct PathogenDetectionRecord {
     pub taxid: String,
     pub name: String,
     pub rank: PathogenDetectionRank,
-    pub results: Vec<PathogenDetectionResult>, // Results from various tools and modes
+    pub results: Vec<ProfileRecord>, // Results from various tools and modes
 }
 
 impl PathogenDetectionRecord {
@@ -882,7 +887,7 @@ impl PathogenDetectionRecord {
         bpm: f64,
         abundance: f64
     ) {
-        let result = PathogenDetectionResult::new(tool, mode, reads, rpm, bases, bpm, abundance);
+        let result = ProfileRecord::new(tool, mode, reads, rpm, bases, bpm, abundance);
         self.results.push(result);
     }
 }

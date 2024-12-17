@@ -50,7 +50,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig) ->
         taxa = taxa
             .into_iter()
             .filter(|taxon| {
-                if let Some(domain_name) = &taxon.level.domain_name {
+                if let Some(domain_name) = &taxon.level.domain {
                     filter_config.domains.contains(domain_name)
                 } else {
                     false // Exclude taxa without a domain_name
@@ -63,23 +63,21 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig) ->
     taxa = taxa
         .into_iter()
         .map(|mut taxon| {
-            taxon.evidence.records = taxon
+            taxon.evidence.profile = taxon
                 .evidence
-                .records
+                .profile
                 .into_iter()
                 .filter(|record| {
-                    record.results.iter().any(|result| {
-                        (filter_config.tools.is_empty() || filter_config.tools.contains(&result.tool))
-                            && (filter_config.modes.is_empty() || filter_config.modes.contains(&result.mode))
-                            && result.reads >= filter_config.min_reads
-                            && result.rpm >= filter_config.min_rpm
-                            && result.abundance >= filter_config.min_abundance
-                    })
+                    (filter_config.tools.is_empty() || filter_config.tools.contains(&record.tool))
+                        && (filter_config.modes.is_empty() || filter_config.modes.contains(&record.mode))
+                        && record.reads >= filter_config.min_reads
+                        && record.rpm >= filter_config.min_rpm
+                        && record.abundance >= filter_config.min_abundance
                 })
                 .collect();
             taxon
         })
-        .filter(|taxon| !taxon.evidence.records.is_empty()) // Remove taxa with no evidence left
+        .filter(|taxon| !taxon.evidence.profile.is_empty()) // Remove taxa with no evidence left
         .collect();
 
     taxa

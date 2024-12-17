@@ -100,7 +100,7 @@ pub fn get_matched_id_taxa_cerebro_pipeline(
 
         // Filter by domains
         if !config.domains.is_empty() {
-            match_conditions.insert("level.domain_name", doc! { "$in": config.domains });
+            match_conditions.insert("level.domain", doc! { "$in": config.domains });
         }
 
         // Filter by tools

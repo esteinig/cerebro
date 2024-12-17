@@ -13,13 +13,21 @@
     export let taxonOverview: TaxonOverview[] = [];
     export let modelNameTags: Map<string, string[]> = new Map();
 
+    // Selected taxonomic identifier
+    let selectedTaxid: string;
+
+    // Container for filtered overview data
+    let filteredData: TaxonOverview[] = taxonOverview;
+
+    // Container for filtered table row data
+    let tableData: TaxonOverviewRecord[] = [];
+
+    // Display data modes for table
     let displayMode: AbundanceMode = AbundanceMode.Sequence;
     let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
-
-    let selectedTaxid: string;
-
+    // Number precision to display in table
     function getNumberPrecision(displayData: DisplayData): number {
         if (displayData == DisplayData.Reads || displayData == DisplayData.Bases) {
             return 0
@@ -35,8 +43,8 @@
         mode: AbundanceMode,
         field: DisplayData
     ): TaxonOverviewRecord[] {
-
         return overviews.map((overview) => {
+            console.log(overview)
             const aggregatedResults = {
                 vircov: 0,
                 kraken2: 0,
@@ -86,12 +94,6 @@
         }).sort((a, b) => b.total - a.total);
     }
 
-    let filteredData: TaxonOverview[] = [];
-    let tableData: TaxonOverviewRecord[] = transformTaxonOverview(
-        filteredData, 
-        displayMode, 
-        displayData
-    );
 
     const isTagData = (item: string[] | undefined): item is string[] => { return !!item }
     
@@ -148,9 +150,14 @@
     };
 
     $: {    
+        
+        // Whenever data changes apply client side filters...
         filteredData = applyClientSideFilters(filteredData, $selectedClientFilterConfig);
+
+        // ... and transform filtered data into the overview table rows
         tableData = transformTaxonOverview(filteredData, displayMode, displayData);
 
+        // If pagination is enabled, slice the data for the page and limits as configured in table footer
         if (pagination) {
             paginationSettings.size = filteredData.length;
             tableData = tableData.slice(
@@ -181,8 +188,7 @@
         }
     }
 
-
-    export const addSelectedTaxon = (overview: TaxonOverviewRecord) => {
+    const addSelectedTaxon = (overview: TaxonOverviewRecord) => {
         selectedTaxa.update(currentTaxa => {
             const index = currentTaxa.findIndex(taxon => taxon.taxid === overview.taxid);
             if (index > -1) {
@@ -204,7 +210,7 @@
                 <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm opacity-60">
                     <div class="col-span-1">Domain</div>
                     <div class="col-span-2">Species</div>
-                    <div class="col-span-1">Tags</div>
+                    <!-- <div class="col-span-1">Tags</div> -->
                     <div class="text-right">{displayTotal}</div>
                     <div class="text-right">Kraken2</div>
                     <div class="text-right">Bracken</div>
@@ -213,8 +219,8 @@
                     <div class="text-right">Vircov</div>
                     <div class="text-right">Blast</div>
                     
-                    <!-- <div class="text-right">Kmcp</div>
-                    <div class="text-right">Sylph</div> -->
+                    <!-- <div class="text-right">Kmcp</div> -->
+                    <!-- <div class="text-right">Sylph</div> -->
                     <div class="text-right">Modules</div>
                 </div>
             </ListBoxItem>
@@ -222,24 +228,25 @@
                 <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                     
                     <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
-                        <div class="col-span-1 opacity-70">{overview.domain}</div>
+                        <div class="opacity-70">{overview.domain}</div>
                         <div class="col-span-2 truncate italic">{overview.name}</div>
-                        <div class="col-span-1 truncate">
+                        <!-- <div class="col-span-1 truncate">
                             {#each getSelectedTags(overview.sample_names) as tags}
                                 <span class="code bg-primary-500/30 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400 mr-1">{tags.join("-")}</span>
                             {/each}
-                        </div>
+                        </div> -->
                         <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                         <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                        <div class="flex justify-end gap-x-1 items-center align-center pt-1">
+                        <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                        <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                        <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                        <div class="flex justify-end items-center align-center pt-1">
 
-                            <div class="grid grid-cols-7 sm:grid-cols-7 md:grid-cols-7 gap-x-1 text-sm">
+                            <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 gap-x-0.5 text-sm">
                                 {#if overview.kraken2 > 0}
                                     <div class="rounded-full bg-primary-600 h-2 w-2"></div>
                                 {:else}
@@ -276,7 +283,7 @@
                                     <div></div>
                                 {/if}
                                 {#if overview.blast > 0}
-                                    <div class="rounded-full bg-tertiary-400 h-2 w-2"></div>
+                                    <div class="rounded-full bg-tertiary-600 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}

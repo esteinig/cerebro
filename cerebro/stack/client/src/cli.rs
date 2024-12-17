@@ -197,12 +197,12 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::UploadModel( args ) => {
 
-            let mut models = Vec::new();
             for path in &args.models {
-                models.push(Cerebro::from_json(path)?)
+                log::info!("Reading model from: {}", path.display());
+                let model = Cerebro::from_json(path)?;
+                client.upload_models(&vec![model])?;
             }
-            
-            client.upload_models(&models)?;
+
 
         }
         Commands::Tower(subcommand) => {

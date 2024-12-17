@@ -32,7 +32,7 @@ MAIN ASYNC LAUNCH THROUCH CLI
 
 /// Main application configuration
 fn app_config(cfg: &mut web::ServiceConfig) {
-    let json_cfg = web::JsonConfig::default().limit(10485760); // 10 MB transfer limit
+    let json_cfg = web::JsonConfig::default().limit(16 * 1024 * 1024); // 16 MB transfer limit for MongoDB model size limits
     cfg.app_data(json_cfg);
         
 }

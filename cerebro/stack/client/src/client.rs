@@ -156,7 +156,8 @@ pub struct CerebroClient {
     pub project: Option<String>,
     pub routes: CerebroRoutes,
     pub token_data: Option<AuthLoginTokenFile>,
-    pub token_file: Option<PathBuf>
+    pub token_file: Option<PathBuf>,
+    pub max_model_size: Option<f64>
 }
 
 impl CerebroClient {
@@ -190,7 +191,8 @@ impl CerebroClient {
             client,
             team,
             db,
-            project
+            project,
+            max_model_size: Some(16.0)
         })
     }
     pub fn log_team_warning(&self) {
@@ -1104,6 +1106,15 @@ impl CerebroClient {
             
             if model.sample.id.is_empty() {
                 return Err(HttpClientError::ModelSampleIdentifierEmpty);
+            }
+            
+            let model_size = model.size_mb()?;
+            log::info!("Model size for '{}' is {:.2} MB", model.name, model_size);
+
+            if let Some(max_size) = self.max_model_size {
+                if model_size > max_size {
+                    log::warn!("Model size is larger than allowed payload size ({:.2} MB)", max_size);
+                }
             }
             
             let url = format!("{}", self.routes.url(Route::DataCerebroInsertModel));
