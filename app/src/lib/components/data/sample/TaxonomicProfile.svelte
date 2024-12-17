@@ -24,7 +24,7 @@
     let loading: boolean = false;
     let taxa: Taxon[] = [];
     let modelNameTags: Map<string, string[]> = new Map();
-    let selectedVisualisation: string = "Heatmap";
+    let selectedVisualisation: string = "Table";
 
 
     const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {

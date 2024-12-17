@@ -82,10 +82,10 @@
         </p>
     </div>
 
-    <div class="grid grid-cols-2">
+    <div class="grid grid-cols-2 sm:px-16 md:px-32">
         <!-- Reads Section -->
         <div>
-            <div class="grid grid-cols-2 sm:grid-cols-2 gap-4 text-small text-center pt-8">
+            <div class="grid grid-cols-1 sm:grid-cols-1 gap-4 text-small text-center pt-8">
                 <div class="space-y-1">
                     <p class="font-medium opacity-40">Synthetic Controls</p>
                     <p class="text-gray-800 dark:text-gray-100">
@@ -145,7 +145,7 @@
 
         <!-- Length and Quality Section -->
         <div>
-            <div class="grid grid-cols-2 sm:grid-cols-2 gap-4 text-medium text-center pt-8">
+            <div class="grid grid-cols-1 sm:grid-cols-1 gap-4 text-medium text-center pt-8">
                 <div class="space-y-1">
                     <p class="font-medium opacity-40">Low Quality</p>
                     <p class="text-gray-800 dark:text-gray-100">
@@ -214,9 +214,9 @@
         </p>
     </div>
 
-    <div class="pt-16 px-32 qc-meter-chart">
+    <!-- <div class="pt-16 px-32 qc-meter-chart">
         <MeterChart {data} {options} />
-    </div>
+    </div> -->
 
 </div>
 

@@ -38,13 +38,19 @@
 			.map((model) => model.id);
 	};
 
+	// Function to filter identifiers with the RNA tag
+	function getRNAIdentifiers(models: Cerebro[]): string[] {
+		return models
+			.filter((model) => model.sample.tags.includes(FileTag.RNA))
+			.map((model) => model.id);
+	};
+
+
     let identifiers = getDNAIdentifiers([...$page.data.sampleCerebro, ...$page.data.controlCerebro]);
     
     identifiers = identifiers.length ? identifiers : [$page.data.sampleCerebro[0].id];
 
     selectedWorkflowIdentifier.set($page.data.requestedWorkflow);
-
-
 
     $: {
         // Update the workflow configuration based on selected workflow

@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { ClientFilterConfig, TaxonHighlightConfig, Taxon, TaxonOverviewRecord } from "$lib/utils/types";
+	import type { ClientFilterConfig, TaxonHighlightConfig, Taxon, TaxonOverviewRecord, TaxonEvidence } from "$lib/utils/types";
     import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
     import { AbundanceMode } from "$lib/utils/types";
+	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 
     // export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
     
@@ -26,7 +27,7 @@
     let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
-    let taxonEvidence: string | null = null;
+    let taxonEvidence: TaxonEvidence | null = null;
 
     // Number precision to display in table
     function getNumberPrecision(displayData: DisplayData): number {
@@ -193,7 +194,8 @@
                 // If it exists, remove it
                 return currentTaxa.filter((_, i) => i !== index);
             } else {
-                taxonEvidence = overview.taxid;
+                const taxonRecord = filteredData.find(taxon => taxon.taxid === overview.taxid)
+                taxonEvidence = taxonRecord ? taxonRecord.evidence : null;
                 // If it doesn't exist, add it
                 return [...currentTaxa, overview];
             }
@@ -219,41 +221,53 @@
                     
                     <div class="text-right flex flex-col items-end">
                         <span>{displayTotal}</span>
-                        <span class="text-xs opacity-20">rpm</span>
+                        <span class="text-xs opacity-40">rpm</span>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
                         <span>Kraken2</span>
-                        <span class="text-xs opacity-20">rpm</span>
+                        <div class="flex items-center">
+                            <div class="rounded-full bg-secondary-600 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
+                        </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
                         <span>Bracken</span>
-                        <span class="text-xs opacity-20">rpm</span>
+                        <div class="flex items-center">
+                            <div class="rounded-full bg-secondary-500 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
+                        </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
                         <span>Metabuli</span>
-                        <span class="text-xs opacity-20">rpm</span>
+                        <div class="flex items-center">
+                            <div class="rounded-full bg-secondary-400 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
+                        </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
                         <span>Ganon2</span>
-                        <span class="text-xs opacity-20">rpm</span>
+                        <div class="flex items-center">
+                            <div class="rounded-full bg-secondary-300 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
+                        </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
                         <span>Vircov</span>
-                        <span class="text-xs opacity-20">rpm</span>
+                        <div class="flex items-center">
+                            <div class="rounded-full bg-primary-400 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
+                        </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
                         <span>Blast</span>
-                        <span class="text-xs opacity-20">bp</span>
+                        <div class="flex items-center">
+                            <div class="rounded-full bg-tertiary-500 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">bp</span>
+                        </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
-                        <span>Modules</span>
+                        <span></span>
                     </div>
                     <!-- <div class="text-right">Kmcp</div> -->
                     <!-- <div class="text-right">Sylph</div> -->
@@ -274,12 +288,12 @@
                         <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
                         <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
                         <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                        <div class="flex justify-end items-center  pt-1">
+                        <div class="flex justify-end items-center pt-1">
 
                             <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
 
                                 {#if overview.vircov > 0}
-                                    <div class="rounded-full bg-primary-500 h-2 w-2"></div>
+                                    <div class="rounded-full bg-primary-400 h-2 w-2"></div>
                                 {:else}
                                     <div></div>
                                 {/if}
@@ -326,9 +340,9 @@
                             </div>
                         </div>
                     </div>
-                    <!-- {#if taxonEvidence === overview.taxid}
-                        <div>Evidence</div>
-                    {/if} -->
+                    {#if selectedTaxid === overview.taxid && taxonEvidence}
+                       <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
+                    {/if}
                 </ListBoxItem>
             {/each}
         </ListBox>

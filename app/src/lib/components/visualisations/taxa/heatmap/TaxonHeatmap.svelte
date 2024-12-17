@@ -110,6 +110,8 @@
             });
         });
 
+        console.log(columnTags, uniqueDetectionIds)
+
         // Filter uniqueDetectionIds into groups
         const ntcAndEnvColumns = uniqueDetectionIds.filter(
             (id) => columnTags.get(id) === FileTag.NTC || columnTags.get(id) === FileTag.ENV

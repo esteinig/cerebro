@@ -14,16 +14,10 @@
         <ol class="breadcrumb justify-center">
             <li class="crumb opacity-70">Input</li>
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.controls.ercc.enabled}
-                <li class="crumb">Synthetic Controls</li>
-            {:else}
-                <li class="crumb opacity-10">Synthetic Controls</li>
-            {/if}
-            <li class="crumb-separator" aria-hidden>&rsaquo;</li>
             {#if selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
                 <li class="crumb">Internal Controls</li>
             {:else}
-                <li class="crumb opacity-10">Phage Controls</li>
+                <li class="crumb opacity-10">Internal Controls</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
             {#if selectedWorkflowConfiguration?.params?.qc.deduplication.enabled}
@@ -58,7 +52,6 @@
             <!-- ReadQualityCard: First column spanning two rows -->
             <div class="p-4 row-span-2 rounded-xl bg-surface-500/5">
                 <p class="flex align-center"><span class="code bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 text-sm">{model.sample.id}</span> <span class="code ml-2 text-sm">{model.sample.tags.join("-")}</span></p>
-                    
                 <ReadQualityStageCard selectedModel={model}></ReadQualityStageCard>
             </div>
     

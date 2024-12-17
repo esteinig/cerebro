@@ -8,7 +8,6 @@
     export let variant: string = "sample";
     export let variantColor: string = "secondary";
 
-	// Sync store with the local identifiers
 	$: {
         selectedIdentifiers.set(identifiers);
 	}
