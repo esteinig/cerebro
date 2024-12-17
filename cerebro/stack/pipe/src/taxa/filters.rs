@@ -16,6 +16,8 @@ pub struct TaxonFilterConfig {
     pub domains: Vec<String>,                     // Filter by domain names
     pub tools: Vec<ProfileTool>,        // Filter by specific detection tools
     pub modes: Vec<AbundanceMode>,        // Filter by detection modes (Sequence/Profile)
+    pub min_bases: u64,
+    pub min_bpm: f64,
     pub min_reads: u64,                           // Minimum read count for inclusion
     pub min_rpm: f64,                             // Minimum RPM (Reads per million) for inclusion
     pub min_abundance: f64,                       // Minimum abundance for inclusion
@@ -29,6 +31,8 @@ impl Default for TaxonFilterConfig {
             domains: Vec::new(),
             tools: Vec::new(),
             modes: Vec::new(),
+            min_bases: 0,
+            min_bpm: 0.0,
             min_reads: 0,
             min_rpm: 0.0,
             min_abundance: 0.0,
@@ -40,12 +44,13 @@ impl Default for TaxonFilterConfig {
 type SampleId = String;
 type Tag = String;
 
-// IMPORTANT: change from PathogenDetectionRank to TaxRank
 pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>) -> Vec<Taxon> {
+
+    let only_ntc = sample_tags.clone().into_values().all(|tags| tags.contains(&"NTC".to_string()));
 
     // Filter by taxonomic rank
     if let Some(rank) = &filter_config.rank {
-        let tax_rank: TaxRank = (*rank).clone().into(); // Convert PathogenDetectionRank to TaxRank
+        let tax_rank: TaxRank = (*rank).clone().into(); // Convert PathogenDetectionRank to TaxRank --> important because the taxon abstraction uses TaxRank from taxonomy crate (might need to change this)
         taxa = taxa
             .into_iter()
             .filter(|taxon| taxon.rank == tax_rank)
@@ -66,10 +71,10 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
-     // Filter by detection tools, modes, and thresholds
-     taxa = taxa
-     .into_iter()
-     .map(|mut taxon| {
+    // Filter by detection tools, modes, and thresholds
+    taxa = taxa
+    .into_iter()
+    .map(|mut taxon| {
 
         // Step 1: Collect NTC RPMs for matching tools, modes, and tags
         let ntc_rpms: HashMap<(ProfileTool, AbundanceMode, String), f64> = taxon
@@ -109,13 +114,21 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .into_iter()
             .filter(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
+                    if tags.contains(&"NTC".to_string()) {
+                        if only_ntc {
+                            return true // If we have aggregated NTC evidence only, return the evidence
+                        } else {
+                            return false // If we have aggregated sample evidence, exclude the evidence from returned taxa
+                        }
+                    }
                     let nucleic_acid_tag = tags
                         .iter()
                         .find(|tag| tag == &&"DNA".to_string() || tag == &&"RNA".to_string());
+
                     if let (Some(ratio), Some(tag)) = (filter_config.ntc_ratio, nucleic_acid_tag) {
                         let key = (record.tool.clone(), record.mode.clone(), tag.clone());
                         if let Some(ntc_rpm) = ntc_rpms.get(&key) {
-                            return record.rpm <= ratio * ntc_rpm; // Compare RPMs
+                            return record.rpm >= ratio * ntc_rpm; // Keep record if RPM is larger than the NTC RPM * Ratio 
                         }
                     }
                 }
@@ -131,8 +144,8 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .filter(|record| {
                 (filter_config.tools.is_empty() || filter_config.tools.contains(&record.tool))
                     && (filter_config.modes.is_empty() || filter_config.modes.contains(&record.mode))
-                    && record.reads >= filter_config.min_reads
-                    && record.rpm >= filter_config.min_rpm
+                    && if record.mode != AbundanceMode::Bases { record.reads >= filter_config.min_reads } else { record.bases >= filter_config.min_bases }
+                    && if record.mode != AbundanceMode::Bases { record.rpm >= filter_config.min_rpm } else { record.bpm >= filter_config.min_bpm }
                     && record.abundance >= filter_config.min_abundance
             })
             .collect();

@@ -24,6 +24,7 @@
     let loading: boolean = false;
     let taxa: Taxon[] = [];
     let modelNameTags: Map<string, string[]> = new Map();
+    let selectedVisualisation: string = "Heatmap";
 
 
     const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
@@ -61,6 +62,9 @@
 
 </script>
 
+<div class="flex justify-center pt-4 pb-8">
+    <VisualisationSelection bind:selectedVisualisation={selectedVisualisation}></VisualisationSelection>
+</div>
 <div>
     {#if loading}
         <div class="flex justify-center py-24">
@@ -72,10 +76,9 @@
             <p class="flex justify-center text-lg pb-4">No taxa available</p>
         {:else}
         
-        <div class="flex justify-center py-4">
-            <VisualisationSelection selectedVisualisation='Heatmap'></VisualisationSelection>
-        </div>
-        <TaxonHeatmap selectedModels={selectedModels} selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
+        {#if selectedVisualisation === "Heatmap"}
+            <TaxonHeatmap selectedModels={selectedModels} selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
+        {/if}
         <SpeciesOverviewTable taxa={taxa}></SpeciesOverviewTable>
      
             <!-- <DatatableTaxonOverview data={taxaOverview}></DatatableTaxonOverview> -->

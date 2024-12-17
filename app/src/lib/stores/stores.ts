@@ -49,6 +49,8 @@ const defaultServerFilterConfig: TaxonFilterConfig = {
     domains: [],            // Filter by domain names
     tools: [],              // Filter by specific detection tools
     modes: [],              // Filter by detection modes (Sequence/Profile)
+    min_bases: 0,           // Minimum read count for inclusion
+    min_bpm: 0,             // Minimum read count for inclusion
     min_reads: 0,           // Minimum read count for inclusion
     min_rpm: 0.0,           // Minimum RPM for inclusion
     min_abundance: 0,       // Minimum abundance for inclusion

@@ -1390,13 +1390,15 @@ export enum PathogenDetectionRank {
 
 export type TaxonFilterConfig = {  // ADD WORKFLOW ID
     rank: PathogenDetectionRank | null, // Filter by specific taxonomic rank
-    domains: Array<string>,            // Filter by domain names
-    tools: Array<string>,              // Filter by specific detection tools
-    modes: Array<string>,              // Filter by detection modes (Sequence/Profile)
-    min_reads: number,                 // Minimum read count for inclusion
-    min_rpm: number,                   // Minimum RPM for inclusion
-    min_abundance: number,             // Minimum abundance for inclusion
-    ntc_ratio: number | null           // NTC ratio if selected
+    domains: Array<string>,             // Filter by domain names
+    tools: Array<string>,               // Filter by specific detection tools
+    modes: Array<string>,               // Filter by detection modes (Sequence/Profile)
+    min_bases: number,                  // Minimum base pair count of contigs for inclusion
+    min_bpm: number,                    // Minimum BPM of contigs for inclusion
+    min_reads: number,                  // Minimum read count for inclusion
+    min_rpm: number,                    // Minimum RPM for inclusion
+    min_abundance: number,              // Minimum abundance for inclusion
+    ntc_ratio: number | null            // NTC ratio if selected
 }
 
 // Client-side selection of taxa
