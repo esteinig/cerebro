@@ -37,7 +37,7 @@
         </div>
     </div>
 
-    <p class=""><span class="opacity-40">Detection Tools and Modes</span></p>
+    <p class=""><span class="opacity-40">Evidence tools and modes</span></p>
     <div class="p-4">
         <div class="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-2 gap-y-4 gap-x-4 w-full text-sm">
             <div>
@@ -55,31 +55,42 @@
         </div>
     </div>
 
-    <p class=""><span class="opacity-40">Thresholds</span></p>
+    <p class=""><span class="opacity-40">Evidence thresholds</span></p>
     <div class="p-4">
         <div class="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-2 gap-y-4 gap-x-4 w-full text-sm">
             <div>
                 <label class="label">
-                    <span class="text-xs opacity-60">Minimum Reads</span>
+                    <span class="text-xs opacity-60">Minimum reads</span>
                     <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.min_reads}/>
                 </label>
             </div>
             <div>
                 <label class="label">
-                    <span class="text-xs opacity-60">Minimum RPM</span>
+                    <span class="text-xs opacity-60">Minimum reads per million (rpm)</span>
                     <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.min_rpm} step="0.1"/>
                 </label>
             </div>
             <div>
                 <label class="label">
-                    <span class="text-xs opacity-60">Minimum Abundance (%)</span>
+                    <span class="text-xs opacity-60">Minimum contig length (bp)</span>
+                    <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.min_bases}/>
+                </label>
+            </div>
+            <div>
+                <label class="label">
+                    <span class="text-xs opacity-60">Minimum contig length per million (bpm)</span>
+                    <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.min_bpm} step="0.1"/>
+                </label>
+            </div>
+            <div>
+                <label class="label">
+                    <span class="text-xs opacity-60">Minimum sequence abundance (%)</span>
                     <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.min_abundance} step="0.01"/>
                 </label>
             </div>
-
             <div>
                 <label class="label">
-                    <span class="text-xs opacity-60">NTC Ratio (if selected)</span>
+                    <span class="text-xs opacity-60">NTC ratio (if controls selected)</span>
                     <input type="number" class="input text-xs {numericInputClass}" bind:value={serverFilterConfig.ntc_ratio} step="0.1"/>
                 </label>
             </div>

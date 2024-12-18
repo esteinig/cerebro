@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { ProjectCollection, SampleOverviewData, TeamDatabase } from "$lib/utils/types";
+	import type { ProjectCollection, RunConfig, SampleOverviewData, TeamDatabase } from "$lib/utils/types";
     import { PriorityTaxonType } from "$lib/utils/types";
 	import { Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
     import { baseTags, getDateTimeString } from "$lib/utils/helpers";
 	import CandidateIcon from "$lib/general/icons/CandidateIcon.svelte";
+	import FileTagChip from "$lib/general/icons/FileTagChip.svelte";
 
     export let sampleOverviewData: Array<SampleOverviewData>;
     export let selectedSampleOverview: SampleOverviewData;
@@ -54,6 +55,12 @@
         return taxonTypes.filter((v,i,a)=>a.indexOf(v)==i)
     }
 
+    const getLatestRunId = (sample: SampleOverviewData): string | undefined => {
+        return sample.runs
+            .sort((a, b) => b.date.localeCompare(a.date)) // Sort by date descending
+            [0]?.id; // Get the id of the first (latest) run
+    };
+
 </script>
 
 <div class="table-container">
@@ -66,7 +73,7 @@
                 <th>Specimen</th>
                 <th>Group</th>
                 <th>Candidates</th>
-                <th>Run</th>
+                <th>RunID</th>
                 <th>Completed</th>
                 <th></th>
                 <th>
@@ -78,14 +85,11 @@
         </thead>
         <tbody>
             {#each tableData as sample}
-                <tr class="hover:cursor-pointer" on:click={() => {selectedSampleOverview = sample}}>
-                        <td class="">
-                            <div class="text-base">
-                                <span class="ml-1">{sample.id}</span>
-                            </div>
-                        </td>
-                        <td class="truncate"><span class="ml-1 text-base">{baseTags(sample.tags, true).join(", ")}</span></td>
-                        <td class="truncate"><span class="ml-1 text-base">{baseTags(sample.tags, true, ["ENV", "NTC", "PS", "S", "NS"]).join(", ")}</span></td>
+                <tr class="hover:cursor-pointer items-center align-center" on:click={() => {selectedSampleOverview = sample}}>
+
+                        <td class="pt-1"><span class="ml-1 text-base">{sample.id}</span></td>
+                        <td class="truncate"><span class="ml-1 text-base"><FileTagChip tags={baseTags(sample.tags, true)} join={false}></FileTagChip></td>
+                        <td class="truncate"><span class="ml-1 text-base"><FileTagChip tags={baseTags(sample.tags, true, ["ENV", "NTC", "PS", "S", "NS"])}></FileTagChip></td>
                         <td class="truncate"><span class="ml-1 text-base">{sample.types.join(", ")}</span></td>
                         <td class="truncate"><span class="ml-1 text-base">{sample.groups.join(", ")}</span></td>
                         <td>
@@ -111,10 +115,18 @@
 
                             </div>
                         </td>
-                        <td><span class="ml-1 text-base">{sample.latest_run}</span></td>
+                        <td><span class="ml-1 text-base">{getLatestRunId(sample)}</span></td>
                         <td><span class="ml-1 text-base">{getDateTimeString(sample.latest_workflow)}</span></td>
                         <td>
                             <div class="text-base -mt-1">
+                                <!-- <button class="btn btn-sm variant-outline-primary mr-1">
+                                    <div class="w-4 h-4 mr-2 ">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                        </svg>  
+                                    </div>
+                                    Edit
+                                </button> -->
                                 <a href={`samples/${selectedSampleOverview?.id}/db=${selectedDatabaseId}&team=${selectedTeamId}&project=${selectedProjectId}&workflow=0&db_name=${selectedDatabaseName}&project_name=${selectedProjectName}`} class="btn btn-sm variant-outline-secondary mr-1 opacity-40">
                                     <div class="w-4 h-4 mr-2 ">
                                         <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

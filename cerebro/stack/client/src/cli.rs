@@ -10,7 +10,7 @@ use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{TowerCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
+use cerebro_client::terminal::{App, Commands, DatabaseCommands, ProjectCommands, StageCommands, TowerCommands, WatcherCommands};
 
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipe::taxa::taxon::TaxonExtraction;
@@ -448,16 +448,25 @@ fn main() -> anyhow::Result<()> {
                 // Create new project in a team database
                 ProjectCommands::Create( args ) => {
                     client.create_project(
-                        &args.team_name, 
-                        &args.db_name,
-                        &args.project_name, 
-                        &args.project_description, 
+                        &args.name, 
+                        &args.description, 
                     )?
                 }
             }
         },
         Commands::Team( _subcommand ) => { },
-        Commands::Database( _subcommand ) => { },
+        Commands::Database( subcommand ) => {
+            match subcommand {
+
+                // Create new project in a team database
+                DatabaseCommands::Create( args ) => {
+                    client.create_database(
+                        &args.name, 
+                        &args.description, 
+                    )?
+                }
+            }
+        },
     }
 
     Ok(())

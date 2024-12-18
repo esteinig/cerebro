@@ -252,7 +252,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
         run_match,
         workflow_match,
 
-        // Depending on the priority taxa selection (sample.priority) this might get large for memory
+        // Depending on the priority taxa selection (sample.priority) this might get large for memory?
         Some(doc! {
             "$project": {
                 "run": 1,
@@ -261,7 +261,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
             }
         }),
         Some(doc! {
-            // group by sample.id and get overview summaries
+            // Group by sample.id and get overview summaries
             "$group": {
                 "_id": "$sample.id",
                 "latest_run": {

@@ -5,6 +5,8 @@ use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::DeleteFilesResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
+use cerebro_model::api::teams::schema::RegisterDatabaseSchema;
+use cerebro_model::api::teams::schema::RegisterTeamSchema;
 use cerebro_model::api::towers::model::ProductionTower;
 use cerebro_model::api::towers::response::DeleteTowerResponse;
 use cerebro_model::api::towers::response::ListTowersResponse;
@@ -60,6 +62,7 @@ pub enum Route {
     DataCerebroInsertModel,
     DataCerebroTaxaSummary,
     TeamProjectCreate,
+    TeamDatabaseCreate,
     TeamFilesRegister,
     TeamFilesList,
     TeamFilesDelete,
@@ -88,6 +91,7 @@ impl Route {
             Route::DataUserSelfTeams => "users/self/teams",
             Route::DataCerebroInsertModel => "cerebro",
             Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
+            Route::TeamDatabaseCreate => "teams/database",
             Route::TeamProjectCreate => "teams/project",
             Route::TeamFilesRegister => "files/register",
             Route::TeamFilesList => "files",
@@ -381,7 +385,7 @@ impl CerebroClient {
         
         Ok(response)
     }
-    fn _send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+    fn send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
         let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
         let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
 
@@ -458,34 +462,50 @@ impl CerebroClient {
 
     pub fn create_project(
         &self,
-        team_name: &str,
-        db_name: &str,
-        project_name: &str,
-        project_description: &str,
+        name: &str,
+        description: &str,
     ) -> Result<(), HttpClientError> {
 
-
-        let url = self.build_request_url(
-            self.routes.url(Route::TeamProjectCreate),
-            &[("team_name", Some(team_name.to_string())), ("db_name", Some(db_name.to_string()))],
-        );
+        self.log_team_warning();
+        self.log_db_warning();
 
         let project_schema = RegisterProjectSchema {
-            project_name: project_name.to_owned(),
-            project_description: project_description.to_owned(),
-            project_mongo_name: project_name.split_whitespace().join("_").to_lowercase(),
+            project_name: name.to_owned(),
+            project_description: description.to_owned()
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .header(AUTHORIZATION, self.get_bearer_token(None))
-            .json(&project_schema)
-            .send()?;
+        let response = self.send_request_with_team_db(
+            self.client.post(self.routes.url(Route::TeamProjectCreate)).json(&project_schema)
+        )?;
 
         self.handle_response::<serde_json::Value>(
             response,
-            Some(&format!("Project `{}` created successfully", project_name)),
+            Some(&format!("Project `{}` created successfully", name)),
+            "Project creation failed",
+        )?;
+        Ok(())
+    }
+
+    pub fn create_database(
+        &self,
+        name: &str,
+        description: &str,
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        let database_schema = RegisterDatabaseSchema {
+            database_name: name.to_owned(),
+            database_description: description.to_owned()
+        };
+
+        let response = self.send_request_with_team(
+            self.client.post(self.routes.url(Route::TeamDatabaseCreate)).json(&database_schema)
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some(&format!("Project `{}` created successfully", name)),
             "Project creation failed",
         )?;
         Ok(())

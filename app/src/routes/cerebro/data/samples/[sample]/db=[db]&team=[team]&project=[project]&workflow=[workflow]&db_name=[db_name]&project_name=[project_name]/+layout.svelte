@@ -1,78 +1,72 @@
 <script lang="ts">
-	import { page } from "$app/stores";
-	import DataViewSelection from "$lib/components/data/sample/selections/DataViewSelection.svelte";
-	import WorkflowSelection from "$lib/components/data/sample/selections/WorkflowSelection.svelte";
-	import SampleSelection from "$lib/components/data/sample/selections/SampleSelection.svelte";
-    import QualityControl from "$lib/components/data/sample/QualityControl.svelte";
-	import { FileTag, type Cerebro, type WorkflowConfig } from "$lib/utils/types";
-	import CommentBox from "$lib/components/data/sample/CommentBox.svelte";
-	import { getToastStore, ListBox, ListBoxItem, SlideToggle } from "@skeletonlabs/skeleton";
-    import type { ToastSettings } from "@skeletonlabs/skeleton";
-	import Classification from "$lib/components/data/sample/TaxonomicProfile.svelte";
-    import ServerFilterConfiguration from "$lib/components/data/sample/taxa/filters/ServerFilterConfiguration.svelte";
-    import ClientFilterConfiguration from "$lib/components/data/sample/taxa/filters/ClientFilterConfiguration.svelte";
-	import Candidates from "$lib/components/data/sample/Candidates.svelte";
-	import Reports from "$lib/components/data/sample/Reports.svelte";
-	import ContamHighlights from "$lib/components/data/sample/taxa/filters/TaxonomyHighlights.svelte";
-	import TaxonomyHighlights from "$lib/components/data/sample/taxa/filters/TaxonomyHighlights.svelte";
-    
+
+
     import {
-        selectedWorkflowConfiguration,
         selectedModels,
         selectedIdentifiers,
-        selectedWorkflowIdentifier,
         selectedServerFilterConfig,
         selectedClientFilterConfig,
         selectedTaxonHighlightConfig
     } from '$lib/stores/stores';
 
+	import { page } from "$app/stores";
+	import { ListBox, ListBoxItem, SlideToggle } from "@skeletonlabs/skeleton";
+	import { FileTag, type Cerebro, type WorkflowConfig } from "$lib/utils/types";
+
+	import WorkflowSelection from "$lib/components/data/sample/selections/WorkflowSelection.svelte";
+	import SampleSelection from "$lib/components/data/sample/selections/SampleSelection.svelte";
+    import ServerFilterConfiguration from "$lib/components/data/sample/taxa/filters/ServerFilterConfiguration.svelte";
+    import ClientFilterConfiguration from "$lib/components/data/sample/taxa/filters/ClientFilterConfiguration.svelte";
+	import TaxonomyHighlights from "$lib/components/data/sample/taxa/filters/TaxonomyHighlights.svelte";
+    
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import { goto } from "$app/navigation";
+	import QualityControl from '$lib/components/data/sample/QualityControl.svelte';
 
-    let selectedView: string = "Quality Control";
-
-	// Function to filter identifiers with the DNA tag
-	function getDNAIdentifiers(models: Cerebro[]): string[] {
-		return models
-			.filter((model) => model.sample.tags.includes(FileTag.DNA))
-			.map((model) => model.id);
-	};
-
-	// Function to filter identifiers with the RNA tag
-	function getRNAIdentifiers(models: Cerebro[]): string[] {
-		return models
-			.filter((model) => model.sample.tags.includes(FileTag.RNA))
-			.map((model) => model.id);
-	};
-
-
-    let identifiers = getDNAIdentifiers([...$page.data.sampleCerebro, ...$page.data.controlCerebro]);
-    
-    identifiers = identifiers.length ? identifiers : [$page.data.sampleCerebro[0].id];
-
-    selectedWorkflowIdentifier.set($page.data.requestedWorkflow);
-
-    $: {
-        // Update the workflow configuration based on selected workflow
-        selectedWorkflowConfiguration.set(
-            $page.data.sampleWorkflows.find(
-                (workflow: WorkflowConfig) => workflow.id === $selectedWorkflowIdentifier
-            )
-        );
-        // Filter selected models based on selected sample identifiers
-        const models = [...$page.data.sampleCerebro, ...$page.data.controlCerebro].filter((cerebro) =>
-            $selectedIdentifiers.includes(cerebro.id)
-        );
-        selectedModels.set(models);
+    enum DataView {
+        QualityControl = "qc",
+        TaxonomicProfile = "profile",
+        Candidates = "candidates",
+        Comments = "comments",
+        Reports = "reports"
     }
 
+    function getDnaLibraryIdentifiers(): string[] {
+        const dnaFilter: Cerebro[] = $page.data.sampleCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.DNA));
+        return dnaFilter.map(model => model.id)
+    }
+    function getDnaNegativeTemplateControlIdentifiers(): string[] {
+        const dnaFilter: Cerebro[] = $page.data.controlCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.DNA));
+        return dnaFilter.map(model => model.id)
+    }
+
+    function getLibraryModels(selectedLibraryIdentifiers: string[]): Cerebro[] {
+        return $page.data.sampleCerebro.filter((model: Cerebro) => selectedLibraryIdentifiers.includes(model.id))
+    }
+
+    function getNegativeTemplatecontrolIdentifiers(selectedNegativeTemplateControlIdentifiers: string[]): Cerebro[] {
+        return $page.data.controlCerebro.filter((model: Cerebro) => selectedNegativeTemplateControlIdentifiers.includes(model.id))
+    }
+
+    
     let showServerSideFilters: boolean = false;
+    let selectedView: string = DataView.QualityControl;
+    
+    let workflowIdentifier: string = $page.data.requestedWorkflow;
+
+    let selectedLibraryIdentifiers: string[] = getDnaLibraryIdentifiers();
+    let selectedNegativeTemplateControlIdentifiers: string[] = getDnaNegativeTemplateControlIdentifiers();
+
+    $: {
+        const selectedLibraryModels = getLibraryModels(selectedLibraryIdentifiers);
+        const selectedNegativeTemplateControlModels = getNegativeTemplatecontrolIdentifiers(selectedNegativeTemplateControlIdentifiers);
+
+        selectedIdentifiers.set([...selectedLibraryIdentifiers, ...selectedNegativeTemplateControlIdentifiers]);
+        selectedModels.set([...selectedLibraryModels, ...selectedNegativeTemplateControlModels]);
+    }
 
 
-    const reloadTable = () => {
-        // To reload classficiation table we re-assign the current 
-        // selected identfiers to trigger the reactive load in child 
-        // component
+    function reloadTable() {
         selectedIdentifiers.set($selectedIdentifiers);
     }
 
@@ -92,11 +86,11 @@
             </div>
             <div class="mb-4 p-4 border border-primary-500 rounded-md">
                 <ListBox>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="Quality Control" active='variant-soft' rounded='rounded-token' on:click={() => goto('./qc')}>Quality Control</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="Taxonomic Profile", active='variant-soft' rounded='rounded-token' on:click={() => goto('./profile')}>Taxonomic Profile</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="Pathogen Candidates", active='variant-soft' rounded='rounded-token' on:click={() => goto('./candidates')}>Pathogen Candidates</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="Team Comments", active='variant-soft' rounded='rounded-token' on:click={() => goto('./comments')}>Team Comments</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="Clinical Reports", active='variant-soft' rounded='rounded-token' on:click={() => goto('./reports')}>Clinical Reports</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.QualityControl} active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.QualityControl}`)}>Quality Control</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.TaxonomicProfile}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.TaxonomicProfile}`)}>Taxonomic Profile</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Candidates}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Candidates}`)}>Pathogen Candidates</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Comments}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Comments}`)}>Team Comments</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Reports}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Reports}`)}>Clinical Reports</ListBoxItem>
                 </ListBox>
             </div>
         </div>
@@ -104,25 +98,22 @@
         <div class="w-full border border-primary-500 rounded-md p-4">
             <p class="mb-1"><span class="opacity-40">Workflows</span></p>
             <div class="mb-4 p-4 ">
-                <WorkflowSelection workflows={$page.data.sampleWorkflows} bind:selectedWorkflowIdentifier={$selectedWorkflowIdentifier} />
+                <WorkflowSelection workflows={$page.data.sampleWorkflows} bind:selectedWorkflowIdentifier={workflowIdentifier} />
             </div>
             <p class="mb-1"><span class="opacity-40">Libraries</span></p>
             <div class="mb-4 p-4 text-sm">
-                <SampleSelection models={$page.data.sampleCerebro} identifiers={identifiers} variant="sample" variantColor="primary"/>
+                <SampleSelection models={$page.data.sampleCerebro} bind:identifiers={selectedLibraryIdentifiers} variant="sample" variantColor="primary"/>
             </div>
-            {#if selectedView !== "Clinical Reports"}
-                <p class="mb-1"><span class="opacity-40">Controls</span></p>
-                <div class="mb-4 p-4 text-sm">
-                    <SampleSelection models={$page.data.controlCerebro} identifiers={identifiers} variant="control" variantColor="primary"/>
-                </div>
-            {/if}
+            <p class="mb-1"><span class="opacity-40">Negative template controls</span></p>
+            <div class="mb-4 p-4 text-sm">
+                <SampleSelection models={$page.data.controlCerebro} bind:identifiers={selectedNegativeTemplateControlIdentifiers}  variant="control" variantColor="secondary"/>
+            </div>
         </div>
-        {#if selectedView === "Taxonomic Profile"}
+        {#if selectedView === DataView.TaxonomicProfile}
             <p class="mb-1 mt-4">
                 <span class="opacity-60">Taxonomy filters</span>
             </p>
             <div class="w-full border border-primary-500 rounded-md p-4" >
-                
                 <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-x-4 align-center">
                     <div class="col-span-2">
                         <p class="opacity-60 text-xs pb-8 pr-4">
@@ -151,19 +142,14 @@
                 {:else}
                     <ClientFilterConfiguration bind:clientFilterConfig={$selectedClientFilterConfig}></ClientFilterConfiguration>
                 {/if}
-                
             </div>
-
             <p class="mb-1 mt-4">
                 <span class="opacity-60">Taxonomy highlights</span>
             </p>
             <div class="w-full border border-primary-500 rounded-md p-4" >
-                
                 <TaxonomyHighlights title="Common contamination" bind:highlightConfig={$selectedTaxonHighlightConfig.contamination}></TaxonomyHighlights>
                 <TaxonomyHighlights title="Syndromic pathogens" bind:highlightConfig={$selectedTaxonHighlightConfig.syndrome}></TaxonomyHighlights>
-
             </div>
-
         {/if}
     </div>
 

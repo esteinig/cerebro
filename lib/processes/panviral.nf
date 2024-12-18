@@ -56,6 +56,8 @@ process ProcessOutput {
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.pv.json"
+    
+    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "symlink", pattern: "*"
 
     input:
     tuple val(sampleID), path(result_files)

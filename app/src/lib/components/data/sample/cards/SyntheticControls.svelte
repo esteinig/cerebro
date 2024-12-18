@@ -16,8 +16,8 @@
 
 	const isCorrelationData = (item: CorrelationData | undefined): item is CorrelationData => !!item;
 
-	const getErccCorrelationData = (ercc: ErccControl | null): CorrelationData[] =>
-		ercc?.records
+	function getErccCorrelationData(ercc: ErccControl | null): CorrelationData[] {
+		return ercc?.records
 			.map((record) => {
 				let concentration = ERCC_CONCENTRATIONS.get(record.reference);
 				let group = ERCC_GROUPS.get(record.reference);
@@ -30,30 +30,31 @@
 				}
 			})
 			.filter(isCorrelationData) ?? [];
+    }
 
-    const getMaxAlignments = (): number => {
+    function getMaxAlignments(correlationData: CorrelationData[]): number {
         return correlationData.reduce(function(prev, current) {
             return (prev.alignments > current.alignments) ? prev : current
         }).alignments
     }
-    const getMinAlignments = (): number => {
+    function getMinAlignments(correlationData: CorrelationData[]): number {
         return correlationData.reduce(function(prev, current) {
             return (prev.alignments < current.alignments) ? prev : current
         }).alignments
     }
 
-    const getMaxConcentration = (): number => {
+    function getMaxConcentration(correlationData: CorrelationData[]): number {
         return correlationData.reduce(function(prev, current) {
             return (prev.concentration > current.concentration) ? prev : current
         }).concentration
     }
-    const getMinConcentration = (): number => {
+    function getMinConcentration(correlationData: CorrelationData[]): number {
         return correlationData.reduce(function(prev, current) {
             return (prev.concentration < current.concentration) ? prev : current
         }).concentration
     }
 
-	let correlationData: CorrelationData[] = getErccCorrelationData(selectedModel.quality.controls.ercc);
+    let correlationData: CorrelationData[] = getErccCorrelationData(selectedModel.quality.controls.ercc);
 
 	let correlationCoefficient: number = 0;
     let minAlignments: number = 0;
@@ -96,22 +97,24 @@
 		correlationCoefficient = pearsonCorrelation ** 2;
 
 
-        maxAlignments = getMaxAlignments();
-        minAlignments = getMinAlignments();
-        maxConcentration = getMaxConcentration();
-        minConcentration = getMinConcentration();
+        maxAlignments = getMaxAlignments(correlationData);
+        minAlignments = getMinAlignments(correlationData);
+        maxConcentration = getMaxConcentration(correlationData);
+        minConcentration = getMinConcentration(correlationData);
 
 		groupCoefficients = getGroupCoefficients(correlationData);
 	}
 
-	let groupColors: Record<string, string> = {};
+	let groupColors: Record<string, string> = {};   
 
+    // Client-side color variable extraction guard since `getCssVariableAsHex` uses
+    // document query selector to obtain the variables
 	if (typeof window !== "undefined") {
 		groupColors = {
 			'A': getCssVariableAsHex("--color-primary-200", $storeTheme) ?? "#ffffff",
-			'B':  getCssVariableAsHex("--color-primary-400", $storeTheme) ?? "#ffffff",
-			'C':  getCssVariableAsHex("--color-primary-600", $storeTheme) ?? "#ffffff",
-			'D':  getCssVariableAsHex("--color-primary-200", $storeTheme) ?? "#ffffff",
+			'B': getCssVariableAsHex("--color-primary-400", $storeTheme) ?? "#ffffff",
+			'C': getCssVariableAsHex("--color-primary-600", $storeTheme) ?? "#ffffff",
+			'D': getCssVariableAsHex("--color-primary-200", $storeTheme) ?? "#ffffff",
 		};
 	}
 
@@ -119,7 +122,7 @@
         theme: ChartTheme.G100,
         color: { scale: groupColors },
         toolbar: { enabled: false }, 
-        title: ``,
+        title: '',
         height: '450px',
         grid: {
             y: {
@@ -147,7 +150,7 @@
 
 
 <div class="">                
-    {#if correlationData.length}
+    {#if correlationData && correlationData.length}
         <p class="text-xs opacity-60 flex justify-start pb-8">
             <span>ERCC</span>
             <span class="ml-5 mr-5">n = {selectedModel.quality.reads.ercc_constructs} / 92</span>

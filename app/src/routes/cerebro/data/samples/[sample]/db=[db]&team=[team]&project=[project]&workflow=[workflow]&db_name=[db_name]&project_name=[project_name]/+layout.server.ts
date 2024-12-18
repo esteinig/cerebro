@@ -1,6 +1,6 @@
 import { env as private_env } from "$env/dynamic/private";
 import CerebroApi from "$lib/utils/api";
-import type { CerebroNotaxaResponse, SampleOverviewWorkflowsResponseData, Cerebro, WorkflowConfig, SampleSummarySchema, SampleSummaryResponse, QualityControlSummary} from "$lib/utils/types";
+import { type CerebroNotaxaResponse, type SampleOverviewWorkflowsResponseData, type Cerebro, type WorkflowConfig, type SampleSummarySchema, type SampleSummaryResponse, type QualityControlSummary, FileTag} from "$lib/utils/types";
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
@@ -19,7 +19,8 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     // When we initiate the sample page, we get the latest workflow data on this sample
     // by getting the single sample overview which contains the workflow configurations
 
-    let negativeTemplateControl: string = "NTC";   // We can get that from user settings later i.e from current user locals
+    let negativeTemplateControl: string = FileTag.NTC;   // We can get that from user settings later i.e from current user locals
+    let positiveControl: string = FileTag.POS;
     
     let sampleWorkflows: Array<WorkflowConfig> = [];
     let requestedWorkflow: string;
@@ -92,7 +93,6 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     // Finally we return the data to the page
 
     depends("sample:data")
-
 
     return {
         sampleWorkflows: sampleWorkflows,

@@ -197,7 +197,9 @@ interface TeamRoutes {
     update: string,
     addUser: string,
     removeUser: string,
-    get: string
+    get: string,
+    createProject: string,
+    createDatabase: string
 }
 
 interface CerebroRoutes {
@@ -298,6 +300,8 @@ export class Routes {
             update: teamRoute,
             addUser: teamRoute,
             removeUser: teamRoute,
+            createProject: `${teamRoute}/project`,
+            createDatabase: `${teamRoute}/database`,
             get: teamRoute
         }
         this.cerebro = {

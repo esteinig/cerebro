@@ -52,10 +52,8 @@ impl fmt::Display for ErrorRefreshResponse {
 #[derive(Deserialize)]
 pub struct TeamAccessQuery {  
     // Required team query params for JwtDataAuth
-    team: String,
+    pub team: String,
 }
-
-
 
 #[allow(dead_code)]
 #[derive(Deserialize)]

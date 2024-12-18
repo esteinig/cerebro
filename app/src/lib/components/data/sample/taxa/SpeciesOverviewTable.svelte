@@ -150,7 +150,7 @@
     $: {    
         
         // Whenever data changes apply client side filters...
-        filteredData = applyClientSideFilters(filteredData, $selectedClientFilterConfig);
+        filteredData = applyClientSideFilters(taxa, $selectedClientFilterConfig);
 
         // ... and transform filtered data into the overview table rows
         tableData = transformTaxonOverview(filteredData, displayMode, displayData);
@@ -253,14 +253,14 @@
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
-                        <span>Vircov</span>
+                        <span>Alignment</span>
                         <div class="flex items-center">
                             <div class="rounded-full bg-primary-400 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
                         </div>
                     </div>
                     
                     <div class="text-right flex flex-col items-end">
-                        <span>Blast</span>
+                        <span>Assembly</span>
                         <div class="flex items-center">
                             <div class="rounded-full bg-tertiary-500 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">bp</span>
                         </div>

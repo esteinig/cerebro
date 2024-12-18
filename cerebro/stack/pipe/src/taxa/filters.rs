@@ -76,8 +76,10 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     .into_iter()
     .map(|mut taxon| {
 
-        // Step 1: Collect NTC RPMs for matching tools, modes, and tags
-        let ntc_rpms: HashMap<(ProfileTool, AbundanceMode, String), f64> = taxon
+        // Step 1: Collect NTC RPMs for matching tools, modes, and tags summing NTC RPM if multiple NTC samples are provided
+        let mut ntc_rpms: HashMap<(ProfileTool, AbundanceMode, String), f64> = HashMap::new();
+
+        taxon
             .evidence
             .profile
             .iter()
@@ -88,24 +90,18 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
                     false
                 }
             })
-            .filter_map(|record| {
-                // Extract nucleic acid tag (DNA/RNA) if present
+            .for_each(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
-                    let nucleic_acid_tag = tags
-                        .iter()
-                        .find(|tag| tag == &&"DNA".to_string() || tag == &&"RNA".to_string());
-                    if let Some(tag) = nucleic_acid_tag {
-                        Some(((record.tool.clone(), record.mode.clone(), tag.clone()), record.rpm))
-                    } else {
-                        None
+                    // Extract nucleic acid tag (DNA/RNA) if present
+                    if let Some(tag) = tags.iter().find(|tag| tag == &&"DNA".to_string() || tag == &&"RNA".to_string()) {
+                        let key = (record.tool.clone(), record.mode.clone(), tag.clone());
+                        // Sum RPM values for matching keys
+                        ntc_rpms.entry(key)
+                            .and_modify(|e| *e += record.rpm) // If key exists, add to existing value
+                            .or_insert(record.rpm); // Otherwise, insert the current RPM value
                     }
-                } else {
-                    None
                 }
-            })
-            .collect();
-
-        log::info!("{} {:#?}", taxon.name, ntc_rpms);
+            });
         
         // Step 2: Filter profile records based on ntc_ratio
         taxon.evidence.profile = taxon
@@ -128,7 +124,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
                     if let (Some(ratio), Some(tag)) = (filter_config.ntc_ratio, nucleic_acid_tag) {
                         let key = (record.tool.clone(), record.mode.clone(), tag.clone());
                         if let Some(ntc_rpm) = ntc_rpms.get(&key) {
-                            return record.rpm >= ratio * ntc_rpm; // Keep record if RPM is larger than the NTC RPM * Ratio 
+                            return record.rpm >= ratio * ntc_rpm; // If NTC RPM is not at least {ratio}-times larger than library RPM, include the evidence record
                         }
                     }
                 }

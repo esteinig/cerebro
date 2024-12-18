@@ -2,30 +2,19 @@
     import { page } from "$app/stores";
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { getToastStore, ProgressRadial } from "@skeletonlabs/skeleton";
-	import { type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type Taxon, DisplayData } from "$lib/utils/types";
+	import { type Taxon, DisplayData } from "$lib/utils/types";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import TaxonHeatmap from "$lib/components/visualisations/taxa/heatmap/TaxonHeatmap.svelte";
 	import VisualisationSelection from "./taxa/visualisations/VisualisationSelection.svelte";
-
-
-    export let selectedIdentifiers: string[] = [];
-    export let selectedModels: Cerebro[] = [];
-
+	import { selectedModels, selectedIdentifiers, selectedServerFilterConfig } from "$lib/stores/stores";
     
-    export let serverFilterConfig: TaxonFilterConfig;
-
-    // export let clientFilterConfig: ClientFilterConfig;
-    // export let taxonHighlightConfig: TaxonHighlightConfig;
-
     let publicApi = new CerebroApi();
     let toastStore = getToastStore();
 
     let loading: boolean = false;
     let taxa: Taxon[] = [];
-    let modelNameTags: Map<string, string[]> = new Map();
     let selectedVisualisation: string = "Table";
-
 
     const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
 
@@ -38,7 +27,7 @@
                 mode: 'cors',
                 credentials: 'include', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(serverFilterConfig) 
+                body: JSON.stringify($selectedServerFilterConfig) 
             } as RequestInit,
             $page.data.refreshToken, toastStore, "Taxa loaded"
         )
@@ -50,14 +39,8 @@
         }
     }    
 
-    $: if (selectedIdentifiers.length > 0) {
-        // Clear the selected taxa store whenever we select new libraries
-        // selectedTaxa.set([]);
-        getAggregatedTaxaOverview(selectedIdentifiers);
-    }
-
-    $: {
-        modelNameTags = new Map(selectedModels.map(cerebro => [cerebro.name, cerebro.sample.tags]));
+    $: if ($selectedIdentifiers.length > 0) {
+        getAggregatedTaxaOverview($selectedIdentifiers);
     }
 
 </script>
@@ -77,11 +60,9 @@
         {:else}
         
         {#if selectedVisualisation === "Heatmap"}
-            <TaxonHeatmap selectedModels={selectedModels} selectedIdentifiers={selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
+            <TaxonHeatmap selectedModels={$selectedModels} selectedIdentifiers={$selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
         {/if}
         <SpeciesOverviewTable taxa={taxa}></SpeciesOverviewTable>
-     
-            <!-- <DatatableTaxonOverview data={taxaOverview}></DatatableTaxonOverview> -->
         {/if}
     {/if}
 

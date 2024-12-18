@@ -811,6 +811,9 @@ process ProcessOutputIllumina {
     label "cerebro"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
+    
+    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "symlink", pattern: "*"
 
     input:
     tuple val(sampleID), path(result_files)

@@ -212,10 +212,10 @@ export type SampleOverviewWorkflowsResponseDataField = {
  * @file lib/utils/types
  */
 export type SampleOverviewData = {
-    id: string,                           // sample identifier
+    id: string,                      // sample identifier
     description: string[],           // sample descriptions (should be only one)
-    latest_run: string,                   // latest workflow run date for this sample
-    latest_workflow: string,              // latest workflow run date for this sample
+    latest_run: string,              // latest sequencing run date for this sample
+    latest_workflow: string,         // latest workflow run date for this sample
     workflows: WorkflowConfig[],     // Workflow configurations for this sample
     samples: SampleConfig[],         // Sample configurations for this sample
     runs: RunConfig[],               // Run configurations for this sample
@@ -1912,7 +1912,8 @@ export enum FileTag {
     NTC = "NTC",
     TMP = "TMP",
     ENV = "ENV",
-    HOST = "HOST"
+    HOST = "HOST",
+    SAMPLE = "SAMPLE"
 }
 
 /**

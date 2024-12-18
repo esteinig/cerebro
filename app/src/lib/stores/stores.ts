@@ -49,10 +49,10 @@ const defaultServerFilterConfig: TaxonFilterConfig = {
     domains: [],            // Filter by domain names
     tools: [],              // Filter by specific detection tools
     modes: [],              // Filter by detection modes (Sequence/Profile)
-    min_bases: 0,           // Minimum read count for inclusion
-    min_bpm: 0,             // Minimum read count for inclusion
+    min_bases: 500,         // Minimum contig length for inclusion
+    min_bpm: 0.0,           // Minimum contig length per million for inclusion
     min_reads: 0,           // Minimum read count for inclusion
-    min_rpm: 0.0,           // Minimum RPM for inclusion
+    min_rpm: 10.0,          // Minimum RPM for inclusion
     min_abundance: 0,       // Minimum abundance for inclusion
     ntc_ratio: 10
 }
@@ -74,7 +74,6 @@ const syndromeHighlightConfig: HighlightConfig = {
         "Streptococcus",
         "Haemophilus",
         "Lymphocryptovirus"
-
     ],
     taxid: [],
     color: "tertiary"

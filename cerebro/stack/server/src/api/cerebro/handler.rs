@@ -1240,7 +1240,7 @@ async fn sample_description_handler(data: web::Data<AppState>, update: web::Json
 
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
-            "status": "fail", "message": "You do not have permission to delete a sample", "data": serde_json::json!({"cerebro": []})
+            "status": "fail", "message": "You do not have permission to modify a sample", "data": serde_json::json!({"cerebro": []})
         }))
     }
 
@@ -1260,6 +1260,7 @@ async fn sample_description_handler(data: web::Data<AppState>, update: web::Json
         })),
     }
 }
+
 
 
 #[derive(Deserialize)]

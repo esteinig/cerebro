@@ -1,5 +1,5 @@
 
-import { Role } from "./types";
+import { FileTag, Role } from "./types";
 
 
 export function getCssVariableAsHex(variableName: string | null | undefined, theme: string): string | null {
@@ -7,7 +7,6 @@ export function getCssVariableAsHex(variableName: string | null | undefined, the
     const element = document.querySelector(`[data-theme="${theme}"]`); // Target the themed element
     if (!element) return null;
     const rgbValue = getComputedStyle(element).getPropertyValue(variableName).trim();
-    console.log("CssVariable", rgbValue); // Debug the value
     if (!rgbValue) return null;
     const [r, g, b] = rgbValue.split(' ').map(Number);
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
@@ -147,7 +146,7 @@ export const formatAsThousands = (num: number | null): string => {
 }
 
 
-export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = ["DNA", "RNA"]): string[] => {
+export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = [FileTag.DNA, FileTag.RNA]): string[] => {
     if (tags === undefined) {
         return []
     }

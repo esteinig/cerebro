@@ -590,41 +590,32 @@ pub enum ProjectCommands {
 
 #[derive(Debug, Args)]
 pub struct TeamCreateArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'p')]
-    pub team_descriptions: String,
+    /// Team name 
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Team description
+    #[clap(long, short = 'd')]
+    pub description: String,
 }
 
 #[derive(Debug, Args)]
 pub struct DatabaseCreateArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'p')]
-    pub project_name: String,
-    /// Database name for model query
+    /// Database name
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Database description
     #[clap(long, short = 'd')]
-    pub db_name: Option<String>,
+    pub description: String,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectCreateArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for model query
-    #[clap(long, short = 'd')]
-    pub db_name: String,
-    /// Project name for model query
+    /// Project name
     #[clap(long, short = 'n')]
-    pub project_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'i')]
-    pub project_description: String,
+    pub name: String,
+    /// Project description
+    #[clap(long, short = 'd')]
+    pub description: String,
 }
 
 

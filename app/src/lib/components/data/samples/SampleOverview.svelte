@@ -37,7 +37,7 @@
 
 
     // Helpers
-    const getSelectedTeam = (): Team | null => {
+    function getSelectedTeam(): Team | null {
         let matchedTeams = $page.data.userTeams.filter((team: Team) => team.id === selectedTeamId);
         if (!matchedTeams.length) {
             toastStore.trigger(
@@ -47,7 +47,7 @@
         }
         return matchedTeams[0]
     }
-    const getSelectedDatabase = (team: Team, first: boolean = false): TeamDatabase | null => {
+    function getSelectedDatabase(team: Team, first: boolean = false): TeamDatabase | null {
         
         let fail: boolean;
 
@@ -66,7 +66,7 @@
         }
         return team.databases[0]
     }
-    const getSelectedProject = (database: TeamDatabase, first: boolean = false): ProjectCollection | null => {
+    function getSelectedProject(database: TeamDatabase, first: boolean = false): ProjectCollection | null {
 
         let fail: boolean;
 
@@ -88,7 +88,7 @@
 
 
     // Selection helpers
-    const changeTeam = async() => {
+    async function changeTeam() {
 
         let team: Team | null = getSelectedTeam();
 
@@ -113,7 +113,7 @@
         }
     }
 
-    const changeDatabase = async() => {
+    async function changeDatabase() {
 
         let team: Team | null = getSelectedTeam();
 
@@ -155,7 +155,7 @@
 
     // Data request functions
 
-    const loadData = async() => {
+    async function loadData() {
 
         loading = true;
 
@@ -185,7 +185,7 @@
 
     }
 
-    const deleteSelectedSamples = async() => {
+    async function deleteSelectedSamples() {
 
         loading = true;
 
@@ -209,7 +209,7 @@
 
     }
 
-    const getSelectedSampleCsv = async() => {
+    async function getSelectedSampleCsv() {
 
         loading = true;
 
@@ -266,11 +266,41 @@
         modalStore.trigger(modal);
     }
 
+    async function createTeamDatabase() {
+
+        // loading = true;
+
+        // let response: ApiResponse = await publicApi.fetchWithRefresh(
+        //     `${publicApi.routes.teams.createProject}?team=${selectedTeamId}`, {
+        //         method: 'POST',
+        //         mode: 'cors',
+        //         credentials: 'include',
+        //         body: JSON.stringify({
+
+        //         } satisfies ),
+        //         headers:  { 'Content-Type': 'application/json' }
+        //     } satisfies RequestInit,
+        //     $page.data.refreshToken, toastStore, `Sample summary retrieved`
+        // );
+
+        // if (response.ok) {
+        //     selectedSamples = []
+        //     if (response.json.data?.csv) {
+        //         exportCsv(response.json.data.csv)
+        //     }
+        // }
+    }
+
+    enum TeamDataCrud {
+        CreateProject = 'Project',
+        CreateDatabase = 'Database'
+    }
+
     let newProjectName: string = "";
     let newProjectDesription: string = "";
     let newDatabaseName: string = "";
     let newDatabaseDescription: string = "";
-    let create: string = 'Project';
+    let create: TeamDataCrud = TeamDataCrud.CreateProject;
 
 </script>
 
@@ -316,7 +346,7 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="">
-                            {#each ['Project', 'Database'] as c}
+                            {#each [TeamDataCrud.CreateProject, TeamDataCrud.CreateDatabase] as c}
                                 <button
                                     class="chip {create === c ? 'variant-filled-primary' : 'variant-soft'} ml-2"
                                     on:click={() => { create = c }}
@@ -326,7 +356,7 @@
                                 </button>
                             {/each} 
                         </div>
-                        <button type="button" class="btn btn-md variant-outline-primary" on:click={getSelectedSampleCsv}>
+                        <button type="button" class="btn btn-md variant-outline-primary" on:click={createTeamDatabase}>
                             <div class="w-5 h-5 mr-2">
                                 <svg data-slot="icon" aria-hidden="true" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -357,7 +387,7 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="">
-                            {#each ['Project', 'Database'] as c}
+                            {#each [TeamDataCrud.CreateProject, TeamDataCrud.CreateDatabase] as c}
                                 <button
                                     class="chip {create === c ? 'variant-filled-primary' : 'variant-soft'} ml-2"
                                     on:click={() => { create = c }}
