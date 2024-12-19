@@ -5,7 +5,7 @@ use std::{
     fs::File, 
     path::PathBuf
 };
-use chrono::{NaiveDate, NaiveDateTime, Utc};
+use chrono::{NaiveDate, Utc};
 use fancy_regex::Regex;
 use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
@@ -248,9 +248,14 @@ impl Default for RunConfig {
 
 fn parse_and_format_date(date_str: &str) -> Result<String, ModelError> {
     // Parse the date string into a NaiveDate
-    let naive_date = NaiveDateTime::parse_from_str(date_str, "%Y%m%d")?;
-    // Convert NaiveDate to a Utc DateTime
-    let rfc3339_date = Utc.from_utc_datetime(&naive_date).to_rfc3339_opts(SecondsFormat::Secs, true);
+    let naive_date = NaiveDate::parse_from_str(date_str, "%Y%m%d")?;
+    
+    // Convert NaiveDate to NaiveDateTime by adding a time component
+    let naive_datetime = naive_date.and_hms_opt(0, 0, 0).unwrap();
+    
+    // Convert NaiveDateTime to a Utc DateTime
+    let rfc3339_date = Utc.from_utc_datetime(&naive_datetime).to_rfc3339_opts(SecondsFormat::Secs, true);
+    
     Ok(rfc3339_date)
 }
 /*
