@@ -79,7 +79,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                Some(run_id)
+                Some(run_id),
+                args.run_date.clone() // TODO: add run configuration to staged sample
             )?;
 
             
@@ -115,7 +116,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                args.run_id.clone()
+                args.run_id.clone(),
+                args.run_date.clone()
             )?;
 
             
@@ -155,7 +157,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                Some(run_id)
+                Some(run_id),
+                args.run_date.clone()
             )?;
 
             if let Some(model) = &args.model {
@@ -189,7 +192,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                args.run_id.clone()
+                args.run_id.clone(),
+                args.run_date.clone()
             )?;
 
             cerebro.write_json(&args.model)?;

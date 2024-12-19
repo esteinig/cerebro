@@ -5,11 +5,12 @@ use std::{
     fs::File, 
     path::PathBuf
 };
-use chrono::Utc;
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use fancy_regex::Regex;
 use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
+use chrono::{TimeZone, SecondsFormat};
 
 use cerebro_pipe::{
     error::WorkflowError, 
@@ -52,6 +53,9 @@ pub enum ModelError {
     /// Represents all other cases of `WorkflowError`.
     #[error(transparent)]
     Workflow(#[from] WorkflowError),
+    /// Represents all other cases of `chrono::ParseError`.
+    #[error(transparent)]
+    ChronoParse(#[from] chrono::ParseError),
     /// Represents failure to find a run identifier in the sample sheet
     #[error("failed to find run identifier in sample sheet for sample identifier: {0}")]
     RunIdentifier(String),
@@ -131,6 +135,7 @@ impl Cerebro {
         sample_sheet: Option<PathBuf>, 
         workflow_config: Option<PathBuf>,
         run_id: Option<String>,
+        run_date: Option<String>,
     ) -> Result<Self, ModelError> {
             
             let (run_config, sample_config) = match sample_sheet {
@@ -138,7 +143,19 @@ impl Cerebro {
                     let sample_sheet = SampleSheet::from(&path)?;
                     (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
                 },
-                None => (RunConfig::with_default(&match run_id { Some(id) => id, None => String::from("Placeholder") }), SampleConfig::with_default(&id)?)
+                None => (
+                    RunConfig::new(
+                    &match run_id { 
+                            Some(id) => id, 
+                            None => String::from("Placeholder") 
+                        },
+                        &match run_date {
+                            Some(date) => date,
+                            None => Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
+                        }
+                    )?, 
+                    SampleConfig::with_default(&id)?
+                )
             };
 
             let workflow_config = match workflow_config {
@@ -212,20 +229,29 @@ impl RunConfig {
         };
         Ok(Self { id, date })
     }
-    pub fn with_default(id: &str) -> Self {
-        Self {
+    pub fn new(id: &str, date: &str) -> Result<Self, ModelError> {
+        Ok(Self {
             id: id.to_string(),
-            ..Default::default()
-        }
+            date: parse_and_format_date(date)?
+        })
     }
 }
 impl Default for RunConfig {
     fn default() -> Self {
         Self {
-            id: String::from("PLACEHOLDER"),
+            id: String::from("SEQUENCE-RUN"),
             date: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
         }
     }
+}
+
+
+fn parse_and_format_date(date_str: &str) -> Result<String, ModelError> {
+    // Parse the date string into a NaiveDate
+    let naive_date = NaiveDateTime::parse_from_str(date_str, "%Y%m%d")?;
+    // Convert NaiveDate to a Utc DateTime
+    let rfc3339_date = Utc.from_utc_datetime(&naive_date).to_rfc3339_opts(SecondsFormat::Secs, true);
+    Ok(rfc3339_date)
 }
 /*
 ========================

@@ -147,6 +147,9 @@ pub struct UploadPathogenArgs {
     /// Run identifier if sample sheet is not provided
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -179,8 +182,13 @@ pub struct CreatePathogenArgs {
     #[clap(long)]
     pub strict: bool,
     /// Run identifier if sample sheet is not provided
+    /// otherwise defaults to placeholder for now
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    /// otherwise defaults to current date
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -206,8 +214,13 @@ pub struct UploadPanviralArgs {
     #[clap(long)]
     pub strict: bool,
     /// Run identifier if sample sheet is not provided
+    /// otherwise defaults to placeholder for now
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    /// otherwise defaults to current date
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -242,8 +255,13 @@ pub struct CreatePanviralArgs {
     #[clap(long)]
     pub strict: bool,
     /// Run identifier if sample sheet is not provided
+    /// otherwise defaults to placeholder for now
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    /// otherwise defaults to current date
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,

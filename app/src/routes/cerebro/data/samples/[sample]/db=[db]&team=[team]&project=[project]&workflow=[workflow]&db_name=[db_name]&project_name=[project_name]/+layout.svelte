@@ -21,7 +21,6 @@
     
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import { goto } from "$app/navigation";
-	import QualityControl from '$lib/components/data/sample/QualityControl.svelte';
 
     enum DataView {
         QualityControl = "qc",
@@ -111,37 +110,31 @@
         </div>
         {#if selectedView === DataView.TaxonomicProfile}
             <p class="mb-1 mt-4">
-                <span class="opacity-60">Taxonomy filters</span>
+                <span class="opacity-60">Client-side filters</span>
             </p>
-            <div class="w-full border border-primary-500 rounded-md p-4" >
+            <div class="w-full border border-primary-500 rounded-md p-4">
                 <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-x-4 align-center">
                     <div class="col-span-2">
                         <p class="opacity-60 text-xs pb-8 pr-4">
-                            {#if showServerSideFilters}
-                                Apply classification table filters by switching to client-side filters
-                            {:else}
-                                Apply fine-grained evidence filters by switching to server-side filters
-                            {/if}
-                            
+                            Apply fine-grained evidence filters and negative template control comparison thresholds using server-side filters below
                         </p>
                     </div>
-                    <div class="col-span-1 text-xs">
-                        <SlideToggle name="server-side-filters" bind:checked={showServerSideFilters} active="variant-filled-tertiary dark:variant-filled-tertiary" size="sm">Server-side</SlideToggle>
-                    </div>
                 </div>
-                {#if showServerSideFilters}
-                    <ServerFilterConfiguration bind:serverFilterConfig={$selectedServerFilterConfig}></ServerFilterConfiguration>
-                    <div class="text-center py-8">
-                        <button type="button" class="btn variant-outline-primary w-3/4" on:click={() => reloadTable()}>
-                            <svg aria-hidden="true" fill="none" stroke="currentColor" class="w-5 h-5 mr-3" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
-                            Reload Table
-                        </button>
-                    </div>
-                {:else}
-                    <ClientFilterConfiguration bind:clientFilterConfig={$selectedClientFilterConfig}></ClientFilterConfiguration>
-                {/if}
+                <ClientFilterConfiguration bind:clientFilterConfig={$selectedClientFilterConfig}></ClientFilterConfiguration>
+            </div>
+            <p class="mb-1 mt-4">
+                <span class="opacity-60">Server-side filters</span>
+            </p>
+            <div class="w-full border border-primary-500 rounded-md p-4" >
+                <ServerFilterConfiguration bind:serverFilterConfig={$selectedServerFilterConfig}></ServerFilterConfiguration>
+                <div class="text-center py-8">
+                    <button type="button" class="btn variant-outline-primary w-3/4" on:click={() => reloadTable()}>
+                        <svg aria-hidden="true" fill="none" stroke="currentColor" class="w-5 h-5 mr-3" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        Reload Table
+                    </button>
+                </div>
             </div>
             <p class="mb-1 mt-4">
                 <span class="opacity-60">Taxonomy highlights</span>

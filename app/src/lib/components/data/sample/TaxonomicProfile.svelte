@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { type Taxon, DisplayData } from "$lib/utils/types";
-	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
+	import { DisplayData } from "$lib/utils/types";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import TaxonHeatmap from "$lib/components/visualisations/taxa/heatmap/TaxonHeatmap.svelte";
 	import VisualisationSelection from "./taxa/visualisations/VisualisationSelection.svelte";
@@ -15,13 +14,11 @@
     <VisualisationSelection bind:selectedVisualisation={selectedVisualisation}></VisualisationSelection>
 </div>
 <div>
-    
     {#if selectedVisualisation === "Heatmap"}
         <TaxonHeatmap selectedModels={$selectedModels} selectedIdentifiers={$selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
     {/if}
-    
+
     <SpeciesOverviewTable></SpeciesOverviewTable>
-    
 </div>
 
 
