@@ -1,5 +1,5 @@
 import { browser } from "$app/environment";
-import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig } from "$lib/utils/types";
+import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig, type ClientFilterContam, type PrevalenceContaminationConfig } from "$lib/utils/types";
 import { writable, type Writable } from "svelte/store";
 
 // Session based theme store. Grabs the current theme from the current body.
@@ -30,6 +30,10 @@ const defaultClientFilterConfig: ClientFilterConfig = {
     domains: [],
     genera: [],
     species: [],
+    contam: {
+        display: false,
+        opacity: 20
+    } satisfies ClientFilterContam,
     modules: {
         alignment: false,
         profile: false,
@@ -57,6 +61,10 @@ const defaultServerFilterConfig: TaxonFilterConfig = {
     ntc_ratio: 10
 }
 
+const defaultPrevalenceContamConfig: PrevalenceContaminationConfig = {
+    min_rpm: 0.0,
+    threshold: 0.5
+}
 
 // Contamination highlights
 
@@ -86,6 +94,7 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
 
 export const selectedClientFilterConfig = writable<ClientFilterConfig>(defaultClientFilterConfig)
 export const selectedServerFilterConfig = writable<TaxonFilterConfig>(defaultServerFilterConfig)
+export const selectedPrevalenceContamConfig = writable<PrevalenceContaminationConfig>(defaultPrevalenceContamConfig)
 export const selectedTaxonHighlightConfig = writable<TaxonHighlightConfig>(defaultTaxonHighlightConfig)
 export const selectedTaxa = writable<TaxonOverviewRecord[]>([])
 

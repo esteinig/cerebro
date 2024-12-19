@@ -51,6 +51,7 @@ pub fn get_matched_uuid_cerebro_pipeline(id: &CerebroId, taxa: &Option<bool>) ->
     
 }
 
+
 pub fn get_matched_id_taxa_cerebro_pipeline(
     ids: Option<Vec<CerebroId>>,
     date_range: Option<Vec<String>>,

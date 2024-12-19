@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ClientFilterConfig } from "$lib/utils/types";
+	import type { ClientFilterConfig, PrevalenceContaminationConfig } from "$lib/utils/types";
     import { DomainName } from "$lib/utils/types";
 	import { Autocomplete, InputChip } from "@skeletonlabs/skeleton";
     import type { AutocompleteOption } from "@skeletonlabs/skeleton";
@@ -46,7 +46,7 @@
 </script>
 
 <div>
-    <p class=""><span class="opacity-40">Filter by taxonomy</span></p>
+    <p class=""><span class="opacity-40">Taxonomy</span></p>
     <div class="p-4 w-full">
         <p class="text-xs opacity-40"></p>
         <div class="py-4">
@@ -157,6 +157,20 @@
             {/if}
             <span>Assembly</span>
             <div class="rounded-full bg-tertiary-500 h-2 w-2 ml-2"></div>
+        </span>
+    </div>
+    <p class=""><span class="opacity-40">Contamination</span></p>
+    <div class="p-4">
+        <span class="chip {clientFilterConfig.contam.display ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.contam.display ? clientFilterConfig.contam.display = false : clientFilterConfig.contam.display = true }} on:keypress aria-hidden>
+            {#if clientFilterConfig.contam.display}
+                <span>
+                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3 h-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </span>
+            {/if}
+            <span>Contaminants</span>
+            <div class="rounded-full bg-primary-500 h-2 w-2 ml-2"></div>
         </span>
     </div>
 </div>

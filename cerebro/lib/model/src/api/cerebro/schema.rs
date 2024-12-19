@@ -128,3 +128,15 @@ pub struct PatientResultSchema {
     pub comments: String,
     pub actions: String,
 }
+
+
+
+#[derive(Deserialize)]
+pub struct ContaminationSchema {
+    pub taxid: Vec<String>,
+    pub tags: Vec<String>,
+    pub threshold: f64,
+    pub min_rpm: f64,
+    pub sample_type: Option<String>,
+}
+

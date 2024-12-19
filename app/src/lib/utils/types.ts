@@ -1388,7 +1388,7 @@ export enum PathogenDetectionRank {
     Family = "Family"
 }
 
-export type TaxonFilterConfig = {  // ADD WORKFLOW ID
+export type TaxonFilterConfig = {       // ADD WORKFLOW ID
     rank: PathogenDetectionRank | null, // Filter by specific taxonomic rank
     domains: Array<string>,             // Filter by domain names
     tools: Array<string>,               // Filter by specific detection tools
@@ -1401,6 +1401,11 @@ export type TaxonFilterConfig = {  // ADD WORKFLOW ID
     ntc_ratio: number | null            // NTC ratio if selected
 }
 
+export type PrevalenceContaminationConfig = {
+    min_rpm: number,
+    threshold: number
+}
+
 // Client-side selection of taxa
 
 
@@ -1409,9 +1414,14 @@ export type ClientFilterConfig = {
     genera: Array<string | null>,
     species: Array<string | null>,
     modules: ClientFilterModules,
-    minimum: ClientFilterMinimum
+    minimum: ClientFilterMinimum,
+    contam: ClientFilterContam,
 }
 
+export type ClientFilterContam = {
+    display: boolean,
+    opacity: number,
+}
 export type ClientFilterModules = {
     alignment: boolean,
     profile: boolean,

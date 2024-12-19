@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { ClientFilterConfig, TaxonHighlightConfig, Taxon, TaxonOverviewRecord, TaxonEvidence } from "$lib/utils/types";
+	import type { ClientFilterConfig, Taxon, TaxonOverviewRecord, TaxonEvidence } from "$lib/utils/types";
     import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
 	import { getToastStore, ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig } from "$lib/stores/stores";
-    import { AbundanceMode } from "$lib/utils/types";
+    import { AbundanceMode, FileTag } from "$lib/utils/types";
 	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { page } from "$app/stores";
@@ -24,6 +24,9 @@
 
     // Taxa filtered client-side
     let filteredData: Taxon[] = taxa;
+
+    // Contamination taxids
+    let contamTaxid: string[] = [];
 
     // Container for filtered table row data
     let tableData: TaxonOverviewRecord[] = [];
@@ -51,7 +54,7 @@
 
     let loading: boolean = false;
 
-    const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
+    async function getAggregatedTaxaOverview(selectedIdentifiers: string[]) {
 
         loading = true;
 
@@ -67,12 +70,43 @@
             $page.data.refreshToken, toastStore, "Taxa loaded"
         )
 
+        if (response.ok){
+            taxa = response.json.data.taxa;
+
+            await getPrevalenceContamination(taxa.map(taxon => taxon.taxid), [FileTag.DNA], 0.50, 0.0);
+        }
+
+        loading = false;
+    }    
+
+    async function getPrevalenceContamination(taxid: string[], tags: FileTag[], threshold: number, min_rpm: number) {
+
+        loading = true;
+
+        let response: ApiResponse = await publicApi.fetchWithRefresh(
+            `${publicApi.routes.cerebro.taxaPrevalenceContamination}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}`,
+            { 
+                method: 'POST',  
+                mode: 'cors',
+                credentials: 'include', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({
+                    taxid: taxid,
+                    tags: tags,
+                    threshold: threshold,
+                    min_rpm: min_rpm,
+                    sample_type: null
+                }) 
+            } as RequestInit,
+            $page.data.refreshToken, toastStore, "Taxa loaded"
+        )
+
         loading = false;
 
         if (response.ok){
-            taxa = response.json.data.taxa;
+            contamTaxid = response.json.data.taxid;
         }
-        }    
+    }    
 
     $: if ($selectedIdentifiers.length > 0) {
         getAggregatedTaxaOverview($selectedIdentifiers);
@@ -240,6 +274,11 @@
         });
     };
 
+    const displayContaminationRow = (overview: TaxonOverviewRecord): boolean => {
+        let displayRow = contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true;
+        return displayRow
+    }
+
 </script>
 
 <div>
@@ -323,71 +362,73 @@
                         </div>
                     </ListBoxItem>
                     {#each tableData as overview, i}
+                        {#if displayContaminationRow(overview)}
                         <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                             
-                            <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
-                                <div class="opacity-70">{overview.domain}</div>
-                                <div class="col-span-2 truncate italic">{overview.name}</div>
-                                <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                <!-- <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
-                                <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                <div class="flex justify-end items-center pt-1">
+                                <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? `opacity-${$selectedClientFilterConfig.contam.opacity}`: ''}">
+                                    <div class="opacity-70">{overview.domain}</div>
+                                    <div class="col-span-2 truncate italic">{overview.name}</div>
+                                    <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    <!-- <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                    <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
+                                    <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                    <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                    <div class="flex justify-end items-center pt-1">
 
-                                    <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
+                                        <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
 
-                                        {#if overview.vircov > 0}
-                                            <div class="rounded-full bg-primary-400 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
-                                        <!-- {#if overview.kraken2 > 0}
-                                            <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if} -->
-                                        {#if overview.bracken > 0}
-                                            <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
-                                        {#if overview.metabuli > 0}
-                                            <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
-                                        {#if overview.ganon2 > 0}
-                                            <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
-                                        {#if overview.kmcp > 0}
-                                            <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
-                                        {#if overview.sylph > 0}
-                                            <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
-                                        {#if overview.blast > 0}
-                                            <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
-                                        {:else}
-                                            <div></div>
-                                        {/if}
+                                            {#if overview.vircov > 0}
+                                                <div class="rounded-full bg-primary-400 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                            <!-- {#if overview.kraken2 > 0}
+                                                <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if} -->
+                                            {#if overview.bracken > 0}
+                                                <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                            {#if overview.metabuli > 0}
+                                                <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                            {#if overview.ganon2 > 0}
+                                                <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                            {#if overview.kmcp > 0}
+                                                <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                            {#if overview.sylph > 0}
+                                                <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                            {#if overview.blast > 0}
+                                                <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
+                                            {:else}
+                                                <div></div>
+                                            {/if}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
                             {#if selectedTaxid === overview.taxid && taxonEvidence}
                             <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
                             {/if}
                         </ListBoxItem>
+                        {/if}
                     {/each}
                 </ListBox>
             </div>

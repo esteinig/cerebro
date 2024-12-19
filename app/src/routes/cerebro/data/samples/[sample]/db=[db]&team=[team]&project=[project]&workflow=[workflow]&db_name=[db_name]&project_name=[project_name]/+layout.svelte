@@ -6,7 +6,10 @@
         selectedIdentifiers,
         selectedServerFilterConfig,
         selectedClientFilterConfig,
-        selectedTaxonHighlightConfig
+        selectedTaxonHighlightConfig,
+
+		selectedPrevalenceContamConfig
+
     } from '$lib/stores/stores';
 
 	import { page } from "$app/stores";
@@ -126,7 +129,7 @@
                 <span class="opacity-60">Server-side filters</span>
             </p>
             <div class="w-full border border-primary-500 rounded-md p-4" >
-                <ServerFilterConfiguration bind:serverFilterConfig={$selectedServerFilterConfig}></ServerFilterConfiguration>
+                <ServerFilterConfiguration bind:prevalenceContamConfig={$selectedPrevalenceContamConfig} bind:serverFilterConfig={$selectedServerFilterConfig}></ServerFilterConfiguration>
                 <div class="text-center py-8">
                     <button type="button" class="btn variant-outline-primary w-3/4" on:click={() => reloadTable()}>
                         <svg aria-hidden="true" fill="none" stroke="currentColor" class="w-5 h-5 mr-3" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
