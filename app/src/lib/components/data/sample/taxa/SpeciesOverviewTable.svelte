@@ -1,22 +1,28 @@
 <script lang="ts">
 	import type { ClientFilterConfig, TaxonHighlightConfig, Taxon, TaxonOverviewRecord, TaxonEvidence } from "$lib/utils/types";
     import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
-	import { ListBox, ListBoxItem, Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
-	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa } from "$lib/stores/stores";
+	import { getToastStore, ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
+	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig } from "$lib/stores/stores";
     import { AbundanceMode } from "$lib/utils/types";
 	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
+	import CerebroApi, { ApiResponse } from "$lib/utils/api";
+	import { page } from "$app/stores";
+	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
+	import CircleIndicator from "$lib/general/icons/CircleIndicator.svelte";
 
     // export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
     
     // export let candidateButton: boolean = true;
 
-    export let taxa: Taxon[] = [];
     export let pagination: boolean = true;
 
     // Selected taxonomic identifier
     let selectedTaxid: string;
 
-    // Container for filtered overview data
+    // Taxa returned server-side filtered
+    let taxa: Taxon[] = [];
+
+    // Taxa filtered client-side
     let filteredData: Taxon[] = taxa;
 
     // Container for filtered table row data
@@ -38,6 +44,38 @@
         } else {
             return 4
         }
+    }
+
+    let publicApi = new CerebroApi();
+    let toastStore = getToastStore();
+
+    let loading: boolean = false;
+
+    const getAggregatedTaxaOverview = async(selectedIdentifiers: string[]) => {
+
+        loading = true;
+
+        let response: ApiResponse = await publicApi.fetchWithRefresh(
+            `${publicApi.routes.cerebro.taxa}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}&id=${selectedIdentifiers.join(",")}&overview=true`,
+            { 
+                method: 'POST',  
+                mode: 'cors',
+                credentials: 'include', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify($selectedServerFilterConfig) 
+            } as RequestInit,
+            $page.data.refreshToken, toastStore, "Taxa loaded"
+        )
+
+        loading = false;
+
+        if (response.ok){
+            taxa = response.json.data.taxa;
+        }
+        }    
+
+    $: if ($selectedIdentifiers.length > 0) {
+        getAggregatedTaxaOverview($selectedIdentifiers);
     }
     
     function transformTaxonOverview(
@@ -205,151 +243,159 @@
 </script>
 
 <div>
-    <div>
-        <ListBox>
-            <ListBoxItem group="header" name="header" value="qc" active='variant-soft' hover='hover:cursor-default' rounded='rounded-token'>
-                <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm opacity-60">
-                    <div class="col-span-1 flex flex-col items-start">
-                        <span>Domain</span>
-                    </div>
-                    
-                    <div class="col-span-2 flex flex-col items-start">
-                        <span>Species</span>
-                    </div>
-                    
-                    <!-- <div class="col-span-1">Tags</div> -->
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>{displayTotal}</span>
-                        <span class="text-xs opacity-40">rpm</span>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>Kraken2</span>
-                        <div class="flex items-center">
-                            <div class="rounded-full bg-secondary-600 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>Bracken</span>
-                        <div class="flex items-center">
-                            <div class="rounded-full bg-secondary-500 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>Metabuli</span>
-                        <div class="flex items-center">
-                            <div class="rounded-full bg-secondary-400 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>Ganon2</span>
-                        <div class="flex items-center">
-                            <div class="rounded-full bg-secondary-300 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>Alignment</span>
-                        <div class="flex items-center">
-                            <div class="rounded-full bg-primary-400 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span>Assembly</span>
-                        <div class="flex items-center">
-                            <div class="rounded-full bg-tertiary-500 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">bp</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-right flex flex-col items-end">
-                        <span></span>
-                    </div>
-                    <!-- <div class="text-right">Kmcp</div> -->
-                    <!-- <div class="text-right">Sylph</div> -->
-                </div>
-            </ListBoxItem>
-            {#each tableData as overview, i}
-                <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
-                    
-                    <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
-                        <div class="opacity-70">{overview.domain}</div>
-                        <div class="col-span-2 truncate italic">{overview.name}</div>
-                        <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                        <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
-                        <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                        <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                        <div class="flex justify-end items-center pt-1">
 
-                            <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
-
-                                {#if overview.vircov > 0}
-                                    <div class="rounded-full bg-primary-400 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.kraken2 > 0}
-                                    <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.bracken > 0}
-                                    <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.metabuli > 0}
-                                    <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.ganon2 > 0}
-                                    <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.kmcp > 0}
-                                    <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.sylph > 0}
-                                    <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                {#if overview.blast > 0}
-                                    <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if}
-                                <!-- {#if overview.assembly}
-                                    <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
-                                {:else}
-                                    <div></div>
-                                {/if} -->
-                            </div>
-                        </div>
-                    </div>
-                    {#if selectedTaxid === overview.taxid && taxonEvidence}
-                       <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
-                    {/if}
-                </ListBoxItem>
-            {/each}
-        </ListBox>
-    </div>
-    {#if pagination}
-        <div class="mt-8">
-            <Paginator bind:settings={paginationSettings} showFirstLastButtons={false} showPreviousNextButtons={true} class="mt-2" select="paginator-select select text-xs" regionControl="opacity-30 dark:variant-filled-surface dark:opacity-60 text-xs"/>
+    {#if loading}
+        <div class="flex justify-center py-24">
+            <ProgressRadial width="sm:w-12 md:w-24" stroke={20} meter="stroke-tertiary-500" track="stroke-tertiary-500/30" />
         </div>
+    {:else}
+
+        {#if !taxa.length}
+            <div class="flex justify-center py-16 "><ErrorAnimation /></div>
+            <p class="flex justify-center text-lg pb-4">No taxa available</p>
+        {:else}
+            <div>
+                <ListBox>
+                    <ListBoxItem group="header" name="header" value="qc" active='variant-soft' hover='hover:cursor-default' rounded='rounded-token'>
+                        <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
+                            <div class="col-span-1 flex flex-col items-start">
+                                <span class="opacity-60">Domain</span>
+                            </div>
+                            
+                            <div class="col-span-2 flex flex-col items-start">
+                                <span class="opacity-60">Species</span>
+                            </div>
+                            
+                            <!-- <div class="col-span-1">Tags</div> -->
+                            
+                            <div class="text-right flex flex-col items-end">
+                                <span class="opacity-60">{displayTotal}</span>
+                                <span class="text-xs opacity-40">rpm</span>
+                            </div>
+                            
+                            <div class="text-right flex flex-col items-end">
+                                <span class="opacity-60">Alignment</span>
+                                <div class="flex items-center">
+                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-primary-500"/><span class="text-xs opacity-40">rpm</span>
+                                </div>
+                            </div>
+<!--                             
+                            <div class="text-right flex flex-col items-end">
+                                <span>Kraken2</span>
+                                <div class="flex items-center">
+                                    <div class="rounded-full bg-secondary-600 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
+                                </div>
+                            </div> -->
+                            
+                            <div class="text-right flex flex-col items-end">
+                                <span class="opacity-60">Bracken</span>
+                                <div class="flex items-center">
+                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-500"/><span class="text-xs opacity-40">rpm</span>
+                                </div>
+                            </div>
+                            
+                            <div class="text-right flex flex-col items-end">
+                                <span class="opacity-60">Metabuli</span>
+                                <div class="flex items-center">
+                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-600"/><span class="text-xs opacity-40">rpm</span>
+                                </div>
+                            </div>
+                            
+                            <div class="text-right flex flex-col items-end">
+                                <span class="opacity-60">Ganon2</span>
+                                <div class="flex items-center">
+                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-700"/><span class="text-xs opacity-40">rpm</span>
+                                </div>
+                            </div>
+                            
+                            <div class="text-right flex flex-col items-end">
+                                <span class="opacity-60">Assembly</span>
+                                <div class="flex items-center">
+                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-tertiary-500"/><span class="text-xs opacity-40">bp</span>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center">
+                                <span class="opacity-60">Tools</span>
+                            </div>
+                            <!-- <div class="text-right">Kmcp</div> -->
+                            <!-- <div class="text-right">Sylph</div> -->
+                        </div>
+                    </ListBoxItem>
+                    {#each tableData as overview, i}
+                        <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
+                            
+                            <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm">
+                                <div class="opacity-70">{overview.domain}</div>
+                                <div class="col-span-2 truncate italic">{overview.name}</div>
+                                <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                <!-- <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
+                                <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                <div class="flex justify-end items-center pt-1">
+
+                                    <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
+
+                                        {#if overview.vircov > 0}
+                                            <div class="rounded-full bg-primary-400 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                        <!-- {#if overview.kraken2 > 0}
+                                            <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if} -->
+                                        {#if overview.bracken > 0}
+                                            <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                        {#if overview.metabuli > 0}
+                                            <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                        {#if overview.ganon2 > 0}
+                                            <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                        {#if overview.kmcp > 0}
+                                            <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                        {#if overview.sylph > 0}
+                                            <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                        {#if overview.blast > 0}
+                                            <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
+                                        {:else}
+                                            <div></div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                            {#if selectedTaxid === overview.taxid && taxonEvidence}
+                            <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
+                            {/if}
+                        </ListBoxItem>
+                    {/each}
+                </ListBox>
+            </div>
+            {#if pagination}
+                <div class="mt-8">
+                    <Paginator bind:settings={paginationSettings} showFirstLastButtons={false} showPreviousNextButtons={true} class="mt-2" select="paginator-select select text-xs" regionControl="opacity-30 dark:variant-filled-surface dark:opacity-60 text-xs"/>
+                </div>
+            {/if}
+        {/if}
     {/if}
 </div>

@@ -11,27 +11,6 @@
     let modal: ModalSettings;
 
 
-        // modalComponent = {
-        //     // Pass a reference to your custom component
-        //     ref: CandidateTaxon,
-        //     // Add the component properties as key/value pairs
-        //     props: { 
-        //         taxonData: taxonData,
-        //         taxonOverview: taxonOverview,
-        //         selectedTags: selectedTags,
-        //         selectedIdentifiers: selectedIdentifiers,
-        //         serverFilterConfig: serverFilterConfig
-        //     },
-        //     // Provide a template literal for the default component slot
-        //     slot: '<p>Select this taxon as a candidate for reporting</p>'
-        // } satisfies ModalComponent;
-
-        // modal = {
-        //     type: 'component',
-        //     // Pass the component directly:
-        //     component: modalComponent,
-        // } satisfies ModalSettings;
-
 </script>
 
 <div class="p-8 mt-4 border border-primary-500 border-opacity-30 rounded-lg">
@@ -39,7 +18,6 @@
     <div class="flex align-center">
         
         <div class="ml-auto gap-y-4 flex flex-col text-sm">
-
             <button class="btn btn-sm variant-outline-primary mr-2" type="button" on:click={() => console.log("Candidate")}>
                 <div class="h-5 w-5 mr-2">
                     <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

@@ -211,7 +211,7 @@ async fn register_team_database_project_handler(
             let json_response = serde_json::json!({"status": "success", "message": "Added project to team database", "data": serde_json::json!({"team_project": &new_project})});
             HttpResponse::Ok().json(json_response)
         },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": "Failed to register project with team database", "data": serde_json::json!({"team_project": &new_project})}))
+        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": format!("Failed to register project with team database: {}", err.to_string()), "data": serde_json::json!({"team_project": &new_project})}))
     }
 
 }

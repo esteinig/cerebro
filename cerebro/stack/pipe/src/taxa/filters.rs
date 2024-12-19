@@ -14,10 +14,10 @@ use super::taxon::Taxon;
 pub struct TaxonFilterConfig {
     pub rank: Option<PathogenDetectionRank>,      // Filter by specific taxonomic rank
     pub domains: Vec<String>,                     // Filter by domain names
-    pub tools: Vec<ProfileTool>,        // Filter by specific detection tools
-    pub modes: Vec<AbundanceMode>,        // Filter by detection modes (Sequence/Profile)
+    pub tools: Vec<ProfileTool>,                  // Filter by specific detection tools
+    pub modes: Vec<AbundanceMode>,                // Filter by detection modes (Sequence/Profile)
     pub min_bases: u64,
-    pub min_bpm: f64,
+    pub min_bpm: f64,                             
     pub min_reads: u64,                           // Minimum read count for inclusion
     pub min_rpm: f64,                             // Minimum RPM (Reads per million) for inclusion
     pub min_abundance: f64,                       // Minimum abundance for inclusion
@@ -76,6 +76,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     .into_iter()
     .map(|mut taxon| {
 
+        
         // Step 1: Collect NTC RPMs for matching tools, modes, and tags summing NTC RPM if multiple NTC samples are provided
         let mut ntc_rpms: HashMap<(ProfileTool, AbundanceMode, String), f64> = HashMap::new();
 
@@ -92,7 +93,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             })
             .for_each(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
-                    // Extract nucleic acid tag (DNA/RNA) if present
+                    // Extract nucleic acid tag (DNA/RNA)for NTC record if present
                     if let Some(tag) = tags.iter().find(|tag| tag == &&"DNA".to_string() || tag == &&"RNA".to_string()) {
                         let key = (record.tool.clone(), record.mode.clone(), tag.clone());
                         // Sum RPM values for matching keys
@@ -121,18 +122,36 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
                         .iter()
                         .find(|tag| tag == &&"DNA".to_string() || tag == &&"RNA".to_string());
 
-                    if let (Some(ratio), Some(tag)) = (filter_config.ntc_ratio, nucleic_acid_tag) {
+                    if let (Some(ratio_threshold), Some(tag)) = (filter_config.ntc_ratio, nucleic_acid_tag) {
                         let key = (record.tool.clone(), record.mode.clone(), tag.clone());
                         if let Some(ntc_rpm) = ntc_rpms.get(&key) {
-                            return record.rpm >= ratio * ntc_rpm; // If NTC RPM is not at least {ratio}-times larger than library RPM, include the evidence record
+                            let retain = (ntc_rpm / record.rpm) <= ratio_threshold; // Retain evidence if the NTC RPM / Library RPM ratio is larger than the provided threshold
+                            
+                            if retain {
+                                log::debug!(
+                                    "Retaining: taxon.name = {}, record.rpm = {:.2}, ntc_rpm = {:.2}, ratio = {:.2}, threshold = {}, retained = {}",
+                                    taxon.name,
+                                    record.rpm,
+                                    ntc_rpm,
+                                    (ntc_rpm / record.rpm),
+                                    ratio_threshold,
+                                    retain
+                                );
+                            }
+
+                            return retain; 
+                            
                         }
+                        
                     }
                 }
                 true // Keep if no NTC comparison or ratio is specified
             })
             .collect();
-    
-        // Step 3: Apply remaining filters for tools, modes, and thresholds
+
+        // Step 3: Apply remaining filters for tools, modes, and thresholds -
+        // must happen after NTC comparison filter otherwise we would exclude 
+        // evidence records from NTC
         taxon.evidence.profile = taxon
             .evidence
             .profile

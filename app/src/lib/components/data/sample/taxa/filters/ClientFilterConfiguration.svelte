@@ -123,7 +123,7 @@
         {/if}
     </div>
 
-    <p class=""><span class="opacity-40">Filter by modules</span></p>
+    <p class=""><span class="opacity-40">Modules</span></p>
     <div class="p-4">
         <span class="chip {clientFilterConfig.modules.alignment ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.alignment ? clientFilterConfig.modules.alignment = false : clientFilterConfig.modules.alignment = true }} on:keypress aria-hidden>
             {#if clientFilterConfig.modules.alignment}
@@ -144,7 +144,7 @@
                     </svg>
                 </span>
             {/if}
-            <span>Profile</span>
+            <span>K-mer</span>
             <div class="rounded-full bg-secondary-500 h-2 w-2 ml-2"></div>
         </span>
         <span class="chip {clientFilterConfig.modules.assembly ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.assembly ? clientFilterConfig.modules.assembly = false : clientFilterConfig.modules.assembly = true }} on:keypress  aria-hidden>
@@ -159,20 +159,4 @@
             <div class="rounded-full bg-tertiary-500 h-2 w-2 ml-2"></div>
         </span>
     </div>
-
-    <p class=""><span class="opacity-40">Filter by summary metrics</span></p>
-    <div class="p-4">
-
-        <div class="flex gap-x-8 pb-4 w-3/4">
-            <label class="label">
-                <span class="text-xs opacity-60">Minimum reads per million (rpm)</span>
-                <input type="number" class="input text-xs {numericInputClass}" bind:value={clientFilterConfig.minimum.rpm}/>
-            </label>
-            <label class="label">
-                <span class="text-xs opacity-60">Minimum contig length (bp)</span>
-                <input type="number" class="input text-xs {numericInputClass}" bind:value={clientFilterConfig.minimum.contigs}/>
-            </label>
-        </div>
-    </div>
-
 </div>
