@@ -70,8 +70,6 @@
 
         let fail: boolean;
 
-        console.log(database);
-
         if (first) {
             fail = !database.projects.length
         } else {

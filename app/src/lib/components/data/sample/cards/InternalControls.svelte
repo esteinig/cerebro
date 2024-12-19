@@ -1,5 +1,4 @@
 <script lang="ts">
-    import '@carbon/charts-svelte/styles.css'
 	import { BarChartSimple, ChartTheme, ScaleTypes } from '@carbon/charts-svelte';
 	import type { OrganismControl, Cerebro } from '$lib/utils/types';
 

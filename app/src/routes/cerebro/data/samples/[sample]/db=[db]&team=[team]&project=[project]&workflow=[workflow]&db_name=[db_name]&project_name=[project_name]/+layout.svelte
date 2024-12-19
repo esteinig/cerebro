@@ -1,26 +1,20 @@
 <script lang="ts">
-
-
     import {
         selectedModels,
         selectedIdentifiers,
         selectedServerFilterConfig,
         selectedClientFilterConfig,
-        selectedTaxonHighlightConfig,
-
 		selectedPrevalenceContamConfig
-
     } from '$lib/stores/stores';
 
 	import { page } from "$app/stores";
-	import { ListBox, ListBoxItem, SlideToggle } from "@skeletonlabs/skeleton";
-	import { FileTag, type Cerebro, type WorkflowConfig } from "$lib/utils/types";
+	import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
+	import { DomainName, FileTag, type Cerebro,} from "$lib/utils/types";
 
 	import WorkflowSelection from "$lib/components/data/sample/selections/WorkflowSelection.svelte";
 	import SampleSelection from "$lib/components/data/sample/selections/SampleSelection.svelte";
     import ServerFilterConfiguration from "$lib/components/data/sample/taxa/filters/ServerFilterConfiguration.svelte";
     import ClientFilterConfiguration from "$lib/components/data/sample/taxa/filters/ClientFilterConfiguration.svelte";
-	import TaxonomyHighlights from "$lib/components/data/sample/taxa/filters/TaxonomyHighlights.svelte";
     
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import { goto } from "$app/navigation";
@@ -32,6 +26,7 @@
         Comments = "comments",
         Reports = "reports"
     }
+    
 
     function getDnaLibraryIdentifiers(): string[] {
         const dnaFilter: Cerebro[] = $page.data.sampleCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.DNA));
@@ -39,6 +34,15 @@
     }
     function getDnaNegativeTemplateControlIdentifiers(): string[] {
         const dnaFilter: Cerebro[] = $page.data.controlCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.DNA));
+        return dnaFilter.map(model => model.id)
+    }
+
+    function getRnaLibraryIdentifiers(): string[] {
+        const dnaFilter: Cerebro[] = $page.data.sampleCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.RNA));
+        return dnaFilter.map(model => model.id)
+    }
+    function getRnaNegativeTemplateControlIdentifiers(): string[] {
+        const dnaFilter: Cerebro[] = $page.data.controlCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.RNA));
         return dnaFilter.map(model => model.id)
     }
 
@@ -50,16 +54,37 @@
         return $page.data.controlCerebro.filter((model: Cerebro) => selectedNegativeTemplateControlIdentifiers.includes(model.id))
     }
 
-    
-    let showServerSideFilters: boolean = false;
-    let selectedView: string = DataView.QualityControl;
+    let selectedView: string = $page.url.pathname.split("/")[-1] ?? DataView.QualityControl;
     
     let workflowIdentifier: string = $page.data.requestedWorkflow;
 
     let selectedLibraryIdentifiers: string[] = getDnaLibraryIdentifiers();
     let selectedNegativeTemplateControlIdentifiers: string[] = getDnaNegativeTemplateControlIdentifiers();
 
+    let selectedLibraryTag: FileTag = FileTag.DNA;
+
+    function setClientFilterConfigDomainRna() {
+        $selectedClientFilterConfig.domains = [DomainName.Viruses];
+    }
+
+    function setClientFilterConfigDomainDna() {
+        $selectedClientFilterConfig.domains = [];
+    }
+
     $: {
+        if (selectedLibraryTag === FileTag.DNA) {
+            selectedLibraryIdentifiers = getRnaLibraryIdentifiers();
+            selectedNegativeTemplateControlIdentifiers = getRnaNegativeTemplateControlIdentifiers();
+            selectedLibraryTag = FileTag.RNA;
+            setClientFilterConfigDomainRna();
+            
+        } else if (selectedLibraryTag === FileTag.RNA) {
+            selectedLibraryIdentifiers = getDnaLibraryIdentifiers();
+            selectedNegativeTemplateControlIdentifiers = getDnaNegativeTemplateControlIdentifiers();
+            selectedLibraryTag = FileTag.DNA;
+            setClientFilterConfigDomainDna();
+        }
+
         const selectedLibraryModels = getLibraryModels(selectedLibraryIdentifiers);
         const selectedNegativeTemplateControlModels = getNegativeTemplatecontrolIdentifiers(selectedNegativeTemplateControlIdentifiers);
 
@@ -116,13 +141,6 @@
                 <span class="opacity-60">Client-side filters</span>
             </p>
             <div class="w-full border border-primary-500 rounded-md p-4">
-                <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-x-4 align-center">
-                    <div class="col-span-2">
-                        <p class="opacity-60 text-xs pb-8 pr-4">
-                            Apply fine-grained evidence filters and negative template control comparison thresholds using server-side filters below
-                        </p>
-                    </div>
-                </div>
                 <ClientFilterConfiguration bind:clientFilterConfig={$selectedClientFilterConfig}></ClientFilterConfiguration>
             </div>
             <p class="mb-1 mt-4">
@@ -139,13 +157,13 @@
                     </button>
                 </div>
             </div>
-            <p class="mb-1 mt-4">
+            <!-- <p class="mb-1 mt-4">
                 <span class="opacity-60">Taxonomy highlights</span>
             </p>
             <div class="w-full border border-primary-500 rounded-md p-4" >
                 <TaxonomyHighlights title="Common contamination" bind:highlightConfig={$selectedTaxonHighlightConfig.contamination}></TaxonomyHighlights>
                 <TaxonomyHighlights title="Syndromic pathogens" bind:highlightConfig={$selectedTaxonHighlightConfig.syndrome}></TaxonomyHighlights>
-            </div>
+            </div> -->
         {/if}
     </div>
 

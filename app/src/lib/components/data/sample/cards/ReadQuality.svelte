@@ -1,6 +1,5 @@
 <script lang="ts">
-    import '@carbon/charts-svelte/styles.css'
-    import { MeterChart, ChartTheme } from '@carbon/charts-svelte'
+    import { ChartTheme } from '@carbon/charts-svelte'
     import { Statuses } from '@carbon/charts';
 	import { type Cerebro } from '$lib/utils/types';
     
@@ -234,4 +233,3 @@
         display: none;
     }
 </style>
- 

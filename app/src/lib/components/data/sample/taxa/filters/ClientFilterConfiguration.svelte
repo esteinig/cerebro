@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { ClientFilterConfig, PrevalenceContaminationConfig } from "$lib/utils/types";
-    import { DomainName } from "$lib/utils/types";
+	import CheckmarkIcon from "$lib/general/icons/CheckmarkIcon.svelte";
+	import type { ClientFilterConfig } from "$lib/utils/types";
+    import { DomainName, ProfileTool } from "$lib/utils/types";
 	import { Autocomplete, InputChip } from "@skeletonlabs/skeleton";
     import type { AutocompleteOption } from "@skeletonlabs/skeleton";
 
@@ -23,7 +24,6 @@
 		} else {
             clientFilterConfig.domains = clientFilterConfig.domains.filter(d => d !== domain)
         }
-        console.log(clientFilterConfig.domains)
     }
 
     function onGenusSelection(event: CustomEvent<AutocompleteOption>): void {
@@ -38,6 +38,14 @@
 			clientFilterConfig.species = [...clientFilterConfig.species, event.detail.value as string];
 			speciesChip = '';
 		}
+    }
+
+    function updateToolSelection(tool: ProfileTool) {
+        if (clientFilterConfig.tools.includes(tool)) {
+            clientFilterConfig.tools = clientFilterConfig.tools.filter(t => t !== tool)
+        } else {
+            clientFilterConfig.tools = [...clientFilterConfig.tools, tool]
+        }
     }
 
     let genusChip: string = '';
@@ -123,54 +131,89 @@
         {/if}
     </div>
 
-    <p class=""><span class="opacity-40">Modules</span></p>
+    <p class="pt-4"><span class="opacity-40">Profiling modules</span></p>
     <div class="p-4">
         <span class="chip {clientFilterConfig.modules.alignment ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.alignment ? clientFilterConfig.modules.alignment = false : clientFilterConfig.modules.alignment = true }} on:keypress aria-hidden>
             {#if clientFilterConfig.modules.alignment}
-                <span>
-                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3 h-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </span>
+                <span><CheckmarkIcon /></span>
             {/if}
             <span>Alignment</span>
             <div class="rounded-full bg-primary-500 h-2 w-2 ml-2"></div>
         </span>
         <span class="chip {clientFilterConfig.modules.profile ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.profile ? clientFilterConfig.modules.profile = false : clientFilterConfig.modules.profile = true }} on:keypress  aria-hidden>
             {#if clientFilterConfig.modules.profile}
-                <span>
-                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3 h-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </span>
+                <span><CheckmarkIcon /></span>
             {/if}
             <span>K-mer</span>
             <div class="rounded-full bg-secondary-500 h-2 w-2 ml-2"></div>
         </span>
         <span class="chip {clientFilterConfig.modules.assembly ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.modules.assembly ? clientFilterConfig.modules.assembly = false : clientFilterConfig.modules.assembly = true }} on:keypress  aria-hidden>
             {#if clientFilterConfig.modules.assembly}
-                <span>
-                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3 h-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </span>
+                <span><CheckmarkIcon /></span>
             {/if}
             <span>Assembly</span>
             <div class="rounded-full bg-tertiary-500 h-2 w-2 ml-2"></div>
         </span>
     </div>
-    <p class=""><span class="opacity-40">Contamination</span></p>
+    <p class="pt-4"><span class="opacity-40">Profiling tools</span></p>
     <div class="p-4">
-        <span class="chip {clientFilterConfig.contam.display ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.contam.display ? clientFilterConfig.contam.display = false : clientFilterConfig.contam.display = true }} on:keypress aria-hidden>
-            {#if clientFilterConfig.contam.display}
-                <span>
-                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3 h-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                </span>
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Vircov) ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Vircov) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Vircov)}
+                <span><CheckmarkIcon /></span>
             {/if}
-            <span>Contaminants</span>
-            <div class="rounded-full bg-primary-500 h-2 w-2 ml-2"></div>
+            <span>{ProfileTool.Vircov}</span>
+            <div class="rounded-full bg-primary-400 h-2 w-2 ml-2"></div>
+        </span>
+        <!-- <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Kraken2) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Kraken2) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Kraken2)}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>{ProfileTool.Kraken2}</span>
+            <div class="rounded-full bg-secondary-800 h-2 w-2 ml-2"></div>
+        </span> -->
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Bracken) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Bracken) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Bracken)}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>{ProfileTool.Bracken}</span>
+            <div class="rounded-full bg-secondary-700 h-2 w-2 ml-2"></div>
+        </span>
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Metabuli) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Metabuli) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Metabuli)}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>{ProfileTool.Metabuli}</span>
+            <div class="rounded-full bg-secondary-600 h-2 w-2 ml-2"></div>
+        </span>
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Ganon2) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Ganon2) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Ganon2)}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>{ProfileTool.Ganon2}</span>
+            <div class="rounded-full bg-secondary-500 h-2 w-2 ml-2"></div>
+        </span>
+        <!-- <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Sylph) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Sylph) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Sylph)}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>{ProfileTool.Sylph}</span>
+            <div class="rounded-full bg-secondary-400 h-2 w-2 ml-2"></div>
+        </span> -->
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Blast) ? 'variant-ghost-tertiary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Blast) }} on:keypress aria-hidden>
+            {#if clientFilterConfig.tools.includes(ProfileTool.Blast)}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>{ProfileTool.Blast}</span>
+            <div class="rounded-full bg-tertiary-500 h-2 w-2 ml-2"></div>
+        </span>
+    </div>
+    <p class="pt-4"><span class="opacity-40">Prevalence contamination</span></p>
+    <div class="p-4">
+        <span class="chip {clientFilterConfig.contam.display ? 'variant-ghost-surface' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.contam.display ? clientFilterConfig.contam.display = false : clientFilterConfig.contam.display = true }} on:keypress aria-hidden>
+            {#if clientFilterConfig.contam.display}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>Display contaminants</span>
         </span>
     </div>
 </div>

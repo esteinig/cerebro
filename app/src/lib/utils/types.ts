@@ -1414,6 +1414,7 @@ export type ClientFilterConfig = {
     genera: Array<string | null>,
     species: Array<string | null>,
     modules: ClientFilterModules,
+    tools: ProfileTool[],
     minimum: ClientFilterMinimum,
     contam: ClientFilterContam,
 }

@@ -1,5 +1,6 @@
 import { browser } from "$app/environment";
-import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig, type ClientFilterContam, type PrevalenceContaminationConfig } from "$lib/utils/types";
+import { PATHOGENS } from "$lib/utils/helpers";
+import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig, type ClientFilterContam, type PrevalenceContaminationConfig, ProfileTool } from "$lib/utils/types";
 import { writable, type Writable } from "svelte/store";
 
 // Session based theme store. Grabs the current theme from the current body.
@@ -30,8 +31,9 @@ const defaultClientFilterConfig: ClientFilterConfig = {
     domains: [],
     genera: [],
     species: [],
+    tools: [ProfileTool.Vircov, ProfileTool.Bracken, ProfileTool.Metabuli, ProfileTool.Ganon2, ProfileTool.Blast],
     contam: {
-        display: false,
+        display: true,
         opacity: 20
     } satisfies ClientFilterContam,
     modules: {
@@ -40,7 +42,7 @@ const defaultClientFilterConfig: ClientFilterConfig = {
         assembly: false
     } satisfies ClientFilterModules,
     minimum: {
-        rpm: 10,
+        rpm: 0,
         rpm_kmer: 0,
         rpm_alignment: 0,
         contigs: 0,
@@ -53,12 +55,12 @@ const defaultServerFilterConfig: TaxonFilterConfig = {
     domains: [],            // Filter by domain names
     tools: [],              // Filter by specific detection tools
     modes: [],              // Filter by detection modes (Sequence/Profile)
-    min_bases: 500,         // Minimum contig length for inclusion
+    min_bases: 200,         // Minimum contig length for inclusion
     min_bpm: 0.0,           // Minimum contig length per million for inclusion
     min_reads: 0,           // Minimum read count for inclusion
-    min_rpm: 10.0,          // Minimum RPM for inclusion
+    min_rpm: 1.0,           // Minimum RPM for inclusion
     min_abundance: 0,       // Minimum abundance for inclusion
-    ntc_ratio: 10
+    ntc_ratio: 3
 }
 
 const defaultPrevalenceContamConfig: PrevalenceContaminationConfig = {
@@ -75,14 +77,7 @@ const contamHighlightConfig: HighlightConfig = {
 }
 
 const syndromeHighlightConfig: HighlightConfig = {
-    species: [
-        "Cryptococcus",
-        "Neisseria",
-        "Human betaherpesvirus",
-        "Streptococcus",
-        "Haemophilus",
-        "Lymphocryptovirus"
-    ],
+    species: PATHOGENS,
     taxid: [],
     color: "tertiary"
 }

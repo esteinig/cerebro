@@ -1,5 +1,4 @@
 <script lang="ts">
-    import '@carbon/charts-svelte/styles.css'
 	import { ERCC_CONCENTRATIONS, ERCC_GROUPS, getCssVariableAsHex } from "$lib/utils/helpers";
 	import type { Cerebro, ErccControl } from "$lib/utils/types";
 	import { sampleCorrelation } from "simple-statistics";

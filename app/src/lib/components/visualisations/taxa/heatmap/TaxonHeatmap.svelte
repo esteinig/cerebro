@@ -110,7 +110,6 @@
             });
         });
 
-        console.log(columnTags, uniqueDetectionIds)
 
         // Filter uniqueDetectionIds into groups
         const ntcAndEnvColumns = uniqueDetectionIds.filter(

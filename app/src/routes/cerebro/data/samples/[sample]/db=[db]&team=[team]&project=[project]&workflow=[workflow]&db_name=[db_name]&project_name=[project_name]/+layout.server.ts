@@ -37,9 +37,6 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     if (sampleOverviewWorkflowResponse.ok) {
         let sampleOverviewResponseData: SampleOverviewWorkflowsResponseData = await sampleOverviewWorkflowResponse.json();
         
-        // // DEBUGGING
-        // console.log(sampleOverviewResponseData)
-
         sampleWorkflows = sampleOverviewResponseData.data.sample_overview[0]?.workflows
     } else {
         throw error(sampleOverviewWorkflowResponse.status, "Failed to retrieve workflow overview")

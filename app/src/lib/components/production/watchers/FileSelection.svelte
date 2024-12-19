@@ -136,7 +136,6 @@
         return acc;
     }, []);
 
-    $: console.log(selected)
 
     $: numberSelectedLibraries = checkedNodes.filter(node => !Object.keys(groupedFilesFirstLevel).includes(node)).length
         

@@ -2,19 +2,19 @@
 	import type { ClientFilterConfig, Taxon, TaxonOverviewRecord, TaxonEvidence } from "$lib/utils/types";
     import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
 	import { getToastStore, ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
-	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig } from "$lib/stores/stores";
+	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig, selectedPrevalenceContamConfig, selectedModels } from "$lib/stores/stores";
     import { AbundanceMode, FileTag } from "$lib/utils/types";
 	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { page } from "$app/stores";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import CircleIndicator from "$lib/general/icons/CircleIndicator.svelte";
+	import { baseTags } from "$lib/utils/helpers";
+    import { navigationLoading } from '$lib/stores/stores';
 
-    // export let serverFilterConfig: CerebroFilterConfig | CerebroFilterConfig[];
-    
-    // export let candidateButton: boolean = true;
+    export let displayData: DisplayData = DisplayData.Rpm;
 
-    export let pagination: boolean = true;
+    let pagination: boolean = true;
 
     // Selected taxonomic identifier
     let selectedTaxid: string;
@@ -23,7 +23,7 @@
     let taxa: Taxon[] = [];
 
     // Taxa filtered client-side
-    let filteredData: Taxon[] = taxa;
+    let filteredData: Taxon[] = [];
 
     // Contamination taxids
     let contamTaxid: string[] = [];
@@ -33,7 +33,6 @@
 
     // Display data modes for table
     let displayMode: AbundanceMode = AbundanceMode.Sequence;
-    let displayData: DisplayData = DisplayData.Rpm;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
     let taxonEvidence: TaxonEvidence | null = null;
@@ -49,6 +48,8 @@
         }
     }
 
+    
+
     let publicApi = new CerebroApi();
     let toastStore = getToastStore();
 
@@ -57,7 +58,6 @@
     async function getAggregatedTaxaOverview(selectedIdentifiers: string[]) {
 
         loading = true;
-
         let response: ApiResponse = await publicApi.fetchWithRefresh(
             `${publicApi.routes.cerebro.taxa}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}&id=${selectedIdentifiers.join(",")}&overview=true`,
             { 
@@ -70,18 +70,20 @@
             $page.data.refreshToken, toastStore, "Taxa loaded"
         )
 
+        loading = false;
+
         if (response.ok){
             taxa = response.json.data.taxa;
 
-            await getPrevalenceContamination(taxa.map(taxon => taxon.taxid), [FileTag.DNA], 0.50, 0.0);
-        }
+            let tags = baseTags($selectedModels.map(model => model.sample.tags), true);
 
-        loading = false;
+            await getPrevalenceContamination(taxa.map(taxon => taxon.taxid), tags, $selectedPrevalenceContamConfig.threshold, $selectedPrevalenceContamConfig.min_rpm);
+        }
     }    
 
-    async function getPrevalenceContamination(taxid: string[], tags: FileTag[], threshold: number, min_rpm: number) {
+    async function getPrevalenceContamination(taxid: string[], tags: string[], threshold: number, min_rpm: number) {
 
-        loading = true;
+        $navigationLoading = true; // use the navigation loading for background loading status
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
             `${publicApi.routes.cerebro.taxaPrevalenceContamination}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}`,
@@ -98,10 +100,10 @@
                     sample_type: null
                 }) 
             } as RequestInit,
-            $page.data.refreshToken, toastStore, "Taxa loaded"
+            $page.data.refreshToken, toastStore, "Contaminants identified from project libraries"
         )
 
-        loading = false;
+        $navigationLoading = false;
 
         if (response.ok){
             contamTaxid = response.json.data.taxid;
@@ -132,20 +134,26 @@
             let contributingTools = 0; // Track the number of tools contributing to the average
 
             taxon.evidence.profile.forEach((record) => {
-                let key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
-                let data = field;
 
-                if (record.tool === ProfileTool.Blast) {
-                    data = DisplayData.Bases; // Use 'Bases' for Blast records.
+                // Only include selected tools in table overview 
+                if ($selectedClientFilterConfig.tools.includes(record.tool)) {
+
+                    let key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
+                    let data = field;
+
+                    if (record.tool === ProfileTool.Blast) {
+                        data = DisplayData.Bases; // Use 'Bases' for Blast records.
+                    }
+
+                    if (key in aggregatedResults) {
+                        aggregatedResults[key] += record[data]; // Always update aggregated results.
+                        
+                        // Exclude Blast contributions when counting tools
+                        if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
+                            contributingTools++;
+                        }
                 }
 
-                if (key in aggregatedResults) {
-                    aggregatedResults[key] += record[data]; // Always update aggregated results.
-                    
-                    // Exclude Blast contributions when counting tools
-                    if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
-                        contributingTools++;
-                    }
                 }
             });
 
@@ -196,19 +204,19 @@
                 taxonomy = $selectedClientFilterConfig.species.includes(taxon.level.species);
             }
 
-            if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxon.name.includes(species))) {
-                contam = false
-            } else  {
-                contam = true
-            }
+            // if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxon.name.includes(species))) {
+            //     contam = false
+            // } else  {
+            //     contam = true
+            // }
 
-            if ($selectedTaxonHighlightConfig.syndrome.species.some(species => taxon.name.includes(species))) {
-                syndrome = true
-            } else {
-                syndrome = false
-            }
+            // if ($selectedTaxonHighlightConfig.syndrome.species.some(species => taxon.name.includes(species))) {
+            //     syndrome = true
+            // } else {
+            //     syndrome = false
+            // }
                 
-            return (taxonomy && modules && contam) || syndrome  // && metrics
+            return (taxonomy && modules) // && metrics  -> || syndrome will always show syndromic ones even if they should be client filtered
         })
     }
 
@@ -239,9 +247,9 @@
     }
 
     const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
-        if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.includes(species))) {
+        if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
             return 'variant-soft-secondary rounded-token py-1.5 px-2'
-        } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))) {
+        } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
             return 'variant-soft-tertiary rounded-token py-1.5 px-2'
         } else {
             return 'rounded-token py-1.5 px-2'
@@ -249,9 +257,9 @@
     }
 
     const getTaxonHover = (overview: TaxonOverviewRecord): string =>  {
-        if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))){
+        if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))){
             return 'hover:variant-soft-secondary'
-        } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.includes(species))) {
+        } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
             return 'hover:variant-soft-tertiary'
         } else {
             return 'hover:variant-soft'
@@ -273,11 +281,6 @@
             }
         });
     };
-
-    const displayContaminationRow = (overview: TaxonOverviewRecord): boolean => {
-        let displayRow = contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true;
-        return displayRow
-    }
 
 </script>
 
@@ -304,80 +307,115 @@
                             <div class="col-span-2 flex flex-col items-start">
                                 <span class="opacity-60">Species</span>
                             </div>
-                            
-                            <!-- <div class="col-span-1">Tags</div> -->
-                            
+                                                        
                             <div class="text-right flex flex-col items-end">
                                 <span class="opacity-60">{displayTotal}</span>
                                 <span class="text-xs opacity-40">rpm</span>
                             </div>
                             
-                            <div class="text-right flex flex-col items-end">
-                                <span class="opacity-60">Alignment</span>
-                                <div class="flex items-center">
-                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-primary-500"/><span class="text-xs opacity-40">rpm</span>
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">{ProfileTool.Vircov}</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-primary-500"/><span class="text-xs opacity-40">rpm</span>
+                                    </div>
                                 </div>
-                            </div>
-<!--                             
-                            <div class="text-right flex flex-col items-end">
-                                <span>Kraken2</span>
-                                <div class="flex items-center">
-                                    <div class="rounded-full bg-secondary-600 h-2 w-2 mr-1 mt-0.5" /><span class="text-xs opacity-40">rpm</span>
-                                </div>
-                            </div> -->
+                            {/if}
                             
-                            <div class="text-right flex flex-col items-end">
-                                <span class="opacity-60">Bracken</span>
-                                <div class="flex items-center">
-                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-500"/><span class="text-xs opacity-40">rpm</span>
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">{ProfileTool.Kraken2}</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-400"/><span class="text-xs opacity-40">rpm</span>
+                                   </div>
                                 </div>
-                            </div>
+                            {/if}
                             
-                            <div class="text-right flex flex-col items-end">
-                                <span class="opacity-60">Metabuli</span>
-                                <div class="flex items-center">
-                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-600"/><span class="text-xs opacity-40">rpm</span>
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">{ProfileTool.Bracken}</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-500"/><span class="text-xs opacity-40">rpm</span>
+                                    </div>
                                 </div>
-                            </div>
+                            {/if}
                             
-                            <div class="text-right flex flex-col items-end">
-                                <span class="opacity-60">Ganon2</span>
-                                <div class="flex items-center">
-                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-700"/><span class="text-xs opacity-40">rpm</span>
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">{ProfileTool.Metabuli}</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-600"/><span class="text-xs opacity-40">rpm</span>
+                                    </div>
                                 </div>
-                            </div>
+                            {/if}
                             
-                            <div class="text-right flex flex-col items-end">
-                                <span class="opacity-60">Assembly</span>
-                                <div class="flex items-center">
-                                    <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-tertiary-500"/><span class="text-xs opacity-40">bp</span>
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">{ProfileTool.Ganon2}</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-700"/><span class="text-xs opacity-40">rpm</span>
+                                    </div>
                                 </div>
-                            </div>
+                            {/if}
+
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">{ProfileTool.Sylph}</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-tertiary-500"/><span class="text-xs opacity-40"> est. rpm</span>
+                                    </div>
+                                </div>
+                            {/if}
                             
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="opacity-60">Assembly</span>
+                                    <div class="flex items-center">
+                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-tertiary-500"/><span class="text-xs opacity-40">bp</span>
+                                    </div>
+                                </div>
+                            {/if}
+
                             <div class="text-center">
                                 <span class="opacity-60">Tools</span>
                             </div>
+
+                            <!-- <div class="col-span-1">Tags</div> -->
                             <!-- <div class="text-right">Kmcp</div> -->
-                            <!-- <div class="text-right">Sylph</div> -->
                         </div>
                     </ListBoxItem>
                     {#each tableData as overview, i}
-                        {#if displayContaminationRow(overview)}
+                        {#if contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true}
                         <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                             
-                                <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? `opacity-${$selectedClientFilterConfig.contam.opacity}`: ''}">
+                                <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' : ''}">
                                     <div class="opacity-70">{overview.domain}</div>
                                     <div class="col-span-2 truncate italic">{overview.name}</div>
                                     <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    <!-- <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                    <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
-                                    <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                    <!-- <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                    <div class="flex justify-end items-center pt-1">
+                                    
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
+                                        <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    {/if}
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
+                                        <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    {/if}
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
+                                        <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    {/if}
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
+                                        <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    {/if}
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
+                                        <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    {/if}
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
+                                        <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                    {/if}
+                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                                        <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
+                                    {/if}
+                                        <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                     <div class="flex justify-end items-center pt-1">
 
                                         <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
 
@@ -386,11 +424,11 @@
                                             {:else}
                                                 <div></div>
                                             {/if}
-                                            <!-- {#if overview.kraken2 > 0}
+                                            {#if overview.kraken2 > 0}
                                                 <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
                                             {:else}
                                                 <div></div>
-                                            {/if} -->
+                                            {/if}
                                             {#if overview.bracken > 0}
                                                 <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
                                             {:else}
@@ -406,11 +444,11 @@
                                             {:else}
                                                 <div></div>
                                             {/if}
-                                            {#if overview.kmcp > 0}
+                                            <!-- {#if overview.kmcp > 0}
                                                 <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
                                             {:else}
                                                 <div></div>
-                                            {/if}
+                                            {/if} -->
                                             {#if overview.sylph > 0}
                                                 <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
                                             {:else}

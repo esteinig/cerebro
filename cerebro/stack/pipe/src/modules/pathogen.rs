@@ -350,7 +350,16 @@ impl PathogenDetection {
 
             for record in records {
                 let taxid = record.taxid.trim().to_string();
-                let name = record.taxname.trim().to_string();
+                let mut name = record.taxname.trim().to_string();
+                
+                // Custom BLAST databases don't usually have the 'ssciname' associated 
+                // we could use a taxonomy to add this later, but here we use the
+                // 'stitle' as taxname as configured in 'Cipher'
+
+                if name == "N/A".to_string() {
+                    name = record.title.trim().to_string()
+                }
+
                 let rank = PathogenDetectionRank::from_str(&record.taxrank);
                 let bases = record.length;
                 let bpm = compute_bpm(record.length, input_bases).unwrap_or(0.0);
