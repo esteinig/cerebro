@@ -57,6 +57,9 @@
 
     async function getAggregatedTaxaOverview(selectedIdentifiers: string[]) {
 
+        // Clear the contamination taxonomic identifiers
+        contamTaxid = []
+
         loading = true;
         let response: ApiResponse = await publicApi.fetchWithRefresh(
             `${publicApi.routes.cerebro.taxa}?team=${$page.params.team}&db=${$page.params.db}&project=${$page.params.project}&id=${selectedIdentifiers.join(",")}&overview=true`,
@@ -222,19 +225,20 @@
 
     let paginationSettings: PaginationSettings = {
         page: 0,
-        limit: 50,
+        limit: 500,
         size: taxa.length,
         amounts: [5, 10, 20, 50, 100, 500],
     };
 
     $: {    
-        
         // Whenever data changes apply client side filters...
         filteredData = applyClientSideFilters(taxa, $selectedClientFilterConfig);
 
         // ... and transform filtered data into the overview table rows
         tableData = transformTaxonOverview(filteredData, displayMode, displayData);
+    }
 
+    $: {
         // If pagination is enabled, slice the data for the page and limits as configured in table footer
         if (pagination) {
             paginationSettings.size = filteredData.length;
@@ -243,7 +247,6 @@
                 paginationSettings.page * paginationSettings.limit + paginationSettings.limit
             );
         }
-       
     }
 
     const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
@@ -256,15 +259,6 @@
         }
     }
 
-    const getTaxonHover = (overview: TaxonOverviewRecord): string =>  {
-        if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))){
-            return 'hover:variant-soft-secondary'
-        } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
-            return 'hover:variant-soft-tertiary'
-        } else {
-            return 'hover:variant-soft'
-        }
-    }
 
     const addSelectedTaxon = (overview: TaxonOverviewRecord) => {
         selectedTaxa.update(currentTaxa => {
@@ -386,7 +380,7 @@
                     </ListBoxItem>
                     {#each tableData as overview, i}
                         {#if contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true}
-                        <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
+                        <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover="hover:variant-soft" regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                             
                                 <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' : ''}">
                                     <div class="opacity-70">{overview.domain}</div>

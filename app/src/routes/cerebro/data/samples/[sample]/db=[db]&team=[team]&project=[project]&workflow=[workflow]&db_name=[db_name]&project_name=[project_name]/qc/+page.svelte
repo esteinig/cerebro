@@ -1,5 +1,6 @@
 <script lang="ts">
     import QualityControl from '$lib/components/data/sample/QualityControl.svelte';
+   
 </script>
 
 <div class="w-full mb-5">

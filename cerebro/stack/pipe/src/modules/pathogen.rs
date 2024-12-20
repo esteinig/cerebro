@@ -540,7 +540,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let name = record.taxname.trim().to_string();
                 let rank = PathogenDetectionRank::from_str(&record.tax_level);
-                let reads = if paired_end { record.cumulative * 2 } else { record.cumulative };
+                let reads = record.cumulative; // Ganon respects modern Illumina PE read identifier format whereas Kraken2/Bracken and Metabuli do not!
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
                 let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 

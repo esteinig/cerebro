@@ -27,7 +27,6 @@
         Reports = "reports"
     }
     
-
     function getDnaLibraryIdentifiers(): string[] {
         const dnaFilter: Cerebro[] = $page.data.sampleCerebro.filter((model: Cerebro) => model.sample.tags.includes(FileTag.DNA));
         return dnaFilter.map(model => model.id)
@@ -58,10 +57,10 @@
     
     let workflowIdentifier: string = $page.data.requestedWorkflow;
 
-    let selectedLibraryIdentifiers: string[] = getDnaLibraryIdentifiers();
-    let selectedNegativeTemplateControlIdentifiers: string[] = getDnaNegativeTemplateControlIdentifiers();
+    let selectedLibraryIdentifiers: string[] = [];
+    let selectedNegativeTemplateControlIdentifiers: string[] = [];
 
-    let selectedLibraryTag: FileTag = FileTag.DNA;
+    let selectedLibraryTag: FileTag | null = null;
 
     function setClientFilterConfigDomainRna() {
         $selectedClientFilterConfig.domains = [DomainName.Viruses];
@@ -71,27 +70,62 @@
         $selectedClientFilterConfig.domains = [];
     }
 
+    let isInitialized = false;
+
+    // Functions to retrieve identifiers based on the tag
+    function getIdentifiersByTag(tag: FileTag): [string[], string[]] {
+        if (tag === FileTag.DNA) {
+            return [getDnaLibraryIdentifiers(), getDnaNegativeTemplateControlIdentifiers()];
+        } else if (tag === FileTag.RNA) {
+            return [getRnaLibraryIdentifiers(), getRnaNegativeTemplateControlIdentifiers()];
+        }
+        return [[], []];
+    }
+
+    // Initialize selection
     $: {
-        if (selectedLibraryTag === FileTag.DNA) {
-            selectedLibraryIdentifiers = getRnaLibraryIdentifiers();
-            selectedNegativeTemplateControlIdentifiers = getRnaNegativeTemplateControlIdentifiers();
-            selectedLibraryTag = FileTag.RNA;
-            setClientFilterConfigDomainRna();
-            
-        } else if (selectedLibraryTag === FileTag.RNA) {
-            selectedLibraryIdentifiers = getDnaLibraryIdentifiers();
-            selectedNegativeTemplateControlIdentifiers = getDnaNegativeTemplateControlIdentifiers();
+        if (!isInitialized) {
+            console.log("Initializing to DNA");
+            [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.DNA);
             selectedLibraryTag = FileTag.DNA;
             setClientFilterConfigDomainDna();
+            isInitialized = true;
         }
+    }
 
+    // Reactive block for updates
+    $: {
+        if (isInitialized) {
+            const isDna = selectedLibraryIdentifiers.some((id) =>
+                getDnaLibraryIdentifiers().includes(id)
+            );
+            const isRna = selectedLibraryIdentifiers.some((id) =>
+                getRnaLibraryIdentifiers().includes(id)
+            );
+            if (isDna && selectedLibraryTag !== FileTag.DNA) {
+                console.log("Switching to DNA");
+                [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.DNA);
+                selectedLibraryTag = FileTag.DNA;
+                setClientFilterConfigDomainDna();
+            } else if (isRna && selectedLibraryTag !== FileTag.RNA) {
+                console.log("Switching to RNA");
+                [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.RNA);
+                selectedLibraryTag = FileTag.RNA;
+                setClientFilterConfigDomainRna();
+            }
+        }
+    }
+
+    // Update models whenever identifiers change
+    $: {
         const selectedLibraryModels = getLibraryModels(selectedLibraryIdentifiers);
-        const selectedNegativeTemplateControlModels = getNegativeTemplatecontrolIdentifiers(selectedNegativeTemplateControlIdentifiers);
+        const selectedNegativeTemplateControlModels = getNegativeTemplatecontrolIdentifiers(
+            selectedNegativeTemplateControlIdentifiers
+        );
 
         selectedIdentifiers.set([...selectedLibraryIdentifiers, ...selectedNegativeTemplateControlIdentifiers]);
         selectedModels.set([...selectedLibraryModels, ...selectedNegativeTemplateControlModels]);
     }
-
 
     function reloadTable() {
         selectedIdentifiers.set($selectedIdentifiers);

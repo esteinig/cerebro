@@ -4,8 +4,8 @@
 	import { type Cerebro } from '$lib/utils/types';
     
     export let selectedModel: Cerebro;
-
-    let selectedQualityControlSummary = selectedModel.quality.reads;
+    
+    $: selectedQualityControlSummary = selectedModel.quality.reads;
 
     let data = [
         {
@@ -67,7 +67,6 @@
             }
         },
     };
-
 
 </script>
 
