@@ -23,7 +23,6 @@
     {#if selectedVisualisation === "Heatmap"}
         <TaxonHeatmap selectedModels={$selectedModels} selectedIdentifiers={$selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
     {/if}
-
     <SpeciesOverviewTable displayData={selectedTableData}></SpeciesOverviewTable>
 </div>
 

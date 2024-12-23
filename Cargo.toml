@@ -10,5 +10,6 @@ members = [
     "cerebro/stack/fs",
     "cerebro/stack/tower",
     "cerebro/stack/pipe",
+    "cerebro/stack/report-wasm",
 ]
 resolver = "2"
