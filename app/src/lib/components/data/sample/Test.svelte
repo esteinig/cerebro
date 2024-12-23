@@ -27,8 +27,6 @@
 
 #first_page_header
 
-#outlinebox(title: "Test Result")[#first_page_results]
-
     
     `;
 
