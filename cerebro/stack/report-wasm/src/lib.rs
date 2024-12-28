@@ -1,24 +1,43 @@
 use chrono::{Datelike, Timelike};
+use report::{PathogenDetectionReport, ReportHeader, ReportType, TemplateManager};
 use typst_pdf::PdfStandards;
 use wasm_bindgen::prelude::*;
 
 mod world;
+mod report;
 
 use crate::world::SystemWorld;
+use crate::report::ReportConfig;
 
 #[wasm_bindgen]
 pub struct ReportCompiler {
     world: SystemWorld,
+    templates: TemplateManager,
+    report_type: ReportType,
 }
 
 #[wasm_bindgen]
 impl ReportCompiler {
     #[wasm_bindgen(constructor)]
-    pub fn new(root: String, request_data: &js_sys::Function) -> Self {
+    pub fn new(root: String, request_data: &js_sys::Function, report_type: String, report_logo: Option<Vec<u8>>) -> Result<Self, JsValue> {
 
-        Self {
-            world: SystemWorld::new(root, request_data)
-        }
+        Ok(Self {
+            world: SystemWorld::new(root, request_data, report_logo)?,
+            templates: TemplateManager::new(),
+            report_type: ReportType::from_str(&report_type)?
+        })
+    }
+
+    pub fn report(&mut self, config: JsValue) -> Result<String, JsValue> {
+
+        let report = match self.report_type {
+            ReportType::PathogenDetection => PathogenDetectionReport::from_js(config)?
+        };
+
+        // Render the template for the selected report type
+        self.templates
+            .render(&self.report_type, &report)
+            .map_err(|e| JsValue::from(format!("Failed to render template: {}", e)))
     }
 
     pub fn pdf(&mut self, text: String, path: String) -> Result<Vec<u8>, JsValue> {
@@ -46,8 +65,27 @@ impl ReportCompiler {
             
     }
 
+    pub fn svg(&mut self, text: String, path: String) -> Result<Vec<String>, JsValue> {
+                
+        let document = self
+            .world
+            .compile(text, path)
+            .map_err(|_| JsValue::from("Failed to compile document with Typst"))?;
+        
+        let mut svg_pages = Vec::new();
+        for page in &document.pages {
+            svg_pages.push(typst_svg::svg(page))
+        }
+        Ok(svg_pages)     
+    }
+
+
     pub fn add_font(&mut self, data: Vec<u8>) {
         self.world.add_font(data);
+    }
+
+    pub fn add_logo(&mut self, data: Vec<u8>) -> Result<(), JsValue> {
+        self.world.add_logo(data)
     }
 }
 

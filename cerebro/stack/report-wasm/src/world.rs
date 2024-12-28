@@ -1,7 +1,6 @@
 // Provides access to system resources and compiler functions
 
 use std::{
-    borrow::Borrow,
     collections::HashMap,
     path::{Path, PathBuf},
     sync::OnceLock,
@@ -53,6 +52,37 @@ pub struct EmbeddedFonts {
     pub regular: &'static [u8],
     pub bold: &'static [u8],
     pub italic: &'static [u8],
+    pub bold_italic: &'static [u8],
+    pub extra_light: &'static [u8],
+    pub extra_light_italic: &'static [u8],
+    pub light: &'static [u8],
+    pub light_italic: &'static [u8],
+    pub medium: &'static [u8],
+    pub medium_italic: &'static [u8],
+    pub semi_bold: &'static [u8],
+    pub semi_bold_italic: &'static [u8],
+    pub thin: &'static [u8],
+    pub thin_italic: &'static [u8],
+}
+impl EmbeddedFonts {
+    pub fn all_fonts(&self) -> Vec<&'static [u8]> {
+        vec![
+            self.regular,
+            self.bold,
+            self.italic,
+            self.bold_italic,
+            self.extra_light,
+            self.extra_light_italic,
+            self.light,
+            self.light_italic,
+            self.medium,
+            self.medium_italic,
+            self.semi_bold,
+            self.semi_bold_italic,
+            self.thin,
+            self.thin_italic,
+        ]
+    }
 }
 
 pub fn get_embedded_fonts() -> EmbeddedFonts {
@@ -60,6 +90,17 @@ pub fn get_embedded_fonts() -> EmbeddedFonts {
         regular: include_bytes!("../fonts/IBMPlexSans-Regular.ttf"),
         bold: include_bytes!("../fonts/IBMPlexSans-Bold.ttf"),
         italic: include_bytes!("../fonts/IBMPlexSans-Italic.ttf"),
+        bold_italic: include_bytes!("../fonts/IBMPlexSans-BoldItalic.ttf"),
+        extra_light: include_bytes!("../fonts/IBMPlexSans-ExtraLight.ttf"),
+        extra_light_italic: include_bytes!("../fonts/IBMPlexSans-ExtraLightItalic.ttf"),
+        light: include_bytes!("../fonts/IBMPlexSans-Light.ttf"),
+        light_italic: include_bytes!("../fonts/IBMPlexSans-LightItalic.ttf"),
+        medium: include_bytes!("../fonts/IBMPlexSans-Medium.ttf"),
+        medium_italic: include_bytes!("../fonts/IBMPlexSans-MediumItalic.ttf"),
+        semi_bold: include_bytes!("../fonts/IBMPlexSans-SemiBold.ttf"),
+        semi_bold_italic: include_bytes!("../fonts/IBMPlexSans-SemiBoldItalic.ttf"),
+        thin: include_bytes!("../fonts/IBMPlexSans-Thin.ttf"),
+        thin_italic: include_bytes!("../fonts/IBMPlexSans-ThinItalic.ttf"),
     }
 }
 
@@ -82,11 +123,11 @@ pub struct SystemWorld {
 }
 
 impl SystemWorld {
-    pub fn new(root: String, request_data: &js_sys::Function) -> SystemWorld {
+    pub fn new(root: String, request_data: &js_sys::Function, report_logo: Option<Vec<u8>>) -> Result<SystemWorld, JsValue> {
 
         let (book, fonts) = SystemWorld::start_embedded_fonts();
 
-        Self {
+        let mut world = Self {
             root: PathBuf::from(root),
             main: FileId::new(None, VirtualPath::new("")),
             library: LazyHash::new(Library::default()),
@@ -95,7 +136,20 @@ impl SystemWorld {
             files: Mutex::default(),
             now: OnceLock::new(),
             request_data: SendWrapper::new(request_data.clone()),
-        }
+        };
+
+        if let Some(data) = report_logo {
+            world.add_logo(data)?
+        } else {
+            world.add_logo(SystemWorld::default_logo())?
+        };
+        
+        Ok(world)
+        
+    }
+
+    pub fn default_logo() -> Vec<u8> {
+        include_bytes!("../logos/vidrl.png").to_vec()
     }
 
     pub fn compile(&mut self, text: String, path: String) -> Result<Document, JsValue> {
@@ -110,7 +164,7 @@ impl SystemWorld {
 
         typst::compile(self)
             .output
-            .map_err(|_| JsValue::from("Error in compiler"))
+            .map_err(|_| JsValue::from("Error during compilation"))
     }
 
     pub fn add_font(&mut self, data: Vec<u8>) {
@@ -127,14 +181,42 @@ impl SystemWorld {
             }
         }
     }
+    pub fn add_logo(&mut self, data: Vec<u8>) -> Result<(), JsValue> {
+        self.add_logo_bytes(data)
+    }
+
+    fn add_logo_bytes(&mut self, data: Vec<u8>) -> Result<(), JsValue> {
+
+        // Create a FileId for the logo
+        let logo_id = FileId::new(None, VirtualPath::new("logo.png"));
+
+        // Convert the data into a Bytes object
+        let logo_bytes = Bytes::from(data);
+
+        // Create a FileEntry with the logo data
+        let logo_entry = FileEntry {
+            bytes: OnceCell::new(),
+            source: Source::new(logo_id, String::new()), // No text source needed for binary data
+        };
+
+        logo_entry
+            .bytes
+            .set(logo_bytes)
+            .map_err(|_| JsValue::from("Failed to set logo bytes in OnceCell"))?;
+
+        // Insert the logo entry into the files map
+        self.files.lock().insert(logo_id, logo_entry);
+
+        Ok(())
+    }
 
     fn reset(&mut self) {
         self.files.get_mut().clear();
         self.now.take();
     }
 
-    fn request_data(&self, param1: String) -> Result<JsValue, JsValue> {
-        return self.request_data.call1(&JsValue::NULL, &param1.into());
+    fn request_data(&self, arg1: String) -> Result<JsValue, JsValue> {
+        return self.request_data.call1(&JsValue::NULL, &arg1.into());
     }
 
     fn read_file(&self, path: &Path) -> FileResult<String> {
@@ -145,7 +227,7 @@ impl SystemWorld {
                     2 => FileError::NotFound(path.to_path_buf()),
                     3 => FileError::AccessDenied,
                     4 => FileError::IsDirectory,
-                    _ => FileError::Other(Some(EcoString::from("see console for details"))),
+                    _ => FileError::Other(Some(EcoString::from("Error in reading file"))),
                 };
             }
             FileError::Other(e.as_string().map(EcoString::from))
@@ -167,8 +249,11 @@ impl SystemWorld {
         if !map.contains_key(&id) {
             let path = self.root.clone();
 
-            let text =
-                self.read_file(&id.vpath().resolve(&path).ok_or(FileError::AccessDenied)?)?;
+            let text = self.read_file(
+                &id.vpath()
+                    .resolve(&path)
+                    .ok_or(FileError::AccessDenied)?
+                )?;
 
             map.insert(id, FileEntry::new(id, text));
         }
@@ -188,7 +273,7 @@ impl SystemWorld {
         }
         let embedded_fonts = get_embedded_fonts();
         
-        for data in [embedded_fonts.regular, embedded_fonts.bold, embedded_fonts.italic] {
+        for data in embedded_fonts.all_fonts() {
             let buffer = Bytes::from_static(data);
             for font in Font::iter(buffer) {
                 book.push(font.info().clone());

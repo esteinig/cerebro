@@ -1,6 +1,33 @@
 import { browser } from "$app/environment";
-import { PATHOGENS } from "$lib/utils/helpers";
-import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig, type ClientFilterContam, type PrevalenceContaminationConfig, ProfileTool } from "$lib/utils/types";
+import { getCurrentDate, PATHOGENS } from "$lib/utils/helpers";
+
+import { 
+    ProfileTool, 
+    PathogenDetectionRank, 
+} from "$lib/utils/types";
+
+import type {
+    TaxonOverviewRecord, 
+    Cerebro, 
+    TaxonFilterConfig, 
+    ClientFilterConfig, 
+    ClientFilterMinimum, 
+    ClientFilterModules, 
+    HighlightConfig, 
+    QualityControlSummary, 
+    TaxonHighlightConfig, 
+    WorkflowConfig, 
+    ClientFilterContam, 
+    PrevalenceContaminationConfig, 
+    PathogenDetectionReport,
+    ReportHeader,
+    PatientHeader,
+    PatientResult,
+    ReportFooter,
+    ReportAuthorisation,
+    ReportLegal, 
+} from "$lib/utils/types";
+
 import { writable, type Writable } from "svelte/store";
 
 // Session based theme store. Grabs the current theme from the current body.
@@ -87,6 +114,51 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
     syndrome: syndromeHighlightConfig
 }
 
+const defaultReport: PathogenDetectionReport = {
+    header: {
+        logo: null
+    } satisfies ReportHeader,
+    footer: {
+        patient_id: "",
+        date_collected: "",
+        date_reported: "",
+        reporting_location: ""
+    } satisfies ReportFooter,
+    authorisation: {
+        review_date: "",
+        signatures: []
+    } satisfies ReportAuthorisation,
+    legal: {
+        disclosure: "",
+        liability: "",
+        disclaimer: ""
+    } satisfies ReportLegal,
+    patient_header: {
+        patient_name: "",
+        patient_urn: "",
+        patient_dob: "",
+        requested_doctor: "",
+        hospital_site: "",
+        laboratory_number: "",
+        specimen_id: "",
+        date_collected: "",
+        date_received: "",
+        specimen_type: "",
+        reporting_laboratory: "VIDRL",
+        reporting_date: getCurrentDate(),
+    } satisfies PatientHeader,
+    patient_result: {
+        review_date: "",
+        pathogen_detected: false,
+        pathogen_reported: "",
+        comments: "",
+        actions: "",
+        contact_name: "",
+        contact_email: ""
+    } satisfies PatientResult,
+}
+
+export const selectedReportSchema = writable<PathogenDetectionReport>(defaultReport)
 export const selectedClientFilterConfig = writable<ClientFilterConfig>(defaultClientFilterConfig)
 export const selectedServerFilterConfig = writable<TaxonFilterConfig>(defaultServerFilterConfig)
 export const selectedPrevalenceContamConfig = writable<PrevalenceContaminationConfig>(defaultPrevalenceContamConfig)

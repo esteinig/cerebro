@@ -12,6 +12,15 @@ export function getCssVariableAsHex(variableName: string | null | undefined, the
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+export function getCurrentDate(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const day = String(now.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
 export const getDateTime = (isoString: string): [string, string] => {
     let data = isoString.split("T");
     return [data[0], data[1].split("Z")[0].substring(0,8)]

@@ -1,22 +1,28 @@
 /* tslint:disable */
 /* eslint-disable */
-export function add(a: number, b: number): number;
+export function slugify(s: string): string;
 export class ReportCompiler {
   free(): void;
-  constructor(root: string, request_data: Function);
+  constructor(root: string, request_data: Function, report_type: string, report_logo?: Uint8Array);
+  report(config: any): string;
   pdf(text: string, path: string): Uint8Array;
+  svg(text: string, path: string): (string)[];
   add_font(data: Uint8Array): void;
+  add_logo(data: Uint8Array): void;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly add: (a: number, b: number) => number;
   readonly __wbg_reportcompiler_free: (a: number, b: number) => void;
-  readonly reportcompiler_new: (a: number, b: number, c: number) => number;
+  readonly reportcompiler_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly reportcompiler_report: (a: number, b: number, c: number) => void;
   readonly reportcompiler_pdf: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly reportcompiler_svg: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
   readonly reportcompiler_add_font: (a: number, b: number, c: number) => void;
+  readonly reportcompiler_add_logo: (a: number, b: number, c: number, d: number) => void;
+  readonly slugify: (a: number, b: number, c: number) => void;
   readonly qcms_transform_data_rgb_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
   readonly qcms_transform_data_rgba_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
   readonly qcms_transform_data_bgra_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
@@ -30,9 +36,9 @@ export interface InitOutput {
   readonly qcms_white_point_sRGB: (a: number) => void;
   readonly lut_interp_linear16: (a: number, b: number, c: number) => number;
   readonly lut_inverse_interp16: (a: number, b: number, c: number) => number;
-  readonly __wbindgen_exn_store: (a: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_exn_store: (a: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
 }

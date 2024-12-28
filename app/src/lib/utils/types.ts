@@ -1742,6 +1742,119 @@ export type CommentBubble = {
 
 
 /**
+ * PathogenDetectionReport WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type PathogenDetectionReport = {
+    header: ReportHeader,
+    footer: ReportFooter,
+    legal: ReportLegal,
+    authorisation: ReportAuthorisation,
+    patient_header: PatientHeader,
+    patient_result: PatientResult
+}
+
+
+/**
+ * PathogenDetectionReport - Report Header WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportHeader = {
+    logo: string | null; // base64 standard encoded string or default logo
+}
+
+/**
+ * PathogenDetectionReport - Report Footer WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportFooter = {
+    patient_id: string; 
+    date_collected: string;
+    date_reported: string;
+    reporting_location: string;
+}
+
+/**
+ * PathogenDetectionReport - Report Legal WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportLegal = {
+    disclosure: string; 
+    liability: string;
+    disclaimer: string;
+}
+
+
+/**
+ * PathogenDetectionReport - Report Authorisation WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportAuthorisation = {
+    review_date: string; 
+    signatures: AuthorisationSignature[];
+}
+
+/**
+ * PathogenDetectionReport - Report Authorisation WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type AuthorisationSignature = {
+    name: string; 
+    position: string;
+    institution: string
+}
+
+/**
+ * PathogenDetectionReport - Patient Header WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type PatientHeader = {
+    patient_name: string;
+    patient_urn: string;
+    patient_dob: string;
+    requested_doctor: string;
+    hospital_site: string;
+    laboratory_number: string;
+    specimen_id: string;
+    date_collected: string;
+    date_received: string;
+    specimen_type: string;
+    reporting_laboratory: string;
+    reporting_date: string;
+}
+
+
+/**
+ * PathogenDetectionReport - Patient Header WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type PatientResult = {
+    pathogen_detected: boolean;
+    pathogen_reported: string;
+    review_date: string;
+    comments: string;
+    actions: string;
+    contact_name: string;
+    contact_email: string;
+}
+
+/**
  * Report schema
  * 
  * @file lib/utils/types
@@ -1753,7 +1866,7 @@ export type ReportSchema = {
     sample_id: string,
     run_id: string,
     negative: boolean,
-    workflow: WorkflowConfig,
+    workflow: WorkflowConfig | null,
     patient_header: PatientHeaderSchema,
     patient_result: PatientResultSchema,
     laboratory_comments: string,
