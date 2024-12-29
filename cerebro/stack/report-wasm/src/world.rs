@@ -1,14 +1,24 @@
 // Provides access to system resources and compiler functions
 
+
+use parking_lot::Mutex;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
+
+use chrono::{
+    DateTime, 
+    Datelike, 
+    Local
+};
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::OnceLock,
+    cell::OnceCell
 };
 
-use chrono::{DateTime, Datelike, Local};
-use parking_lot::Mutex;
-use send_wrapper::SendWrapper;
 use typst::{
     diag::{EcoString, FileError, FileResult},
     foundations::{Bytes, Datetime},
@@ -19,9 +29,11 @@ use typst::{
     Library, World,
 };
 
-use wasm_bindgen::JsValue;
+#[cfg(target_arch = "wasm32")]
+type SystemWorldError = JsValue;
 
-use std::cell::OnceCell;
+#[cfg(not(target_arch = "wasm32"))]
+type SystemWorldError = anyhow::Error;
 
 
 pub struct FileEntry {
@@ -118,16 +130,15 @@ pub struct SystemWorld {
 
     files: Mutex<HashMap<FileId, FileEntry>>,
     now: OnceLock<DateTime<Local>>,
-    request_data: SendWrapper<js_sys::Function>,
 
 }
 
 impl SystemWorld {
-    pub fn new(root: String, request_data: &js_sys::Function, report_logo: Option<Vec<u8>>) -> Result<SystemWorld, JsValue> {
+    pub fn new(root: String) -> Result<SystemWorld, SystemWorldError> {
 
-        let (book, fonts) = SystemWorld::start_embedded_fonts();
-
-        let mut world = Self {
+        let (book, fonts) = Self::start_embedded_fonts();
+        
+        Ok(Self {
             root: PathBuf::from(root),
             main: FileId::new(None, VirtualPath::new("")),
             library: LazyHash::new(Library::default()),
@@ -135,109 +146,88 @@ impl SystemWorld {
             fonts,
             files: Mutex::default(),
             now: OnceLock::new(),
-            request_data: SendWrapper::new(request_data.clone()),
-        };
+        })
+    }
 
+    pub fn compile(&mut self, text: String, vpath: String, report_logo: Option<Vec<u8>>) -> Result<Document, SystemWorldError> {
+
+        // Check if this adds too much overhead
         if let Some(data) = report_logo {
-            world.add_logo(data)?
+            self.add_logo(data)?;
         } else {
-            world.add_logo(SystemWorld::default_logo())?
-        };
-        
-        Ok(world)
-        
-    }
+            self.add_logo(SystemWorld::default_logo())?;
+        }
 
-    pub fn default_logo() -> Vec<u8> {
-        include_bytes!("../logos/vidrl.png").to_vec()
-    }
-
-    pub fn compile(&mut self, text: String, path: String) -> Result<Document, JsValue> {
-
-        self.reset();
-
-        self.main = FileId::new(None, VirtualPath::new(path));
+        self.main = FileId::new(None, VirtualPath::new(vpath));
 
         self.files
             .get_mut()
             .insert(self.main, FileEntry::new(self.main, text));
 
-        typst::compile(self)
+        let document = typst::compile(self)
             .output
-            .map_err(|_| JsValue::from("Error during compilation"))
+            .map_err(|_| {
+
+                #[cfg(target_arch = "wasm32")]
+                let err = JsValue::from("failed to compile document");
+                #[cfg(not(target_arch = "wasm32"))]
+                let err = anyhow::anyhow!("failed to compile document");
+
+                // Deallocate sensitive data from virtual path memory on compilation error
+                self.reset();
+
+                err
+        });
+
+        // Deallocate sensitive data from virtual path memory after compilation of the document
+        self.reset();
+
+        document
     }
 
-    pub fn add_font(&mut self, data: Vec<u8>) {
-
-        let buffer = Bytes::from(data);
-        let mut font_infos = Vec::new();
-        for font in Font::iter(buffer) {
-            font_infos.push(font.info().clone());
-            self.fonts.push(font)
-        }
-        if font_infos.len() > 0 {
-            for info in font_infos {
-                self.book.push(info);
-            }
-        }
+    pub fn default_logo() -> Vec<u8> {
+        include_bytes!("../logos/vidrl.png").to_vec()
     }
-    pub fn add_logo(&mut self, data: Vec<u8>) -> Result<(), JsValue> {
-        self.add_logo_bytes(data)
-    }
+    
+    pub fn add_logo(&mut self, data: Vec<u8>) -> Result<(), SystemWorldError> {
 
-    fn add_logo_bytes(&mut self, data: Vec<u8>) -> Result<(), JsValue> {
+        let logo_id = FileId::new(
+            None, 
+            VirtualPath::new("logo.png")
+        );
 
-        // Create a FileId for the logo
-        let logo_id = FileId::new(None, VirtualPath::new("logo.png"));
-
-        // Convert the data into a Bytes object
         let logo_bytes = Bytes::from(data);
 
-        // Create a FileEntry with the logo data
         let logo_entry = FileEntry {
             bytes: OnceCell::new(),
             source: Source::new(logo_id, String::new()), // No text source needed for binary data
         };
 
-        logo_entry
-            .bytes
-            .set(logo_bytes)
-            .map_err(|_| JsValue::from("Failed to set logo bytes in OnceCell"))?;
+        if let Err(_) = logo_entry.bytes.set(logo_bytes) {
+            #[cfg(target_arch = "wasm32")]
+                let err = JsValue::from("failed to set logo bytes in OnceCell");
+                #[cfg(not(target_arch = "wasm32"))]
+                let err = anyhow::anyhow!("failed to set logo bytes in OnceCell");
+                return Err(err )
+        };
 
-        // Insert the logo entry into the files map
         self.files.lock().insert(logo_id, logo_entry);
 
         Ok(())
     }
 
     fn reset(&mut self) {
-        self.files.get_mut().clear();
+        self.files = Mutex::new(HashMap::new()); // fully deallocate files from memory
+        self.main = FileId::new(None, VirtualPath::new("")); // reset and deallocate main file
         self.now.take();
     }
 
-    fn request_data(&self, arg1: String) -> Result<JsValue, JsValue> {
-        return self.request_data.call1(&JsValue::NULL, &arg1.into());
-    }
-
     fn read_file(&self, path: &Path) -> FileResult<String> {
-        
-        let f = |e: JsValue| {
-            if let Some(value) = e.as_f64() {
-                return match value as i64 {
-                    2 => FileError::NotFound(path.to_path_buf()),
-                    3 => FileError::AccessDenied,
-                    4 => FileError::IsDirectory,
-                    _ => FileError::Other(Some(EcoString::from("Error in reading file"))),
-                };
-            }
-            FileError::Other(e.as_string().map(EcoString::from))
-        };
-
-        Ok(self
-            .request_data(path.to_str().unwrap().to_owned())
-            .map_err(f)?
-            .as_string()
-            .unwrap())
+        std::fs::read_to_string(path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => FileError::NotFound(path.to_path_buf()),
+            std::io::ErrorKind::PermissionDenied => FileError::AccessDenied,
+            _ => FileError::Other(Some(EcoString::from(format!("{}", e)))),
+        })
     }
 
 
@@ -247,13 +237,13 @@ impl SystemWorld {
     {
         let mut map = self.files.lock();
         if !map.contains_key(&id) {
-            let path = self.root.clone();
+            let path = self.root.clone();    
+            let resolved_path = id
+                .vpath()
+                .resolve(&path)
+                .ok_or(FileError::AccessDenied)?;
 
-            let text = self.read_file(
-                &id.vpath()
-                    .resolve(&path)
-                    .ok_or(FileError::AccessDenied)?
-                )?;
+            let text = self.read_file(&resolved_path)?;
 
             map.insert(id, FileEntry::new(id, text));
         }
@@ -289,27 +279,21 @@ impl World for SystemWorld {
     fn library(&self) -> &LazyHash<Library> {
         &self.library
     }
-
     fn book(&self) -> &LazyHash<FontBook> {
         &self.book
     }
-
     fn main(&self) -> FileId {
         self.main
     }
-
     fn source(&self, id: FileId) -> FileResult<Source> {
         self.file_entry(id, |f| f.source())
     }
-
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         self.file_entry(id, |f| f.bytes())
     }
-
     fn font(&self, index: usize) -> Option<Font> {
         Some(self.fonts[index].clone())
     }
-
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = self.now.get_or_init(chrono::Local::now);
 

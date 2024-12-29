@@ -1,14 +1,11 @@
 /* tslint:disable */
 /* eslint-disable */
-export function slugify(s: string): string;
 export class ReportCompiler {
   free(): void;
-  constructor(root: string, request_data: Function, report_type: string, report_logo?: Uint8Array);
+  constructor(root: string, report_type: string);
   report(config: any): string;
-  pdf(text: string, path: string): Uint8Array;
-  svg(text: string, path: string): (string)[];
-  add_font(data: Uint8Array): void;
-  add_logo(data: Uint8Array): void;
+  pdf(text: string, vpath: string): Uint8Array;
+  svg(text: string, vpath: string): (string)[];
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -16,13 +13,10 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_reportcompiler_free: (a: number, b: number) => void;
-  readonly reportcompiler_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+  readonly reportcompiler_new: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly reportcompiler_report: (a: number, b: number, c: number) => void;
   readonly reportcompiler_pdf: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
   readonly reportcompiler_svg: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-  readonly reportcompiler_add_font: (a: number, b: number, c: number) => void;
-  readonly reportcompiler_add_logo: (a: number, b: number, c: number, d: number) => void;
-  readonly slugify: (a: number, b: number, c: number) => void;
   readonly qcms_transform_data_rgb_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
   readonly qcms_transform_data_rgba_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
   readonly qcms_transform_data_bgra_out_lut_precache: (a: number, b: number, c: number, d: number) => void;

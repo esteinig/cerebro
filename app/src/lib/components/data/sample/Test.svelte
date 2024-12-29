@@ -2,17 +2,19 @@
 
   import { onMount } from 'svelte';
 	import { selectedReportSchema } from '$lib/stores/stores';
+	import { type PathogenDetectionReport } from '$lib/utils/types';
+
   import init, { ReportCompiler } from '$lib/wasm/cerebro_report_wasm';
 
   let compiler: any;
   
-  let pdfData: Uint8Array | null = null; // Stores the compiled PDF
-  let svgData: string[] = []; // Stores the compiled SVG
-
-  let virtualPdf: string = "pdf.typ";
-  let virtualSvg: string = "svg.typ";
 
   let report: string = "";
+  let svgData: string[] = [];
+  let pdfData: Uint8Array | null = null;
+
+  let virtualPDF: string = "pdf.typ";
+  let virtualSVG: string = "svg.typ";
 
   enum ReportTemplate {
     PathogenDetection = "PathogenDetection"
@@ -21,12 +23,15 @@
   const loadCompiler = async () => {
     try {
       await init();
-      compiler = new ReportCompiler('/', () => null, ReportTemplate.PathogenDetection); // Initialize with root and empty callback
+      compiler = new ReportCompiler('/', ReportTemplate.PathogenDetection); // Initialize with root and empty callback
     } catch (error) {
       console.error('Failed to load WASM module:', error);
     }
-  };
 
+    if (!report) {
+      compileSVG(reportSchema); // Compile on page initilization
+    }
+  };
 
   const compilePDF = async () => {
 
@@ -36,7 +41,7 @@
     }
 
     try {
-      const result = await compiler.pdf(report, virtualPdf);
+      const result = await compiler.pdf(report, virtualPDF);
       pdfData = new Uint8Array(result);
     } catch (error) {
       console.error('Failed to compile PDF:', error);
@@ -44,9 +49,8 @@
 
   };
 
+  const compileSVG = async (reportSchema: PathogenDetectionReport) => {
 
-  const compileSVG = async () => {
-        
     if (!compiler) {
       console.error('Compiler not loaded yet!');
       return;
@@ -54,18 +58,12 @@
 
     try {
       report = compiler.report(reportSchema);
-    } catch (error) {
-      console.error('Failed to template report:', error);
-    }
-
-    try {
-      const svgResult = await compiler.svg(report, virtualSvg);
-      svgData = svgResult;
+      svgData = await compiler.svg(report, virtualSVG); 
     } catch (error) {
       console.error('Failed to compile SVG:', error);
     }
-
   };
+
 
   const downloadPDF = () => {
     if (pdfData) {
@@ -81,14 +79,27 @@
     }
   };
 
-  onMount(async () => {
-      loadCompiler();
+  const handleSaveAction = () => {
+    compileSVG(reportSchema);
+  };
+
+  const handleKeydown = (event: KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      event.preventDefault(); // Prevent the default browser "Save Page" action
+      handleSaveAction();
+    }
+  };
+
+  onMount(() => {
+    loadCompiler();
+    document.addEventListener('keydown', handleKeydown);
+    return () => {
+      document.removeEventListener('keydown', handleKeydown);
+    };
   });
   
-  let reportSchema = $selectedReportSchema;
-
-  $: console.log(reportSchema);
-
+  let reportSchema: PathogenDetectionReport = $selectedReportSchema;
+  
 </script>
 
 <div> 
@@ -182,29 +193,43 @@
                 </label>
                 <label class="label">
                   <span class="text-xs opacity-60">Actions</span>
-                  <textarea class="textarea text-xs" bind:value={reportSchema.patient_result.comments} placeholder="Actions taken based on results" required={true} />
-              </label>
+                  <textarea class="textarea text-xs" bind:value={reportSchema.patient_result.actions} placeholder="Actions taken based on results" required={true} />
+                </label>
               </div>
-
-              <button class="btn variant-ghost-primary mt-4" on:click={compilePDF}>Compile report</button>
-              {#if pdfData}
-                  <button  class="btn variant-ghost-primary mt-4"on:click={downloadPDF}>Download PDF</button>
-              {/if}
-  
-              <button class="btn variant-ghost-primary mt-4" on:click={compileSVG}>Update preview</button></div>
-
+              <div class=""> 
+                <p class="opacity-40 text-regular mb-4">Press <kbd class="kbd text-sm">Ctrl + S</kbd> or <kbd class="kbd">Command + S</kbd> (MacOS) to update preview</p>
+                <button class="btn variant-ghost-primary mr-2" on:click={compilePDF}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  Download
+                </button>
+                <button class="btn variant-ghost-primary" on:click={() => compileSVG(reportSchema) }>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+                  </svg>
+                  Update
+                </button> 
+              </div>
+              
+            </div>
           </form>
-
         </div>
         
         <!-- Live preview -->
 
         <div class="grid grid-rows-12 p-1 gap-y-2 bg-surface-500/5">
-            {#each svgData as svg}
-                <div class="svg-preview">
-                    {@html svg}
-                </div>
+          {#await Promise.resolve(svgData)}
+            <p>Loading preview...</p>
+          {:then data}
+            {#each data as svg}
+              <div class="svg-preview">
+                {@html svg}
+              </div>
             {/each}
+          {:catch error}
+            <p>Error loading preview: {error.message}</p>
+          {/await}
         </div>
     </div>
 </div>
@@ -217,15 +242,7 @@
       justify-content: center;
       align-items: center;
       width: 100%;
-      height: 100%; /* Adjust height based on layout */
+      height: calc(100vh - 18vh); /* Adjust height based on layout */
       overflow: auto;
-    }
-  
-    /* Style applied to dynamically inserted SVGs */
-    .svg-preview svg {
-        max-width: 100%;
-        max-height: 100%;
-        width: auto;
-        height: auto;
     }
 </style>

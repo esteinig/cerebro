@@ -2,13 +2,10 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const __wbg_reportcompiler_free: (a: number, b: number) => void;
-export const reportcompiler_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+export const reportcompiler_new: (a: number, b: number, c: number, d: number, e: number) => void;
 export const reportcompiler_report: (a: number, b: number, c: number) => void;
 export const reportcompiler_pdf: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
 export const reportcompiler_svg: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-export const reportcompiler_add_font: (a: number, b: number, c: number) => void;
-export const reportcompiler_add_logo: (a: number, b: number, c: number, d: number) => void;
-export const slugify: (a: number, b: number, c: number) => void;
 export const qcms_transform_data_rgb_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
 export const qcms_transform_data_rgba_out_lut_precache: (a: number, b: number, c: number, d: number) => void;
 export const qcms_transform_data_bgra_out_lut_precache: (a: number, b: number, c: number, d: number) => void;

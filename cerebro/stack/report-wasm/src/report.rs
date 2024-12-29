@@ -1,20 +1,39 @@
-use serde::Deserialize;
-use serde_wasm_bindgen::from_value;
+use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
+
+#[cfg(feature = "cli")]
+use std::path::Path;
+#[cfg(feature = "cli")]
+use clap::ValueEnum;
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
-/// Enum representing available report templates
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum ReportType {
     PathogenDetection,
 }
 
-// Report configuration for trait
+#[cfg(target_arch = "wasm32")]
+impl ReportType {
+    pub fn to_string(&self) -> String {
+        match self {
+            ReportType::PathogenDetection => String::from("PathogenDetection")
+        }
+    }
+}
+
+// Report configuration trait
 
 pub trait ReportConfig {
+    #[cfg(target_arch = "wasm32")]
     fn from_js(config: JsValue) -> Result<Self, JsValue> where Self: Sized;
+
     fn build_context(&self, context: &mut Context);
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct PatientHeader {
     pub patient_name: String,
     pub patient_urn: String,
@@ -30,6 +49,7 @@ pub struct PatientHeader {
     pub reporting_date: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct PatientResult {
     pub pathogen_detected: bool,
     pub pathogen_reported: String,
@@ -41,80 +61,145 @@ pub struct PatientResult {
 }
 
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReportAuthorisation {
-    pub review_date: String,
     pub signatures: Vec<AuthorisationSignature>,
 }
+impl Default for ReportAuthorisation {
+    fn default() -> Self {
+        Self {
+            signatures: vec![AuthorisationSignature::default()]
+        }
+    }
+}
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct AuthorisationSignature {
     pub name: String,
     pub position: String,
     pub institution: String
-
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct ReportHeader {
     pub logo: Option<String>, // base64 encoded string
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct ReportFooter {
-    pub patient_id: String,
-    pub date_collected: String,
-    pub date_reported: String,
     pub reporting_location: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct ReportLegal {
     pub disclosure: String,
     pub liability: String,
     pub disclaimer: String
 }
-impl ReportLegal {
-    pub fn new(disclosure: &str, disclaimer: &str, liability: &str) -> Self {
-        Self {
-            disclosure: disclosure.to_string(),
-            disclaimer: disclaimer.to_string(),
-            liability: liability.to_string()
-        }
-    }
-}
 
-// Reports for ReportType
+// Reports
 
-
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PathogenDetectionReport {
     pub header: ReportHeader,
     pub footer: ReportFooter,
     pub legal: ReportLegal,
-    pub authorisation: ReportAuthorisation
+    pub authorisation: ReportAuthorisation,
+    pub patient_header: PatientHeader,
+    pub patient_result: PatientResult
 }
+
+impl Default for PathogenDetectionReport {
+    fn default() -> Self {
+        PathogenDetectionReport {
+            header: ReportHeader::default(),
+            footer: ReportFooter::default(),
+            legal: ReportLegal::default(),
+            authorisation: ReportAuthorisation::default(),
+            patient_header: PatientHeader::default(),
+            patient_result: PatientResult::default(),
+        }
+    }
+}
+
+#[cfg(feature = "cli")]
+impl PathogenDetectionReport {
+    pub fn to_json_file(&self, path: &Path) -> Result<(), anyhow::Error> {
+        let json_str = serde_json::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
+        
+        std::fs::write(path, json_str)
+            .map_err(|e| anyhow::anyhow!("failed to write JSON to file: {}", e))
+    }
+    pub fn from_json(config: &Path) -> Result<Self, anyhow::Error> {
+        let file_content = std::fs::read_to_string(config)
+            .map_err(|e| anyhow::anyhow!("failed to read file: {}", e))?;
+
+        let report: Self = serde_json::from_str(&file_content)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize JSON: {}", e))?;
+
+        Ok(report)
+    }
+}
+
+
 impl ReportConfig for PathogenDetectionReport {
+
+    #[cfg(target_arch = "wasm32")]
     fn from_js(config: JsValue) -> Result<Self, JsValue> {
-        Ok(from_value(config).map_err(|e| {
+        Ok(serde_wasm_bindgen::from_value(config).map_err(|e| {
             JsValue::from(format!("Failed to deserialize config: {}", e))
         })?)
     }
     fn build_context(&self, context: &mut Context) {
         
+        context.insert("report_footer_patient_id", &self.patient_header.patient_urn);
+        context.insert("report_footer_date_collected", &self.patient_header.date_collected);
+        context.insert("report_footer_date_reported", &self.patient_header.reporting_date);
+        context.insert("report_footer_reporting_location", &self.footer.reporting_location);
+
+        context.insert("patient_header_patient_name", &self.patient_header.patient_name);
+        context.insert("patient_header_patient_dob", &self.patient_header.patient_dob);
+        context.insert("patient_header_patient_urn", &self.patient_header.patient_urn);
+        context.insert("patient_header_requested_doctor", &self.patient_header.requested_doctor);
+        context.insert("patient_header_hospital_site", &self.patient_header.hospital_site);
+        context.insert("patient_header_laboratory_number", &self.patient_header.laboratory_number);
+        context.insert("patient_header_specimen_id", &self.patient_header.specimen_id);
+        context.insert("patient_header_date_collected", &self.patient_header.date_collected);
+        context.insert("patient_header_date_received", &self.patient_header.date_received);
+        context.insert("patient_header_specimen_type", &self.patient_header.specimen_type);
+        context.insert("patient_header_reporting_laboratory", &self.patient_header.reporting_laboratory);
+        context.insert("patient_header_reporting_date", &self.patient_header.reporting_date);
+
+        context.insert("patient_result_pathogen_detected", &self.patient_result.pathogen_detected);
+        context.insert("patient_result_pathogen_reported", &self.patient_result.pathogen_reported);
+        context.insert("patient_result_review_date", &self.patient_result.review_date);
+        context.insert("patient_result_comments", &self.patient_result.comments);
+        context.insert("patient_result_actions", &self.patient_result.actions);
+        context.insert("patient_result_contact_name", &self.patient_result.contact_name);
+        context.insert("patient_result_contact_email", &self.patient_result.contact_email);
+
+        context.insert("report_legal_disclaimer", &self.legal.disclaimer);
+        context.insert("report_legal_disclosure", &self.legal.disclosure);
+        context.insert("report_legal_liability", &self.legal.liability);
+
+        context.insert("report_authorisation_signatures", &self.authorisation.signatures);
+
     }
 }
 
 
 
 impl ReportType {
+
+    #[cfg(target_arch = "wasm32")]
     // Parse the result type from a string provided through interface (WASM)
     pub fn from_str(report_type: &str) -> Result<Self, JsValue> {
 
         // Parse the report type
         match report_type {
             "PathogenDetection" => Ok(ReportType::PathogenDetection),
-            _ => return Err(JsValue::from("Invalid report type")),
+            _ => return Err(JsValue::from("invalid report type")),
         }
     }
     /// Get the name of the template for this report type
@@ -148,9 +233,9 @@ impl TemplateManager {
         // Add templates
         tera.add_raw_template(
             "pathogen_detection",
-            include_str!("../templates/pathogen_detection.tera"),
+            include_str!("../templates/pathogen_detection.typ"),
         )
-        .expect("Failed to load pathogen detection template");
+        .expect("failed to load pathogen detection template");
 
         Self { tera }
     }
