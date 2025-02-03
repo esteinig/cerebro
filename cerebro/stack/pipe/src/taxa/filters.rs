@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 use taxonomy::TaxRank;
@@ -44,7 +43,6 @@ impl Default for TaxonFilterConfig {
 
 type SampleId = String;
 type Tag = String;
-
 
 
 pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>) -> Vec<Taxon> {

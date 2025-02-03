@@ -151,8 +151,10 @@ const defaultReport: PathogenDetectionReport = {
         review_date: "",
         pathogen_detected: false,
         pathogen_reported: "",
-        comments: "",
-        actions: "",
+        comments: "No further comments.",
+        actions: "No further actions taken.",
+        orthogonal_tests: "No orthogonal test results provided in this report.",
+        clinical_notes: "No clinical notes provided in this report.",
         contact_name: "",
         contact_email: ""
     } satisfies PatientResult,

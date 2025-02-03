@@ -24,6 +24,8 @@
 #let patient_result_pathogen_reported = "{{ patient_result_pathogen_reported }}";
 #let patient_result_review_date = "{{ patient_result_review_date }}";
 #let patient_result_comments = "{{ patient_result_comments }}";
+#let patient_result_orthogonal_tests = "{{ patient_result_orthogonal_tests }}";
+#let patient_result_clinical_notes = "{{ patient_result_clinical_notes}}";
 #let patient_result_actions = "{{ patient_result_actions }}";
 #let patient_result_contact_name = "{{ patient_result_contact_name }}";
 #let patient_result_contact_email = "{{ patient_result_contact_email }}";
@@ -125,9 +127,9 @@
   table(
     columns: 4,
     [Patient Name], [#patient_header_patient_name], [Specimen ID], [#patient_header_specimen_id],
-    [Date of Birth], [#patient_header_patient_dob], [Date Collected], [#patient_header_date_collected],
-    [URN Number], [#patient_header_patient_urn], [Date Received], [#patient_header_date_received],
-    [Requested Doctor], [#patient_header_requested_doctor], [Specimen Type], [#patient_header_specimen_type],
+    [Date of Birth], [#patient_header_patient_dob], [Specimen Type], [#patient_header_specimen_type],
+    [URN Number], [#patient_header_patient_urn], [Date Collected], [#patient_header_date_collected],
+    [Requested Doctor], [#patient_header_requested_doctor], [Date Received], [#patient_header_date_received],
     [Hospital Site], [#patient_header_hospital_site], [Reporting Laboratory], [#patient_header_reporting_laboratory],
     [Laboratory Number], [#patient_header_laboratory_number], [Reporting Date], [#patient_header_reporting_date],
   )
@@ -189,6 +191,14 @@
   #patient_result_actions
 ]
 
+#let second_page_orthogonal = [
+  #patient_result_orthogonal_tests
+]
+
+#let second_page_clinical = [
+  #patient_result_clinical_notes
+]
+
 #let second_page_contact = [
   For any further questions regarding these results, please contact:
   
@@ -235,24 +245,33 @@
   
   #outlinebox(title: "Comments")[#first_page_comments]
   
-  
   #pagebreak()
 ]
 
 #let second_page = [  
+  
+  #outlinebox(title: "Orthogonal Tests")[#second_page_orthogonal]
+
+  #outlinebox(title: "Clinical Notes")[#second_page_clinical]
+
   #outlinebox(title: "Actions")[#second_page_actions]
   
   #outlinebox(title: "Contact")[#second_page_contact]
-  
-  #outlinebox(title: "Disclosure Statement")[#second_page_disclosure]
-  
-  #outlinebox(title: "Liability Statement")[#second_page_liability]
   
   #pagebreak()
 ]
 
 
-#let third_page = [
+#let legal_page = [
+
+  #outlinebox(title: "Disclosure Statement")[#second_page_disclosure]
+  
+  #outlinebox(title: "Liability Statement")[#second_page_liability]
+
+  #pagebreak()
+]
+
+#let authorisation_page = [
   #outlinebox(title: "Authorisation")[
     #third_page_authorisation
     #third_page_signatures
@@ -263,4 +282,6 @@
 
 #second_page
 
-#third_page
+#legal_page
+
+#authorisation_page

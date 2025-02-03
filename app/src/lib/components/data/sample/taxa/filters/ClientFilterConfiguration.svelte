@@ -156,7 +156,7 @@
         </span>
     </div>
     <p class="pt-4"><span class="opacity-40">Profiling tools</span></p>
-    <div class="p-4">
+    <div class="p-4 grid grid-cols-4 gap-2">
         <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Vircov) ? 'variant-ghost-primary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Vircov) }} on:keypress aria-hidden>
             {#if clientFilterConfig.tools.includes(ProfileTool.Vircov)}
                 <span><CheckmarkIcon /></span>
@@ -164,13 +164,13 @@
             <span>{ProfileTool.Vircov}</span>
             <div class="rounded-full bg-primary-400 h-2 w-2 ml-2"></div>
         </span>
-        <!-- <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Kraken2) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Kraken2) }} on:keypress aria-hidden>
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Kraken2) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Kraken2) }} on:keypress aria-hidden>
             {#if clientFilterConfig.tools.includes(ProfileTool.Kraken2)}
                 <span><CheckmarkIcon /></span>
             {/if}
             <span>{ProfileTool.Kraken2}</span>
             <div class="rounded-full bg-secondary-800 h-2 w-2 ml-2"></div>
-        </span> -->
+        </span>
         <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Bracken) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Bracken) }} on:keypress aria-hidden>
             {#if clientFilterConfig.tools.includes(ProfileTool.Bracken)}
                 <span><CheckmarkIcon /></span>
@@ -192,13 +192,13 @@
             <span>{ProfileTool.Ganon2}</span>
             <div class="rounded-full bg-secondary-500 h-2 w-2 ml-2"></div>
         </span>
-        <!-- <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Sylph) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Sylph) }} on:keypress aria-hidden>
+        <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Sylph) ? 'variant-ghost-secondary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Sylph) }} on:keypress aria-hidden>
             {#if clientFilterConfig.tools.includes(ProfileTool.Sylph)}
                 <span><CheckmarkIcon /></span>
             {/if}
             <span>{ProfileTool.Sylph}</span>
             <div class="rounded-full bg-secondary-400 h-2 w-2 ml-2"></div>
-        </span> -->
+        </span>
         <span class="chip {clientFilterConfig.tools.includes(ProfileTool.Blast) ? 'variant-ghost-tertiary' : 'variant-soft'} mr-2" on:click={() => { updateToolSelection(ProfileTool.Blast) }} on:keypress aria-hidden>
             {#if clientFilterConfig.tools.includes(ProfileTool.Blast)}
                 <span><CheckmarkIcon /></span>
@@ -213,7 +213,7 @@
             {#if clientFilterConfig.contam.display}
                 <span><CheckmarkIcon /></span>
             {/if}
-            <span>Display contaminants</span>
+            <span>Display</span>
         </span>
     </div>
 </div>

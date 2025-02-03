@@ -56,6 +56,8 @@ pub struct PatientResult {
     pub review_date: String,
     pub comments: String,
     pub actions: String,
+    pub orthogonal_tests: String,
+    pub clinical_notes: String,
     pub contact_name: String,
     pub contact_email: String
 }
@@ -175,6 +177,8 @@ impl ReportConfig for PathogenDetectionReport {
         context.insert("patient_result_pathogen_reported", &self.patient_result.pathogen_reported);
         context.insert("patient_result_review_date", &self.patient_result.review_date);
         context.insert("patient_result_comments", &self.patient_result.comments);
+        context.insert("patient_result_orthogonal_tests", &self.patient_result.orthogonal_tests);
+        context.insert("patient_result_clinical_notes", &self.patient_result.clinical_notes);
         context.insert("patient_result_actions", &self.patient_result.actions);
         context.insert("patient_result_contact_name", &self.patient_result.contact_name);
         context.insert("patient_result_contact_email", &self.patient_result.contact_email);

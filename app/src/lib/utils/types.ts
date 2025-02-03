@@ -1850,9 +1850,31 @@ export type PatientResult = {
     review_date: string;
     comments: string;
     actions: string;
+    orthogonal_tests: string;
+    clinical_notes: string;
     contact_name: string;
     contact_email: string;
 }
+
+
+
+/**
+ * PathogenDetectionReport - Report template settings API
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportTemplateSchema = {
+    template_id: string;
+    template_name: string;
+    contact_name: string;
+    contact_email: string;
+    legal_disclaimer: string;
+    legal_disclosure: string;
+    legal_liability: string;
+    signatures: AuthorisationSignature[];
+}
+
 
 /**
  * Report schema

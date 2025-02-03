@@ -138,9 +138,9 @@
         <div class="w-full">
             <div class="mb-1">
                 <ol class="breadcrumb justify-start">
-                    <li class="crumb opacity-60">{$page.params.db_name}</li>
+                    <li class="crumb opacity-60">{$page.params.db}</li>
                     <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-                    <li class="crumb opacity-60">{$page.params.project_name}</li>
+                    <li class="crumb opacity-60">{$page.params.project}</li>
                     <li class="crumb-separator" aria-hidden>&rsaquo;</li>
                     <li class="crumb">{$page.params.sample}</li>
                 </ol>

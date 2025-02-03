@@ -9,3 +9,4 @@ pub mod files;
 pub mod towers;
 pub mod watchers;
 pub mod stage;
+pub mod settings;
