@@ -1,4 +1,5 @@
 use chrono::{Datelike, Timelike};
+use typst::layout::Abs;
 use typst_pdf::PdfStandards;
 
 #[cfg(feature = "cli")]
@@ -10,7 +11,7 @@ use wasm_bindgen::prelude::*;
 use crate::report::ReportConfig;
 
 use crate::world::SystemWorld;
-use crate::report::{PathogenDetectionReport, ReportType, TemplateManager};
+use crate::report::{PathogenDetectionReport, ReportType, TemplateFormat, TemplateManager};
 
 
 #[cfg(feature = "cli")]
@@ -29,10 +30,16 @@ impl CommandLineReportCompiler {
             report_type,
         })
     }
-    pub fn report(&mut self, config: &Path) -> anyhow::Result<String>  {
+    pub fn report(&mut self, config: &Path, format: TemplateFormat) -> anyhow::Result<String>  {
 
         let report = match self.report_type {
-            ReportType::PathogenDetection => PathogenDetectionReport::from_json(config)?
+            ReportType::PathogenDetection => {
+                match format {
+                    TemplateFormat::Json => PathogenDetectionReport::from_json(config)?,
+                    TemplateFormat::Toml => PathogenDetectionReport::from_toml(config)?
+                }
+
+            }
         };
 
         // Render the template for the selected report type
@@ -41,10 +48,19 @@ impl CommandLineReportCompiler {
                 anyhow::anyhow!("failed to render report template: {}", e.to_string())
             })
     }
-    pub fn template(&self, text: &str, output: &Path) -> anyhow::Result<()>  {
-        std::fs::write(output, text).map_err(|e| {
-            anyhow::anyhow!("failed to write template to file: {:?}", e)
-        })
+    pub fn typst(&mut self, text: &str, output: &Path) -> anyhow::Result<()> {
+        
+        std::fs::write(output, text).map_err(|e| anyhow::anyhow!("Failed to write Typst file: {:?}", e))
+    }
+    pub fn svg(&mut self, text: &str, vpath: String, output: &Path) -> anyhow::Result<()> {
+        
+        let document = self.world.compile(text.to_string(), vpath, None)?;
+
+        let padding = Abs::pt(12.0);
+
+        let svg_data = typst_svg::svg_merged(&document, padding);
+
+        std::fs::write(output, svg_data).map_err(|e| anyhow::anyhow!("Failed to write SVG file: {:?}", e))
     }
     pub fn pdf(&mut self, text: &str, vpath: String, output: &Path) -> anyhow::Result<()> {
 
@@ -67,7 +83,7 @@ impl CommandLineReportCompiler {
             let pdf_data = typst_pdf::pdf(&document, &options)
                 .map_err(|_| anyhow::anyhow!("failed to create PDF with Typst"))?;
 
-            std::fs::write(output, pdf_data).map_err(|e| anyhow::anyhow!("Failed to write PDF: {:?}", e))
+            std::fs::write(output, pdf_data).map_err(|e| anyhow::anyhow!("Failed to write PDF file: {:?}", e))
         }
     }
 }

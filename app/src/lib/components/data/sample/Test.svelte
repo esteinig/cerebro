@@ -120,6 +120,8 @@
   let reportTemplateSchema: ReportTemplateSchema = {
     template_id: "",
     template_name: "",
+    preamble: "",
+    introduction: "",
     contact_name: "",
     contact_email: "",
     legal_disclaimer: "",
@@ -128,11 +130,7 @@
     signatures: []
   }
 
-  $: {
-    if (compiler) {
-      compileSVG(reportSchema);
-    }
-  }
+  $: if (compiler) compileSVG(reportSchema);
   
 </script>
 
@@ -145,10 +143,23 @@
           <form>
             <div class="p-4">
 
-              <div id="reportConfigurationAuthorisation" class="py-8"> 
-              
-                <p class="opacity-40 text-regular">Contact details</p>
 
+              <div id="reportIntroduction" class="py-8"> 
+                <p class="opacity-40 text-regular">Prelude text</p>
+                <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-6 w-3/4 pt-4">
+                  <label class="label">
+                    <span class="text-xs opacity-60">Preamble</span>
+                    <textarea class="textarea text-xs" rows="4" bind:value={reportTemplateSchema.preamble} placeholder="Preamble" required={false} />
+                  </label>
+                  <label class="label">
+                    <span class="text-xs opacity-60">Introduction</span>
+                    <textarea class="textarea text-xs" rows="4" bind:value={reportTemplateSchema.introduction} placeholder="Introduction" required={false} />
+                  </label>
+                </div>
+              </div>
+
+              <div id="reportConfigurationAuthorisation" class="py-8"> 
+                <p class="opacity-40 text-regular">Contact details</p>
                 <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-6 w-3/4 pb-12 pt-4">
                   <label class="label">
                     <span class="text-xs opacity-60">Name</span>
@@ -159,7 +170,6 @@
                     <input class="input text-xs" bind:value={reportTemplateSchema.contact_email}  placeholder="Contact email" required={true} />
                   </label>
                 </div>
-
               </div>
 
               <div id="reportConfigurationAuthorisation" class="py-8"> 

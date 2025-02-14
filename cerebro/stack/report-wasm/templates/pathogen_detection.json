@@ -44,5 +44,31 @@
       "clinical_notes": "",
       "contact_name": "",
       "contact_email": ""
+    },
+    "appendix_laboratory": {
+      "enabled": false,
+      "comments": "",
+      "description": "Extraction was conducted using the QIAGEN EZ1 platform and EZ1 kits. Total nucleic acid was split, with half treated with DNase for RNA library preparation. A positive and negative template control were run alongside clinical samples. DNA and RNA libraries were prepared using the NEB NEBNext Ultra II FS DNA and NEBNext Ultra II RNA library preparation kit, with the use of NEB‐ Next Dual Index Barcodes. EDCC and ERCC internal controls were spiked into DNA and RNA libraries respectively. Libraries were size selected and quantified using the Agilent TapeStation and the Invitrogen Qubit 4 Fluorometer.",
+      "header": {
+        
+      }
+    },
+    "appendix_bioinformatics": {
+      "enabled": false,
+      "comments": "",
+      "description": "DNA, RNA and control libraries were processed using unique molecular identifier deduplication, read quality filters, host sequence depletion and internal control evaluations. Taxonomic profiling (classification) was conducted on reads and assembled contigs using multiple approaches (k‐mer, alignment, assembly) against multiple reference databases, including all sequence data available at the National Center for Biotechnology Information (NCBI, 2023‐08‐01). Classifications were aggregated and standardised against the reference taxonomy at species‐level. Quality control and species classifications were evaluated by the core research team. Candidate taxa and clinical relevance were reviewed at a multi‐disciplinary research team meeting.",
+      "libraries": "",
+      "evidence": "",
+      "header": {
+
+      }
+    },
+    "appendix_audit": {
+      "enabled": false,
+      "comments": "",
+      "description": "",
+      "libraries": "",
+      "evidence": ""
     }
+
   }

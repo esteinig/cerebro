@@ -2,6 +2,8 @@
 
 // VARIABLES
 
+#let report_header_logo_enabled = {{ report_header_logo_enabled }};
+
 #let report_footer_patient_id = "{{ report_footer_patient_id }}";
 #let report_footer_date_collected = "{{ report_footer_date_collected }}";
 #let report_footer_date_reported = "{{ report_footer_date_reported }}";
@@ -30,7 +32,6 @@
 #let patient_result_contact_name = "{{ patient_result_contact_name }}";
 #let patient_result_contact_email = "{{ patient_result_contact_email }}";
 
-
 #let report_legal_disclaimer = "{{ report_legal_disclaimer }}";
 #let report_legal_disclosure = "{{ report_legal_disclosure }}";
 #let report_legal_liability = "{{ report_legal_liability }}";
@@ -38,6 +39,19 @@
 #let report_authorisation_signatures = (
   {% for signature in report_authorisation_signatures %} ("{{ signature.name }}", "{{ signature.position }}", "{{ signature.institution }}"),{% endfor %}
 );
+
+#let report_authorisation_laboratory = "{{ report_authorisation_laboratory }}";
+#let report_authorisation_identifier = "{{ report_authorisation_identifier }}";
+
+#let appendix_laboratory_enabled = {{ appendix_laboratory_enabled }};
+#let appendix_laboratory_description = "{{ appendix_laboratory_description }}";
+#let appendix_laboratory_comments = "{{ appendix_laboratory_comments }}";
+
+#let appendix_bioinformatics_enabled = {{ appendix_bioinformatics_enabled }};
+#let appendix_bioinformatics_description = "{{ appendix_bioinformatics_description }}";
+#let appendix_bioinformatics_comments = "{{ appendix_bioinformatics_comments }}";
+#let appendix_bioinformatics_libraries = "{{ appendix_bioinformatics_libraries }}";
+#let appendix_bioinformatics_evidence = "{{ appendix_bioinformatics_evidence }}";
 
 // PAGE HEADER
 
@@ -50,8 +64,19 @@
     #set text(8pt, weight: "medium")
     #overline(offset: -1.2em)[#smallcaps[NOT FOR DIAGNOSTIC USE]]
 ]
-  
-#let logo = image("logo.png", width: 11%, fit: "stretch")
+
+#let logo_title = [
+    #set text(11pt, weight: "bold");
+    #smallcaps[REPORT]
+]
+
+#let logo = [
+  #if report_header_logo_enabled {
+    image("logo.png", width: 11%, fit: "stretch")
+  } else {
+    logo_title
+  }
+]
 
 // PAGE FOOTER
 
@@ -153,7 +178,9 @@
     #referral;
     
     #results;
-    #note;
+    #if (appendix_bioinformatics_enabled or appendix_laboratory_enabled) {
+      note;
+    }
 ]
 
 #let first_page_results = [ 
@@ -234,6 +261,12 @@
   }
 ]
 
+#let third_page_issuing_laboratory = [
+  Issued by: [#report_authorisation_laboratory]
+
+  Unique report identifier: #text(weight: "extrabold")[#report_authorisation_identifier] 
+]
+
 // PAGE COMPOSITION
 
 #let first_page = [
@@ -272,11 +305,73 @@
 ]
 
 #let authorisation_page = [
+  #outlinebox(title: "Issuing Laboratory")[#third_page_issuing_laboratory]
+
   #outlinebox(title: "Authorisation")[
     #third_page_authorisation
     #third_page_signatures
   ]
+
+  #pagebreak()
 ]
+
+// APPENDICES
+
+#let appendix_laboratory_header = {
+  show table.cell.where(x: 0): set text(weight: 500)
+  show table.cell.where(x: 2): set text(weight: 500)
+  table(
+    columns: 4,
+    [Patient Name], [#patient_header_patient_name], [Specimen ID], [#patient_header_specimen_id],
+    [Date of Birth], [#patient_header_patient_dob], [Specimen Type], [#patient_header_specimen_type],
+    [URN Number], [#patient_header_patient_urn], [Date Collected], [#patient_header_date_collected],
+    [Requested Doctor], [#patient_header_requested_doctor], [Date Received], [#patient_header_date_received],
+    [Hospital Site], [#patient_header_hospital_site], [Reporting Laboratory], [#patient_header_reporting_laboratory],
+    [Laboratory Number], [#patient_header_laboratory_number], [Reporting Date], [#patient_header_reporting_date],
+  )
+}
+
+#let appendix_laboratory = [
+  #appendix_laboratory_header
+  #v(16pt)
+  #outlinebox(title: "Description")[#appendix_laboratory_description]
+
+  #outlinebox(title: "Comments")[#appendix_laboratory_comments]
+
+  #pagebreak()
+]
+
+#let appendix_bioinformatics_header = {
+  show table.cell.where(x: 0): set text(weight: 500)
+  show table.cell.where(x: 2): set text(weight: 500)
+  table(
+    columns: 4,
+    [Pipeline], [#appendix_bioinformatics_header_pipeline], [Sample ID], [#appendix_bioinformatics_header_sample_id],
+    [Version], [#appendix_bioinformatics_header_version], [Libraries], [#appendix_bioinformatics_header_libraries],
+    [Pipeline ID], [#appendix_bioinformatics_header_pipeline_id], [Configuration], [#appendix_bioinformatics_header_configuration],
+    [Started], [#appendix_bioinformatics_header_started], [Databases], [#appendix_bioinformatics_header_databases],
+    [Completed], [#appendix_bioinformatics_header_completed], [Taxonomy], [#appendix_bioinformatics_header_taxonomy],
+  )
+}
+
+#let appendix_bioinformatics = [
+  #appendix_bioinformatics_header
+  #v(16pt)
+  #outlinebox(title: "Description")[#appendix_bioinformatics_description]
+
+  #outlinebox(title: "Comments")[#appendix_bioinformatics_comments]
+
+  #pagebreak()
+
+  #outlinebox(title: "Libraries")[#appendix_bioinformatics_libraries]
+
+  #outlinebox(title: "Evidence")[#appendix_bioinformatics_evidence]
+
+  #pagebreak()
+]
+
+
+// PAGES
 
 #first_page
 
@@ -285,3 +380,11 @@
 #legal_page
 
 #authorisation_page
+
+#if appendix_laboratory_enabled {
+  [#appendix_laboratory]
+}
+#if appendix_bioinformatics_enabled {
+  [#appendix_bioinformatics]
+}
+

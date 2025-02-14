@@ -1867,6 +1867,8 @@ export type PatientResult = {
 export type ReportTemplateSchema = {
     template_id: string;
     template_name: string;
+    preamble: string;
+    introduction: string;
     contact_name: string;
     contact_email: string;
     legal_disclaimer: string;

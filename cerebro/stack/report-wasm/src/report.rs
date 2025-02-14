@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
+use uuid::Uuid;
 
 #[cfg(feature = "cli")]
 use std::path::Path;
@@ -14,6 +15,24 @@ use wasm_bindgen::JsValue;
 pub enum ReportType {
     PathogenDetection,
 }
+
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
+pub enum ReportFormat {
+    Pdf,
+    Svg,
+    Typst
+}
+
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
+pub enum TemplateFormat {
+    Json,
+    Toml
+}
+
 
 #[cfg(target_arch = "wasm32")]
 impl ReportType {
@@ -65,11 +84,15 @@ pub struct PatientResult {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReportAuthorisation {
+    pub laboratory: String,
+    pub identifier: String,
     pub signatures: Vec<AuthorisationSignature>,
 }
 impl Default for ReportAuthorisation {
     fn default() -> Self {
         Self {
+            laboratory: String::from("PLACEHOLDER"),
+            identifier: Uuid::new_v4().to_string(),
             signatures: vec![AuthorisationSignature::default()]
         }
     }
@@ -84,6 +107,7 @@ pub struct AuthorisationSignature {
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct ReportHeader {
+    pub logo_enabled: bool,
     pub logo: Option<String>, // base64 encoded string
 }
 
@@ -99,6 +123,18 @@ pub struct ReportLegal {
     pub disclaimer: String
 }
 
+
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct AppendixLaboratory {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct AppendixBioinformatics {
+    pub enabled: bool,
+}
+
 // Reports
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -108,7 +144,9 @@ pub struct PathogenDetectionReport {
     pub legal: ReportLegal,
     pub authorisation: ReportAuthorisation,
     pub patient_header: PatientHeader,
-    pub patient_result: PatientResult
+    pub patient_result: PatientResult,
+    pub appendix_laboratory: AppendixLaboratory,
+    pub appendix_bioinformatics: AppendixBioinformatics
 }
 
 impl Default for PathogenDetectionReport {
@@ -120,13 +158,15 @@ impl Default for PathogenDetectionReport {
             authorisation: ReportAuthorisation::default(),
             patient_header: PatientHeader::default(),
             patient_result: PatientResult::default(),
+            appendix_laboratory: AppendixLaboratory::default(),
+            appendix_bioinformatics: AppendixBioinformatics::default()
         }
     }
 }
 
 #[cfg(feature = "cli")]
 impl PathogenDetectionReport {
-    pub fn to_json_file(&self, path: &Path) -> Result<(), anyhow::Error> {
+    pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
         let json_str = serde_json::to_string_pretty(self)
             .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
         
@@ -139,6 +179,22 @@ impl PathogenDetectionReport {
 
         let report: Self = serde_json::from_str(&file_content)
             .map_err(|e| anyhow::anyhow!("failed to deserialize JSON: {}", e))?;
+
+        Ok(report)
+    }
+    pub fn to_toml(&self, path: &Path) -> Result<(), anyhow::Error> {
+        let toml_str = toml::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("failed to serialize to TOML: {}", e))?;
+
+        std::fs::write(path, toml_str)
+            .map_err(|e| anyhow::anyhow!("failed to write TOML to file: {}", e))
+    }
+    pub fn from_toml(config: &Path) -> Result<Self, anyhow::Error> {
+        let file_content = std::fs::read_to_string(config)
+            .map_err(|e| anyhow::anyhow!("failed to read file: {}", e))?;
+
+        let report: Self = toml::from_str(&file_content)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize TOML: {}", e))?;
 
         Ok(report)
     }
@@ -155,6 +211,8 @@ impl ReportConfig for PathogenDetectionReport {
     }
     fn build_context(&self, context: &mut Context) {
         
+        context.insert("report_header_logo_enabled", &self.header.logo_enabled);
+
         context.insert("report_footer_patient_id", &self.patient_header.patient_urn);
         context.insert("report_footer_date_collected", &self.patient_header.date_collected);
         context.insert("report_footer_date_reported", &self.patient_header.reporting_date);
@@ -188,6 +246,12 @@ impl ReportConfig for PathogenDetectionReport {
         context.insert("report_legal_liability", &self.legal.liability);
 
         context.insert("report_authorisation_signatures", &self.authorisation.signatures);
+        context.insert("report_authorisation_laboratory", &self.authorisation.laboratory);
+        context.insert("report_authorisation_identifier", &self.authorisation.identifier);
+
+        context.insert("appendix_laboratory_enabled", &self.appendix_laboratory.enabled);
+        context.insert("appendix_bioinformatics_enabled", &self.appendix_bioinformatics.enabled);
+        context.insert("appendix_bioinformatics_enabled", &self.appendix_bioinformatics.enabled);
 
     }
 }
