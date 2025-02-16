@@ -6,7 +6,7 @@ process VirusRecovery {
     tag { sampleID }
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
-    publishDir "$params.outputDirectory/panviral/$sampleID/vircov", mode: "copy", pattern: "data/*"
+    publishDir "$params.outputDirectory/panviral/$sampleID/vircov", mode: "copy", pattern: "data/"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -17,6 +17,7 @@ process VirusRecovery {
     output:
     tuple (val(sampleID), path(forward), path(reverse), emit: reads)
     tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
+    path("data/")
 
     script:
 
