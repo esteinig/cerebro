@@ -10,6 +10,7 @@ mod world;
 use std::path::PathBuf;
 #[cfg(feature = "cli")]
 use clap::{Args, Parser, Subcommand};
+#[cfg(feature = "cli")]
 use report::TemplateFormat;
 #[cfg(feature = "cli")]
 use report::{ReportFormat, ReportType, PathogenDetectionReport};
