@@ -128,11 +128,46 @@ pub struct ReportLegal {
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct AppendixLaboratory {
     pub enabled: bool,
+    pub description: String,
+    pub comments: String,
+    pub header: LaboratoryHeader
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct LaboratoryHeader {
+
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct AppendixBioinformatics {
     pub enabled: bool,
+    pub description: String,
+    pub comments: String,
+    pub header: BioinformaticsHeader,
+    pub libraries: BioinformaticsLibraries,
+    pub evidence: BioinformaticsEvidence,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct BioinformaticsHeader {
+    pub pipeline: String,
+    pub version: String,
+    pub pipeline_id: String,
+    pub configuration: String,
+    pub started: String,
+    pub completed: String,
+    pub sample_id: String,
+    pub libraries: String,
+    pub databases: String,
+    pub taxonomy: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct BioinformaticsLibraries {
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct BioinformaticsEvidence {
 }
 
 // Reports
@@ -250,8 +285,27 @@ impl ReportConfig for PathogenDetectionReport {
         context.insert("report_authorisation_identifier", &self.authorisation.identifier);
 
         context.insert("appendix_laboratory_enabled", &self.appendix_laboratory.enabled);
+        context.insert("appendix_laboratory_description", &self.appendix_laboratory.description);
+        context.insert("appendix_laboratory_comments", &self.appendix_laboratory.comments);
+
         context.insert("appendix_bioinformatics_enabled", &self.appendix_bioinformatics.enabled);
-        context.insert("appendix_bioinformatics_enabled", &self.appendix_bioinformatics.enabled);
+        context.insert("appendix_bioinformatics_description", &self.appendix_bioinformatics.description);
+        context.insert("appendix_bioinformatics_comments", &self.appendix_bioinformatics.comments);
+        context.insert("appendix_bioinformatics_libraries", &self.appendix_bioinformatics.libraries);
+        context.insert("appendix_bioinformatics_evidence", &self.appendix_bioinformatics.evidence);
+
+        context.insert("appendix_bioinformatics_header_pipeline", &self.appendix_bioinformatics.header.pipeline);
+        context.insert("appendix_bioinformatics_header_version", &self.appendix_bioinformatics.header.version);
+        context.insert("appendix_bioinformatics_header_pipeline_id", &self.appendix_bioinformatics.header.pipeline_id);
+        context.insert("appendix_bioinformatics_header_configuration", &self.appendix_bioinformatics.header.configuration);
+        context.insert("appendix_bioinformatics_header_started", &self.appendix_bioinformatics.header.started);
+        context.insert("appendix_bioinformatics_header_completed", &self.appendix_bioinformatics.header.completed);
+        context.insert("appendix_bioinformatics_header_sample_id", &self.appendix_bioinformatics.header.sample_id);
+        context.insert("appendix_bioinformatics_header_libraries", &self.appendix_bioinformatics.header.libraries);
+        context.insert("appendix_bioinformatics_header_databases", &self.appendix_bioinformatics.header.databases);
+        context.insert("appendix_bioinformatics_header_taxonmomy", &self.appendix_bioinformatics.header.taxonomy);
+
+
 
     }
 }
