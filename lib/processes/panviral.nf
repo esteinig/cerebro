@@ -17,7 +17,7 @@ process VirusRecovery {
     output:
     tuple (val(sampleID), path(forward), path(reverse), emit: reads)
     tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
-    path("data/")
+    tuple (val(sampleID), path("data/*"), emit: output)
 
     script:
 
