@@ -1740,7 +1740,6 @@ export type CommentBubble = {
     position: string
 }
 
-
 /**
  * PathogenDetectionReport WASM
  * 
@@ -1753,109 +1752,110 @@ export type PathogenDetectionReport = {
     legal: ReportLegal,
     authorisation: ReportAuthorisation,
     patient_header: PatientHeader,
-    patient_result: PatientResult
+    patient_result: PatientResult,
+    appendix_laboratory: AppendixLaboratory,
+    appendix_bioinformatics: AppendixBioinformatics
 }
-
-
-/**
- * PathogenDetectionReport - Report Header WASM
- * 
- * @file lib/utils/types
- */
 
 export type ReportHeader = {
-    logo: string | null; // base64 standard encoded string or default logo
+    logo_enabled: boolean,
+    logo: string | null
 }
-
-/**
- * PathogenDetectionReport - Report Footer WASM
- * 
- * @file lib/utils/types
- */
 
 export type ReportFooter = {
-    patient_id: string; 
-    date_collected: string;
-    date_reported: string;
-    reporting_location: string;
+    reporting_location: string
 }
-
-/**
- * PathogenDetectionReport - Report Legal WASM
- * 
- * @file lib/utils/types
- */
 
 export type ReportLegal = {
-    disclosure: string; 
-    liability: string;
-    disclaimer: string;
+    disclosure: string,
+    liability: string,
+    disclaimer: string
 }
-
-
-/**
- * PathogenDetectionReport - Report Authorisation WASM
- * 
- * @file lib/utils/types
- */
 
 export type ReportAuthorisation = {
-    review_date: string; 
-    signatures: AuthorisationSignature[];
+    laboratory: string,
+    identifier: string,
+    signatures: ReportSignature[]
 }
 
-/**
- * PathogenDetectionReport - Report Authorisation WASM
- * 
- * @file lib/utils/types
- */
-
-export type AuthorisationSignature = {
-    name: string; 
-    position: string;
+export type ReportSignature = {
+    name: string,
+    position: string,
     institution: string
 }
 
-/**
- * PathogenDetectionReport - Patient Header WASM
- * 
- * @file lib/utils/types
- */
-
 export type PatientHeader = {
-    patient_name: string;
-    patient_urn: string;
-    patient_dob: string;
-    requested_doctor: string;
-    hospital_site: string;
-    laboratory_number: string;
-    specimen_id: string;
-    date_collected: string;
-    date_received: string;
-    specimen_type: string;
-    reporting_laboratory: string;
-    reporting_date: string;
+    patient_name: string,
+    patient_urn: string,
+    patient_dob: string,
+    requested_doctor: string,
+    hospital_site: string,
+    laboratory_number: string,
+    specimen_id: string,
+    date_collected: string,
+    date_received: string,
+    specimen_type: string,
+    reporting_laboratory: string,
+    reporting_date: string
 }
-
-
-/**
- * PathogenDetectionReport - Patient Header WASM
- * 
- * @file lib/utils/types
- */
 
 export type PatientResult = {
-    pathogen_detected: boolean;
-    pathogen_reported: string;
-    review_date: string;
-    comments: string;
-    actions: string;
-    orthogonal_tests: string;
-    clinical_notes: string;
-    contact_name: string;
-    contact_email: string;
+    pathogen_detected: boolean,
+    pathogen_reported: string,
+    review_date: string,
+    comments: string,
+    actions: string,
+    orthogonal_tests: string,
+    clinical_notes: string,
+    contact_name: string,
+    contact_email: string
 }
 
+export type AppendixLaboratory = {
+    enabled: boolean,
+    description: string,
+    comments: string,
+    header: AppendixLaboratoryHeader
+}
+
+export type AppendixLaboratoryHeader = {
+    protocol: string,
+    sample_id: string,
+    version: string,
+    run_id: string,
+    extraction: string,
+    extraction_control: string,
+    rna_depletion: string,
+    library_control: string,
+    adapter: string,
+    sequencing_control: string,
+    library: string,
+    negative_control: string,
+    sequencer: string,
+    positive_control: string
+}
+
+export type AppendixBioinformatics = {
+    enabled: boolean,
+    description: string,
+    comments: string,
+    header: AppendixBioinformaticsHeader,
+    libraries: string,
+    evidence: string
+}
+
+export type AppendixBioinformaticsHeader = {
+    pipeline: string,
+    version: string,
+    pipeline_id: string,
+    configuration: string,
+    started: string,
+    completed: string,
+    sample_id: string,
+    libraries: string,
+    databases: string,
+    taxonomy: string
+}
 
 
 /**
@@ -1874,7 +1874,7 @@ export type ReportTemplateSchema = {
     legal_disclaimer: string;
     legal_disclosure: string;
     legal_liability: string;
-    signatures: AuthorisationSignature[];
+    signatures: ReportSignature[];
 }
 
 

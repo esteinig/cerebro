@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
-use uuid::Uuid;
 
+#[cfg(feature = "cli")]
+use uuid::Uuid;
 #[cfg(feature = "cli")]
 use std::path::Path;
 #[cfg(feature = "cli")]
@@ -89,6 +90,16 @@ pub struct ReportAuthorisation {
     pub signatures: Vec<AuthorisationSignature>,
 }
 impl Default for ReportAuthorisation {
+
+    #[cfg(target_arch = "wasm32")]
+    fn default() -> Self {
+        Self {
+            laboratory: String::new(),
+            identifier: String::new(),
+            signatures: vec![AuthorisationSignature::default()]
+        }
+    }
+    #[cfg(feature = "cli")]
     fn default() -> Self {
         Self {
             laboratory: String::new(),

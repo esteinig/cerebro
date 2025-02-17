@@ -25,7 +25,11 @@ import type {
     PatientResult,
     ReportFooter,
     ReportAuthorisation,
-    ReportLegal, 
+    ReportLegal,
+    AppendixBioinformatics,
+    AppendixLaboratory,
+    AppendixBioinformaticsHeader,
+    AppendixLaboratoryHeader, 
 } from "$lib/utils/types";
 
 import { writable, type Writable } from "svelte/store";
@@ -116,16 +120,15 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
 
 const defaultReport: PathogenDetectionReport = {
     header: {
+        logo_enabled: true,
         logo: null
     } satisfies ReportHeader,
     footer: {
-        patient_id: "",
-        date_collected: "",
-        date_reported: "",
         reporting_location: ""
     } satisfies ReportFooter,
     authorisation: {
-        review_date: "",
+        laboratory: "",
+        identifier: "",
         signatures: []
     } satisfies ReportAuthorisation,
     legal: {
@@ -148,9 +151,9 @@ const defaultReport: PathogenDetectionReport = {
         reporting_date: getCurrentDate(),
     } satisfies PatientHeader,
     patient_result: {
-        review_date: "",
         pathogen_detected: false,
-        pathogen_reported: "",
+        pathogen_reported: "No pathogen detected",
+        review_date: "",
         comments: "No further comments.",
         actions: "No further actions taken.",
         orthogonal_tests: "No orthogonal test results provided in this report.",
@@ -158,6 +161,46 @@ const defaultReport: PathogenDetectionReport = {
         contact_name: "",
         contact_email: ""
     } satisfies PatientResult,
+    appendix_laboratory: {
+        enabled: true,
+        description: "",
+        comments: "",
+        header: {
+            protocol: "",
+            sample_id: "",
+            version: "",
+            run_id: "",
+            extraction: "",
+            extraction_control: "",
+            rna_depletion: "",
+            library_control: "",
+            adapter: "",
+            sequencing_control: "",
+            library: "",
+            negative_control: "",
+            sequencer: "",
+            positive_control: ""
+        } satisfies AppendixLaboratoryHeader
+    } satisfies AppendixLaboratory,
+    appendix_bioinformatics: {
+        enabled: true,
+        description: "",
+        comments: "",
+        header: {
+            pipeline: "",
+            version: "",
+            pipeline_id: "",
+            configuration: "",
+            started: "",
+            completed: "",
+            sample_id: "",
+            libraries: "",
+            databases: "",
+            taxonomy: ""
+        } satisfies AppendixBioinformaticsHeader,
+        libraries: "",
+        evidence: ""
+    } satisfies AppendixBioinformatics
 }
 
 export const selectedReportSchema = writable<PathogenDetectionReport>(defaultReport)

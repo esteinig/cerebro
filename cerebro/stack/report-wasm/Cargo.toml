@@ -42,10 +42,10 @@ serde-wasm-bindgen = "0.6.5"
 # Command-line interface feature
 clap = { version = "4", optional = true, features = ["derive", "env", "unstable-styles", "wrap_help"] }
 anstyle = { version = "1", optional = true }
-toml = { version = "0.8.20", optional = true}
-uuid = { version = "1.13.1", features = ["v4"] }
+toml = { version = "0.8.20", optional = true }
+uuid = { version = "1.13.1", features = ["v4"], optional = true }
 
 
 [features]
 default = []
-cli = ["clap", "anstyle", "toml"]
+cli = ["clap", "anstyle", "toml", "uuid"]

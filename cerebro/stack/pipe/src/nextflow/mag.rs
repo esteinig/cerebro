@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use taxonomy::TaxRank;
 use taxonomy::{GeneralTaxonomy, Taxonomy};
 use itertools::Itertools;
+use crate::utils::is_file_empty;
 use crate::utils::{
     get_file_by_name, get_file_component, read_tsv, FileComponent
 };
@@ -63,8 +64,12 @@ impl MetagenomeAssemblyOutput {
         })
     }
     pub fn parse_blast_records(id: &str, path: &PathBuf, taxonomy: Option<&GeneralTaxonomy>, blast_taxid: BlastTaxidMethod) -> Result<Vec<ContigBlastRecord>, WorkflowError> {
-    
-        let records: Vec<BlastRecord> = read_tsv(&path, false, false)?;
+        
+        let records: Vec<BlastRecord> = if is_file_empty(&path)? { 
+            return Ok(Vec::new()) 
+        } else { 
+            read_tsv(&path, false, false)?
+        };
 
         // Group records by qseqid
         let mut grouped_records: HashMap<String, Vec<BlastRecord>> = HashMap::new();
