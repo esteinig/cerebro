@@ -90,8 +90,7 @@ pub struct ReportAuthorisation {
     pub signatures: Vec<AuthorisationSignature>,
 }
 impl Default for ReportAuthorisation {
-
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(not(feature = "cli"))]
     fn default() -> Self {
         Self {
             laboratory: String::new(),
