@@ -197,8 +197,12 @@ def plot_internal_controls_overview(
     # Remove the repeat identifier from the sequencing library
     merged_data["id"] = merged_data["id"].str.replace(r"__P[0-9]+", "", regex=True)
     merged_data["id"] = merged_data["id"].str.replace(r"__RPT[0-9]+", "", regex=True)
+    
+    # Output data table for reference checks
 
-    plot_grouped_controls(merged_data=merged_data, column=column, log_scale=log_scale, title=title, output=output, hue="label", dna_control=dna_control, rna_control=rna_control)
+    merged_data.to_csv("internal_controls.csv", index=False, header=True)
+
+    plot_grouped_qc(merged_data=merged_data, column=column, log_scale=log_scale, title=title, output=output, hue="label", dna_phage_control=dna_control, rna_phage_control=rna_control)
 
 
 @app.command()
@@ -339,6 +343,15 @@ def plot_grouped_qc(merged_data: pd.DataFrame, title: str, output: Path, column:
     dna_data = merged_data[merged_data["nucleic_acid"] == "dna"]
     rna_data = merged_data[merged_data["nucleic_acid"] == "rna"]
 
+    # If phage is requested use only the provided phage references
+
+    if dna_phage_control:
+        dna_data = dna_data[dna_data["reference"] == dna_phage_control]
+
+
+    if rna_phage_control:
+        rna_data = rna_data[rna_data["reference"] == rna_phage_control]
+
     hue_order = sorted(merged_data[hue].unique())
 
     # Create grouped bar plot for DNA
@@ -412,7 +425,6 @@ def plot_grouped_qc(merged_data: pd.DataFrame, title: str, output: Path, column:
         axes[1].set_ylim(0, 92)
 
 
-    
     axes[1].set_title("RNA")
     axes[1].set_ylabel(title)
     axes[1].set_xlabel(None)

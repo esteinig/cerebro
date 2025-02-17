@@ -70,18 +70,8 @@ def getMetagenomeAssemblyDatabases() {
     def magParams = params.pathogenDetection.metagenomeAssembly;
 
     return [
-        ncbiDatabase:               magParams.ncbiDatabase    ?  getPathogenAssemblyNcbiDatabase(magParams)                 :  Channel.empty(),
         contigProfile:              magParams.contigProfile   ?  getPathogenAssemblyContigProfileDatabase(magParams)       :  Channel.empty(),
     ]
-}
-
-
-def getPathogenAssemblyNcbiDatabase(magParams) {
-
-    return getFilePath(
-        magParams.ncbiDatabaseIndex, 
-        "pathogen detection :: assembly :: ncbiDatabase"
-    )
 }
 
 

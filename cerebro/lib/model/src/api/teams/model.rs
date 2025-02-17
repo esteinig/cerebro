@@ -51,6 +51,15 @@ impl Team {
             admin: TeamDatabase::admin()
         }
     }
+    pub fn database_name_exists(&self, db_name: &str) -> bool {
+        self.databases.iter().any(|db| db.name == db_name)
+    }
+    pub fn project_name_exists(&self, db: &str, project_name: &str) -> bool {
+        self.databases.iter()
+            .find(|database| database.name.as_str() == db || database.id.as_str() == db)
+            .is_some_and(|database| database.projects.iter()
+            .any(|project| project.name.as_str() == project_name))
+    }
 }
 
 pub type DatabaseId = String;
@@ -89,16 +98,17 @@ impl TeamDatabase {
     }
     pub fn from_database_schema(schema: &RegisterDatabaseSchema) -> TeamDatabase {
         let uuid = uuid::Uuid::new_v4().to_string();
+        let default_collection_uuid = uuid::Uuid::new_v4().to_string();
         TeamDatabase {
             id: uuid.clone(),
             name: schema.database_name.to_owned(),
             description: schema.database_description.to_owned(),
             database: uuid,
             projects: vec![ProjectCollection {
-                id: uuid::Uuid::new_v4().to_string(),
+                id: default_collection_uuid.clone(),
                 name: String::from("Data"),
                 description: String::from("Default data collection"),
-                collection: String::from("data")
+                collection: default_collection_uuid
             }]
         }
     }
@@ -144,11 +154,12 @@ impl ProjectCollection {
         }
     }
     pub fn from_project_schema(schema: &RegisterProjectSchema) -> ProjectCollection {
+        let uuid = uuid::Uuid::new_v4().to_string();
         ProjectCollection {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: uuid.clone(),
             name: schema.project_name.to_owned(),
             description: schema.project_description.to_owned(),
-            collection: schema.project_mongo_name.to_owned()
+            collection: uuid
         }
     }
     pub fn team_files() -> ProjectCollection {

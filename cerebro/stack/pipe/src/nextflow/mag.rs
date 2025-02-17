@@ -14,26 +14,26 @@ use crate::error::WorkflowError;
 
 
 #[derive(Debug, Clone)]
-pub struct MagFiles {
-    pub ncbi_blast: Option<PathBuf>,
+pub struct MetagenomeAssemblyFiles {
+    pub blast: Option<PathBuf>,
 }
-impl MagFiles {
+impl MetagenomeAssemblyFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
         
         Ok(Self{
-            ncbi_blast: get_file_by_name(&path, &id, ".blast.assembly.tsv")?,
+            blast: get_file_by_name(&path, &id, ".blast.assembly.tsv")?,
         })
     }
 }
 
 
 #[derive(Debug, Clone)]
-pub struct MagOutput {
+pub struct MetagenomeAssemblyOutput {
     pub id: String,
-    pub ncbi_blast: Option<Vec<ContigBlastRecord>>,
+    pub blast: Option<Vec<ContigBlastRecord>>,
     
 }
-impl MagOutput {
+impl MetagenomeAssemblyOutput {
 
     pub fn from(id: Option<String>, path: &PathBuf, taxonomy: Option<&GeneralTaxonomy>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
 
@@ -42,21 +42,21 @@ impl MagOutput {
             None => get_file_component(&path, FileComponent::FileName)?
         };
 
-        let files = MagFiles::from(&path, &id)?; 
+        let files = MetagenomeAssemblyFiles::from(&path, &id)?; 
         
         Ok(Self{
             id: id.to_string(),
-            ncbi_blast: match files.ncbi_blast { 
+            blast: match files.blast { 
                 Some(ref path) => Some(Self::parse_blast_records(&id, path, taxonomy, blast_taxid)?), 
                 None => None
             },
         })
     }
-    pub fn from_files(id: &str, files: &MagFiles, taxonomy: Option<&GeneralTaxonomy>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
+    pub fn from_files(id: &str, files: &MetagenomeAssemblyFiles, taxonomy: Option<&GeneralTaxonomy>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
         
         Ok(Self{
             id: id.to_string(),
-            ncbi_blast: match files.ncbi_blast { 
+            blast: match files.blast { 
                 Some(ref path) => Some(Self::parse_blast_records(&id, path, taxonomy, blast_taxid)?), 
                 None => None
             },

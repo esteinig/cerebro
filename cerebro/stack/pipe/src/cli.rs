@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::{panviral::Panviral, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{mag::BlastTaxidMethod, panviral::PanviralOutput, pathogen::PathogenOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipe::{modules::{alignment::Alignment, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{mag::BlastTaxidMethod, panviral::PanviralOutput, pathogen::PathogenDetectionOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -19,12 +19,7 @@ fn main() -> anyhow::Result<()> {
                         args.id.clone()
                     )?;
                     let quality_control = QualityControl::from_panviral(&output);
-                    
-                    let panviral = Panviral::from_panviral(
-                        &output,
-                        &quality_control,
-                        args.paired_end
-                    )?;
+                    let panviral = Alignment::from_panviral(&output)?;
 
                     if let Some(path) = &args.qc {
                         quality_control.to_json(path)?;
@@ -37,7 +32,7 @@ fn main() -> anyhow::Result<()> {
 
                 ProcessCommands::Pathogen(args) => {
 
-                    let output = PathogenOutput::from(
+                    let output = PathogenDetectionOutput::from(
                         &args.input, 
                         args.id.clone(),
                         args.taxonomy_directory.clone(),
@@ -45,6 +40,7 @@ fn main() -> anyhow::Result<()> {
                     )?;
 
                     let quality_control = QualityControl::from_pathogen(&output);
+
                     let pathogen_detection = PathogenDetection::from_pathogen(
                         &output, 
                         &quality_control, 

@@ -50,11 +50,12 @@ pub fn get_matched_uuid_cerebro_pipeline(id: &CerebroId, taxa: &Option<bool>) ->
     }
     
 }
+
+
 pub fn get_matched_id_taxa_cerebro_pipeline(
     ids: Option<Vec<CerebroId>>,
     date_range: Option<Vec<String>>,
-    run_ids: Option<Vec<String>>,
-    filter_config: Option<TaxonFilterConfig>,
+    run_ids: Option<Vec<String>>
 ) -> Vec<Document> {
     let mut match_conditions = Document::new();
 
@@ -90,51 +91,15 @@ pub fn get_matched_id_taxa_cerebro_pipeline(
         match_conditions.insert("run.id", doc! { "$in": run_ids });
     }
 
-    // Apply TaxonFilterConfig filters
-    if let Some(config) = filter_config {
-        // Filter by rank
-        if let Some(rank) = config.rank {
-            let tax_rank = rank.to_string().to_lowercase(); // Convert rank to a string for MongoDB query
-            match_conditions.insert("rank", tax_rank);
-        }
-
-        // Filter by domains
-        if !config.domains.is_empty() {
-            match_conditions.insert("level.domain_name", doc! { "$in": config.domains });
-        }
-
-        // Filter by tools
-        if !config.tools.is_empty() {
-            let tools: Vec<String> = config.tools.into_iter().map(|tool| tool.to_string()).collect();
-            match_conditions.insert("evidence.results.tool", doc! { "$in": tools });
-        }
-
-        // Filter by modes
-        if !config.modes.is_empty() {
-            let modes: Vec<String> = config.modes.into_iter().map(|mode| mode.to_string()).collect();
-            match_conditions.insert("evidence.results.mode", doc! { "$in": modes });
-        }
-
-        // Filter by minimum reads, RPM, and abundance
-        let mut result_conditions = vec![];
-        if config.min_reads > 0 {
-            result_conditions.push(doc! { "evidence.results.reads": { "$gte": config.min_reads as i64 } });
-        }
-        if config.min_rpm > 0.0 {
-            result_conditions.push(doc! { "evidence.results.rpm": { "$gte": config.min_rpm } });
-        }
-        if config.min_abundance > 0.0 {
-            result_conditions.push(doc! { "evidence.results.abundance": { "$gte": config.min_abundance } });
-        }
-
-        if !result_conditions.is_empty() {
-            match_conditions.insert("$and", result_conditions);
-        }
-    }
-
     vec![
         doc! { "$match": match_conditions },
-        doc! { "$replaceRoot": { "newRoot": "$taxa" } },
+        doc! {
+            "$project": {
+                "taxa": 1,
+                "name": 1,
+                "sample_tags": "$sample.tags", 
+            }
+        },
     ]
 }
 
@@ -288,7 +253,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
         run_match,
         workflow_match,
 
-        // Depending on the priority taxa selection (sample.priority) this might get large for memory
+        // Depending on the priority taxa selection (sample.priority) this might get large for memory?
         Some(doc! {
             "$project": {
                 "run": 1,
@@ -297,7 +262,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
             }
         }),
         Some(doc! {
-            // group by sample.id and get overview summaries
+            // Group by sample.id and get overview summaries
             "$group": {
                 "_id": "$sample.id",
                 "latest_run": {

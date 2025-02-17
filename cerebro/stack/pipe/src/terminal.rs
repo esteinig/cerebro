@@ -17,16 +17,12 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-      
-
     #[clap(subcommand)]
     /// Parse and process pipeline results
     Process(ProcessCommands),
-
     #[clap(subcommand)]
     /// Pipeline output summary tables
     Table(TableCommands),
-
     #[clap(subcommand)]
     /// Internal pipeline utilities and sample sheets
     Tools(ToolsCommands),

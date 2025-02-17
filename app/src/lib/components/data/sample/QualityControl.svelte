@@ -1,11 +1,8 @@
 <script lang="ts">
-	import type { Cerebro, WorkflowConfig } from "$lib/utils/types";
    	import SyntheticControlStageCard from "./cards/SyntheticControls.svelte";
 	import PhageControlStageCard from "./cards/InternalControls.svelte";
 	import ReadQualityStageCard from "./cards/ReadQuality.svelte";
-
-    export let selectedWorkflowConfiguration: WorkflowConfig | null;
-    export let selectedModels: Cerebro[] = [];
+	import { selectedModels, selectedWorkflowConfiguration } from "$lib/stores/stores";
 
 </script>
 
@@ -14,37 +11,31 @@
         <ol class="breadcrumb justify-center">
             <li class="crumb opacity-70">Input</li>
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.controls.ercc.enabled}
-                <li class="crumb">Synthetic Controls</li>
-            {:else}
-                <li class="crumb opacity-10">Synthetic Controls</li>
-            {/if}
-            <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
+            {#if $selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
                 <li class="crumb">Internal Controls</li>
             {:else}
-                <li class="crumb opacity-10">Phage Controls</li>
+                <li class="crumb opacity-10">Internal Controls</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.deduplication.enabled}
+            {#if $selectedWorkflowConfiguration?.params?.qc.deduplication.enabled}
                 <li class="crumb">Deduplication</li>
             {:else}
                 <li class="crumb opacity-10">Deduplication</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.reads.fastp.enabled}
+            {#if $selectedWorkflowConfiguration?.params?.qc.reads.fastp.enabled}
                 <li class="crumb">Read Quality</li>
             {:else}
                 <li class="crumb opacity-10">Read Quality</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
+            {#if $selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
                 <li class="crumb">Host Depletion</li>
             {:else}
                 <li class="crumb opacity-10">Host Depletion</li>
             {/if}
             <li class="crumb-separator" aria-hidden>&rsaquo;</li>
-            {#if selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
+            {#if $selectedWorkflowConfiguration?.params?.qc.host.depletion.enabled}
                 <li class="crumb">Background Depletion</li>
             {:else}
                 <li class="crumb opacity-10">Background Depletion</li>
@@ -53,12 +44,11 @@
             <li class="crumb opacity-70">Output</li>
         </ol>
     </div>
-    {#each selectedModels as model, i}  
+    {#each $selectedModels as model}  
         <div class="grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-12 py-8">
             <!-- ReadQualityCard: First column spanning two rows -->
             <div class="p-4 row-span-2 rounded-xl bg-surface-500/5">
                 <p class="flex align-center"><span class="code bg-gray-600 text-gray-300 dark:bg-gray-500/50 dark:text-gray-300/90 text-sm">{model.sample.id}</span> <span class="code ml-2 text-sm">{model.sample.tags.join("-")}</span></p>
-                    
                 <ReadQualityStageCard selectedModel={model}></ReadQualityStageCard>
             </div>
     

@@ -6,6 +6,7 @@ process VirusRecovery {
     tag { sampleID }
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "data/*"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
@@ -16,6 +17,7 @@ process VirusRecovery {
     output:
     tuple (val(sampleID), path(forward), path(reverse), emit: reads)
     tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
+    tuple (val(sampleID), path("data/*"), emit: output)
 
     script:
 
@@ -23,7 +25,7 @@ process VirusRecovery {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    vircov run -i $forward -i $reverse -o ${sampleID}.vircov.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.resources.threads.vircovRemap --remap-parallel $params.resources.threads.vircovParallel --workdir data/ $vircovArgs
+    vircov run -i $forward -i $reverse -o ${sampleID}.vircov.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.resources.threads.vircovRemap --remap-parallel $params.resources.threads.vircovParallel --workdir data/ --keep $vircovArgs
     """
     
 }
@@ -56,6 +58,8 @@ process ProcessOutput {
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.pv.json"
+    
+    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "symlink", pattern: "*"
 
     input:
     tuple val(sampleID), path(result_files)

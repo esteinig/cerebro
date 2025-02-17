@@ -10,7 +10,7 @@
             <ErrorAnimation />
         </div>
         <h3 class="h3">
-            Something went wrong
+            Something went wrong...
         </h3>
         
         <p>{#if $page.error} {$page.error.message} {/if}</p>

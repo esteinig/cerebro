@@ -1,111 +1,28 @@
-
-use fancy_regex::Regex;
 use anyhow::Result;
-use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
+use fancy_regex::Regex;
 use vircov::vircov::VircovRecord;
-use std::{path::PathBuf, fs::File, io::BufReader, collections::HashMap};
-use crate::modules::mag::MagRecord;
-use crate::modules::pathogen::{PathogenDetectionRecord, PathogenDetectionResult};
-use crate::{error::WorkflowError, utils::get_colored_string};
+use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, collections::HashMap};
+use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
+
+use crate::modules::assembly::ContigRecord;
+use crate::modules::pathogen::ProfileRecord;
+use crate::error::WorkflowError;
 
 
 pub trait TaxonExtraction {
     fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError>;
 }
 
-fn _get_annotations(taxon: &Taxon, annotations: &Vec<TaxonAnnotations>) -> Option<String> {
-
-    let annotation_strings: Vec<String> = annotations.iter().map(|data| {
-        
-        let mut target_detected = false;
-        for annotation in data.annotations.clone().into_iter() {
-            if let Some(value) = annotation.taxonomy.species_taxid { 
-                if taxon.level.species_taxid == Some(value) {
-                    target_detected = true
-                }
-            }
-            if let Some(value) = annotation.taxonomy.species_name { 
-                if taxon.level.species_name == Some(value) {
-                    target_detected = true
-                }
-            };
-            if let Some(value) = annotation.taxonomy.genus_taxid { 
-                if taxon.level.genus_taxid == Some(value) {
-                    target_detected = true
-                }
-            };
-            if let Some(value) = annotation.taxonomy.genus_name { 
-                if taxon.level.genus_name == Some(value) {
-                    target_detected = true
-                }
-            };
-        };
-        if target_detected {
-            Some(get_colored_string(&data.tag, &data.color))
-        } else {
-            None
-        }
-    }).flatten().collect();
-
-    if annotation_strings.is_empty() {
-        None
-    } else {
-        Some(annotation_strings.join("|"))
-    }
-    
-}
-
-
-// Struct for highlighting taxa in the annotation column
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TaxonAnnotations {
-    pub tag: String,
-    pub version: String,
-    pub taxonomy: String,
-    pub date: String,
-    pub color: String,
-    pub description: String,
-    pub annotations: Vec<TaxonAnnotation>
-}
-impl TaxonAnnotations {
-    pub fn from(json: &PathBuf) -> Result<Self, WorkflowError> {
-        serde_json::from_reader(BufReader::new(File::open(json)?)).map_err(WorkflowError::JsonSerialization)
-    }
-}
-
-// Struct for highlighting taxa in the annotation column
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TaxonAnnotation {
-    pub description: String,
-    pub taxonomy: TaxonMatch
-}
-
-// Struct for highlighting taxa in the annotation column
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TaxonMatch {
-    pub genus_taxid: Option<String>,
-    pub genus_name: Option<String>,
-    pub species_taxid: Option<String>,
-    pub species_name: Option<String>
-}
-
-
-
-// Struct to hold data and produce summary data
-// for the quality control module
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Taxon {
     pub taxid: String,
     pub rank: TaxRank,
     pub name: String,
-    pub lineage: Vec<String>,
-    pub level: TaxonLevel,
+    pub level: TaxonLevel,         // for server-side filtering
     pub evidence: TaxonEvidence
 }
 impl Taxon {
-    /// Creates a taxon from a taxid
     pub fn from_taxid(taxid: String, taxonomy: &GeneralTaxonomy, ncbi_domain: bool) -> Result<Self, WorkflowError> {
 
         let taxid_str = taxid.as_str();
@@ -114,65 +31,23 @@ impl Taxon {
             .map_err(|err|WorkflowError::TaxRankNotAvailable(err, taxid.clone()))?;
         let name = taxonomy.name(taxid_str)
             .map_err(|err|WorkflowError::TaxNameNotAvailable(err, taxid.clone()))?.to_string();
-        let lineage = taxonomy.lineage(taxid_str)
-            .map_err(|err| WorkflowError::TaxLineageNotAvailable(err, taxid.clone()))?
-            .iter().map(|x| x.to_string()).collect();
-                                        
 
         Ok(Self { 
             taxid: taxid.clone(), 
             rank,
             name,
-            lineage,
             level: TaxonLevel::new(taxid_str, taxonomy, ncbi_domain)?,
             evidence: TaxonEvidence::new() // to be filled
 
         })
-    }
-    /// Get evidence filtered for a specific sample id (from aggregated evidence)
-    pub fn get_evidence(&self, id: &str) -> TaxonEvidence {
-        TaxonEvidence {
-            alignment: Vec::new(),
-            assembly: Vec::new(),
-            records: self.evidence.records.clone().into_iter().filter(|record| record.id == id).collect(),
-        }
-    }
-
-    /// Deduplicate evidence:
-    pub fn deduplicate_evidence(&mut self) -> Self {
-
-        self.evidence.records = self.evidence.records.clone().into_iter().dedup().collect();
-        self.clone()
-
-    }
-    /// Update taxon evidence with new evidence object
-    pub fn update_evidence(&mut self, evidence: &mut TaxonEvidence) -> Self {
-        for ev in &evidence.records {
-            if !self.evidence.records.contains(&ev) {
-                self.evidence.records.push(ev.clone());
-            }
-        }
-        self.clone()
-    }
-    /// Update taxon evidence with new sample identifier
-    pub fn update_evidence_sample_id(&mut self, sample_id: &str) -> Self {
-
-        let mut cc = self.clone();
-
-        cc.evidence.records = self.evidence.records.iter_mut().map(|ev| {
-            ev.id = sample_id.to_string();
-            ev.to_owned()
-        }).collect::<Vec<PathogenDetectionRecord>>();
-
-        cc
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonEvidence {
     pub alignment: Vec<VircovRecord>,
-    pub assembly: Vec<MagRecord>,
-    pub records: Vec<PathogenDetectionRecord>,
+    pub assembly: Vec<ContigRecord>,
+    pub profile: Vec<ProfileRecord>,
 }
 
 impl TaxonEvidence {
@@ -180,34 +55,18 @@ impl TaxonEvidence {
         Self { 
             alignment: Vec::new(),
             assembly: Vec::new(),
-            records: Vec::new()
+            profile: Vec::new()
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonLevel {
-    pub domain_taxid: Option<String>,
-    pub domain_name: Option<String>,
-    pub genus_taxid: Option<String>,
-    pub genus_name: Option<String>,
-    pub species_taxid: Option<String>,
-    pub species_name: Option<String>
+    pub domain: Option<String>,
+    pub genus: Option<String>,
+    pub species: Option<String>
 }
 impl TaxonLevel {
-    /// Creates a new instance of `TaxonLevel` given a taxonomic identifier with its corresponding
-    /// taxonomy and a flag, whether the domain rank conforms to NCBI definition of domain ("Superkingdom")
-    /// or whether the rank conforms to the traditional definition ("Domain"). A taxon level struct is a
-    /// convenience abstraction of the taxon lineage at domain, genus and species levels, so that later
-    /// a taxonomy does not have to be consulted to aggegate or filter taxa at these levels.
-    /// 
-    /// 
-    /// # Example
-    /// 
-    /// ```
-    /// let taxonomy = taxonomy::ncbi::load(taxonomy)?;
-    /// let taxon_level = TaxonLevel::new("9606", &taxonomy, true)
-    /// ```
     pub fn new(taxid: &str, taxonomy: &GeneralTaxonomy, ncbi_domain: bool) -> Result<Self, WorkflowError> {
 
         // Species abstraction
@@ -215,14 +74,14 @@ impl TaxonLevel {
             taxid, TaxRank::Species
         ).map_err(|err|WorkflowError::TaxRankNotFound(err, TaxRank::Species.to_string(), taxid.to_owned()))?;
 
-        let (species_taxid, species_name) = get_taxid_name_from_search(species_search, taxonomy)?;
+        let (_, species_name) = get_taxid_name_from_search(species_search, taxonomy)?;
         
         // Genus abstraction
         let genus_search = taxonomy.parent_at_rank(
             taxid, TaxRank::Genus
         ).map_err(|err|WorkflowError::TaxRankNotFound(err, TaxRank::Genus.to_string(), taxid.to_owned()))?;
 
-        let (genus_taxid, genus_name) = get_taxid_name_from_search(genus_search, taxonomy)?;
+        let (_, genus_name) = get_taxid_name_from_search(genus_search, taxonomy)?;
         
         // Domain abstraction
         let domain_rank = match ncbi_domain {
@@ -234,7 +93,7 @@ impl TaxonLevel {
             taxid, domain_rank
         ).map_err(|err|WorkflowError::TaxRankNotFound(err, domain_rank.to_string(), taxid.to_owned()))?;
 
-        let (domain_taxid, domain_name) = match domain_taxid_search {
+        let (_, domain_name) = match domain_taxid_search {
             Some((domain_taxid, _)) => {
                 let domain_name = taxonomy.name(domain_taxid).map_err(
                     |err|WorkflowError::TaxNameNotAvailable(err, taxid.to_owned())
@@ -247,12 +106,9 @@ impl TaxonLevel {
 
 
         Ok(Self { 
-            domain_taxid,
-            domain_name,
-            genus_taxid,
-            genus_name,
-            species_taxid,
-            species_name
+            domain: domain_name,
+            genus: genus_name,
+            species: species_name
         })
 
     }
@@ -285,8 +141,16 @@ pub fn aggregate(parent_taxa: &mut HashMap<String, Taxon>, taxa: &HashMap<String
         match parent_taxa.get_mut(taxid) {
             Some(tax) => {
                 // If so, update the evidence of the taxon in the modules...
-                for record in &taxon.evidence.records {
-                    tax.evidence.records.push(record.clone())
+                for record in &taxon.evidence.profile {
+                    tax.evidence.profile.push(record.clone())
+                }
+                // If so, update the evidence of the taxon in the modules...
+                for record in &taxon.evidence.alignment {
+                    tax.evidence.alignment.push(record.clone())
+                }
+                // If so, update the evidence of the taxon in the modules...
+                for record in &taxon.evidence.assembly {
+                    tax.evidence.assembly.push(record.clone())
                 }
             },
             None => {
@@ -365,56 +229,52 @@ pub fn taxa_summary(samples: Vec<PathBuf>, output: &PathBuf, sep: char, header: 
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-// A struct representing a high level overview
-// of the aggregated taxon evidence
-pub struct TaxonOverview {
-    pub taxid: String,
-    pub name: String,                    // used to later map back the tags
-    pub domain: Option<String>,
-    pub genus: Option<String>,
-    pub evidence: Vec<PathogenDetectionResult>,
-    pub kmer: bool,
-    pub alignment: bool,
-    pub assembly: bool,
-    pub sample_names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
-}
-impl TaxonOverview {
-    pub fn from(taxon: &Taxon) -> Self {
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// // A struct representing a high level overview
+// // of the aggregated taxon evidence
+// pub struct TaxonOverview {
+//     pub taxid: String,
+//     pub name: String,                    // used to later map back the tags
+//     pub domain: Option<String>,
+//     pub genus: Option<String>,
+//     pub evidence: Vec<ProfileRecord>,
+//     pub kmer: bool,
+//     pub alignment: bool,
+//     pub assembly: bool,
+//     pub sample_names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
+// }
+// impl TaxonOverview {
+//     pub fn from(taxon: &Taxon) -> Self {
 
-        let (kmer, alignment, assembly) = (false, false, false);
+//         let (kmer, alignment, assembly) = (false, false, false);
 
-        let mut results = Vec::new();
-        for record in &taxon.evidence.records {
-            for result in &record.results {
-                results.push(result.to_owned())
-            }
-        }
+//         let mut results = Vec::new();
+//         for record in &taxon.evidence.profile {
+//             results.push(record.to_owned())
+//         }
 
-        // Unique record identifiers (sample names)
-        let mut names = Vec::new();
+//         // Unique record identifiers (sample names)
+//         let mut names = Vec::new();
         
-        for record in &taxon.evidence.records {
-            names.push(record.id.to_owned())
-        };
+//         for record in &taxon.evidence.profile {
+//             names.push(record.id.to_owned())
+//         };
 
-        let names = names.into_iter().unique().collect();
+//         let names = names.into_iter().unique().collect();
 
-        Self {
-            taxid: taxon.taxid.to_owned(),
-            name: taxon.name.to_owned(),
-            genus: taxon.level.genus_name.to_owned(),
-            domain: taxon.level.domain_name.to_owned(),
-            evidence: results,
-            kmer,
-            alignment,
-            assembly,
-            sample_names: names
-        }
-    }
-}
-
-// DUPLICATED
+//         Self {
+//             taxid: taxon.taxid.to_owned(),
+//             name: taxon.name.to_owned(),
+//             genus: taxon.level.genus.to_owned(),
+//             domain: taxon.level.domain.to_owned(),
+//             evidence: results,
+//             kmer,
+//             alignment,
+//             assembly,
+//             sample_names: names
+//         }
+//     }
+// }
 
 // Utility function to extract the biological sample identifier and library tags [strict]
 fn get_sample_regex_matches(file_name: &String)-> Result<(String, Vec<String>), WorkflowError> {
@@ -442,53 +302,4 @@ fn get_sample_regex_matches(file_name: &String)-> Result<(String, Vec<String>), 
         library_tags.push(tag)
     }
     Ok((sample_id, library_tags))
-}
-
-
-// TaxonOverview + TaxaSummary
-#[derive(Deserialize, Serialize, Debug)]
-pub struct TaxonSampleOverview {
-    pub id: String,
-    pub sample_id: Option<String>,
-    pub sample_tag: Option<String>,
-    pub taxid: String,
-    pub domain: Option<String>,
-    pub genus: Option<String>,
-    pub name: String,             // used to later map back the tags
-    pub contigs: u64,             // total assembled and identified contig evidence
-    pub contigs_bases: u64,
-    pub kmer: bool,
-    pub alignment: bool,
-    pub assembly: bool
-}
-impl TaxonSampleOverview {
-    // pub fn from_taxon_overview(sample: &WorkflowSample, taxon_overview: &TaxonOverview, tags: bool) -> Result<Self, WorkflowError> {
-        
-    //     let (sample_id, sample_tag) = match tags {
-    //         true => {
-    //             let (sample_id, sample_tags) = get_sample_regex_matches(&sample.id)?;
-    //             (Some(sample_id), Some(sample_tags.join("-")))
-    //         }
-    //         false => (None, None)
-    //     };
-
-    //     Ok(Self {
-    //         id: sample.id.clone(),
-    //         sample_id,
-    //         sample_tag,
-    //         taxid: taxon_overview.taxid.clone(),
-    //         domain: taxon_overview.domain.clone(),
-    //         genus: taxon_overview.genus.clone(),
-    //         name: taxon_overview.name.clone(),            
-    //         contigs: taxon_overview.contigs,             
-    //         contigs_bases: taxon_overview.contigs_bases,
-    //         kmer: taxon_overview.kmer,
-    //         alignment: taxon_overview.alignment,
-    //         assembly: taxon_overview.assembly
-    //     })
-    // }
-    pub fn pass(&self, threshold_config: &TaxonThresholdConfig) -> bool {
-        self.contigs >= threshold_config.min_contigs &&
-        self.contigs_bases >= threshold_config.min_bases
-    }
 }

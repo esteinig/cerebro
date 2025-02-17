@@ -1,5 +1,33 @@
 import { browser } from "$app/environment";
-import { PathogenDetectionRank, type TaxonOverviewRecord, type Cerebro, type TaxonFilterConfig, type ClientFilterConfig, type ClientFilterMinimum, type ClientFilterModules, type HighlightConfig, type QualityControlSummary, type TaxonHighlightConfig, type WorkflowConfig } from "$lib/utils/types";
+import { getCurrentDate, PATHOGENS } from "$lib/utils/helpers";
+
+import { 
+    ProfileTool, 
+    PathogenDetectionRank, 
+} from "$lib/utils/types";
+
+import type {
+    TaxonOverviewRecord, 
+    Cerebro, 
+    TaxonFilterConfig, 
+    ClientFilterConfig, 
+    ClientFilterMinimum, 
+    ClientFilterModules, 
+    HighlightConfig, 
+    QualityControlSummary, 
+    TaxonHighlightConfig, 
+    WorkflowConfig, 
+    ClientFilterContam, 
+    PrevalenceContaminationConfig, 
+    PathogenDetectionReport,
+    ReportHeader,
+    PatientHeader,
+    PatientResult,
+    ReportFooter,
+    ReportAuthorisation,
+    ReportLegal, 
+} from "$lib/utils/types";
+
 import { writable, type Writable } from "svelte/store";
 
 // Session based theme store. Grabs the current theme from the current body.
@@ -30,13 +58,18 @@ const defaultClientFilterConfig: ClientFilterConfig = {
     domains: [],
     genera: [],
     species: [],
+    tools: [ProfileTool.Vircov, ProfileTool.Bracken, ProfileTool.Metabuli, ProfileTool.Ganon2, ProfileTool.Blast],
+    contam: {
+        display: true,
+        opacity: 20
+    } satisfies ClientFilterContam,
     modules: {
         alignment: false,
-        kmer: false,
+        profile: false,
         assembly: false
     } satisfies ClientFilterModules,
     minimum: {
-        rpm: 10,
+        rpm: 0,
         rpm_kmer: 0,
         rpm_alignment: 0,
         contigs: 0,
@@ -45,15 +78,22 @@ const defaultClientFilterConfig: ClientFilterConfig = {
 }
 
 const defaultServerFilterConfig: TaxonFilterConfig = {
-    rank: PathogenDetectionRank.Genus,
+    rank: PathogenDetectionRank.Species,
     domains: [],            // Filter by domain names
     tools: [],              // Filter by specific detection tools
     modes: [],              // Filter by detection modes (Sequence/Profile)
+    min_bases: 200,         // Minimum contig length for inclusion
+    min_bpm: 0.0,           // Minimum contig length per million for inclusion
     min_reads: 0,           // Minimum read count for inclusion
-    min_rpm: 0.0,           // Minimum RPM for inclusion
+    min_rpm: 1.0,           // Minimum RPM for inclusion
     min_abundance: 0,       // Minimum abundance for inclusion
+    ntc_ratio: 3
 }
 
+const defaultPrevalenceContamConfig: PrevalenceContaminationConfig = {
+    min_rpm: 0.0,
+    threshold: 0.5
+}
 
 // Contamination highlights
 
@@ -64,15 +104,7 @@ const contamHighlightConfig: HighlightConfig = {
 }
 
 const syndromeHighlightConfig: HighlightConfig = {
-    species: [
-        "Cryptococcus",
-        "Neisseria",
-        "Human betaherpesvirus",
-        "Streptococcus",
-        "Haemophilus",
-        "Lymphocryptovirus"
-
-    ],
+    species: PATHOGENS,
     taxid: [],
     color: "tertiary"
 }
@@ -82,8 +114,56 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
     syndrome: syndromeHighlightConfig
 }
 
+const defaultReport: PathogenDetectionReport = {
+    header: {
+        logo: null
+    } satisfies ReportHeader,
+    footer: {
+        patient_id: "",
+        date_collected: "",
+        date_reported: "",
+        reporting_location: ""
+    } satisfies ReportFooter,
+    authorisation: {
+        review_date: "",
+        signatures: []
+    } satisfies ReportAuthorisation,
+    legal: {
+        disclosure: "",
+        liability: "",
+        disclaimer: ""
+    } satisfies ReportLegal,
+    patient_header: {
+        patient_name: "",
+        patient_urn: "",
+        patient_dob: "",
+        requested_doctor: "",
+        hospital_site: "",
+        laboratory_number: "",
+        specimen_id: "",
+        date_collected: "",
+        date_received: "",
+        specimen_type: "",
+        reporting_laboratory: "VIDRL",
+        reporting_date: getCurrentDate(),
+    } satisfies PatientHeader,
+    patient_result: {
+        review_date: "",
+        pathogen_detected: false,
+        pathogen_reported: "",
+        comments: "No further comments.",
+        actions: "No further actions taken.",
+        orthogonal_tests: "No orthogonal test results provided in this report.",
+        clinical_notes: "No clinical notes provided in this report.",
+        contact_name: "",
+        contact_email: ""
+    } satisfies PatientResult,
+}
+
+export const selectedReportSchema = writable<PathogenDetectionReport>(defaultReport)
 export const selectedClientFilterConfig = writable<ClientFilterConfig>(defaultClientFilterConfig)
 export const selectedServerFilterConfig = writable<TaxonFilterConfig>(defaultServerFilterConfig)
+export const selectedPrevalenceContamConfig = writable<PrevalenceContaminationConfig>(defaultPrevalenceContamConfig)
 export const selectedTaxonHighlightConfig = writable<TaxonHighlightConfig>(defaultTaxonHighlightConfig)
 export const selectedTaxa = writable<TaxonOverviewRecord[]>([])
 

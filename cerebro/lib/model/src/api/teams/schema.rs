@@ -27,13 +27,11 @@ pub struct UpdateTeamSchema {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RegisterDatabaseSchema {
     pub database_name: String,
-    pub database_description: String,
-    pub database_mongo_name: String,
+    pub database_description: String
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RegisterProjectSchema {
     pub project_name: String,
-    pub project_description: String,
-    pub project_mongo_name: String,
+    pub project_description: String
 }

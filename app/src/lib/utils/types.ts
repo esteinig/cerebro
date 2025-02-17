@@ -212,10 +212,10 @@ export type SampleOverviewWorkflowsResponseDataField = {
  * @file lib/utils/types
  */
 export type SampleOverviewData = {
-    id: string,                           // sample identifier
+    id: string,                      // sample identifier
     description: string[],           // sample descriptions (should be only one)
-    latest_run: string,                   // latest workflow run date for this sample
-    latest_workflow: string,              // latest workflow run date for this sample
+    latest_run: string,              // latest sequencing run date for this sample
+    latest_workflow: string,         // latest workflow run date for this sample
     workflows: WorkflowConfig[],     // Workflow configurations for this sample
     samples: SampleConfig[],         // Sample configurations for this sample
     runs: RunConfig[],               // Run configurations for this sample
@@ -1051,35 +1051,36 @@ export type Taxon = {
     taxid: string,
     rank: string,              // this is an enumeration in the `taxonomy` library, saved as string in model
     name: string,
-    lineage: Array<string>,
     level: TaxonLevel,
     evidence: TaxonEvidence
 }
 
 export type TaxonLevel = {
-    domain_taxid?: string,
-    domain_name?: string,
-    genus_taxid?: string,
-    genus_name?: string,
-    species_taxid?: string,
-    species_name?: string
+    domain: string | null,
+    genus: string | null,
+    species: string | null
 }
 
 export type TaxonEvidence = {
     alignment: VircovRecord[],
-    records: PathogenDetectionRecord[]
+    assembly: ContigRecord[],
+    profile: ProfileRecord[]
 }
 
-export type PathogenDetectionRecord = {
-    id: string,
-    taxid: string,
-    name: string,
-    rank: PathogenDetectionRank,
-    results: PathogenDetectionResult[]
+export type ContigRecord = {
+    id: string
 }
 
+// export type PathogenDetectionRecord = {
+//     id: string,
+//     taxid: string,
+//     name: string,
+//     rank: PathogenDetectionRank,
+//     results: ProfileRecord[]
+// }
 
-export enum PathogenDetectionTool {
+
+export enum ProfileTool {
     Vircov = "Vircov",
     Kraken2 = "Kraken2",
     Metabuli = "Metabuli",
@@ -1133,8 +1134,9 @@ export enum DomainName {
     Eukaryota = "Eukaryota"
 }
 
-export type PathogenDetectionResult = {
-    tool: PathogenDetectionTool,
+export type ProfileRecord = {
+    id: string,
+    tool: ProfileTool,
     mode: AbundanceMode,
     reads: number,
     rpm: number,
@@ -1194,7 +1196,7 @@ export type TaxonOverview = {
     alignment: boolean,
     assembly: boolean,
     sample_names: Array<string>,       // unique names of all evidence records (matching `Cerebro.name` field)
-    evidence: PathogenDetectionResult[],
+    evidence: ProfileRecord[],
 }
 
 export type TaxonOverviewRecord = {
@@ -1202,8 +1204,7 @@ export type TaxonOverviewRecord = {
     name: string;
     domain: string | null;
     genus: string | null;
-    sample_names: Array<string>;
-    kmer: boolean;
+    profile: boolean;
     alignment: boolean;
     assembly: boolean;
     kraken2: number;
@@ -1387,14 +1388,22 @@ export enum PathogenDetectionRank {
     Family = "Family"
 }
 
-export type TaxonFilterConfig = {  // ADD WORKFLOW ID
+export type TaxonFilterConfig = {       // ADD WORKFLOW ID
     rank: PathogenDetectionRank | null, // Filter by specific taxonomic rank
-    domains: Array<string>,            // Filter by domain names
-    tools: Array<string>,              // Filter by specific detection tools
-    modes: Array<string>,              // Filter by detection modes (Sequence/Profile)
-    min_reads: number,                 // Minimum read count for inclusion
-    min_rpm: number,                   // Minimum RPM for inclusion
-    min_abundance: number,             // Minimum abundance for inclusion
+    domains: Array<string>,             // Filter by domain names
+    tools: Array<string>,               // Filter by specific detection tools
+    modes: Array<string>,               // Filter by detection modes (Sequence/Profile)
+    min_bases: number,                  // Minimum base pair count of contigs for inclusion
+    min_bpm: number,                    // Minimum BPM of contigs for inclusion
+    min_reads: number,                  // Minimum read count for inclusion
+    min_rpm: number,                    // Minimum RPM for inclusion
+    min_abundance: number,              // Minimum abundance for inclusion
+    ntc_ratio: number | null            // NTC ratio if selected
+}
+
+export type PrevalenceContaminationConfig = {
+    min_rpm: number,
+    threshold: number
 }
 
 // Client-side selection of taxa
@@ -1405,12 +1414,18 @@ export type ClientFilterConfig = {
     genera: Array<string | null>,
     species: Array<string | null>,
     modules: ClientFilterModules,
-    minimum: ClientFilterMinimum
+    tools: ProfileTool[],
+    minimum: ClientFilterMinimum,
+    contam: ClientFilterContam,
 }
 
+export type ClientFilterContam = {
+    display: boolean,
+    opacity: number,
+}
 export type ClientFilterModules = {
     alignment: boolean,
-    kmer: boolean,
+    profile: boolean,
     assembly: boolean
 }
 export type ClientFilterMinimum = {
@@ -1727,6 +1742,143 @@ export type CommentBubble = {
 
 
 /**
+ * PathogenDetectionReport WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type PathogenDetectionReport = {
+    header: ReportHeader,
+    footer: ReportFooter,
+    legal: ReportLegal,
+    authorisation: ReportAuthorisation,
+    patient_header: PatientHeader,
+    patient_result: PatientResult
+}
+
+
+/**
+ * PathogenDetectionReport - Report Header WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportHeader = {
+    logo: string | null; // base64 standard encoded string or default logo
+}
+
+/**
+ * PathogenDetectionReport - Report Footer WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportFooter = {
+    patient_id: string; 
+    date_collected: string;
+    date_reported: string;
+    reporting_location: string;
+}
+
+/**
+ * PathogenDetectionReport - Report Legal WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportLegal = {
+    disclosure: string; 
+    liability: string;
+    disclaimer: string;
+}
+
+
+/**
+ * PathogenDetectionReport - Report Authorisation WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportAuthorisation = {
+    review_date: string; 
+    signatures: AuthorisationSignature[];
+}
+
+/**
+ * PathogenDetectionReport - Report Authorisation WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type AuthorisationSignature = {
+    name: string; 
+    position: string;
+    institution: string
+}
+
+/**
+ * PathogenDetectionReport - Patient Header WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type PatientHeader = {
+    patient_name: string;
+    patient_urn: string;
+    patient_dob: string;
+    requested_doctor: string;
+    hospital_site: string;
+    laboratory_number: string;
+    specimen_id: string;
+    date_collected: string;
+    date_received: string;
+    specimen_type: string;
+    reporting_laboratory: string;
+    reporting_date: string;
+}
+
+
+/**
+ * PathogenDetectionReport - Patient Header WASM
+ * 
+ * @file lib/utils/types
+ */
+
+export type PatientResult = {
+    pathogen_detected: boolean;
+    pathogen_reported: string;
+    review_date: string;
+    comments: string;
+    actions: string;
+    orthogonal_tests: string;
+    clinical_notes: string;
+    contact_name: string;
+    contact_email: string;
+}
+
+
+
+/**
+ * PathogenDetectionReport - Report template settings API
+ * 
+ * @file lib/utils/types
+ */
+
+export type ReportTemplateSchema = {
+    template_id: string;
+    template_name: string;
+    preamble: string;
+    introduction: string;
+    contact_name: string;
+    contact_email: string;
+    legal_disclaimer: string;
+    legal_disclosure: string;
+    legal_liability: string;
+    signatures: AuthorisationSignature[];
+}
+
+
+/**
  * Report schema
  * 
  * @file lib/utils/types
@@ -1738,7 +1890,7 @@ export type ReportSchema = {
     sample_id: string,
     run_id: string,
     negative: boolean,
-    workflow: WorkflowConfig,
+    workflow: WorkflowConfig | null,
     patient_header: PatientHeaderSchema,
     patient_result: PatientResultSchema,
     laboratory_comments: string,
@@ -1908,7 +2060,8 @@ export enum FileTag {
     NTC = "NTC",
     TMP = "TMP",
     ENV = "ENV",
-    HOST = "HOST"
+    HOST = "HOST",
+    SAMPLE = "SAMPLE"
 }
 
 /**

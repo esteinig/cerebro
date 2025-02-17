@@ -9,24 +9,26 @@
     import { ProgressRadial, getToastStore } from '@skeletonlabs/skeleton';
 	import { getDateTimeString } from "$lib/utils/helpers";
 	import SampleViewSelection from "./SampleViewSelection.svelte";
+	import { goto } from "$app/navigation";
 
     const modalStore = getModalStore();
     const toastStore = getToastStore();
 
     const publicApi = new CerebroApi();
 
-    let sampleOverviewData: Array<SampleOverviewData> = $page.data.sampleOverview;
+    // All need to be reactive since navigating to a new page with changes
+    // in query parameters invalidates server side data, but does not 
+    // update client-side data
 
-    let selectedTeamId: string = $page.data.defaultTeam.id;
-    let selectedDatabaseId: string = $page.data.defaultDatabase.id;
-    let selectedProjectId: string = $page.data.defaultProject.id;
+    $: sampleOverviewData = $page.data.sampleOverview;
 
-    let selectedTeam: Team = $page.data.defaultTeam;
-    let selectedDatabase: TeamDatabase = $page.data.defaultDatabase;
-    let selectedProject: ProjectCollection = $page.data.defaultProject;
-    
-    let databases: Array<TeamDatabase> = $page.data.defaultTeam.databases;
-    let projects: Array<ProjectCollection> = $page.data.defaultDatabase.projects;
+    $: selectedTeamName = $page.data.selectedTeam.name;
+    $: selectedDatabaseName = $page.data.selectedDatabase.name;
+    $: selectedProjectName = $page.data.selectedProject.name;
+
+    $: selectedTeam = $page.data.selectedTeam;
+    $: selectedDatabase = $page.data.selectedDatabase;
+    $: selectedProject = $page.data.selectedProject;
 
     let searchTerms: string[] = [];
 
@@ -35,162 +37,22 @@
 
     let loading: boolean = false;
 
-
-    // Helpers
-    const getSelectedTeam = (): Team | null => {
-        let matchedTeams = $page.data.userTeams.filter((team: Team) => team.id === selectedTeamId);
-        if (!matchedTeams.length) {
-            toastStore.trigger(
-                { message: "Team could not be selected", background: "variant-filled-error" } satisfies ToastSettings
-            )
-            return null
-        }
-        return matchedTeams[0]
+    function changeTeam() {
+        goto(`/cerebro/data/samples/team=${selectedTeamName}&db=0&project=0`, { invalidateAll: true })
     }
-    const getSelectedDatabase = (team: Team, first: boolean = false): TeamDatabase | null => {
-        
-        let fail: boolean;
-
-        if (first) {
-            fail = !team.databases.length
-        } else {
-            let matchedDatabases = team.databases.filter((db: TeamDatabase) => db.id === selectedDatabaseId);
-            fail = !matchedDatabases.length
-        }
-
-        if (fail) {
-            toastStore.trigger(
-                { message: "No databases available for selected team", background: "variant-filled-error" } satisfies ToastSettings
-            )
-            return null
-        }
-        return team.databases[0]
+    function changeDatabase() {
+        goto(`/cerebro/data/samples/team=${selectedTeamName}&db=${selectedDatabaseName}&project=0`, { invalidateAll: true })
     }
-    const getSelectedProject = (database: TeamDatabase, first: boolean = false): ProjectCollection | null => {
-
-        let fail: boolean;
-
-        if (first) {
-            fail = !database.projects.length
-        } else {
-            let matchedProjects = database.projects.filter((project: ProjectCollection) => project.id === selectedProjectId);
-            fail = !matchedProjects.length
-        }
-
-        if (fail) {
-            toastStore.trigger(
-                { message: "No projects available for selected database", background: "variant-filled-error" } satisfies ToastSettings
-            )
-            return null
-        }
-        return database.projects[0]
+    function changeProject() {
+        goto(`/cerebro/data/samples/team=${selectedTeamName}&db=${selectedDatabaseName}&project=${selectedProjectName}`, { invalidateAll: true })
     }
 
-
-    // Selection helpers
-    const changeTeam = async() => {
-
-        let team: Team | null = getSelectedTeam();
-
-        if (team !== null) {
-            let teamDatabase = getSelectedDatabase(team, true);
-
-            if (teamDatabase !== null) {
-                let teamProject = getSelectedProject(teamDatabase, true);
-            
-                if (teamProject !== null) {
-                    selectedDatabaseId = teamDatabase.id;
-                    selectedDatabase = teamDatabase;
-                    databases = team.databases;
-
-                    selectedProjectId = teamProject.id;
-                    selectedProject = teamProject;
-                    projects = teamDatabase.projects;
-
-                    await loadData();
-                }
-            }
-        }
-    }
-
-    const changeDatabase = async() => {
-
-        let team: Team | null = getSelectedTeam();
-
-        if (team !== null) {
-            let teamDatabase = getSelectedDatabase(team);
-
-            if (teamDatabase !== null) {
-                let teamProject = getSelectedProject(teamDatabase, true);
-            
-                if (teamProject !== null) {
-                    selectedProjectId = teamProject.id;
-                    selectedProject = teamProject;
-                    projects = teamDatabase.projects;
-
-                    await loadData();
-                }
-            }
-        }
-    }
-
-    const changeProject = async() => {
-
-        let team: Team | null = getSelectedTeam();
-
-        if (team !== null) {
-            let teamDatabase = getSelectedDatabase(team);
-
-            if (teamDatabase !== null) {
-                let teamProject = getSelectedProject(teamDatabase);
-            
-                if (teamProject !== null) {
-                    selectedProject = teamProject;
-
-                    await loadData();
-                }
-            }
-        }
-    }
-
-    // Data request functions
-
-    const loadData = async() => {
+    async function deleteSelectedSamples() {
 
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.sampleOverview}?team=${selectedTeamId}&db=${selectedDatabaseId}&project=${selectedProjectId}&page=0&limit=${$page.data.defaultPageLimit}&notag=${$page.data.defaultNegativeTemplateControl}`, {
-                method: 'GET',
-                mode: 'cors',
-                credentials: 'include'
-            } satisfies RequestInit,
-            $page.data.refreshToken, toastStore, null
-        );
-        
-        if (response.ok) {
-            sampleOverviewData = response.json.data?.sample_overview;
-
-            // We check for an ok but empty response - the request
-            // was successful, but there are no samples in the 
-            // requested database and project
-            if (sampleOverviewData.length == 0){
-                toastStore.trigger(
-                    { message: "No samples available", background: "variant-filled-tertiary" } satisfies ToastSettings
-                )
-            }
-        }
-
-        loading = false;
-
-    }
-
-    const deleteSelectedSamples = async() => {
-
-        loading = true;
-
-        let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.deleteSamples}?team=${selectedTeamId}&db=${selectedDatabaseId}&project=${selectedProjectId}`, {
+            `${publicApi.routes.cerebro.deleteSamples}?team=${selectedTeam.id}&db=${selectedDatabase.id}&project=${selectedProject.id}`, {
                 method: 'DELETE',
                 mode: 'cors',
                 credentials: 'include',
@@ -201,7 +63,7 @@
         );
         
         if (response.ok) {
-            sampleOverviewData = sampleOverviewData.filter(overview => !selectedSamples.includes(overview.id))
+            sampleOverviewData = sampleOverviewData.filter((overview: SampleOverviewData) => !selectedSamples.includes(overview.id))
             selectedSamples = []
         }
         
@@ -209,12 +71,12 @@
 
     }
 
-    const getSelectedSampleCsv = async() => {
+    async function getSelectedSampleCsv() {
 
         loading = true;
 
         let response: ApiResponse = await publicApi.fetchWithRefresh(
-            `${publicApi.routes.cerebro.getSampleSummary}?team=${selectedTeamId}&db=${selectedDatabaseId}&project=${selectedProjectId}&csv=true`, {
+            `${publicApi.routes.cerebro.getSampleSummary}?team=${selectedTeam.id}&db=${selectedDatabase.id}&project=${selectedProject.id}&csv=true`, {
                 method: 'POST',
                 mode: 'cors',
                 credentials: 'include',
@@ -266,11 +128,41 @@
         modalStore.trigger(modal);
     }
 
+    async function createTeamDatabase() {
+
+        // loading = true;
+
+        // let response: ApiResponse = await publicApi.fetchWithRefresh(
+        //     `${publicApi.routes.teams.createProject}?team=${selectedTeamId}`, {
+        //         method: 'POST',
+        //         mode: 'cors',
+        //         credentials: 'include',
+        //         body: JSON.stringify({
+
+        //         } satisfies ),
+        //         headers:  { 'Content-Type': 'application/json' }
+        //     } satisfies RequestInit,
+        //     $page.data.refreshToken, toastStore, `Sample summary retrieved`
+        // );
+
+        // if (response.ok) {
+        //     selectedSamples = []
+        //     if (response.json.data?.csv) {
+        //         exportCsv(response.json.data.csv)
+        //     }
+        // }
+    }
+
+    enum TeamDataCrud {
+        CreateProject = 'Project',
+        CreateDatabase = 'Database'
+    }
+
     let newProjectName: string = "";
     let newProjectDesription: string = "";
     let newDatabaseName: string = "";
     let newDatabaseDescription: string = "";
-    let create: string = 'Project';
+    let create: TeamDataCrud = TeamDataCrud.CreateProject;
 
 </script>
 
@@ -316,7 +208,7 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="">
-                            {#each ['Project', 'Database'] as c}
+                            {#each [TeamDataCrud.CreateProject, TeamDataCrud.CreateDatabase] as c}
                                 <button
                                     class="chip {create === c ? 'variant-filled-primary' : 'variant-soft'} ml-2"
                                     on:click={() => { create = c }}
@@ -326,7 +218,7 @@
                                 </button>
                             {/each} 
                         </div>
-                        <button type="button" class="btn btn-md variant-outline-primary" on:click={getSelectedSampleCsv}>
+                        <button type="button" class="btn btn-md variant-outline-primary" on:click={createTeamDatabase}>
                             <div class="w-5 h-5 mr-2">
                                 <svg data-slot="icon" aria-hidden="true" fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -357,7 +249,7 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="">
-                            {#each ['Project', 'Database'] as c}
+                            {#each [TeamDataCrud.CreateProject, TeamDataCrud.CreateDatabase] as c}
                                 <button
                                     class="chip {create === c ? 'variant-filled-primary' : 'variant-soft'} ml-2"
                                     on:click={() => { create = c }}
@@ -392,26 +284,26 @@
 
                 <div class="w-1/4">
                     <p class="mb-1"><span class="opacity-60">Team</span></p>
-                    <select id="teamSelect" class="select" bind:value={selectedTeamId} on:change={changeTeam}>
+                    <select id="teamSelect" class="select" bind:value={selectedTeamName} on:change={changeTeam}>
                         {#each $page.data.userTeams as team}
-                            <option value={team.id}>{team.name}</option>
+                            <option value={team.name}>{team.name}</option>
                         {/each}
                     </select>
                 </div>
 
                 <div class="w-1/4">
                     <p class="mb-1"><span class="opacity-60">Database</span></p>
-                    <select id="projectSelect"  class="select" bind:value={selectedDatabaseId} on:change={changeDatabase}>
-                        {#each databases as db}
-                            <option value={db.id}>{db.name}</option>
+                    <select id="projectSelect"  class="select" bind:value={selectedDatabaseName} on:change={changeDatabase}>
+                        {#each $page.data.selectedTeam.databases as db}
+                            <option value={db.name}>{db.name}</option>
                         {/each}
                     </select>
                 </div>
                 <div class="w-1/4">
                     <p class="mb-1"><span class="opacity-60">Project</span></p>
-                    <select id="projectSelect"  class="select" bind:value={selectedProjectId} on:change={changeProject}>
-                        {#each projects as project}
-                            <option value={project.id}>{project.name}</option>
+                    <select id="projectSelect"  class="select" bind:value={selectedProjectName} on:change={changeProject}>
+                        {#each $page.data.selectedDatabase.projects as project}
+                            <option value={project.name}>{project.name}</option>
                         {/each}
                     </select>
                 </div>
@@ -456,15 +348,12 @@
             </div>
             <div class="mt-5">
                 <SampleOverviewTable 
-                sampleOverviewData={sampleOverviewData} 
-                bind:selectedSampleOverview 
-                bind:selectedSamples 
-                selectedTeamId={selectedTeamId} 
-                selectedTeamName={selectedTeam.name} 
-                selectedDatabaseId={selectedDatabaseId} 
-                selectedProjectId={selectedProjectId} 
-                selectedDatabaseName={selectedDatabase.name} 
-                selectedProjectName={selectedProject.name}
+                    sampleOverviewData={sampleOverviewData} 
+                    bind:selectedSampleOverview 
+                    bind:selectedSamples 
+                    selectedTeam={selectedTeam}
+                    selectedDatabase={selectedDatabase}
+                    selectedProject={selectedProject}
                 ></SampleOverviewTable>
             </div>
         {/if}

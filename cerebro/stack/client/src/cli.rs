@@ -3,14 +3,14 @@ use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
-use cerebro_pipe::modules::panviral::Panviral;
+use cerebro_pipe::modules::alignment::Alignment;
 use cerebro_pipe::modules::pathogen::PathogenDetection;
 use cerebro_pipe::modules::quality::QualityControl;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{TowerCommands, ProjectCommands, StageCommands, WatcherCommands, App, Commands};
+use cerebro_client::terminal::{App, Commands, DatabaseCommands, ProjectCommands, StageCommands, TowerCommands, WatcherCommands};
 
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipe::taxa::taxon::TaxonExtraction;
@@ -79,7 +79,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                Some(run_id)
+                Some(run_id),
+                args.run_date.clone() // TODO: add run configuration to staged sample
             )?;
 
             
@@ -115,7 +116,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                args.run_id.clone()
+                args.run_id.clone(),
+                args.run_date.clone()
             )?;
 
             
@@ -127,7 +129,7 @@ fn main() -> anyhow::Result<()> {
         Commands::UploadPanviral( args ) => {
             
             let quality = QualityControl::from_json(&args.quality)?;
-            let panviral = Panviral::from_json(&args.panviral)?;
+            let panviral = Alignment::from_json(&args.panviral)?;
 
             if quality.id != panviral.id {
                 return Err(HttpClientError::PanviralIdentifiersNotMatched(quality.id, panviral.id).into())
@@ -155,7 +157,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                Some(run_id)
+                Some(run_id),
+                args.run_date.clone()
             )?;
 
             if let Some(model) = &args.model {
@@ -174,7 +177,7 @@ fn main() -> anyhow::Result<()> {
         Commands::CreatePanviral( args ) => {
 
             let quality = QualityControl::from_json(&args.quality)?;
-            let panviral = Panviral::from_json(&args.panviral)?;
+            let panviral = Alignment::from_json(&args.panviral)?;
 
             if quality.id != panviral.id {
                 return Err(HttpClientError::PanviralIdentifiersNotMatched(quality.id, panviral.id).into())
@@ -189,7 +192,8 @@ fn main() -> anyhow::Result<()> {
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
-                args.run_id.clone()
+                args.run_id.clone(),
+                args.run_date.clone()
             )?;
 
             cerebro.write_json(&args.model)?;
@@ -197,12 +201,12 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::UploadModel( args ) => {
 
-            let mut models = Vec::new();
             for path in &args.models {
-                models.push(Cerebro::from_json(path)?)
+                log::info!("Reading model from: {}", path.display());
+                let model = Cerebro::from_json(path)?;
+                client.upload_models(&vec![model])?;
             }
-            
-            client.upload_models(&models)?;
+
 
         }
         Commands::Tower(subcommand) => {
@@ -448,16 +452,25 @@ fn main() -> anyhow::Result<()> {
                 // Create new project in a team database
                 ProjectCommands::Create( args ) => {
                     client.create_project(
-                        &args.team_name, 
-                        &args.db_name,
-                        &args.project_name, 
-                        &args.project_description, 
+                        &args.name, 
+                        &args.description, 
                     )?
                 }
             }
         },
         Commands::Team( _subcommand ) => { },
-        Commands::Database( _subcommand ) => { },
+        Commands::Database( subcommand ) => {
+            match subcommand {
+
+                // Create new project in a team database
+                DatabaseCommands::Create( args ) => {
+                    client.create_database(
+                        &args.name, 
+                        &args.description, 
+                    )?
+                }
+            }
+        },
     }
 
     Ok(())

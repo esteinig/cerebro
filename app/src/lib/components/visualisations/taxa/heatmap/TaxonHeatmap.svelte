@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as d3 from 'd3';
     import { selectedTaxa, selectedServerFilterConfig, storeTheme, navigationLoading } from '$lib/stores/stores';
-    import { type Taxon, type TaxonOverviewRecord, PathogenDetectionTool, AbundanceMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName, FileTag, type Cerebro } from '$lib/utils/types';
+    import { type Taxon, type TaxonOverviewRecord, ProfileTool, AbundanceMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName, FileTag, type Cerebro } from '$lib/utils/types';
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { page } from '$app/stores';
     import { getCssVariableAsHex } from '$lib/utils/helpers';
@@ -12,7 +12,7 @@
     export let selectedIdentifiers: string[] = [];
     export let width: number = 1024;
     export let height: number = 768;
-    export let tool: PathogenDetectionTool = PathogenDetectionTool.Ganon2;
+    export let tool: ProfileTool = ProfileTool.Ganon2;
     export let mode: AbundanceMode = AbundanceMode.Sequence;
     export let displayData: DisplayData = DisplayData.Rpm;
 
@@ -32,7 +32,8 @@
     let rowOrder: string[] = []; // Tracks the rows in the heatmap
     let columnOrder: string[] = [];
 
-    let domainColors: Map<string, {start: string, end: string}> = new Map([
+    let domainColors: Map<string | null, {start: string, end: string}> = new Map([
+        [null, { start: '--color-primary-100', end: '--color-primary-900'}],
         [DomainName.Viruses, { start: '--color-tertiary-400', end: '--color-tertiary-900'}],
         [DomainName.Archaea, { start: '--color-primary-100', end: '--color-primary-900'}],
         [DomainName.Bacteria, { start: '--color-primary-100', end: '--color-primary-900'}],
@@ -75,8 +76,8 @@
     $: {
         if (selectedRowOrder === HeatmapRowOrder.Domain) {
             taxa.sort((a, b) => {
-                const domainA = a.level?.domain_name || ""; // Default to an empty string if undefined
-                const domainB = b.level?.domain_name || ""; // Default to an empty string if undefined
+                const domainA = a.level?.domain || ""; // Default to an empty string if undefined
+                const domainB = b.level?.domain || ""; // Default to an empty string if undefined
                 return domainA.localeCompare(domainB);
             });
             rowOrder = taxa.map(taxon => taxon.name);
@@ -86,7 +87,7 @@
 
 
     // Derive unique Detection IDs (columns)
-    $: uniqueDetectionIds = Array.from(new Set(taxa.flatMap((taxon) => taxon.evidence.records.map((record) => record.id))));
+    $: uniqueDetectionIds = Array.from(new Set(taxa.flatMap((taxon) => taxon.evidence.profile.map((record) => record.id))));
 
     // Preserve order and append new columns
     // $: columnOrder = [...columnOrder, ...uniqueDetectionIds.filter((id) => !columnOrder.includes(id))];
@@ -108,6 +109,7 @@
                 }
             });
         });
+
 
         // Filter uniqueDetectionIds into groups
         const ntcAndEnvColumns = uniqueDetectionIds.filter(
@@ -140,17 +142,13 @@
     $: dataMatrix = rowOrder.flatMap((row) =>
         columnOrder.map((column) => {
             const matchingData = taxa.flatMap((taxon) =>
-                taxon.evidence.records
-                    .filter((r) => r.id === column)
-                    .flatMap((record) =>
-                        record.results
-                            .filter((result) => result.tool === tool && result.mode === mode)
-                            .map((result) => ({
-                                row: taxon.name,
-                                column: record.id,
-                                value: result[displayData] ?? null,
-                            }))
-                    )
+                taxon.evidence.profile
+                    .filter((r) => r.id === column && r.tool === tool && r.mode === mode)
+                    .map((record) => ({
+                        row: taxon.name,
+                        column: record.id,
+                        value: record[displayData] ?? null,
+                    }))
             ).find((d) => d.row === row && d.column === column);
             return matchingData || { row, column, value: null };
         })
@@ -173,9 +171,9 @@
                 endColor = getCssVariableAsHex('--color-primary-600', $storeTheme);
             } else if (colorScheme === HeatmapColorScheme.Domain) {
                 taxa.filter((taxon) => row == taxon.name).map((taxon) => {
-                    if (taxon.level.domain_name !== undefined) {
-                        startColor = getCssVariableAsHex(domainColors.get(taxon.level.domain_name)?.start, $storeTheme);
-                        endColor = getCssVariableAsHex(domainColors.get(taxon.level.domain_name)?.end, $storeTheme);
+                    if (taxon.level.domain !== undefined) {
+                        startColor = getCssVariableAsHex(domainColors.get(taxon.level.domain)?.start, $storeTheme);
+                        endColor = getCssVariableAsHex(domainColors.get(taxon.level.domain)?.end, $storeTheme);
                     } 
                 })
 
@@ -295,14 +293,14 @@
         <label class="label">
             <span class="font-medium mb-2">Classifier</span>
             <select bind:value={tool} class="select">
-                <option value="{PathogenDetectionTool.Kraken2}">{PathogenDetectionTool.Kraken2}</option>
-                <option value="{PathogenDetectionTool.Ganon2}">{PathogenDetectionTool.Ganon2}</option>
-                <option value="{PathogenDetectionTool.Bracken}">{PathogenDetectionTool.Bracken}</option>
-                <option value="{PathogenDetectionTool.Metabuli}">{PathogenDetectionTool.Metabuli}</option>
-                <option value="{PathogenDetectionTool.Kmcp}">{PathogenDetectionTool.Kmcp}</option>
-                <option value="{PathogenDetectionTool.Sylph}">{PathogenDetectionTool.Sylph}</option>
-                <option value="{PathogenDetectionTool.Vircov}">{PathogenDetectionTool.Vircov}</option>
-                <option value="{PathogenDetectionTool.BlastContig}">{PathogenDetectionTool.BlastContig}</option>
+                <option value="{ProfileTool.Kraken2}">{ProfileTool.Kraken2}</option>
+                <option value="{ProfileTool.Ganon2}">{ProfileTool.Ganon2}</option>
+                <option value="{ProfileTool.Bracken}">{ProfileTool.Bracken}</option>
+                <option value="{ProfileTool.Metabuli}">{ProfileTool.Metabuli}</option>
+                <option value="{ProfileTool.Kmcp}">{ProfileTool.Kmcp}</option>
+                <option value="{ProfileTool.Sylph}">{ProfileTool.Sylph}</option>
+                <option value="{ProfileTool.Vircov}">{ProfileTool.Vircov}</option>
+                <option value="{ProfileTool.Blast}">{ProfileTool.Blast}</option>
             </select>
         </label>
 

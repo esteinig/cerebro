@@ -5,18 +5,19 @@ use std::{
     fs::File, 
     path::PathBuf
 };
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use fancy_regex::Regex;
 use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
+use chrono::{TimeZone, SecondsFormat};
 
 use cerebro_pipe::{
     error::WorkflowError, 
     modules::quality::QualityControl, 
     nextflow::sheet::SampleSheet, 
     taxa::filters::TaxonFilterConfig, 
-    taxa::taxon::{Taxon, TaxonOverview}
+    taxa::taxon::Taxon
 };
 
 use crate::api::users::model::{UserId, User};
@@ -52,6 +53,9 @@ pub enum ModelError {
     /// Represents all other cases of `WorkflowError`.
     #[error(transparent)]
     Workflow(#[from] WorkflowError),
+    /// Represents all other cases of `chrono::ParseError`.
+    #[error(transparent)]
+    ChronoParse(#[from] chrono::ParseError),
     /// Represents failure to find a run identifier in the sample sheet
     #[error("failed to find run identifier in sample sheet for sample identifier: {0}")]
     RunIdentifier(String),
@@ -82,6 +86,9 @@ pub enum ModelError {
     /// Indicates failure to obtain the sample tag regex capture match
     #[error("failed to get sample tag regex capture match")]
     SampleTagRegexCaptureMatch,
+    /// Indicates failure to calculate size of the model
+    #[error("failed to calculate the size of the model")]
+    ModelSizeCalculation,
     /// Indicates failure to construct the quality control summary from modules
     #[error("failed to construct quality control summary")]
     QualityControlSummary(#[source] WorkflowError),
@@ -110,7 +117,7 @@ pub struct Cerebro {
     pub sample: SampleConfig,                   // the configuration of the biological sample
     pub workflow: WorkflowConfig,               // the configuration of the workflow run
 
-    pub taxa: HashMap<String, Taxon>,           // the dictionary of taxonomic identifiers and taxon data from the parsed workflow sample (legacy dictionary, could be simple list)
+    pub taxa: HashMap<String, Taxon>,           // taxon data from the parsed workflow sample (as dictionary for taxon aggregation)
     pub quality: QualityControl,                // the quality control data from the parsed workflow sample
 }
 impl Cerebro {
@@ -128,6 +135,7 @@ impl Cerebro {
         sample_sheet: Option<PathBuf>, 
         workflow_config: Option<PathBuf>,
         run_id: Option<String>,
+        run_date: Option<String>,
     ) -> Result<Self, ModelError> {
             
             let (run_config, sample_config) = match sample_sheet {
@@ -135,7 +143,19 @@ impl Cerebro {
                     let sample_sheet = SampleSheet::from(&path)?;
                     (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
                 },
-                None => (RunConfig::with_default(&match run_id { Some(id) => id, None => String::from("Placeholder") }), SampleConfig::with_default(&id)?)
+                None => (
+                    RunConfig::new(
+                    &match run_id { 
+                            Some(id) => id, 
+                            None => String::from("Placeholder") 
+                        },
+                        &match run_date {
+                            Some(date) => date,
+                            None => Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
+                        }
+                    )?, 
+                    SampleConfig::with_default(&id)?
+                )
             };
 
             let workflow_config = match workflow_config {
@@ -157,6 +177,15 @@ impl Cerebro {
                 }
             )
     }
+    pub fn size(&self) -> Result<usize, ModelError> {
+        match serde_json::to_vec(self) {
+            Ok(json_bytes) => Ok(json_bytes.len()),
+            Err(_) => return Err(ModelError::ModelSizeCalculation)
+        }
+    }
+    pub fn size_mb(&self) -> Result<f64, ModelError> {
+        Ok(self.size()? as f64 / (1024.0 * 1024.0))
+    }
     pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
         let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
         Ok(model)
@@ -167,6 +196,7 @@ impl Cerebro {
         write!(file, "{}", json_string)?;
         Ok(())
     }
+   
 
 }
 
@@ -199,20 +229,34 @@ impl RunConfig {
         };
         Ok(Self { id, date })
     }
-    pub fn with_default(id: &str) -> Self {
-        Self {
+    pub fn new(id: &str, date: &str) -> Result<Self, ModelError> {
+        Ok(Self {
             id: id.to_string(),
-            ..Default::default()
-        }
+            date: parse_and_format_date(date)?
+        })
     }
 }
 impl Default for RunConfig {
     fn default() -> Self {
         Self {
-            id: String::from("PLACEHOLDER"),
+            id: String::from("SEQUENCE-RUN"),
             date: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
         }
     }
+}
+
+
+fn parse_and_format_date(date_str: &str) -> Result<String, ModelError> {
+    // Parse the date string into a NaiveDate
+    let naive_date = NaiveDate::parse_from_str(date_str, "%Y%m%d")?;
+    
+    // Convert NaiveDate to NaiveDateTime by adding a time component
+    let naive_datetime = naive_date.and_hms_opt(0, 0, 0).unwrap();
+    
+    // Convert NaiveDateTime to a Utc DateTime
+    let rfc3339_date = Utc.from_utc_datetime(&naive_datetime).to_rfc3339_opts(SecondsFormat::Secs, true);
+    
+    Ok(rfc3339_date)
 }
 /*
 ========================
@@ -551,7 +595,7 @@ pub struct PriorityTaxon {
     pub evidence_tags: Vec<String>,            // joined tags, not arrays
     pub cerebro_identifiers: Vec<CerebroId>,   
     pub taxon_type: TaxonType,
-    pub taxon_overview: TaxonOverview,
+    // pub taxon_overview: TaxonOverview,
     pub filter_config: TaxonFilterConfig,
     pub decisions: Vec<PriorityTaxonDecision>
 }
@@ -559,12 +603,12 @@ impl PriorityTaxon {
     // A description of priority taxon for logging
     pub fn log_description(&self) -> String {
         format!(
-            "PriorityTaxon: cerebro_ids={} id={} date={} type={} name='{}' taxid={} tags={} comment='{}'", 
+            "PriorityTaxon: cerebro_ids={} id={} date={} type={} tags={} comment='{}'", 
             self.id, 
             self.date, 
             self.taxon_type, 
-            self.taxon_overview.name, 
-            self.taxon_overview.taxid, 
+            // self.taxon_overview.name, 
+            // self.taxon_overview.taxid, 
             self.evidence_tags.join(","),
             self.cerebro_identifiers.join(","),
             self.comment
@@ -581,7 +625,7 @@ impl PriorityTaxon {
             evidence_tags: schema.evidence_tags,          // joined tags, not arrays
             cerebro_identifiers:schema.cerebro_identifiers,  
             taxon_type: schema.taxon_type,
-            taxon_overview: schema.taxon_overview,
+            // taxon_overview: schema.taxon_overview,
             filter_config: schema.filter_config,
             decisions: schema.decisions,
         }

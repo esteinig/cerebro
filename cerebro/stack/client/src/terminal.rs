@@ -147,6 +147,9 @@ pub struct UploadPathogenArgs {
     /// Run identifier if sample sheet is not provided
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -179,8 +182,13 @@ pub struct CreatePathogenArgs {
     #[clap(long)]
     pub strict: bool,
     /// Run identifier if sample sheet is not provided
+    /// otherwise defaults to placeholder for now
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    /// otherwise defaults to current date
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -206,8 +214,13 @@ pub struct UploadPanviralArgs {
     #[clap(long)]
     pub strict: bool,
     /// Run identifier if sample sheet is not provided
+    /// otherwise defaults to placeholder for now
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    /// otherwise defaults to current date
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -242,8 +255,13 @@ pub struct CreatePanviralArgs {
     #[clap(long)]
     pub strict: bool,
     /// Run identifier if sample sheet is not provided
+    /// otherwise defaults to placeholder for now
     #[clap(long)]
     pub run_id: Option<String>,
+    /// Run date (YYYYMMDD) if sample sheet is not provided
+    /// otherwise defaults to current date
+    #[clap(long)]
+    pub run_date: Option<String>,
     /// Pipeline sample sheet (.csv)
     #[clap(long)]
     pub sample_sheet: Option<PathBuf>,
@@ -257,16 +275,7 @@ pub struct CreatePanviralArgs {
 pub struct UploadModelArgs {
     /// Processed database models(.json)
     #[clap(long, short = 'm', num_args(1..))]
-    pub models: Vec<PathBuf>,
-    /// Team name for model upload
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model upload
-    #[clap(long, short = 'p')]
-    pub project_name: String,
-    /// Database name for model upload, otherwise team default database
-    #[clap(long, short = 'd')]
-    pub db_name: Option<String>,
+    pub models: Vec<PathBuf>
 }
 
 #[derive(Debug, Args)]
@@ -599,41 +608,32 @@ pub enum ProjectCommands {
 
 #[derive(Debug, Args)]
 pub struct TeamCreateArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'p')]
-    pub team_descriptions: String,
+    /// Team name 
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Team description
+    #[clap(long, short = 'd')]
+    pub description: String,
 }
 
 #[derive(Debug, Args)]
 pub struct DatabaseCreateArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'p')]
-    pub project_name: String,
-    /// Database name for model query
+    /// Database name
+    #[clap(long, short = 'n')]
+    pub name: String,
+    /// Database description
     #[clap(long, short = 'd')]
-    pub db_name: Option<String>,
+    pub description: String,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectCreateArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Database name for model query
-    #[clap(long, short = 'd')]
-    pub db_name: String,
-    /// Project name for model query
+    /// Project name
     #[clap(long, short = 'n')]
-    pub project_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'i')]
-    pub project_description: String,
+    pub name: String,
+    /// Project description
+    #[clap(long, short = 'd')]
+    pub description: String,
 }
 
 

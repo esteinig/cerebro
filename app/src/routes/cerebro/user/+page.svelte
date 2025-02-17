@@ -7,7 +7,6 @@
     let selectedTeamId: string = $page.data.userTeams[0];
 
     function changeTeam() {
-        console.log("Change team")
     }
 
 </script>

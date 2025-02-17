@@ -197,7 +197,9 @@ interface TeamRoutes {
     update: string,
     addUser: string,
     removeUser: string,
-    get: string
+    get: string,
+    createProject: string,
+    createDatabase: string
 }
 
 interface CerebroRoutes {
@@ -209,6 +211,7 @@ interface CerebroRoutes {
     getReport: string,
     deleteReport: string,
     taxaEvidence: string,
+    taxaPrevalenceContamination: string,
     updateSampleDescription: string,
     deleteSamples: string,
     sampleOverview: string,
@@ -298,6 +301,8 @@ export class Routes {
             update: teamRoute,
             addUser: teamRoute,
             removeUser: teamRoute,
+            createProject: `${teamRoute}/project`,
+            createDatabase: `${teamRoute}/database`,
             get: teamRoute
         }
         this.cerebro = {
@@ -309,6 +314,7 @@ export class Routes {
             getReport: `${cerebroRoute}/reports`,
             deleteReport: `${cerebroRoute}/reports`,
             taxaEvidence: `${cerebroRoute}/taxa`,
+            taxaPrevalenceContamination: `${cerebroRoute}/taxa/contamination`,
             deleteSamples: `${cerebroRoute}/samples`,
             updateSampleDescription: `${cerebroRoute}/samples/description`,
             getSampleSummary: `${cerebroRoute}/samples/summary/qc`,

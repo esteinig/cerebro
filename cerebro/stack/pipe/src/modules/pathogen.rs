@@ -2,10 +2,11 @@ use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Pat
 
 use serde::{Deserialize, Serialize};
 use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
+use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::pathogen::{PathogenOutput, SylphReportRecord}, taxa::taxon::{Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
 
-use super::quality::QualityControl;
+use super::{alignment::Alignment, assembly::{MetagenomeAssembly, ContigRecord}, quality::QualityControl};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,32 +106,32 @@ impl PathogenDetectionTableRecord {
 
         for result in &record.results {
             match (result.tool.clone(), result.mode.clone()) {
-                (PathogenDetectionTool::Kraken2, AbundanceMode::Sequence) => {
+                (ProfileTool::Kraken2, AbundanceMode::Sequence) => {
                     kraken_reads = Some(result.reads);
                     kraken_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Bracken, AbundanceMode::Profile) => {
+                (ProfileTool::Bracken, AbundanceMode::Profile) => {
                     bracken_reads = Some(result.reads);
                     bracken_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Metabuli, AbundanceMode::Sequence) => {
+                (ProfileTool::Metabuli, AbundanceMode::Sequence) => {
                     metabuli_reads = Some(result.reads);
                     metabuli_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Ganon2, AbundanceMode::Sequence) => {
+                (ProfileTool::Ganon2, AbundanceMode::Sequence) => {
                     ganon_reads = Some(result.reads);
                     ganon_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Kmcp, AbundanceMode::Sequence) => {
+                (ProfileTool::Kmcp, AbundanceMode::Sequence) => {
                     kmcp_reads = Some(result.reads);
                     kmcp_rpm = Some(result.rpm);
                 }
-                (PathogenDetectionTool::Sylph, AbundanceMode::Sequence) => {
+                (ProfileTool::Sylph, AbundanceMode::Sequence) => {
                     sylph_reads = Some(result.reads);
                     sylph_rpm = Some(result.rpm);
                 }
                  // Alignment can be multiple per taxonomic identifier (segments, contigs)
-                (PathogenDetectionTool::Vircov, AbundanceMode::Sequence) => {
+                (ProfileTool::Vircov, AbundanceMode::Sequence) => {
                     vircov_reads = Some(match vircov_reads {
                         Some(existing) => existing + result.reads,
                         None => result.reads,
@@ -141,7 +142,7 @@ impl PathogenDetectionTableRecord {
                     });
                 }
                 // Assembly can be multiple per taxonomic identifier (contigs)
-                (PathogenDetectionTool::Blast, AbundanceMode::Bases) => {
+                (ProfileTool::Blast, AbundanceMode::Bases) => {
                     blast_contigs = Some(match blast_contigs {
                         Some(existing) => existing + 1,
                         None => 1,
@@ -219,7 +220,7 @@ pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory
         let pd = PathogenDetection::from_json(file)?;
         let records = match pd_filter {
             Some(ref f) => pd.filter_by_taxonomy(f.taxids.clone(), f.names.clone(), f.ranks.clone()),
-            None => pd.records,
+            None => pd.profile,
         };
         for record in records {
             table_records.push(
@@ -280,73 +281,85 @@ impl PathogenDetectionFilter {
 pub struct PathogenDetection {
     pub id: String,
     pub paired_end: bool,
-    pub records: Vec<PathogenDetectionRecord>
+    pub profile: Vec<PathogenDetectionRecord>,
+    pub alignment: Vec<VircovRecord>,
+    pub assembly: Vec<ContigRecord>
 }
 impl PathogenDetection {
     pub fn from_pathogen(
-        output: &PathogenOutput,
+        output: &PathogenDetectionOutput,
         quality: &QualityControl,
         paired_end: bool,
     ) -> Result<Self, WorkflowError> {
 
+        // Submodules for alignment and metagenome assembly run in pathogen detection
+
+        let alignment = Alignment::from_pathogen(&output)?;
+        let assembly = MetagenomeAssembly::from_pathogen(&output)?;
+
+        // Relevant quality control data
         let input_reads = quality.reads.input_reads;
         let input_bases = quality.reads.input_bases;
-
         let classifier_reads = quality.reads.output_reads;
         let classifier_bases = quality.reads.output_bases;
 
         let mut detection_map: HashMap<String, PathogenDetectionRecord> = HashMap::new();
 
-         // Vircov alignment for pathogen detection summary record
-         if let Some(vircov_summary) = &output.profile.vircov {
-            for record in &vircov_summary.records {
+        for record in &alignment.records {
 
-                let taxid = match &record.taxid {
-                    Some(taxid) => taxid,
-                    None => return Err(WorkflowError::PathogenTaxidAnnotationMissing)
-                };
+            let taxid = match &record.taxid {
+                Some(taxid) => taxid,
+                None => return Err(WorkflowError::PathogenTaxidAnnotationMissing)
+            };
 
-                let taxname = match &record.name {
-                    Some(taxname) => taxname,
-                    None => match &record.bin {
-                        Some(bin) => bin,  // fallback
-                        None => return Err(WorkflowError::PathogenTaxnameAnnotationMissing)
-                    }
-                };
+            let taxname = match &record.name {
+                Some(taxname) => taxname,
+                None => match &record.bin {
+                    Some(bin) => bin,  // fallback to bin name
+                    None => return Err(WorkflowError::PathogenTaxnameAnnotationMissing)
+                }
+            };
 
-                let remap_reads = match record.remap_alignments {
-                    Some(reads) => reads,
-                    None => continue // remapping stage unsuccessful - can occur when very few reads detectec in scanning stage
-                };
+            let remap_reads = match record.remap_alignments {
+                Some(reads) => reads,
+                None => continue // remapping stage executed but unsuccessful - can occur when very few reads detected in scanning stage
+            };
 
+            let taxid = taxid.trim().to_string();
+            let name = taxname.trim().to_string();
+            let rank = PathogenDetectionRank::Species; // alignment always species-level for now
+            let reads = remap_reads;
+            let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
+            let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
-                let taxid = taxid.trim().to_string();
-                let name = taxname.trim().to_string();
-                let rank = PathogenDetectionRank::Species; // alignment always species-level for now
-                let reads = remap_reads;
-                let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
-                let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
-
-                let entry = detection_map
-                    .entry(taxid.clone())
-                    .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
-                entry.add_result(
-                    PathogenDetectionTool::Vircov,
-                    AbundanceMode::Sequence,
-                    reads,
-                    rpm,
-                    0,
-                    0.0,
-                    abundance,
-                );
-            }
+            let entry = detection_map
+                .entry(taxid.clone())
+                .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
+            entry.add_result(
+                ProfileTool::Vircov,
+                AbundanceMode::Sequence,
+                reads,
+                rpm,
+                0,
+                0.0,
+                abundance,
+            );
         }
 
-        if let Some(records) = &output.mag.ncbi_blast {
+        if let Some(records) = &output.assembly.blast {
 
             for record in records {
                 let taxid = record.taxid.trim().to_string();
-                let name = record.taxname.trim().to_string();
+                let mut name = record.taxname.trim().to_string();
+                
+                // Custom BLAST databases don't usually have the 'ssciname' associated 
+                // we could use a taxonomy to add this later, but here we use the
+                // 'stitle' as taxname as configured in 'Cipher'
+
+                if name == "N/A".to_string() {
+                    name = record.title.trim().to_string()
+                }
+
                 let rank = PathogenDetectionRank::from_str(&record.taxrank);
                 let bases = record.length;
                 let bpm = compute_bpm(record.length, input_bases).unwrap_or(0.0);
@@ -356,7 +369,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Blast,
+                    ProfileTool::Blast,
                     AbundanceMode::Bases,
                     0,
                     0.0,
@@ -381,7 +394,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Kraken2,
+                    ProfileTool::Kraken2,
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
@@ -406,7 +419,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Metabuli,
+                    ProfileTool::Metabuli,
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
@@ -431,7 +444,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Bracken,
+                    ProfileTool::Bracken,
                     AbundanceMode::Profile,
                     reads,
                     rpm,
@@ -459,7 +472,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Sylph,
+                    ProfileTool::Sylph,
                     AbundanceMode::Sequence,
                     estimated_reads,
                     rpm,
@@ -485,7 +498,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Kmcp,
+                    ProfileTool::Kmcp,
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
@@ -510,7 +523,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Kmcp,
+                    ProfileTool::Kmcp,
                     AbundanceMode::Profile,
                     reads,
                     rpm,
@@ -527,7 +540,7 @@ impl PathogenDetection {
                 let taxid = record.taxid.trim().to_string();
                 let name = record.taxname.trim().to_string();
                 let rank = PathogenDetectionRank::from_str(&record.tax_level);
-                let reads = if paired_end { record.cumulative * 2 } else { record.cumulative };
+                let reads = record.cumulative; // Ganon respects modern Illumina PE read identifier format whereas Kraken2/Bracken and Metabuli do not!
                 let rpm = compute_rpm(reads, input_reads).unwrap_or(0.0);
                 let abundance = (reads as f64 / classifier_reads as f64) * 100.0;
 
@@ -535,7 +548,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Ganon2,
+                    ProfileTool::Ganon2,
                     AbundanceMode::Sequence,
                     reads,
                     rpm,
@@ -561,7 +574,7 @@ impl PathogenDetection {
                     .entry(taxid.clone())
                     .or_insert_with(|| PathogenDetectionRecord::new(&output.id, &taxid, &name, rank));
                 entry.add_result(
-                    PathogenDetectionTool::Ganon2,
+                    ProfileTool::Ganon2,
                     AbundanceMode::Profile,
                     reads,
                     rpm,
@@ -572,12 +585,14 @@ impl PathogenDetection {
             }
         }
 
-        let records = detection_map.into_iter().map(|(_, record)| record).collect();
+        let profile = detection_map.into_iter().map(|(_, record)| record).collect();
         
         Ok(Self {
             id: output.id.clone(),
             paired_end,
-            records,
+            profile,
+            alignment: alignment.records,
+            assembly: assembly.records,
         })
     }
 
@@ -615,7 +630,7 @@ impl PathogenDetection {
         names: Option<Vec<String>>,
         ranks: Option<Vec<PathogenDetectionRank>>,
     ) -> Vec<PathogenDetectionRecord> {
-        self.records
+        self.profile
             .iter()
             .filter(|record| {
                 let taxid_match = taxids.as_ref().map_or(true, |ids| ids.contains(&record.taxid));
@@ -635,16 +650,6 @@ impl PathogenDetection {
     pub fn read_records(path: &Path) -> Result<Vec<PathogenDetectionRecord>, WorkflowError> {
         read_tsv(path, false, true)
     }
-    pub fn to_tsv(&self, path: &Path) -> Result<(), WorkflowError> {
-        write_tsv(&self.records, path, true)
-    }
-    pub fn from_tsv(&self, path: &Path, id: &str, paired_end: bool) -> Result<Self, WorkflowError> {
-        Ok(Self {
-            id: id.to_string(),
-            paired_end,
-            records: read_tsv(path, false, true)?
-        })
-    }
     pub fn to_json(&self, path: &Path) -> Result<(), WorkflowError> {
         let writer = BufWriter::new(File::create(path)?);
         serde_json::to_writer_pretty(writer, self)?;
@@ -662,11 +667,13 @@ impl TaxonExtraction for PathogenDetection {
         let taxonomy = ncbi::load(taxonomy_directory)?;
 
         let mut taxa: HashMap<String, Taxon> = HashMap::new();
-        for record in &self.records {
+        for record in &self.profile {
 
             if let Some(existing_taxon) = taxa.get_mut(&record.taxid) {
                 // If the taxid is already present, update its evidence
-                existing_taxon.evidence.records.push(record.clone());
+                for profile_record in &record.results {
+                    existing_taxon.evidence.profile.push(profile_record.clone());
+                }
             } else {
                 // Otherwise, create a new Taxon and insert it into the HashMap
                 let mut taxon = match Taxon::from_taxid(record.taxid.clone(), &taxonomy, true) {
@@ -684,8 +691,44 @@ impl TaxonExtraction for PathogenDetection {
                     },
                     Ok(taxon) => taxon,
                 };
-                taxon.evidence.records.push(record.clone());
+                
+                for profile_record in &record.results {
+                    taxon.evidence.profile.push(profile_record.clone());
+                }
                 taxa.insert(record.taxid.clone(), taxon);
+            }
+        }
+
+        for record in &self.alignment {
+
+            let taxid = match &record.taxid {
+                Some(taxid) => taxid,
+                None => return Err(WorkflowError::PathogenTaxidAnnotationMissing)
+            };
+
+            if let Some(existing_taxon) = taxa.get_mut(taxid) {
+                // If the taxid is already present, update its evidence
+                existing_taxon.evidence.alignment.push(record.clone());
+            } else {
+                // Otherwise, create a new Taxon and insert it into the HashMap
+                let mut taxon = match Taxon::from_taxid(taxid.clone(), &taxonomy, true) {
+                    Err(err) => {
+                        log::error!("Failed to find taxid '{}' in provided taxonomy", &taxid);
+                        if strict {
+                            return Err(err);
+                        } else {
+                            log::warn!(
+                                "Strict mode is not enabled - detection of taxid '{}' will be skipped",
+                                taxid
+                            );
+                            continue;
+                        }
+                    },
+                    Ok(taxon) => taxon,
+                };
+                
+                taxon.evidence.alignment.push(record.clone());
+                taxa.insert(taxid.clone(), taxon);
             }
         }
         Ok(taxa)
@@ -728,18 +771,18 @@ impl PathogenDetectionRank {
 impl PathogenDetectionRank {
     pub fn to_string(&self) -> String {
         match self {
-            Self::Superkingdom => "superkingdom".to_string(),
-            Self::Phylum => "phylum".to_string(),
-            Self::Class => "class".to_string(),
-            Self::Order => "order".to_string(),
-            Self::Family => "family".to_string(),
-            Self::Genus => "genus".to_string(),
-            Self::Species => "species".to_string(),
-            Self::Strain => "strain".to_string(),
-            Self::NoRank => "no rank".to_string(),
-            Self::Root => "root".to_string(),
-            Self::Unclassified => "unclassified".to_string(),
-            Self::Other => "other".to_string(),
+            Self::Superkingdom => "Superkingdom".to_string(),
+            Self::Phylum => "Phylum".to_string(),
+            Self::Class => "Class".to_string(),
+            Self::Order => "Order".to_string(),
+            Self::Family => "Family".to_string(),
+            Self::Genus => "Genus".to_string(),
+            Self::Species => "Species".to_string(),
+            Self::Strain => "Strain".to_string(),
+            Self::NoRank => "NoRank".to_string(),
+            Self::Root => "Root".to_string(),
+            Self::Unclassified => "Unclassified".to_string(),
+            Self::Other => "Other".to_string(),
         }
     }
 }
@@ -778,7 +821,7 @@ impl From<PathogenDetectionRank> for TaxRank {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum PathogenDetectionTool {
+pub enum ProfileTool {
     Blast,
     Kraken2,
     Metabuli,
@@ -788,7 +831,7 @@ pub enum PathogenDetectionTool {
     Sylph,
     Vircov
 }
-impl PathogenDetectionTool {
+impl ProfileTool {
     pub fn to_string(&self) -> String {
         match self {
             Self::Blast => "Blast".to_string(),
@@ -805,23 +848,24 @@ impl PathogenDetectionTool {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AbundanceMode {
-    Sequence,
     Bases,
     Profile,
+    Sequence,
 }
 impl AbundanceMode {
     pub fn to_string(&self) -> String {
         match self {
-            Self::Sequence => "Sequence".to_string(),
             Self::Bases => "Bases".to_string(),
             Self::Profile => "Profile".to_string(),
+            Self::Sequence => "Sequence".to_string(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PathogenDetectionResult {
-    pub tool: PathogenDetectionTool,
+pub struct ProfileRecord {
+    pub id: String,
+    pub tool: ProfileTool,
     pub mode: AbundanceMode,
     pub reads: u64,
     pub rpm: f64,
@@ -830,9 +874,10 @@ pub struct PathogenDetectionResult {
     pub abundance: f64,
 }
 
-impl PathogenDetectionResult {
+impl ProfileRecord {
     pub fn new(
-        tool: PathogenDetectionTool,
+        id: String,
+        tool: ProfileTool,
         mode: AbundanceMode,
         reads: u64,
         rpm: f64,
@@ -841,6 +886,7 @@ impl PathogenDetectionResult {
         abundance: f64,
     ) -> Self {
         Self {
+            id,
             tool,
             mode,
             reads,
@@ -858,7 +904,7 @@ pub struct PathogenDetectionRecord {
     pub taxid: String,
     pub name: String,
     pub rank: PathogenDetectionRank,
-    pub results: Vec<PathogenDetectionResult>, // Results from various tools and modes
+    pub results: Vec<ProfileRecord>,
 }
 
 impl PathogenDetectionRecord {
@@ -874,7 +920,7 @@ impl PathogenDetectionRecord {
 
     pub fn add_result(
         &mut self,
-        tool: PathogenDetectionTool,
+        tool: ProfileTool,
         mode: AbundanceMode,
         reads: u64,
         rpm: f64,
@@ -882,7 +928,7 @@ impl PathogenDetectionRecord {
         bpm: f64,
         abundance: f64
     ) {
-        let result = PathogenDetectionResult::new(tool, mode, reads, rpm, bases, bpm, abundance);
+        let result = ProfileRecord::new(self.id.clone(), tool, mode, reads, rpm, bases, bpm, abundance);
         self.results.push(result);
     }
 }
