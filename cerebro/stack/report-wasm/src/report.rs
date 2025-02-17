@@ -91,7 +91,7 @@ pub struct ReportAuthorisation {
 impl Default for ReportAuthorisation {
     fn default() -> Self {
         Self {
-            laboratory: String::from("PLACEHOLDER"),
+            laboratory: String::new(),
             identifier: Uuid::new_v4().to_string(),
             signatures: vec![AuthorisationSignature::default()]
         }
@@ -135,7 +135,20 @@ pub struct AppendixLaboratory {
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct LaboratoryHeader {
-
+    pub protocol: String,
+    pub sample_id: String,
+    pub version: String,
+    pub run_id: String,
+    pub extraction: String,
+    pub extraction_control: String,
+    pub rna_depletion: String,
+    pub library_control: String,
+    pub adapter: String,
+    pub sequencing_control: String,
+    pub library: String,
+    pub negative_control: String,
+    pub sequencer: String,
+    pub positive_control: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -144,8 +157,8 @@ pub struct AppendixBioinformatics {
     pub description: String,
     pub comments: String,
     pub header: BioinformaticsHeader,
-    pub libraries: BioinformaticsLibraries,
-    pub evidence: BioinformaticsEvidence,
+    pub libraries: String,
+    pub evidence: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -288,6 +301,21 @@ impl ReportConfig for PathogenDetectionReport {
         context.insert("appendix_laboratory_description", &self.appendix_laboratory.description);
         context.insert("appendix_laboratory_comments", &self.appendix_laboratory.comments);
 
+        context.insert("appendix_laboratory_header_protocol", &self.appendix_laboratory.header.protocol);
+        context.insert("appendix_laboratory_header_sample_id", &self.appendix_laboratory.header.sample_id);
+        context.insert("appendix_laboratory_header_version", &self.appendix_laboratory.header.version);
+        context.insert("appendix_laboratory_header_run_id", &self.appendix_laboratory.header.run_id);
+        context.insert("appendix_laboratory_header_extraction", &self.appendix_laboratory.header.extraction);
+        context.insert("appendix_laboratory_header_extraction_control", &self.appendix_laboratory.header.extraction_control);
+        context.insert("appendix_laboratory_header_rna_depletion", &self.appendix_laboratory.header.rna_depletion);
+        context.insert("appendix_laboratory_header_library_control", &self.appendix_laboratory.header.library_control);
+        context.insert("appendix_laboratory_header_adapter", &self.appendix_laboratory.header.adapter);
+        context.insert("appendix_laboratory_header_sequencing_control", &self.appendix_laboratory.header.sequencing_control);
+        context.insert("appendix_laboratory_header_library", &self.appendix_laboratory.header.library);
+        context.insert("appendix_laboratory_header_negative_control", &self.appendix_laboratory.header.negative_control);
+        context.insert("appendix_laboratory_header_sequencer", &self.appendix_laboratory.header.sequencer);
+        context.insert("appendix_laboratory_header_positive_control", &self.appendix_laboratory.header.positive_control);
+
         context.insert("appendix_bioinformatics_enabled", &self.appendix_bioinformatics.enabled);
         context.insert("appendix_bioinformatics_description", &self.appendix_bioinformatics.description);
         context.insert("appendix_bioinformatics_comments", &self.appendix_bioinformatics.comments);
@@ -303,9 +331,7 @@ impl ReportConfig for PathogenDetectionReport {
         context.insert("appendix_bioinformatics_header_sample_id", &self.appendix_bioinformatics.header.sample_id);
         context.insert("appendix_bioinformatics_header_libraries", &self.appendix_bioinformatics.header.libraries);
         context.insert("appendix_bioinformatics_header_databases", &self.appendix_bioinformatics.header.databases);
-        context.insert("appendix_bioinformatics_header_taxonmomy", &self.appendix_bioinformatics.header.taxonomy);
-
-
+        context.insert("appendix_bioinformatics_header_taxonomy", &self.appendix_bioinformatics.header.taxonomy);
 
     }
 }

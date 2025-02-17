@@ -43,15 +43,43 @@
 #let report_authorisation_laboratory = "{{ report_authorisation_laboratory }}";
 #let report_authorisation_identifier = "{{ report_authorisation_identifier }}";
 
+
 #let appendix_laboratory_enabled = {{ appendix_laboratory_enabled }};
 #let appendix_laboratory_description = "{{ appendix_laboratory_description }}";
 #let appendix_laboratory_comments = "{{ appendix_laboratory_comments }}";
+
+#let appendix_laboratory_header_protocol = "{{ appendix_laboratory_header_protocol }}";
+#let appendix_laboratory_header_sample_id = "{{ appendix_laboratory_header_sample_id }}";
+#let appendix_laboratory_header_version = "{{ appendix_laboratory_header_version }}";
+#let appendix_laboratory_header_run_id = "{{ appendix_laboratory_header_run_id }}";
+#let appendix_laboratory_header_extraction = "{{ appendix_laboratory_header_extraction }}";
+#let appendix_laboratory_header_extraction_control = "{{ appendix_laboratory_header_extraction_control }}";
+#let appendix_laboratory_header_rna_depletion = "{{ appendix_laboratory_header_rna_depletion }}";
+#let appendix_laboratory_header_library_control = "{{ appendix_laboratory_header_library_control }}";
+#let appendix_laboratory_header_adapter = "{{ appendix_laboratory_header_adapter }}";
+#let appendix_laboratory_header_sequencing_control = "{{ appendix_laboratory_header_sequencing_control }}";
+#let appendix_laboratory_header_library = "{{ appendix_laboratory_header_library }}";
+#let appendix_laboratory_header_negative_control = "{{ appendix_laboratory_header_negative_control }}";
+#let appendix_laboratory_header_sequencer = "{{ appendix_laboratory_header_sequencer }}";
+#let appendix_laboratory_header_positive_control = "{{ appendix_laboratory_header_positive_control }}";
+
 
 #let appendix_bioinformatics_enabled = {{ appendix_bioinformatics_enabled }};
 #let appendix_bioinformatics_description = "{{ appendix_bioinformatics_description }}";
 #let appendix_bioinformatics_comments = "{{ appendix_bioinformatics_comments }}";
 #let appendix_bioinformatics_libraries = "{{ appendix_bioinformatics_libraries }}";
 #let appendix_bioinformatics_evidence = "{{ appendix_bioinformatics_evidence }}";
+
+#let appendix_bioinformatics_header_pipeline = "{{ appendix_bioinformatics_header_pipeline }}";
+#let appendix_bioinformatics_header_version = "{{ appendix_bioinformatics_header_version }}";
+#let appendix_bioinformatics_header_pipeline_id = "{{ appendix_bioinformatics_header_pipeline_id }}";
+#let appendix_bioinformatics_header_configuration = "{{ appendix_bioinformatics_header_configuration }}";
+#let appendix_bioinformatics_header_started = "{{ appendix_bioinformatics_header_started }}";
+#let appendix_bioinformatics_header_completed = "{{ appendix_bioinformatics_header_completed }}";
+#let appendix_bioinformatics_header_sample_id = "{{ appendix_bioinformatics_header_sample_id }}";
+#let appendix_bioinformatics_header_libraries = "{{ appendix_bioinformatics_header_libraries }}";
+#let appendix_bioinformatics_header_databases = "{{ appendix_bioinformatics_header_databases }}";
+#let appendix_bioinformatics_header_taxonomy = "{{ appendix_bioinformatics_header_taxonomy }}";
 
 // PAGE HEADER
 
@@ -195,10 +223,7 @@
       #set text(size: 16pt, weight: "extrabold");
       #smallcaps[No pathogen detected];
       
-      #text(size: 8pt, weight: "light", stroke: 0.5pt + rgb(170, 170, 170))[
-        #text(size: 8pt, weight: "medium", stroke: 0.5pt + rgb(170, 170, 170))[#smallcaps[No pathogen detected]] 
-        does not exclude the possibility of a pathogen being present.
-      ]
+      #text(size: 8pt, weight: "light", stroke: 0.5pt + rgb(100, 100, 100))[No pathogen detected] #text(size: 8pt, weight: "light", stroke: 0.5pt + rgb(170, 170, 170))[does not exclude the possibility of a pathogen being present.]
     ]
   }
   
@@ -220,10 +245,19 @@
 
 #let second_page_orthogonal = [
   #patient_result_orthogonal_tests
+
+  #text(size: 8pt, weight: "thin", stroke: 0.5pt + rgb(100, 100, 100))[
+    Orthogonal testing results are supplementary information not covered by this diagnostic test.
+  ]
 ]
 
 #let second_page_clinical = [
   #patient_result_clinical_notes
+
+
+  #text(size: 8pt, weight: "thin", stroke: 0.5pt + rgb(100, 100, 100))[
+    Patient clinical notes are supplementary information not covered by this diagnostic test.
+  ]
 ]
 
 #let second_page_contact = [
@@ -262,7 +296,7 @@
 ]
 
 #let third_page_issuing_laboratory = [
-  Issued by: [#report_authorisation_laboratory]
+  Issued by: #report_authorisation_laboratory
 
   Unique report identifier: #text(weight: "extrabold")[#report_authorisation_identifier] 
 ]
@@ -322,16 +356,19 @@
   show table.cell.where(x: 2): set text(weight: 500)
   table(
     columns: 4,
-    [Patient Name], [#patient_header_patient_name], [Specimen ID], [#patient_header_specimen_id],
-    [Date of Birth], [#patient_header_patient_dob], [Specimen Type], [#patient_header_specimen_type],
-    [URN Number], [#patient_header_patient_urn], [Date Collected], [#patient_header_date_collected],
-    [Requested Doctor], [#patient_header_requested_doctor], [Date Received], [#patient_header_date_received],
-    [Hospital Site], [#patient_header_hospital_site], [Reporting Laboratory], [#patient_header_reporting_laboratory],
-    [Laboratory Number], [#patient_header_laboratory_number], [Reporting Date], [#patient_header_reporting_date],
+    [Protocol], [#appendix_laboratory_header_protocol], [Sample ID], [#appendix_laboratory_header_sample_id],
+    [Version], [#appendix_laboratory_header_version], [Run ID], [#appendix_laboratory_header_run_id],
+    [Extraction], [#appendix_laboratory_header_extraction], [Extraction Control], [#appendix_laboratory_header_extraction_control],
+    [RNA Depletion], [#appendix_laboratory_header_rna_depletion], [Library Control], [#appendix_laboratory_header_library_control],
+    [Adapters], [#appendix_laboratory_header_adapter], [Sequencing Control], [#appendix_laboratory_header_sequencing_control],
+    [Library], [#appendix_laboratory_header_library], [Negative Control], [#appendix_laboratory_header_negative_control],
+    [Sequencer], [#appendix_laboratory_header_sequencer], [Positive Control], [#appendix_laboratory_header_positive_control],
   )
 }
 
 #let appendix_laboratory = [
+  = Appendix A: Laboratory Assay
+
   #appendix_laboratory_header
   #v(16pt)
   #outlinebox(title: "Description")[#appendix_laboratory_description]
@@ -355,6 +392,8 @@
 }
 
 #let appendix_bioinformatics = [
+  = Appendix B: Bioinformatics Analysis
+
   #appendix_bioinformatics_header
   #v(16pt)
   #outlinebox(title: "Description")[#appendix_bioinformatics_description]
@@ -367,9 +406,7 @@
 
   #outlinebox(title: "Evidence")[#appendix_bioinformatics_evidence]
 
-  #pagebreak()
-]
-
+];
 
 // PAGES
 
