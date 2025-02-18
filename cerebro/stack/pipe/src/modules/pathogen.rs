@@ -731,6 +731,7 @@ impl TaxonExtraction for PathogenDetection {
                 taxa.insert(taxid.clone(), taxon);
             }
         }
+
         Ok(taxa)
     }
 }

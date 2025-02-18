@@ -4,6 +4,7 @@
     export let selectedView: string;
  
 </script>
+
 <p class="opacity-80 p-2">Database collections</p>
 <ListBox class="border-token p-4 border-primary-500">
 	<ListBoxItem bind:group={selectedView} name="medium" value="samples" active='variant-soft' rounded='rounded-token'>Samples & Libraries</ListBoxItem>

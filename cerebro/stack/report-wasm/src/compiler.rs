@@ -1,6 +1,8 @@
 use chrono::{Datelike, Timelike};
-use typst::layout::Abs;
 use typst_pdf::PdfStandards;
+
+#[cfg(feature = "cli")]
+use typst::layout::Abs;
 
 #[cfg(feature = "cli")]
 use std::path::Path;

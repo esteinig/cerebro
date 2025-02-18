@@ -247,7 +247,7 @@
   #patient_result_orthogonal_tests
 
   #text(size: 8pt, weight: "thin", stroke: 0.5pt + rgb(100, 100, 100))[
-    Orthogonal testing results are supplementary information not covered by this diagnostic test.
+    Orthogonal test results are supplementary information not covered by this diagnostic test.
   ]
 ]
 
@@ -298,7 +298,7 @@
 #let third_page_issuing_laboratory = [
   Issued by: #report_authorisation_laboratory
 
-  Unique report identifier: #text(weight: "extrabold")[#report_authorisation_identifier] 
+  Unique report identifier: #report_authorisation_identifier
 ]
 
 // PAGE COMPOSITION
@@ -346,7 +346,9 @@
     #third_page_signatures
   ]
 
-  #pagebreak()
+  #if (appendix_laboratory_enabled or appendix_bioinformatics_enabled) {
+    pagebreak()
+  }
 ]
 
 // APPENDICES
@@ -375,7 +377,9 @@
 
   #outlinebox(title: "Comments")[#appendix_laboratory_comments]
 
-  #pagebreak()
+  #if (appendix_bioinformatics_enabled) {
+    pagebreak()
+  }
 ]
 
 #let appendix_bioinformatics_header = {
