@@ -156,6 +156,7 @@ def plot_qc_overview(
     # Merge metadata with QC table
     merged_data = qc.merge(metadata, on="id", how="left")
 
+    # Subset to experiment
     merged_data = merged_data[merged_data["experiment"] == experiment]
 
     # Remove the repeat identifier from the sequencing library
@@ -163,6 +164,80 @@ def plot_qc_overview(
     merged_data["id"] = merged_data["id"].str.replace(r"__RPT[0-9]+", "", regex=True)
 
     plot_grouped_qc(merged_data=merged_data, column=column, log_scale=log_scale, title=title, output=output, hue="label")
+
+
+@app.command()
+def plot_pools_qubit_reads(
+    qc_reads: Path = typer.Option(..., help="Quality control summary table"),
+    metadata: Path  = typer.Option(..., help="Experiment metadata table"),
+    experiment: str = typer.Option("pool", help="Subset by metadata column for experiment"),
+):
+    """Pooling quality control with attention to Qubit values """
+
+
+    qc = pd.read_csv(qc_reads, sep="\t", header=0)
+    metadata = pd.read_csv(metadata, sep="\t", header=0)
+    
+    # Remove the sample identifier from the sequencing library
+    qc["id"] = qc["id"].str.replace(r"(_[^_]*)$", "", regex=True)
+    
+    # Merge metadata with QC table
+    merged_data = qc.merge(metadata, on="id", how="left")
+    
+    # Subset to experiment
+    merged_data = merged_data[merged_data["experiment"] == experiment]
+
+    # Remove the repeat identifier from the sequencing library
+    merged_data["id"] = merged_data["id"].str.replace(r"__P[0-9]+", "", regex=True)
+    merged_data["id"] = merged_data["id"].str.replace(r"__RPT[0-9]+", "", regex=True)
+
+
+    # Convert "host" to a numeric column if it is continuous
+    merged_data["host_qubit"] = pd.to_numeric(merged_data["host_qubit"], errors="coerce")
+    
+    print(merged_data)
+
+    fig, axes = plt.subplots(
+        nrows=1, 
+        ncols=2, 
+        figsize=(20, 12)
+    )
+
+    for i, nucleic_acid in enumerate(("dna", "rna")):
+
+        # Ensure a reasonable number of unique markers
+        if merged_data["host_spike"].nunique() > 10:
+            raise ValueError(f"Too many unique marker values")
+
+        data = merged_data[merged_data["nucleic_acid"] == nucleic_acid]
+
+        ax = axes[i]
+
+        sns.scatterplot(
+            x="host_qubit", y=f"input_reads", hue="label", style="host_spike",
+            data=data, hue_order=["P1", "P2"],
+            ax=ax, palette="deep", edgecolor="black"
+        )
+
+        sns.regplot(
+            x="host_qubit", y=f"input_reads",
+            data=data, scatter=False, ax=ax,
+            color="black", line_kws={"linestyle": "dashed"}
+        )
+
+        ax.set_xlabel("Library Qubit (ng/ul)")
+        ax.set_ylabel(f"Input reads (n)\n")
+
+        ax.set_title(f"{nucleic_acid.upper()}")
+        ax.set_ylim(0)
+
+        legend = ax.get_legend()
+        if legend:
+            legend.set_title(None)
+
+    fig.suptitle(f"Input reads vs. library concentration\n", fontsize=18)
+    fig.tight_layout()
+    fig.savefig(f"input_reads_qubit_correlation.png", dpi=300, transparent=False)
 
 
 @app.command()

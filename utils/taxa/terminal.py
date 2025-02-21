@@ -221,14 +221,17 @@ def plot_pools(
     metadata: Path = typer.Option(
         ..., help="Reference metadata table"
     ),
+    plot_species: str = typer.Option(
+        ..., help="List of species names to plot, comma-separated"
+    ),
     experiment: str = typer.Option(
         "pool", help="Experiment column subset"
     ),
     output: str = typer.Option(
         "pools.png", help="Plot output"
     ),
-    plot_species: str = typer.Option(
-        ..., help="List of species names to plot, comma-separated"
+    qubit: bool = typer.Option(
+        False, help="Host values are not categorical but continuous measurements from Qubit"
     ),
 ):
     """
@@ -247,38 +250,75 @@ def plot_pools(
     
     species = species.merge(metadata, on="id", how="left")
 
-    print(species)
-
-
     for nucleic_acid in ("dna", "rna"):
-        fig, axes = plt.subplots(nrows=len(classifiers), ncols=len(plot_species), figsize=(6 * len(plot_species), 20))
+
+        fig, axes = plt.subplots(
+            nrows=len(classifiers), 
+            ncols=len(plot_species), 
+            figsize=(6 * len(plot_species), 20)
+        )
+
         species_nucleic_acid = species[species["nucleic_acid"] == nucleic_acid]
         species_nucleic_acid = species_nucleic_acid[species_nucleic_acid["experiment"] == experiment]
 
-        all_hosts = species_nucleic_acid["host"].unique()
         for col_index, species_name in enumerate(plot_species):
             species_data = species_nucleic_acid[species_nucleic_acid["name"] == species_name]
 
             for i, classifier in enumerate(classifiers):
                 ax = axes[i][col_index]
 
-                sns.barplot(
-                    x="host", y=f"{classifier}_rpm", hue="label",
-                    data=species_data, hue_order=["P1", "P2"],
-                    ax=ax, palette=YESTERDAY_MEDIUM,
-                    order=all_hosts  # Add this to ensure all hosts are shown
-                )
+                if qubit:
 
-                sns.stripplot(
-                    x="host", y=f"{classifier}_rpm", hue="label",
-                    data=species_data, hue_order=["P1", "P2"],
-                    ax=ax, palette=YESTERDAY_MEDIUM, dodge=True,
-                    edgecolor="black", linewidth=2, legend=None,
-                    order=all_hosts  # Add this to ensure all hosts are shown
-                )
+                    # Convert "host" to a numeric column if it is continuous
+                    species_data["host_qubit"] = pandas.to_numeric(species_data["host_qubit"], errors="coerce")
+                    
+                    print(f"Species: {species_name} Classifier: {classifier}")
+                    print(species_data)
+                    print(f"=============================================================")
 
+                    # Scatterplot for correlation
+                    sns.scatterplot(
+                        x="host_qubit", y=f"{classifier}_rpm", hue="label",
+                        data=species_data, hue_order=["P1", "P2"],
+                        ax=ax, palette="deep", edgecolor="black"
+                    )
+
+                    # Get colors from the scatterplot palette
+                    palette = dict(zip(["P1", "P2"], sns.color_palette("deep", 2)))
+
+                    # Separate regression lines for P1 and P2
+                    for label in ["P1", "P2"]:
+                        subset = species_data[species_data["label"] == label]
+                        sns.regplot(
+                            x="host_qubit", y=f"{classifier}_rpm",
+                            data=subset, scatter=False, ax=ax,
+                            color=palette[label], line_kws={"linewidth": 2, "alpha": 0.8}
+                        )
+
+
+                    ax.set_xlabel("Library Qubit (ng/ul)")
+                else:
+
+                    all_hosts = species_nucleic_acid["host_spike"].unique()
+
+                    sns.barplot(
+                        x="host_spike", y=f"{classifier}_rpm", hue="label",
+                        data=species_data, hue_order=["P1", "P2"],
+                        ax=ax, palette=YESTERDAY_MEDIUM,
+                        order=all_hosts  # Add this to ensure all hosts are shown
+                    )
+
+                    sns.stripplot(
+                        x="host_spike", y=f"{classifier}_rpm", hue="label",
+                        data=species_data, hue_order=["P1", "P2"],
+                        ax=ax, palette=YESTERDAY_MEDIUM, dodge=True,
+                        edgecolor="black", linewidth=2, legend=None,
+                        order=all_hosts  # Add this to ensure all hosts are shown
+                    )
+
+                    ax.set_xlabel("\n")
+                
                 ax.set_title(f"\n{species_name} ({classifier.capitalize()})")
-                ax.set_xlabel("\n")
                 ax.set_ylabel(f"{classifier.capitalize()} RPM\n")
                 ax.set_ylim(0)
 
@@ -289,6 +329,138 @@ def plot_pools(
         fig.suptitle(f"Targets ({nucleic_acid.upper()} libraries)\n", fontsize=18)
         fig.tight_layout()
         fig.savefig(f"{nucleic_acid}_{output}", dpi=300, transparent=False)
+
+
+@app.command()
+def plot_targets(
+    species: Path = typer.Argument(
+        ..., help="Pathogen detection table for species"
+    ),
+    output: str = typer.Option(
+        "taxa_detection.png", help="Plot taxon detection output"
+    ),
+    log_scale: bool = typer.Option(False, help="Log scale for plot"),
+    ids: str = typer.Option(None, help="Sample identifier start strings to subset dataset"),
+    plot_species: str = typer.Option(
+        None, help="List of species names to plot, comma-separated"
+    ),
+    plot_labels: str = typer.Option(
+        None, help="List of species labels to plot, comma-separated"
+    ),
+    exclude_species: str = typer.Option(
+        None, help="List of species to exclud, comma-separated"
+    )
+):
+    """
+    Simple taxa detection plot across classifiers
+    """
+
+    classifiers = ["kraken", "bracken", "metabuli", "ganon", "vircov"]
+
+    species = pandas.read_csv(species, sep="\t", header=0)
+
+    # Remove the sample identifier from the sequencing library
+    species["id"] = species["id"].str.replace(r"(_[^_]*)$", "", regex=True)
+    
+    if ids:
+        ids = tuple([s.strip() for s in ids.split(",")])
+        species = species[species["id"].str.startswith(ids)]
+
+    if plot_species:
+        plot_species = [s.strip() for s in plot_species.split(",")]
+    else:
+        plot_species = [
+            'Aspergillus niger', 
+            'Cryptococcus neoformans', 
+            "Haemophilus influenzae", 
+            "Mycobacterium tuberculosis", 
+            "Streptococcus pneumoniae",
+            "Toxoplasma gondii",
+            'Simplexvirus humanalpha1', 
+            'Orthoflavivirus murrayense',
+        ]
+
+    if plot_labels:
+        plot_labels = [s.strip() for s in plot_labels.split(",")]
+    else:
+        plot_labels = [
+            'ANIG', 
+            'CNEO', 
+            "HINF", 
+            "MTB", 
+            "SPNEUMO",
+            "TOXO",
+            'HSV-1', 
+            'MVEV',
+        ]
+
+    if len(plot_labels) != len(plot_species):
+        raise ValueError("Label and species designations are not of equal length")
+
+    if exclude_species:
+        exclude_species = [s.strip() for s in exclude_species.split(",")]
+
+        new_plot_species = []
+        exclude_indices = []
+        for i, sp in enumerate(plot_species):
+            if sp not in exclude_species:
+                new_plot_species.append(sp)
+            else:
+                exclude_indices.append(i)
+        
+        plot_species = new_plot_species.copy()
+        plot_labels = [l for i, l in enumerate(plot_labels) if i not in exclude_indices]
+
+    print(plot_species, plot_labels)
+
+    fig, axes = plt.subplots(
+        nrows=len(classifiers), 
+        ncols=2, 
+        figsize=(6 * 2, 20)
+    )
+
+    print(species)
+
+    for ni, nucleic_acid in enumerate(("DNA", "RNA")):
+        
+        species_nucleic_acid = species[species["id"].str.contains(nucleic_acid)]
+        species_data = species_nucleic_acid[species_nucleic_acid["name"].isin(plot_species)]
+
+        for i, classifier in enumerate(classifiers):
+            ax = axes[i][ni]
+
+            if log_scale:
+                species_data[f"{classifier}_rpm"] = np.log10(species_data[f"{classifier}_rpm"])
+
+            sns.barplot(
+                x="name", y=f"{classifier}_rpm", hue=None,
+                data=species_data, hue_order=None,
+                ax=ax, palette=YESTERDAY_MEDIUM,
+                order=plot_species  # Add this to ensure all species are shown
+            )
+
+            sns.stripplot(
+                x="name", y=f"{classifier}_rpm", hue=None,
+                data=species_data, hue_order=None,
+                ax=ax, palette=YESTERDAY_MEDIUM, dodge=True,
+                edgecolor="black", linewidth=2, legend=None,
+                order=plot_species  # Add this to ensure all species are shown
+            )
+
+            ax.set_title(f"\n{classifier.capitalize()}")
+            ax.set_xlabel("\n")
+            ax.set_ylabel(f"{classifier.capitalize()} RPM\n")
+            ax.set_ylim(0)
+
+            ax.set_xticklabels(plot_labels, rotation=45, ha="right")
+
+            legend = ax.get_legend()
+            if legend:
+                legend.set_title(None)
+
+    fig.suptitle(f"Target species (LOD)\n", fontsize=18)
+    fig.tight_layout()
+    fig.savefig(output, dpi=300, transparent=False)
 
 
 @app.command()

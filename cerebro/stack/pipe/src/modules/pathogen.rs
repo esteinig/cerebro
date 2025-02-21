@@ -349,15 +349,18 @@ impl PathogenDetection {
         if let Some(records) = &output.assembly.blast {
 
             for record in records {
-                let taxid = record.taxid.trim().to_string();
+                let mut taxid = record.taxid.trim().to_string();
                 let mut name = record.taxname.trim().to_string();
                 
                 // Custom BLAST databases don't usually have the 'ssciname' associated 
                 // we could use a taxonomy to add this later, but here we use the
-                // 'stitle' as taxname as configured in 'Cipher'
+                // 'stitle' as taxname as configured in 'Cipher' with sequence description
+                // in the format: {taxid}:::{name} 
 
-                if name == "N/A".to_string() {
-                    name = record.title.trim().to_string()
+                if name == "N/A".to_string() || taxid == "N/A".to_string() {
+                    let description = record.title.trim().split(":::").collect::<Vec<_>>();
+                    taxid = description.first().ok_or(WorkflowError::PathogenTaxidAnnotationMissing)?.to_string();
+                    name = description.last().ok_or(WorkflowError::PathogenTaxnameAnnotationMissing)?.to_string();
                 }
 
                 let rank = PathogenDetectionRank::from_str(&record.taxrank);
