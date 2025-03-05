@@ -94,7 +94,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             })
             .for_each(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
-                    // Extract nucleic acid tag (DNA/RNA)for NTC record if present
+                    // Extract nucleic acid tag (DNA/RNA) for NTC record if present
                     if let Some(tag) = tags.iter().find(|tag| tag == &&"DNA".to_string() || tag == &&"RNA".to_string()) {
                         let key = (record.tool.clone(), record.mode.clone(), tag.clone());
                         // Sum RPM values for matching keys

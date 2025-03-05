@@ -95,6 +95,7 @@ pub fn get_matched_id_taxa_cerebro_pipeline(
         doc! { "$match": match_conditions },
         doc! {
             "$project": {
+                "id": 1,
                 "taxa": 1,
                 "name": 1,
                 "sample_tags": "$sample.tags", 

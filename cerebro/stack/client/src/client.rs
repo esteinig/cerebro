@@ -196,7 +196,7 @@ impl CerebroClient {
             team,
             db,
             project,
-            max_model_size: Some(16.0)
+            max_model_size: Some(100.0)
         })
     }
     pub fn log_team_warning(&self) {

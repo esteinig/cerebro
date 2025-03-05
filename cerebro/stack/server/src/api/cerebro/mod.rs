@@ -2,3 +2,4 @@
 
 pub mod mongo;
 pub mod handler;
+pub mod gridfs;

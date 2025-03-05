@@ -1,12 +1,10 @@
 
 
 
-use cerebro_model::api::users::model::{UserId, User, Role};
+use cerebro_model::api::users::model::{UserId, User};
 use cerebro_model::api::teams::model::{TeamId, Team, TeamDatabase, ProjectCollection};
 use cerebro_model::api::teams::schema::{RegisterTeamSchema, RegisterDatabaseSchema, RegisterProjectSchema, UpdateTeamSchema};
 use cerebro_model::api::utils::AdminCollection;
-
-use mongodb::options::BulkWriteOptions;
 
 use crate::api::auth::jwt::{self, TeamAccessQuery, TeamDatabaseAccessQuery};
 use crate::api::server::AppState;
@@ -199,10 +197,6 @@ async fn register_team_database_project_handler(
         Err(err) => return err
     };
 
-    let project_update_options = mongodb::options::UpdateOptions::builder().array_filters(
-        vec![doc! { "db.id": &database.id }]
-    ).build();
-
     let new_project = ProjectCollection::from_project_schema(&body.into_inner());
     
     // Build an update model that includes your array filters.
@@ -216,7 +210,7 @@ async fn register_team_database_project_handler(
 
     // Execute the bulk write with a single update model.
     match data.db.bulk_write(vec![update_model]).await {
-    Ok(result) => {
+    Ok(_) => {
         let json_response = serde_json::json!({
             "status": "success",
             "message": "Added project to team database",
