@@ -13,7 +13,7 @@ pub async fn log_database_change(data: &web::Data<AppState>, team: Team, request
     let admin_logs_collection: Collection<RequestLog> = get_cerebro_db_collection(data, AdminCollection::Teams);
     let teams_logs_collection: Collection<RequestLog> = get_teams_db_collection(data, team, TeamAdminCollection::Logs);
 
-    let admin_result = admin_logs_collection.insert_one(request_log.clone(), None).await;
+    let admin_result = admin_logs_collection.insert_one(request_log.clone()).await;
     match admin_result {
         Ok(_) => {},
         Err(_) => return Err(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -21,7 +21,7 @@ pub async fn log_database_change(data: &web::Data<AppState>, team: Team, request
         })))
     }
 
-    let team_result = teams_logs_collection.insert_one(request_log, None).await;
+    let team_result = teams_logs_collection.insert_one(request_log).await;
     match team_result {
         Ok(_) => Ok(()),
         Err(_) => Err(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -48,7 +48,7 @@ pub async fn log_user_login(data: &web::Data<AppState>, user_email: &str, action
     );
 
     let logs_collection: Collection<RequestLog> = get_cerebro_db_collection(&data, AdminCollection::Logs);
-    match logs_collection.insert_one(log, None).await {
+    match logs_collection.insert_one(log).await {
         Ok(_) => Ok(()),
         Err(err) => Err(err)
     }
@@ -68,7 +68,7 @@ pub async fn log_admin_auth(data: &web::Data<AppState>, user_id: Option<&str>, e
         AccessDetails::new(&request, user_id, email, None, None),
     );
 
-    match logs_collection.insert_one(log, None).await {
+    match logs_collection.insert_one(log).await {
         Ok(_) => Ok(()),
         Err(err) => Err(err)
     }

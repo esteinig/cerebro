@@ -112,7 +112,7 @@ pub async fn main() -> std::io::Result<()> {
             };
 
             // Database connection checks
-            match mongo_client.list_database_names(None, None).await {
+            match mongo_client.list_database_names().await {
                 Ok(_) => log::info!("Connected to MongoDB main database"),
                 Err(err) => {
                     log::error!("Could not connect to MongoDB main database: {}", err.to_string());

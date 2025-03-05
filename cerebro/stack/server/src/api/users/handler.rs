@@ -57,7 +57,7 @@ async fn get_user_self_teams_handler(
 
     let result = if query.id.is_some() || query.name.is_some() {
         // Find one specific team
-        match team_collection.find_one(filter, None).await {
+        match team_collection.find_one(filter).await {
             Ok(Some(team)) => HttpResponse::Ok().json(serde_json::json!({
                 "status": "success",
                 "message": "Obtained requested team for current user",
@@ -74,7 +74,7 @@ async fn get_user_self_teams_handler(
         }
     } else {
         // Find all teams for the current user
-        match team_collection.find(filter, None).await {
+        match team_collection.find(filter).await {
             Ok(cursor) => {
                 let teams: Vec<Team> = cursor.try_collect().await.unwrap_or_default(); // Allow empty teams
                 HttpResponse::Ok().json(serde_json::json!({
@@ -105,7 +105,7 @@ async fn register_user_handler(
 
     // Check if user exists by email
     let exists = match user_collection
-        .find_one(doc! { "email": &body.email }, None)
+        .find_one(doc! { "email": &body.email })
         .await
     {
         Ok(None) => false,
@@ -133,7 +133,7 @@ async fn register_user_handler(
 
     // Create and insert the new user, return a filtered user response (no password)
     let new_user = User::from(&body.into_inner(), &hashed_password);
-    match user_collection.insert_one(&new_user, None).await {
+    match user_collection.insert_one(&new_user).await {
         Ok(_) => {
             let user_response = serde_json::json!({
                     "status": "success", 
@@ -165,7 +165,7 @@ async fn get_user_handler(data: web::Data<AppState>, query: web::Query<UserQuery
 
     if let Some(id) = &query.id  {
         
-        match user_collection.find_one(doc! { "id": id }, None).await 
+        match user_collection.find_one(doc! { "id": id }).await 
         {
             Ok(None) => {
                 return HttpResponse::BadRequest().json(
@@ -186,7 +186,7 @@ async fn get_user_handler(data: web::Data<AppState>, query: web::Query<UserQuery
         }
     } else {
         
-        match user_collection.find(None, None).await 
+        match user_collection.find(doc! {}).await 
         {
             Ok(cursor) => {
                 let users = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
@@ -216,7 +216,7 @@ async fn delete_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, _
     let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // First remove from teams - easier fix than the other way around
-    match team_collection.update_many(doc! {}, doc! { "$pull": { "users": &user_id } }, None).await 
+    match team_collection.update_many(doc! {}, doc! { "$pull": { "users": &user_id } }).await 
     {
         Ok(_) => { } // continue, if the user did not exist it would have either removed them (if leftover) or not, as they would not exist in team users array
         Err(_) => return HttpResponse::InternalServerError().json(
@@ -224,7 +224,7 @@ async fn delete_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, _
         ),
     }
 
-    match user_collection.find_one_and_delete(doc! { "id": &user_id }, None).await 
+    match user_collection.find_one_and_delete(doc! { "id": &user_id }).await 
         {
             Ok(None) => {
                 return HttpResponse::NotFound().json(
@@ -308,7 +308,7 @@ async fn patch_user_handler(data: web::Data<AppState>, id: web::Path<UserId>, bo
     };
 
 
-    match user_collection.find_one_and_update(doc! { "id": &user_id }, update, None).await 
+    match user_collection.find_one_and_update(doc! { "id": &user_id }, update).await 
         {
             Ok(None) => {
                 return HttpResponse::NotFound().json(

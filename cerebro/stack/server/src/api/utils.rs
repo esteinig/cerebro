@@ -17,7 +17,7 @@ pub struct ErrorResponse {
 
 
 // Get administrative database collection from admin database
-pub fn get_cerebro_db_collection<T>(data: &Data<AppState>, collection: AdminCollection) -> Collection<T> {
+pub fn get_cerebro_db_collection<T: Send + Sync>(data: &Data<AppState>, collection: AdminCollection) -> Collection<T> {
     let db = data.db.database(&data.env.database.names.admin_database_name);
     
     let collection_name = match collection {
@@ -30,7 +30,7 @@ pub fn get_cerebro_db_collection<T>(data: &Data<AppState>, collection: AdminColl
 }
 
 // Get administrative database collection from team admin database
-pub fn get_teams_db_collection<T>(data: &Data<AppState>, team: Team, collection: TeamAdminCollection) -> Collection<T> {
+pub fn get_teams_db_collection<T: Send + Sync>(data: &Data<AppState>, team: Team, collection: TeamAdminCollection) -> Collection<T> {
     let db = data.db.database(&team.admin.database);
     db.collection(&collection.name())
 }

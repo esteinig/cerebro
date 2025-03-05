@@ -6,6 +6,8 @@ use cerebro_model::api::teams::model::{TeamId, Team, TeamDatabase, ProjectCollec
 use cerebro_model::api::teams::schema::{RegisterTeamSchema, RegisterDatabaseSchema, RegisterProjectSchema, UpdateTeamSchema};
 use cerebro_model::api::utils::AdminCollection;
 
+use mongodb::options::BulkWriteOptions;
+
 use crate::api::auth::jwt::{self, TeamAccessQuery, TeamDatabaseAccessQuery};
 use crate::api::server::AppState;
 use crate::api::utils::get_cerebro_db_collection;
@@ -23,7 +25,7 @@ use futures::TryStreamExt;
 async fn register_team_handler(
     body: web::Json<RegisterTeamSchema>,
     data: web::Data<AppState>,
-    auth_guard: jwt::JwtAdminMiddleware 
+    _: jwt::JwtAdminMiddleware 
 ) -> impl Responder {
 
     let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);  
@@ -39,7 +41,7 @@ async fn register_team_handler(
                 {"name": &body.team_name },
                 {"databases.database": &body.database_mongo_name }
             ]
-        }, None)
+        })
         .await
     {
         Ok(None) => false,
@@ -56,7 +58,7 @@ async fn register_team_handler(
 
     // Check if the user exists (team lead)
     let user_exists = match user_collection
-        .find_one(doc! { "id": &body.team_lead }, None)
+        .find_one(doc! { "id": &body.team_lead })
         .await
     {
         Ok(None) => false,
@@ -75,7 +77,7 @@ async fn register_team_handler(
     let team_registration = body.into_inner();
 
     let new_team = Team::from(&team_registration);
-    match team_collection.insert_one(&new_team, None).await {
+    match team_collection.insert_one(&new_team).await {
         Ok(_) => {
             let json_response = serde_json::json!({"status": "success", "message": "Added team",  "data": serde_json::json!({"team": &new_team})});
             HttpResponse::Ok().json(json_response)
@@ -112,31 +114,30 @@ async fn register_team_database_handler(
                     { "users": &auth_guard.user.id },
                 ]
             },
-            None
         )
         .await
     {
         Ok(None) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail","message": "Failed to find user team", "data": serde_json::json!({"team_db": []})}), 
+            serde_json::json!({"status": "fail","message": "failed to find user team", "data": serde_json::json!({"team_db": []})}), 
         ),
         Ok(Some(team)) => team,
         Err(_) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": "Failed to retrieve user team", "data": serde_json::json!({"team_db": []})}),
+            serde_json::json!({"status": "error","message": "failed to retrieve user team", "data": serde_json::json!({"team_db": []})}),
         )
     };
 
     if user_team.database_name_exists(&body.database_name) {
-        return HttpResponse::Conflict().json(serde_json::json!({"status": "error", "message": "Database name already exists for this team", "data": serde_json::json!({"team_db": []})}))
+        return HttpResponse::Conflict().json(serde_json::json!({"status": "error", "message": "database name already exists for this team", "data": serde_json::json!({"team_db": []})}))
     }
 
     let new_db = TeamDatabase::from_database_schema(&body.into_inner());
 
-    match team_collection.update_one(doc! { "id": user_team.id }, doc! { "databases": { "$push": &mongodb::bson::to_bson(&new_db).unwrap() } }, None).await {
+    match team_collection.update_one(doc! { "id": user_team.id }, doc! { "$push": { "databases": &mongodb::bson::to_bson(&new_db).unwrap() } }).await {
         Ok(_) => {
             let json_response = serde_json::json!({"status": "success", "message": "Added team database",  "data": serde_json::json!({"team_db": &new_db})});
             HttpResponse::Ok().json(json_response)
         },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": "Failed to register database",  "data": serde_json::json!({"team_db": &new_db})}))
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": "failed to register database",  "data": serde_json::json!({"team_db": &new_db})}))
     }
 
 }
@@ -176,8 +177,7 @@ async fn register_team_database_project_handler(
                         ]
                     },
                 ]
-            },
-            None
+            }
         )
         .await
     {
@@ -204,14 +204,33 @@ async fn register_team_database_project_handler(
     ).build();
 
     let new_project = ProjectCollection::from_project_schema(&body.into_inner());
-    let update = doc! { "$push": { "databases.$[db].projects": &mongodb::bson::to_bson(&new_project).unwrap() } };
+    
+    // Build an update model that includes your array filters.
+    let update_model = mongodb::options::UpdateOneModel::builder()
+        .namespace(team_collection.namespace())
+        .filter(doc! { "id": user_team.id })
+        .update(doc! { "$push": { "databases.$[db].projects": mongodb::bson::to_bson(&new_project).unwrap() } })
+        .array_filters(Some(vec![mongodb::bson::Bson::Document(doc! { "db.id": &database.id })]))
+        .build();
 
-    match team_collection.update_one(doc! { "id": user_team.id }, update, project_update_options).await {
-        Ok(_) => {
-            let json_response = serde_json::json!({"status": "success", "message": "Added project to team database", "data": serde_json::json!({"team_project": &new_project})});
-            HttpResponse::Ok().json(json_response)
-        },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": format!("Failed to register project with team database: {}", err.to_string()), "data": serde_json::json!({"team_project": &new_project})}))
+
+    // Execute the bulk write with a single update model.
+    match data.db.bulk_write(vec![update_model]).await {
+    Ok(result) => {
+        let json_response = serde_json::json!({
+            "status": "success",
+            "message": "Added project to team database",
+            "data": serde_json::json!({"team_project": new_project})
+        });
+        HttpResponse::Ok().json(json_response)
+    },
+    Err(err) => HttpResponse::InternalServerError().json(
+        serde_json::json!({
+            "status": "error",
+            "message": format!("Failed to register project with team database: {}", err),
+            "data": serde_json::json!({"team_project": new_project})
+        })
+    )
     }
 
 }
@@ -234,7 +253,7 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
 
     match (&query.team_id, &query.user_id)  {
         (Some(team_id), None) => {
-            match team_collection.find_one(doc! { "id": team_id }, None).await 
+            match team_collection.find_one(doc! { "id": team_id }).await 
             {
                 Ok(None) => {
                     return HttpResponse::NotFound().json(
@@ -255,7 +274,7 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
             }
         },
         (None, Some(user_id)) => {
-            match team_collection.find(doc! { "users": user_id }, None).await 
+            match team_collection.find(doc! { "users": user_id }).await 
             {
                 Ok(cursor) => {
                     let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]);  // allow empty teams database
@@ -272,7 +291,7 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
             }
         },
         (Some(team_id), Some(user_id)) => {
-            match team_collection.find_one(doc! { "id": team_id, "users": user_id }, None).await 
+            match team_collection.find_one(doc! { "id": team_id, "users": user_id }).await 
             {
                 Ok(None) => {
                     return HttpResponse::NotFound().json(
@@ -293,7 +312,7 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
             }
         },
         (None, None) => {
-            match team_collection.find(None, None).await 
+            match team_collection.find(doc! {}).await 
             {
                 Ok(cursor) => {
                     let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]);  // allow empty teams database
@@ -321,7 +340,7 @@ async fn delete_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, _
 
     // Check if the team exists at all
     let team = match team_collection
-        .find_one(doc! { "id": &team_id }, None)
+        .find_one(doc! { "id": &team_id })
         .await
     {
         Ok(None) => None,
@@ -339,12 +358,12 @@ async fn delete_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, _
     };
 
     // Delete team from admin collection
-    match team_collection.delete_one(doc! { "id": &team_id }, None).await {
+    match team_collection.delete_one(doc! { "id": &team_id }).await {
         Ok(_) => {
             // Drop all team databases
             for team_database in team.databases {
                 let mongo_db = data.db.database(&team_database.database);
-                if let Err(err) = mongo_db.drop(None).await {
+                if let Err(err) = mongo_db.drop().await {
                     return HttpResponse::InternalServerError().json(
                         serde_json::json!({"status": "error", "message": format!("Failed to drop team database: {}", err.to_string())})
                     )
@@ -370,7 +389,7 @@ async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, b
 
     // Check if the team exists
     let exists = match team_collection
-        .find_one(doc! { "id": &team_id }, None)
+        .find_one(doc! { "id": &team_id })
         .await
     {
         Ok(None) => false,
@@ -388,7 +407,7 @@ async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, b
     // Check if the proposed team name already exists if it is provided
     if let Some(team_name) = &body.team_name {
         let name_already_exists = match team_collection
-            .find_one(doc! { "name": &team_name }, None)
+            .find_one(doc! { "name": &team_name })
             .await
         {
             Ok(None) => false,
@@ -423,7 +442,7 @@ async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, b
     };
 
     match team_collection.update_one(
-        doc! { "id": &team_id }, update, None
+        doc! { "id": &team_id }, update
     ).await {
         Ok(_) => {
             let json_response = serde_json::json!(
@@ -459,7 +478,7 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
 
     // Check if the user exists
     let user_exists = match user_collection
-        .find_one(doc! { "id": &query.user_id }, None)
+        .find_one(doc! { "id": &query.user_id })
         .await
     {
         Ok(None) => false,
@@ -476,7 +495,7 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
 
     // Check if the team exists
     let team = match team_collection
-        .find_one(doc! { "id": &query.team_id }, None)
+        .find_one(doc! { "id": &query.team_id })
         .await
     {
         Ok(None) => return HttpResponse::NotFound().json(
@@ -498,7 +517,7 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
             }
             match team_collection.update_one(
                 doc! { "id": &query.team_id },
-                doc! { "$push": { "users": &query.user_id } }, None
+                doc! { "$push": { "users": &query.user_id } }
             ).await {
                 Ok(_) => { 
                     let json_response = serde_json::json!({
@@ -521,7 +540,7 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
             }
             match team_collection.update_one(
                 doc! { "id": &query.team_id },
-                doc! { "$pull": { "users": &query.user_id } }, None
+                doc! { "$pull": { "users": &query.user_id } }
             ).await {
                 Ok(_) => {
                     let json_response = serde_json::json!({

@@ -505,8 +505,8 @@ impl CerebroClient {
 
         self.handle_response::<serde_json::Value>(
             response,
-            Some(&format!("Project `{}` created successfully", name)),
-            "Project creation failed",
+            Some(&format!("Database `{}` created successfully", name)),
+            "Database creation failed",
         )?;
         Ok(())
     }

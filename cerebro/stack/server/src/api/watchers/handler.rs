@@ -23,7 +23,7 @@ async fn register_watcher(data: web::Data<AppState>, schema: web::Json<RegisterW
                 { "id": &schema.id },
                 { "name": &schema.name, "location": &schema.location }
             ]
-        }, None)
+        })
         .await
     {
         Ok(None) => {},
@@ -36,7 +36,7 @@ async fn register_watcher(data: web::Data<AppState>, schema: web::Json<RegisterW
     }
 
     match watcher_collection
-        .insert_one(ProductionWatcher::from_schema(&schema), None)
+        .insert_one(ProductionWatcher::from_schema(&schema))
         .await 
     {
         Ok(_) => HttpResponse::Ok().json(
@@ -64,7 +64,7 @@ async fn list_watchers(data: web::Data<AppState>, query: web::Query<WatcherListQ
     let watcher = get_registered_watchers_pipeline(&query.id);
     
     match watcher_collection
-        .aggregate(watcher, None)
+        .aggregate(watcher)
         .await
     {
         Ok(cursor) => {
@@ -120,7 +120,7 @@ async fn delete_watchers(data: web::Data<AppState>, query: web::Query<WatchersDe
 
 
     match watcher_collection
-        .delete_many(delete_query, None) 
+        .delete_many(delete_query) 
         .await
     {
         Ok(delete_result) => {
@@ -147,8 +147,7 @@ async fn delete_watcher(data: web::Data<AppState>, id: web::Path<String>,  _: we
     
     match watcher_collection
         .find_one_and_delete(
-            doc! { "id":  &id.into_inner() }, 
-            None
+            doc! { "id":  &id.into_inner() }
         )
         .await
     {   
@@ -179,8 +178,7 @@ async fn ping_watcher(data: web::Data<AppState>, id: web::Path<String>,  _: web:
     match watcher_collection
         .find_one_and_update(
             doc! { "id":  &id.into_inner()}, 
-            doc! { "$set": { "last_ping": &new_ping } },
-            None
+            doc! { "$set": { "last_ping": &new_ping } }
         )
         .await
     {   

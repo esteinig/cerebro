@@ -21,7 +21,7 @@ async fn register_file(data: web::Data<AppState>, schema: web::Json<RegisterFile
     let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Files);
     
     match files_collection
-        .find_one(doc! { "id": &schema.id }, None)
+        .find_one(doc! { "id": &schema.id })
         .await
     {
         Ok(None) => {},
@@ -29,7 +29,7 @@ async fn register_file(data: web::Data<AppState>, schema: web::Json<RegisterFile
         Err(err) => return HttpResponse::InternalServerError().json(RegisterFileResponse::server_error(err.to_string())),
     }
 
-    let result = files_collection.insert_one(SeaweedFile::from_schema(&schema), None).await;
+    let result = files_collection.insert_one(SeaweedFile::from_schema(&schema)).await;
 
     match result {
         Ok(_) => HttpResponse::Ok().json(RegisterFileResponse::success(&schema.id)),
@@ -60,7 +60,7 @@ async fn list_files(data: web::Data<AppState>, query: web::Query<FileListQuery>,
     let pipeline = get_latest_files_paginated_pipeline(query.run_id.clone(), query.watcher_id.clone(), query.page as i64, query.limit as i64);
     
     match files_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -92,8 +92,7 @@ async fn update_tags(data: web::Data<AppState>, schema: web::Json<UpdateFileTags
     match files_collection
         .update_many(
             doc! { "id": { "$in": &schema.ids } },
-            doc! { "$set": { "tags": to_bson(&schema.tags).unwrap() } },
-            None
+            doc! { "$set": { "tags": to_bson(&schema.tags).unwrap() } }
         )
         .await
     {   
@@ -152,7 +151,7 @@ async fn delete_files(
 
     // Retrieve IDs of files to delete
     match files_collection
-        .find(delete_query.clone(), None)
+        .find(delete_query.clone())
         .await
     {
         Ok(cursor) => {
@@ -163,7 +162,7 @@ async fn delete_files(
                 .collect();
 
             // Proceed with deletion
-            match files_collection.delete_many(delete_query, None).await {
+            match files_collection.delete_many(delete_query).await {
                 Ok(_) => {
                     HttpResponse::Ok().json(DeleteFilesResponse::success(deleted_ids))
                 }
@@ -185,7 +184,8 @@ async fn delete_file(data: web::Data<AppState>, id: web::Path<String>,  _: web::
     
     match files_collection
         .find_one_and_delete(
-            doc! { "id":  &id.into_inner()}, None)
+            doc! { "id":  &id.into_inner()}
+        )
         .await
     {   
         Ok(deleted) => {

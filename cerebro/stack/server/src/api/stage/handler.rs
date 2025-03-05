@@ -19,7 +19,7 @@ async fn get_tower_from_db(data: &web::Data<AppState>, id: &str, auth_guard: &jw
      let tower_collection: Collection<ProductionTower> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Towers);
 
      match tower_collection
-         .find_one(doc! { "id": &id }, None)
+         .find_one(doc! { "id": &id })
          .await
      {
          Ok(Some(tower)) => Ok(tower),
@@ -46,7 +46,7 @@ async fn register_staged_samples(data: web::Data<AppState>, schema: web::Json<Re
     let files_collection: Collection<SeaweedFile> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::Files);
 
     let staged_samples: Vec<StagedSample> = match files_collection
-        .aggregate(aggregate_pipeline, None)
+        .aggregate(aggregate_pipeline)
         .await
     {
         Ok(cursor) => {
@@ -80,7 +80,7 @@ async fn register_staged_samples(data: web::Data<AppState>, schema: web::Json<Re
     let stage_collection: Collection<StagedSample> = get_teams_db_stage_collection(&data, auth_guard.team, &tower.stage);
 
     match stage_collection
-        .insert_many(&staged_samples, None)
+        .insert_many(&staged_samples)
         .await
     {
         Ok(_) => {
@@ -119,7 +119,7 @@ async fn list_staged_samples(data: web::Data<AppState>, tower_id: web::Path<Stri
     let aggregate_pipeline = get_latest_staged_samples_pipeline(query.run_id.clone(), query.sample_id.clone());
     
     match stage_collection
-        .aggregate(aggregate_pipeline, None)
+        .aggregate(aggregate_pipeline)
         .await
     {
         Ok(cursor) => {
@@ -185,7 +185,7 @@ async fn delete_staged_samples(data: web::Data<AppState>, tower_id: web::Path<St
 
 
     match stage_collection
-        .delete_many(delete_query, None) 
+        .delete_many(delete_query) 
         .await
     {
         Ok(delete_result) => {

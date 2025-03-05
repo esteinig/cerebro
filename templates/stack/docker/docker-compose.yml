@@ -144,7 +144,7 @@ services:
 
   # Cerebro model and user database 
   cerebro-database:
-    image: mongo:7.0.0-rc10
+    image: mongo:8.0
     restart: unless-stopped
     command: mongod --auth --quiet --logpath /dev/null
     expose:

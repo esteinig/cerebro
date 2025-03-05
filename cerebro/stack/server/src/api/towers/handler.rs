@@ -22,7 +22,7 @@ async fn register_tower(data: web::Data<AppState>, schema: web::Json<RegisterTow
                 { "id": &schema.id },
                 { "name": &schema.name, "location": &schema.location }
             ]
-        }, None)
+        })
         .await
     {
         Ok(None) => {},
@@ -35,7 +35,7 @@ async fn register_tower(data: web::Data<AppState>, schema: web::Json<RegisterTow
     }
 
     match tower_collection
-        .insert_one(ProductionTower::from_schema(&schema), None)
+        .insert_one(ProductionTower::from_schema(&schema))
         .await
     {
         Ok(_) => HttpResponse::Ok().json(
@@ -64,7 +64,7 @@ async fn list_tower(data: web::Data<AppState>, query: web::Query<TowerListQuery>
     let tower = get_registered_towers_pipeline(&query.id);
     
     match tower_collection
-        .aggregate(tower, None)
+        .aggregate(tower)
         .await
     {
         Ok(cursor) => {
@@ -119,7 +119,7 @@ async fn delete_towers(data: web::Data<AppState>, query: web::Query<TowerDeleteQ
     }
 
     match tower_collection
-        .delete_many(delete_query, None) 
+        .delete_many(delete_query) 
         .await
     {
         Ok(delete_result) => {
@@ -141,8 +141,7 @@ async fn delete_tower(data: web::Data<AppState>, id: web::Path<String>,  _: web:
 
     match tower_collection
         .find_one_and_delete(
-            doc! { "id":  &id.into_inner() },
-            None
+            doc! { "id":  &id.into_inner() }
         )
         .await
     {   
@@ -173,8 +172,7 @@ async fn ping_tower(data: web::Data<AppState>, id: web::Path<String>,  _: web::Q
     match tower_collection
         .find_one_and_update(
             doc! { "id":  &id.into_inner()},
-            doc! { "$set": { "last_ping": &new_ping } },
-            None
+            doc! { "$set": { "last_ping": &new_ping } }
         )
         .await
     {   

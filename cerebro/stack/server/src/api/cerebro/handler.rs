@@ -1,4 +1,3 @@
-use actix_web::body::MessageBody;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -37,6 +36,8 @@ use cerebro_model::api::cerebro::schema::{
 };
 use cerebro_model::api::cerebro::response::TaxaSummaryMongoPipeline;
 use cerebro_report::report::ClinicalReport;
+
+use mongodb::options::{BulkWriteOptions, UpdateManyModel, WriteModel};
 
 use cerebro_pipe::taxa::{filters::*, taxon};
 use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
@@ -91,7 +92,7 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
     // allows for same name+tag combination on different workflow and same name and different tag
     // combination on the same workflow (tags must be same order as well)
     match project_collection
-        .find_one(doc! { "sample.id": &sample_name, "workflow.id": &sample_workflow, "sample.tags": &sample_tags}, None)
+        .find_one(doc! { "sample.id": &sample_name, "workflow.id": &sample_workflow, "sample.tags": &sample_tags})
         .await
     {
         Ok(None) => {},
@@ -105,7 +106,7 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
         ),
     }
 
-    let result = project_collection.insert_one(cerebro.into_inner(), None).await;
+    let result = project_collection.insert_one(cerebro.into_inner()).await;
     match result {
         Ok(_) => HttpResponse::Ok().json(
             serde_json::json!({"status": "success", "message": format!("Sample {} from workflow {} with tags ({}) added to database", &sample_name, &sample_workflow, &sample_tags.join(", ")), "data": []})
@@ -136,7 +137,7 @@ async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, q
     let pipeline = get_matched_uuid_cerebro_pipeline(&id, &query.taxa);
     
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -192,7 +193,7 @@ async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppSta
 
     match project_collection
         .update_many(
-            doc! { "id":  { "$in" : &ids } }, update, None)
+            doc! { "id":  { "$in" : &ids } }, update)
         .await
     {   
         Ok(_) => {
@@ -243,7 +244,7 @@ async fn get_report_from_storage_handler(data: web::Data<AppState>, id: web::Pat
     let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Reports);
     match reports_collection
         .find_one(
-            doc! { "id":  &id.into_inner() }, None)
+            doc! { "id":  &id.into_inner() })
         .await
     {   
         Ok(None) => {
@@ -302,7 +303,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
 
     let ids = match project_collection
         .find(
-            doc! { "sample.reports.id":  &report_id }, None)
+            doc! { "sample.reports.id":  &report_id })
         .await
     {
         Ok(cursor) => cursor
@@ -329,7 +330,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
     let update =  doc! { "$pull": { "sample.reports": {"id": &report_id } } };
     match project_collection
         .update_many(
-            doc! { "id":  { "$in" : &ids } }, update, None)
+            doc! { "id":  { "$in" : &ids } }, update)
         .await
     {   
         Ok(_) => {},
@@ -343,7 +344,7 @@ async fn delete_stored_report_handler(request: HttpRequest, data: web::Data<AppS
 
     match reports_collection
         .find_one_and_delete(
-            doc! { "id":  &report_id}, None)
+            doc! { "id":  &report_id})
         .await
     {   
         Ok(deleted) => {
@@ -529,7 +530,7 @@ async fn delete_priority_taxon_handler(request: HttpRequest, data: web::Data<App
 
     match project_collection
         .update_many(
-            doc! { "id":  { "$in" : &ids } }, update, None)
+            doc! { "id":  { "$in" : &ids } }, update)
         .await
     {   
         Ok(_) => {
@@ -606,8 +607,7 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
             doc! { 
                 "id":  { "$in" : &ids }, 
                 "sample.priority.id": &decision_schema.id
-            },
-            None 
+            }
         )
         .await
     {   
@@ -627,38 +627,33 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
 
 
     // Array filter of which priority taxon to update
-    let taxon_update_remove_options = mongodb::options::UpdateOptions::builder().array_filters(
-        vec![doc! { "pt.id": &decision_schema.id }]
-    ).build();
+    // Build an update model to remove the user's previous decision.
+    let remove_model = WriteModel::UpdateMany(
+        UpdateManyModel::builder()
+            .namespace(project_collection.namespace())
+            .filter(doc! { "id": { "$in": &ids } })
+            .update(doc! { 
+                "$pull": { "sample.priority.$[pt].decisions": { "user_id": &auth_guard.user.id } } 
+            })
+            .array_filters(Some(vec![mongodb::bson::Bson::Document(doc! { "pt.id": &decision_schema.id })]))
+            .build()
+    );
 
-    // Update #1: We always remove the user's previous decision on the priority taxon first 
-    let remove_decision_update = doc! {
-        "$pull": { "sample.priority.$[pt].decisions": { "user_id": &auth_guard.user.id }}
-    };
-    match project_collection.update_many(
-        doc! { "id":  { "$in" : &ids } }, remove_decision_update, taxon_update_remove_options)
-    .await
-    {   
-        Ok(_) => {},
-        Err(err) => {
-            return HttpResponse::InternalServerError().json(
-                serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})
-            )
-        }
-    }
-
-    let taxon_update_options = mongodb::options::UpdateOptions::builder().array_filters(
-        vec![doc! { "pt.id": &decision_schema.id }]
-    ).build();
-
-    // Update #2: We then add the updated decision and log it
+    // Build an update model to add the new decision.
     let decision = PriorityTaxonDecision::from(&decision_schema, &auth_guard.user);
-    let update = doc! { "$push": { "sample.priority.$[pt].decisions": &mongodb::bson::to_bson(&decision).unwrap() } };
+    let add_model = WriteModel::UpdateMany(
+        UpdateManyModel::builder()
+            .namespace(project_collection.namespace())
+            .filter(doc! { "id": { "$in": &ids } })
+            .update(doc! { 
+                "$push": { "sample.priority.$[pt].decisions": mongodb::bson::to_bson(&decision).unwrap() } 
+            })
+            .array_filters(Some(vec![mongodb::bson::Bson::Document(doc! { "pt.id": &decision_schema.id })]))
+            .build()
+    );
 
-    match project_collection
-        .update_many(
-            doc! { "id":  { "$in" : &ids } }, update, taxon_update_options)
-        .await
+    // Execute both update operations in a single bulk write.
+    match data.db.bulk_write(vec![remove_model, add_model]).await
     {   
         Ok(_) => {
             // Log the action in admin and team databases
@@ -746,7 +741,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
 
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -895,8 +890,7 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
     match project_collection.find(
             doc! { 
                 "sample.tags":  { "$in" : &contam_schema.tags }
-            }, 
-            None
+            }
         ).await {   
         Ok(cursor) => {
             let cerebro = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
@@ -936,7 +930,7 @@ use futures::{future::ok, stream::once};
 //     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
 
 //     match project_collection
-//         .aggregate(pipeline, None)
+//         .aggregate(pipeline)
 //         .await
 //     {
 //         Ok(cursor) => {
@@ -1033,13 +1027,10 @@ async fn samples_overview_handler(data: web::Data<AppState>, query: web::Query<C
         None => Vec::new()
     };
 
-    let collation_setting = mongodb::options::Collation::builder().locale("en_US").numeric_ordering(true).build();
-    let aggregate_options = mongodb::options::AggregateOptions::builder().collation(collation_setting).build();
-
     let pipeline = get_paginated_sample_overview_pipeline(&query.page, &query.limit, exclude_tags, &query.id, &query.run, &query.workflow, &query.group);
 
     match project_collection
-        .aggregate(pipeline, aggregate_options)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -1082,7 +1073,7 @@ async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<Str
     let pipeline = get_matched_sample_overview_pipeline(&id, &query.workflow);
 
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -1117,7 +1108,7 @@ async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, que
     let pipeline = get_matched_sample_cerebro_notaxa_pipeline(&id, &query.workflow);
 
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -1178,7 +1169,7 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json
     };
 
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -1275,7 +1266,7 @@ async fn delete_sample_handler(data: web::Data<AppState>, samples: web::Json<Sam
     let pipeline = get_matched_sample_ids_cerebro_pipeline(&samples.sample_id, &query.workflow);
 
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -1289,7 +1280,7 @@ async fn delete_sample_handler(data: web::Data<AppState>, samples: web::Json<Sam
                     }).unwrap()).collect();
 
                     // Delete the queried data models
-                    match project_collection.delete_many(doc! { "sample.id": { "$in": delete_sample_ids.iter().map(|x| x.sample_id.clone()).collect::<Vec<String>>() }}, None).await {
+                    match project_collection.delete_many(doc! { "sample.id": { "$in": delete_sample_ids.iter().map(|x| x.sample_id.clone()).collect::<Vec<String>>() }}).await {
                         Ok(_) => {
                             HttpResponse::Ok().json(serde_json::json!({
                                 "status": "success", "message": "Deleted requested samples", "data": serde_json::json!({"cerebro": []})
@@ -1337,7 +1328,7 @@ async fn sample_description_handler(data: web::Data<AppState>, update: web::Json
     };
 
 
-    match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.description": &update.description, "sample.type": &update.sample_type, "sample.group": &update.sample_group } }, None).await
+    match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.description": &update.description, "sample.type": &update.sample_type, "sample.group": &update.sample_group } }).await
     {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({
             "status": "success", "message": "Updated sample description", "data": serde_json::json!({})
@@ -1371,7 +1362,7 @@ async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>,
     let comment = SampleComment::from_schema(&comment_schema);    
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
 
-    match project_collection.update_many(doc! { "id":  { "$in" : &ids } }, doc! { "$push": { "sample.comments": &mongodb::bson::to_bson(&comment).unwrap() } }, None).await
+    match project_collection.update_many(doc! { "id":  { "$in" : &ids } }, doc! { "$push": { "sample.comments": &mongodb::bson::to_bson(&comment).unwrap() } }).await
     {
         Ok(_) => {
             // Log the action in admin and team databases
@@ -1425,7 +1416,7 @@ async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<App
 
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
 
-    match project_collection.update_many(doc! { "id":  { "$in" : &ids } }, doc! { "$pull": { "sample.comments": { "comment_id": &query.comment_id }} }, None).await
+    match project_collection.update_many(doc! { "id":  { "$in" : &ids } }, doc! { "$pull": { "sample.comments": { "comment_id": &query.comment_id }} }).await
     {
         Ok(_) => {
             // Log the action in admin and team databases
@@ -1474,7 +1465,7 @@ async fn sample_handler(data: web::Data<AppState>, query: web::Query<CerebroSamp
     };
 
     match project_collection
-    .distinct("sample", None, None) // All distinct samples in this project
+    .distinct("sample", doc! {}) // All distinct samples in this project
     .await
     {
         Ok(samples) => {
@@ -1506,7 +1497,7 @@ async fn workflow_handler(data: web::Data<AppState>,query: web::Query<CerebroWor
     };
 
     match project_collection
-    .distinct("workflow", None, None) // All distinct workflows in this project
+    .distinct("workflow", doc! {}) // All distinct workflows in this project
     .await
     {
         Ok(workflows) => {
@@ -1537,7 +1528,7 @@ async fn run_handler(data: web::Data<AppState>, query: web::Query<CerebroRunQuer
     };
 
     match project_collection
-    .distinct("run", None, None) // All distinct runs in this project
+    .distinct("run", doc! {}) // All distinct runs in this project
     .await
     {
         Ok(runs) => {
@@ -1574,7 +1565,7 @@ async fn workflow_id_handler(data: web::Data<AppState>, id: web::Path<WorkflowId
     let pipeline = get_matched_workflow_cerebro_notaxa_pipeline(&id, &query.runs, &query.tags, &None);
 
     match project_collection
-        .aggregate(pipeline, None)
+        .aggregate(pipeline)
         .await
     {
         Ok(cursor) => {
@@ -1627,6 +1618,7 @@ pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>
     };
 
     let mongo_db = data.db.database(&database.database);
+    
     Ok((database.database, mongo_db.collection(&project.collection)))
 }
 
@@ -1638,8 +1630,7 @@ async fn build_report(project_collection: &Collection<Cerebro>, report_schema: &
         .find(
             doc! { 
                 "id":  { "$in" : &report_schema.ids }
-            },
-            None 
+            } 
         )
         .await
     {   
@@ -1760,9 +1751,7 @@ async fn store_and_log_report(
     let reports_collection: Collection<ReportEntry> = get_teams_db_collection(&data, team.clone(), TeamAdminCollection::Reports);
     let mut report_entry = ReportEntry::from_schema(report_id.to_string(), &report_schema, Some(report_text.clone()), Some(is_pdf));
 
-    match reports_collection.insert_one(
-        &report_entry, None
-    ).await {
+    match reports_collection.insert_one(&report_entry).await {
         Ok(_) => {},
         Err(_) => return HttpResponse::InternalServerError().json(
             serde_json::json!({"status": "fail", "message": "Failed to insert report into storage" })
@@ -1778,7 +1767,7 @@ async fn store_and_log_report(
 
     match project_collection
         .update_many(
-            doc! { "id":  { "$in" : &report_schema.ids } }, update, None)
+            doc! { "id":  { "$in" : &report_schema.ids } }, update)
         .await
     {   
         Ok(_) => {

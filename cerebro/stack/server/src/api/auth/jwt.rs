@@ -263,7 +263,7 @@ impl FromRequest for JwtUserMiddleware {
             let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
                         
             let query_result = user_collection
-                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) }, None)
+                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) })
                 .await;
             
             match query_result {
@@ -433,7 +433,7 @@ impl FromRequest for JwtDataMiddleware {
             let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
                         
             let query_result = user_collection
-                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) }, None)
+                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) })
                 .await;
             
             match query_result {
@@ -514,7 +514,7 @@ impl FromRequest for JwtDataMiddleware {
                                         ]
                                     }
                                 ]
-                            }, None)
+                            })
                             .await
                         },
                         (Some(database), None) => {
@@ -534,7 +534,7 @@ impl FromRequest for JwtDataMiddleware {
                                         ]
                                     }
                                 ]
-                            }, None)
+                            })
                             .await
                         },
                         (None, Some(_)) => {
@@ -555,7 +555,7 @@ impl FromRequest for JwtDataMiddleware {
                                     },
                                     { "users": &user_id }
                                 ]
-                            }, None)
+                            })
                             .await
                         }
                     };
@@ -717,7 +717,7 @@ impl FromRequest for JwtAdminMiddleware {
             let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
             
             let query_result = user_collection
-                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) }, None)
+                .find_one(mongodb::bson::doc! { "id": format!("{}", &user_id_uuid) })
                 .await;
             
             match query_result {

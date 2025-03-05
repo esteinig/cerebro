@@ -70,7 +70,7 @@ async fn login_handler(
 
     // Find the user in the database
     let user = match user_collection
-        .find_one(doc! { "email": &body.email }, None)
+        .find_one(doc! { "email": &body.email })
         .await
         .unwrap()
     {
@@ -282,7 +282,7 @@ async fn refresh_access_token_handler(
 
     // Find the user in the database
     let user = match user_collection
-        .find_one(doc! { "id": format!("{}", &user_id_uuid) }, None)
+        .find_one(doc! { "id": format!("{}", &user_id_uuid) })
         .await
         .unwrap()
     {
@@ -457,7 +457,7 @@ async fn verification_email_handler(
 
     // Find the user in the database
     let user = match user_collection
-        .find_one(doc! { "id": &user_id }, None)
+        .find_one(doc! { "id": &user_id })
         .await
     {   
         Ok(Some(user)) => user,
@@ -563,7 +563,7 @@ async fn password_email_handler(
 
     // Find the user in the database
     let user = match user_collection
-        .find_one(doc! { "id": &user_id }, None)
+        .find_one(doc! { "id": &user_id })
         .await
     {   
         Ok(Some(user)) => user,
@@ -758,7 +758,7 @@ async fn reset_password_handler(
             // Also sets verified status, as we have confirmed or reset password by user email
             match user_collection.find_one_and_update(
                 doc! { "id": &user.id },
-                doc! { "$set": { "password": hashed_password, "verified": true } }, None
+                doc! { "$set": { "password": hashed_password, "verified": true } }
             ).await 
             {
                 Ok(None) => return error_response,
@@ -818,7 +818,7 @@ async fn check_one_time_token_and_user(
     };
 
     let user = match user_collection
-        .find_one(doc! { "id": &access_token_details.user_id.to_string() }, None)
+        .find_one(doc! { "id": &access_token_details.user_id.to_string() })
         .await
     {
         Ok(None) => return Err(error_response),

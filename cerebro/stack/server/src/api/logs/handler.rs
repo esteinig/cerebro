@@ -27,7 +27,7 @@ async fn get_admin_logs(data: web::Data<AppState>, query: web::Query<AdminLogsQu
 
     
     match logs_collection
-    .aggregate(pipeline, None)
+    .aggregate(pipeline)
     .await
     {
         Ok(cursor) => {
@@ -60,7 +60,7 @@ async fn get_team_logs(data: web::Data<AppState>, query: web::Query<TeamLogsQuer
     let logs_collection: Collection<RequestLog> = get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Logs);
     
     match logs_collection
-    .aggregate(pipeline, None)
+    .aggregate(pipeline)
     .await
     {
         Ok(cursor) => {
