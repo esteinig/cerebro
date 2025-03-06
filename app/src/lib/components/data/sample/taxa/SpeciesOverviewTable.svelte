@@ -14,7 +14,7 @@
 	import SpeciesOverviewTableHeader from "$lib/general/tables/SpeciesOverviewTableHeader.svelte";
 
     export let displayData: DisplayData = DisplayData.Rpm;
-    export let displayMode: AbundanceMode = AbundanceMode.Sequence;
+    export let displayMode: AbundanceMode = AbundanceMode.Mixed;
 
     let pagination: boolean = true;
 

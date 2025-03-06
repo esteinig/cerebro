@@ -11,7 +11,7 @@ use crate::error::WorkflowError;
 
 
 pub trait TaxonExtraction {
-    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError>;
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<Vec<Taxon>, WorkflowError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -155,8 +155,9 @@ MODULE AND TOOL STRUCTS
 */
 
 // Utility function to aggregate multiple HashMaps with Taxon
-pub fn aggregate(parent_taxa: &mut HashMap<String, Taxon>, taxa: &HashMap<String, Taxon>) -> HashMap<String, Taxon> {
-    for (taxid, taxon) in taxa {
+pub fn aggregate(parent_taxa: &mut HashMap<String, Taxon>, taxa: &Vec<Taxon>) -> HashMap<String, Taxon> {
+    
+    for (taxid, taxon) in taxa.iter().map(|t| (t.taxid.as_str(), t)) {
         // ... check if each taxon exists
         match parent_taxa.get_mut(taxid) {
             Some(tax) => {

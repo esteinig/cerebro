@@ -20,7 +20,7 @@ use mongodb::gridfs::GridFsBucket;
 /// to finalize the upload.
 pub async fn upload_taxa_to_gridfs(
     bucket: GridFsBucket,
-    taxa: &HashMap<String, Taxon>,
+    taxa: &Vec<Taxon>,
     filename: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
 
@@ -53,7 +53,7 @@ pub async fn upload_taxa_to_gridfs(
 pub async fn download_taxa_from_gridfs(
     bucket: GridFsBucket,
     filename: &str,
-) -> Result<HashMap<String, Taxon>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Taxon>, Box<dyn std::error::Error>> {
     // Open the download stream using the taxa_id.
     let mut download_stream = bucket.open_download_stream_by_name(filename).await?;
     
@@ -61,7 +61,7 @@ pub async fn download_taxa_from_gridfs(
     let _ = download_stream.read_to_end(&mut bytes).await?;
     
     // Deserialize the bytes back into a HashMap.
-    let taxa: HashMap<String, Taxon> = serde_json::from_slice(&bytes)?;
+    let taxa: Vec<Taxon> = serde_json::from_slice(&bytes)?;
     
     Ok(taxa)
 }

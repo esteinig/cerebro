@@ -653,7 +653,7 @@ impl PathogenDetection {
 }
 
 impl TaxonExtraction for PathogenDetection {
-    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<HashMap<String, Taxon>, WorkflowError> {
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<Vec<Taxon>, WorkflowError> {
         let taxonomy = ncbi::load(taxonomy_directory)?;
 
         let mut taxa: HashMap<String, Taxon> = HashMap::new();
@@ -722,7 +722,7 @@ impl TaxonExtraction for PathogenDetection {
             }
         }
 
-        Ok(taxa)
+        Ok(taxa.values().cloned().collect())
     }
 }
 

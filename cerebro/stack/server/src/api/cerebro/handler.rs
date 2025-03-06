@@ -467,7 +467,7 @@ struct TaxaQuery {
 #[derive(Deserialize, Debug)]
 struct TaggedTaxa {
     pub id: String,
-    pub taxa: HashMap<String, Taxon>,
+    pub taxa: Vec<Taxon>,
     pub name: String,
     pub sample_tags: Vec<String>
 }
@@ -556,10 +556,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     // Applying the rank/evidence filters from the post body - i.e. selected by user in filter interface
                     let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config, &tag_map);
                     
-                    if query.overview.is_some_and(|x| x) {
-                        // Summarize the evidence fields into a taxon overview, which is the first layer of the front-end `TaxonomyTable`
-                        // let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
-                        
+                    if query.overview.is_some_and(|x| x) {                        
                         HttpResponse::Ok().json(serde_json::json!({
                             "status": "success", "message": "Retrieved aggregated taxa overview with summary of evidence", "data": serde_json::json!({"taxa": taxa})
                         }))
@@ -615,12 +612,10 @@ pub fn apply_contamination_filter(
     // Iterate through each Cerebro object
     for cerebro in cerebros {
 
-
-
         // Collect Taxon IDs with matching evidence in this Cerebro object
         let mut found_taxa: HashSet<String> = HashSet::new();
 
-        for taxon in cerebro.taxa.values() {
+        for taxon in cerebro.taxa {
             // Check if the Taxon is in the subset
             if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {
                 continue; // Skip taxa not in the subset if any are defined in subset, otherwise use taxon

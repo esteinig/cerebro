@@ -119,7 +119,7 @@ pub struct Cerebro {
 
     pub quality: QualityControl,                // the quality control data from the parsed workflow sample
 
-    pub taxa: HashMap<String, Taxon>,           // taxon data from the parsed workflow sample (as dictionary for taxon aggregation)
+    pub taxa: Vec<Taxon>,                       // taxon data from the parsed workflow sample (as dictionary for taxon aggregation)
     
 }
 impl Cerebro {
@@ -133,7 +133,7 @@ impl Cerebro {
     pub fn from(
         id: &str,
         quality: &QualityControl,
-        taxa: &HashMap<String, Taxon>,
+        taxa: &Vec<Taxon>,
         sample_sheet: Option<PathBuf>, 
         workflow_config: Option<PathBuf>,
         run_id: Option<String>,

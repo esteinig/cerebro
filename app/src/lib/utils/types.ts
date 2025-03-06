@@ -1454,10 +1454,10 @@ export type Cerebro = {
     sample: SampleConfig,               // the configuration of the biological sample this sample was processed with
     workflow: WorkflowConfig,           // the configuration of the workflow run this sample was processed with 
 
-    taxa?: Map<string, Taxon>,           // the dictionary of taxonomic identifiers and taxon data from the parsed workflow sample (legacy dictionary, could be simple list)
+    taxa?: Taxon[],                     // the vector of taxa
     lineages: string[]
 
-    quality: QualityControlModule,       // the quality control data from the parsed workflow sample
+    quality: QualityControlModule,      // the quality control data from the parsed workflow sample
 
 }
 
