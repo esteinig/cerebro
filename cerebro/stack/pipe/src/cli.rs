@@ -16,6 +16,7 @@ fn main() -> anyhow::Result<()> {
                 ProcessCommands::Panviral(args) => {
                     let output = PanviralOutput::from(
                         &args.input, 
+                        args.input_qc.clone(),
                         args.id.clone()
                     )?;
                     let quality_control = QualityControl::from_panviral(&output);
@@ -34,6 +35,7 @@ fn main() -> anyhow::Result<()> {
 
                     let output = PathogenDetectionOutput::from(
                         &args.input, 
+                        args.input_qc.clone(),
                         args.id.clone(),
                         args.taxonomy_directory.clone(),
                         if args.blast_lca { BlastTaxidMethod::LCA } else { BlastTaxidMethod::HighestBitscore }

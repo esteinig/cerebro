@@ -51,10 +51,10 @@ pub struct PathogenFiles {
     pub mag: MetagenomeAssemblyFiles
 }
 impl PathogenFiles {
-    pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: &str) -> Result<Self, WorkflowError> {
         
         Ok(Self{
-            qc: QualityControlFiles::from(path, id)?,
+            qc: QualityControlFiles::from(match path_qc { Some(ref p) => p, None => path}, id)?,
             profile: PathogenProfileFiles::from(path, id)?,
             mag: MetagenomeAssemblyFiles::from(&path, &id)?
         })
@@ -126,7 +126,7 @@ pub struct PathogenDetectionOutput {
 }
 impl PathogenDetectionOutput {
 
-    pub fn from(path: &PathBuf, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
 
         let taxonomy = match taxonomy {
             Some(path) => Some(ncbi::load(&path)?),
@@ -144,7 +144,7 @@ impl PathogenDetectionOutput {
             None => get_file_component(&path, FileComponent::FileName)?
         };
 
-        let files = PathogenFiles::from(&path, &id)?;
+        let files = PathogenFiles::from(&path, path_qc, &id)?;
         
         Ok(Self{
             id: id.to_string(),

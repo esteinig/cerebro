@@ -362,9 +362,14 @@ pub enum ProcessCommands {
 
 #[derive(Debug, Args)]
 pub struct ProcessArgs {
-    /// Input directory containing the output files for the pathogen pipeline
+    /// Input directory containing the output files for the pathogen or panviral pipeline
     #[clap(long, short = 'i', default_value=".")]
     pub input: PathBuf,
+    /// Input directory containing the output files for the quality control module 
+    /// 
+    /// If not provided will check the '--input' directory for the quality control module outputs
+    #[clap(long, short = 'q', default_value=".")]
+    pub input_qc: Option<PathBuf>,
     /// Sample identifier to parse, directory basename by default
     #[clap(long, short = 's')]
     pub id: Option<String>,

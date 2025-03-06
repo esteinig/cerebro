@@ -15,10 +15,10 @@ pub struct PanviralFiles {
     pub vircov: Option<PathBuf>,
 }
 impl PanviralFiles {
-    pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: &str) -> Result<Self, WorkflowError> {
         
         Ok(Self{
-            qc: QualityControlFiles::from(path, id)?,
+            qc: QualityControlFiles::from(match path_qc { Some(ref p) => p, None => path}, id)?,
             vircov: get_file_by_name(&path, &id, ".vircov.tsv")?,
         })
     }
@@ -32,14 +32,14 @@ pub struct PanviralOutput {
 }
 impl PanviralOutput {
 
-    pub fn from(path: &PathBuf, id: Option<String>) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>) -> Result<Self, WorkflowError> {
 
         let id = match id {
             Some(id) => id,
             None => get_file_component(&path, FileComponent::FileName)?
         };
 
-        let files = PanviralFiles::from(&path, &id)?; 
+        let files = PanviralFiles::from(&path, path_qc, &id)?; 
         
         Ok(Self{
             id: id.to_string(),
