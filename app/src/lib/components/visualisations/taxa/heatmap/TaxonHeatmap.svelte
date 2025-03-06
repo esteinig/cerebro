@@ -4,7 +4,7 @@
     import { type Taxon, type TaxonOverviewRecord, ProfileTool, AbundanceMode, DisplayData, HeatmapRowOrder, HeatmapColorScheme, DomainName, FileTag, type Cerebro } from '$lib/utils/types';
     import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { page } from '$app/stores';
-    import { getCssVariableAsHex } from '$lib/utils/helpers';
+    import { extractTaxon, getCssVariableAsHex, TaxRank } from '$lib/utils/helpers';
 
     const publicApi = new CerebroApi();
 
@@ -76,8 +76,8 @@
     $: {
         if (selectedRowOrder === HeatmapRowOrder.Domain) {
             taxa.sort((a, b) => {
-                const domainA = a.level?.domain || ""; // Default to an empty string if undefined
-                const domainB = b.level?.domain || ""; // Default to an empty string if undefined
+                const domainA = extractTaxon(a.lineage, TaxRank.Domain) || ""; // Default to an empty string if undefined
+                const domainB = extractTaxon(b.lineage, TaxRank.Domain) || ""; // Default to an empty string if undefined
                 return domainA.localeCompare(domainB);
             });
             rowOrder = taxa.map(taxon => taxon.name);
@@ -171,9 +171,10 @@
                 endColor = getCssVariableAsHex('--color-primary-600', $storeTheme);
             } else if (colorScheme === HeatmapColorScheme.Domain) {
                 taxa.filter((taxon) => row == taxon.name).map((taxon) => {
-                    if (taxon.level.domain !== undefined) {
-                        startColor = getCssVariableAsHex(domainColors.get(taxon.level.domain)?.start, $storeTheme);
-                        endColor = getCssVariableAsHex(domainColors.get(taxon.level.domain)?.end, $storeTheme);
+                    let domain = extractTaxon(taxon.lineage, TaxRank.Domain);
+                    if (domain !== null) {
+                        startColor = getCssVariableAsHex(domainColors.get(domain)?.start, $storeTheme);
+                        endColor = getCssVariableAsHex(domainColors.get(domain)?.end, $storeTheme);
                     } 
                 })
 

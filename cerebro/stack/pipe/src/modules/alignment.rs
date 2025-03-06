@@ -70,7 +70,7 @@ impl TaxonExtraction for Alignment {
                 existing_taxon.evidence.alignment.push(record.clone());
             } else {
                 // Otherwise, create a new Taxon and insert it into the HashMap
-                let mut taxon = match Taxon::from_taxid(taxid.clone(), &taxonomy, true) {
+                let mut taxon = match Taxon::from_taxid(taxid.clone(), &taxonomy) {
                     Err(err) => {
                         log::error!("Failed to find taxid '{}' in provided taxonomy", taxid);
                         if strict {

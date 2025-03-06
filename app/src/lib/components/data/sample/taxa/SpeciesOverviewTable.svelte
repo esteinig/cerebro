@@ -9,10 +9,11 @@
 	import { page } from "$app/stores";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import CircleIndicator from "$lib/general/icons/CircleIndicator.svelte";
-	import { baseTags } from "$lib/utils/helpers";
+	import { baseTags, extractTaxon, TaxRank } from "$lib/utils/helpers";
     import { navigationLoading } from '$lib/stores/stores';
 
     export let displayData: DisplayData = DisplayData.Rpm;
+    export let displayMode: AbundanceMode = AbundanceMode.Sequence;
 
     let pagination: boolean = true;
 
@@ -32,7 +33,6 @@
     let tableData: TaxonOverviewRecord[] = [];
 
     // Display data modes for table
-    let displayMode: AbundanceMode = AbundanceMode.Sequence;
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
     let taxonEvidence: TaxonEvidence | null = null;
@@ -116,12 +116,24 @@
     $: if ($selectedIdentifiers.length > 0) {
         getAggregatedTaxaOverview($selectedIdentifiers);
     }
-    
+
     function transformTaxonOverview(
         taxa: Taxon[],
         mode: AbundanceMode,
         field: DisplayData
     ): TaxonOverviewRecord[] {
+        // Mapping for Mixed mode: tool -> expected AbundanceMode.
+        const mixedToolModeMapping: Record<string, AbundanceMode> = {
+            [ProfileTool.Vircov]: AbundanceMode.Sequence,
+            [ProfileTool.Kraken2]: AbundanceMode.Sequence,
+            [ProfileTool.Metabuli]: AbundanceMode.Sequence,
+            [ProfileTool.Ganon2]: AbundanceMode.Sequence,
+            [ProfileTool.Kmcp]: AbundanceMode.Sequence,
+            [ProfileTool.Bracken]: AbundanceMode.Profile,
+            [ProfileTool.Sylph]: AbundanceMode.Sequence,
+            [ProfileTool.Blast]: AbundanceMode.Bases,
+        };
+
         return taxa.map((taxon) => {
             const aggregatedResults = {
                 vircov: 0,
@@ -137,42 +149,58 @@
             let contributingTools = 0; // Track the number of tools contributing to the average
 
             taxon.evidence.profile.forEach((record) => {
-
-                // Only include selected tools in table overview 
-                if ($selectedClientFilterConfig.tools.includes(record.tool)) {
-
-                    let key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
-                    let data = field;
-
-                    if (record.tool === ProfileTool.Blast) {
-                        data = DisplayData.Bases; // Use 'Bases' for Blast records.
-                    }
-
-                    if (key in aggregatedResults) {
-                        aggregatedResults[key] += record[data]; // Always update aggregated results.
-                        
-                        // Exclude Blast contributions when counting tools
-                        if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
-                            contributingTools++;
-                        }
+                // Only include records from selected tools.
+                if (!$selectedClientFilterConfig.tools.includes(record.tool)) {
+                    return;
                 }
 
+                // Determine the data field to use. For Blast, always use Bases.
+                let data = field;
+                if (record.tool === ProfileTool.Blast) {
+                    data = DisplayData.Bases;
+                }
+
+                // Mixed mode: include only records with the expected mode for each tool.
+                if (mode === AbundanceMode.Mixed) {
+                    const expectedMode = mixedToolModeMapping[record.tool];
+                    if (!expectedMode) {
+                        return;
+                    }
+                    if (record.mode !== expectedMode) {
+                        return;
+                    }
+                } else {
+                    // Non-mixed mode: only include records matching the provided mode.
+                    if (record.mode !== mode) {
+                        return;
+                    }
+                }
+
+                // Aggregate data.
+                const key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
+                if (key in aggregatedResults) {
+                    aggregatedResults[key] += record[data];
+
+                    // Exclude Blast contributions when counting tools for average.
+                    if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
+                        contributingTools++;
+                    }
                 }
             });
 
-            // Calculate the total sum, excluding 'blast'
+            // Calculate the total sum excluding 'blast'.
             const totalSum = Object.entries(aggregatedResults).reduce((sum, [key, value]) => {
-                return key === "blast" ? sum : sum + value; // Skip 'blast'
+                return key === "blast" ? sum : sum + value;
             }, 0);
 
-            // Calculate the average
+            // Calculate the average (if at least one tool contributed).
             const average = contributingTools > 0 ? totalSum / contributingTools : 0;
 
             return {
                 taxid: taxon.taxid,
                 name: taxon.name,
-                domain: taxon.level.domain,
-                genus: taxon.level.genus,
+                domain: extractTaxon(taxon.lineage, TaxRank.Domain),
+                genus: extractTaxon(taxon.lineage, TaxRank.Genus),
                 profile: taxon.evidence.profile.length > 0,
                 alignment: taxon.evidence.alignment.length > 0,
                 assembly: taxon.evidence.assembly.length > 0,
@@ -198,13 +226,13 @@
 
             // Explicit taxonomy filters
             if ($selectedClientFilterConfig.domains.length) {
-                taxonomy = $selectedClientFilterConfig.domains.includes(taxon.level.domain);
+                taxonomy = $selectedClientFilterConfig.domains.includes(extractTaxon(taxon.lineage, TaxRank.Domain));
             }
             if ($selectedClientFilterConfig.genera.length) {
-                taxonomy = $selectedClientFilterConfig.genera.includes(taxon.level.genus);
+                taxonomy = $selectedClientFilterConfig.genera.includes(extractTaxon(taxon.lineage, TaxRank.Genus));
             }
             if ($selectedClientFilterConfig.species.length) {
-                taxonomy = $selectedClientFilterConfig.species.includes(taxon.level.species);
+                taxonomy = $selectedClientFilterConfig.species.includes(extractTaxon(taxon.lineage, TaxRank.Species));
             }
 
             // if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxon.name.includes(species))) {
@@ -380,86 +408,87 @@
                     </ListBoxItem>
                     {#each tableData as overview, i}
                         {#if contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true}
-                        <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover="hover:variant-soft" regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
-                            
-                                <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' : ''}">
-                                    <div class="opacity-70">{overview.domain}</div>
-                                    <div class="col-span-2 truncate italic">{overview.name}</div>
-                                    <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
-                                        <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
-                                        <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
-                                        <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
-                                        <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
-                                        <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
-                                        <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div>
-                                    {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
-                                        <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
-                                    {/if}
-                                        <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                     <div class="flex justify-end items-center pt-1">
+                            <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover="hover:variant-soft" regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
+                                
+                                    <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' : ''}">
+                                        
+                                        <div class="opacity-70">{overview.domain}</div>
+                                        <div class="col-span-2 truncate italic">{overview.name}</div>
+                                        <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
+                                            <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        {/if}
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
+                                            <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        {/if}
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
+                                            <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        {/if}
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
+                                            <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        {/if}
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
+                                            <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        {/if}
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
+                                            <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div>
+                                        {/if}
+                                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                                            <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
+                                        {/if}
+                                            <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
+                                        <div class="flex justify-end items-center pt-1">
 
-                                        <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
+                                            <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
 
-                                            {#if overview.vircov > 0}
-                                                <div class="rounded-full bg-primary-400 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
-                                            {#if overview.kraken2 > 0}
-                                                <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
-                                            {#if overview.bracken > 0}
-                                                <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
-                                            {#if overview.metabuli > 0}
-                                                <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
-                                            {#if overview.ganon2 > 0}
-                                                <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
-                                            <!-- {#if overview.kmcp > 0}
-                                                <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if} -->
-                                            {#if overview.sylph > 0}
-                                                <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
-                                            {#if overview.blast > 0}
-                                                <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
-                                            {:else}
-                                                <div></div>
-                                            {/if}
+                                                {#if overview.vircov > 0}
+                                                    <div class="rounded-full bg-primary-400 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                                {#if overview.kraken2 > 0}
+                                                    <div class="rounded-full bg-secondary-800 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                                {#if overview.bracken > 0}
+                                                    <div class="rounded-full bg-secondary-700 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                                {#if overview.metabuli > 0}
+                                                    <div class="rounded-full bg-secondary-600 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                                {#if overview.ganon2 > 0}
+                                                    <div class="rounded-full bg-secondary-400 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                                <!-- {#if overview.kmcp > 0}
+                                                    <div class="rounded-full bg-secondary-300 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if} -->
+                                                {#if overview.sylph > 0}
+                                                    <div class="rounded-full bg-secondary-200 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                                {#if overview.blast > 0}
+                                                    <div class="rounded-full bg-tertiary-500 h-2 w-2"></div>
+                                                {:else}
+                                                    <div></div>
+                                                {/if}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            {#if selectedTaxid === overview.taxid && taxonEvidence}
-                            <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
-                            {/if}
-                        </ListBoxItem>
+                                {#if selectedTaxid === overview.taxid && taxonEvidence}
+                                <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
+                                {/if}
+                            </ListBoxItem>
                         {/if}
                     {/each}
                 </ListBox>

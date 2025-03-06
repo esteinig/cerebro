@@ -1051,14 +1051,8 @@ export type Taxon = {
     taxid: string,
     rank: string,              // this is an enumeration in the `taxonomy` library, saved as string in model
     name: string,
-    level: TaxonLevel,
+    lineage: string,
     evidence: TaxonEvidence
-}
-
-export type TaxonLevel = {
-    domain: string | null,
-    genus: string | null,
-    species: string | null
 }
 
 export type TaxonEvidence = {
@@ -1070,15 +1064,6 @@ export type TaxonEvidence = {
 export type ContigRecord = {
     id: string
 }
-
-// export type PathogenDetectionRecord = {
-//     id: string,
-//     taxid: string,
-//     name: string,
-//     rank: PathogenDetectionRank,
-//     results: ProfileRecord[]
-// }
-
 
 export enum ProfileTool {
     Vircov = "Vircov",
@@ -1095,7 +1080,8 @@ export enum ProfileTool {
 export enum AbundanceMode {
     Sequence = "Sequence",
     Profile = "Profile",
-    Bases = "Bases"
+    Bases = "Bases",
+    Mixed = "Mixed"
 }
 
 
@@ -1140,6 +1126,7 @@ export type ProfileRecord = {
     mode: AbundanceMode,
     reads: number,
     rpm: number,
+    contigs: number,
     bases: number,
     bpm: number,
     abundance: number
@@ -1467,6 +1454,8 @@ export type Cerebro = {
     workflow: WorkflowConfig,           // the configuration of the workflow run this sample was processed with 
 
     taxa?: Map<string, Taxon>,           // the dictionary of taxonomic identifiers and taxon data from the parsed workflow sample (legacy dictionary, could be simple list)
+    lineages: string[]
+
     quality: QualityControlModule,       // the quality control data from the parsed workflow sample
 
 }

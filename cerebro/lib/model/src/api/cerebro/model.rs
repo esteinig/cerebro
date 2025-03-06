@@ -117,8 +117,10 @@ pub struct Cerebro {
     pub sample: SampleConfig,                   // the configuration of the biological sample
     pub workflow: WorkflowConfig,               // the configuration of the workflow run
 
-    pub taxa: HashMap<String, Taxon>,           // taxon data from the parsed workflow sample (as dictionary for taxon aggregation)
     pub quality: QualityControl,                // the quality control data from the parsed workflow sample
+
+    pub taxa: HashMap<String, Taxon>,           // taxon data from the parsed workflow sample (as dictionary for taxon aggregation)
+    
 }
 impl Cerebro {
     /// Create a `Cerebro` model from a `WorkflowSample`

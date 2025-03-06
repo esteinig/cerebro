@@ -7,6 +7,7 @@ use crate::modules::pathogen::PathogenDetectionRank;
 use crate::modules::pathogen::ProfileTool;
 use crate::modules::pathogen::AbundanceMode;
 
+use super::taxon::LineageOperations;
 use super::taxon::Taxon;
 
 
@@ -63,10 +64,9 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
         taxa = taxa
             .into_iter()
             .filter(|taxon| {
-                if let Some(domain_name) = &taxon.level.domain {
-                    filter_config.domains.contains(domain_name)
-                } else {
-                    false // Exclude taxa without a domain_name
+                match taxon.lineage.get_domain() {
+                    Some(taxon_domain) => filter_config.domains.contains(&taxon_domain),
+                    None => false
                 }
             })
             .collect();

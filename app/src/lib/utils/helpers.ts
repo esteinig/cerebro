@@ -251,7 +251,37 @@ export const getInitials = (name: string): string => {
     return initials;
 }
 
+export enum TaxRank {
+    Domain = 'd__',
+    Phylum = 'p__',
+    Class = 'c__',
+    Order = 'o__',
+    Family = 'f__',
+    Genus = 'g__',
+    Species = 's__'
+}
 
+
+/**
+ * Extracts the taxonomic rank value from a GTDB lineage string.
+ * @param lineage - The GTDB lineage string (e.g., "d__Bacteria; p__Firmicutes; c__Bacilli; o__Bacillales; f__Bacillaceae; g__Bacillus; s__subtilis")
+ * @param rank - The taxonomic rank (from the TaxRank enum) to extract.
+ * @returns The extracted taxon value for the provided rank, or null if not found.
+ */
+export function extractTaxon(lineage: string, rank: TaxRank): string | null {
+    // Split the lineage into parts using the semicolon delimiter
+    const parts = lineage.split(';');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      // Check if the current part starts with the provided rank prefix
+      if (trimmed.startsWith(rank)) {
+        // Extract the taxon by removing the rank prefix and trimming any whitespace
+        const taxon = trimmed.substring(rank.length).trim();
+        return taxon.length > 0 ? taxon : null;
+      }
+    }
+    return null;
+  }
 
 
 export const ERCC_CONCENTRATIONS: Map<string, number> = new Map([

@@ -19,16 +19,17 @@ pub struct Taxon {
     pub taxid: String,
     pub rank: TaxRank,
     pub name: String,
-    pub level: TaxonLevel,         // for server-side filtering
+    pub lineage: TaxonLineage,
     pub evidence: TaxonEvidence
 }
 impl Taxon {
-    pub fn from_taxid(taxid: String, taxonomy: &GeneralTaxonomy, ncbi_domain: bool) -> Result<Self, WorkflowError> {
+    pub fn from_taxid(taxid: String, taxonomy: &GeneralTaxonomy) -> Result<Self, WorkflowError> {
 
         let taxid_str = taxid.as_str();
 
         let rank = taxonomy.rank(taxid_str)
             .map_err(|err|WorkflowError::TaxRankNotAvailable(err, taxid.clone()))?;
+
         let name = taxonomy.name(taxid_str)
             .map_err(|err|WorkflowError::TaxNameNotAvailable(err, taxid.clone()))?.to_string();
 
@@ -36,7 +37,7 @@ impl Taxon {
             taxid: taxid.clone(), 
             rank,
             name,
-            level: TaxonLevel::new(taxid_str, taxonomy, ncbi_domain)?,
+            lineage: TaxonLineage::from_taxid(taxid_str, taxonomy)?,
             evidence: TaxonEvidence::new() // to be filled
 
         })
@@ -60,59 +61,78 @@ impl TaxonEvidence {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct TaxonLevel {
-    pub domain: Option<String>,
-    pub genus: Option<String>,
-    pub species: Option<String>
+// Lineage in GTDB liek format
+
+pub trait LineageOperations {
+    fn from_taxid(taxid: &str, taxonomy: &GeneralTaxonomy) -> Result<String, WorkflowError>;
+    fn get_domain(&self) -> Option<String>;
 }
-impl TaxonLevel {
-    pub fn new(taxid: &str, taxonomy: &GeneralTaxonomy, ncbi_domain: bool) -> Result<Self, WorkflowError> {
-
-        // Species abstraction
-        let species_search = taxonomy.parent_at_rank(
-            taxid, TaxRank::Species
-        ).map_err(|err|WorkflowError::TaxRankNotFound(err, TaxRank::Species.to_string(), taxid.to_owned()))?;
-
-        let (_, species_name) = get_taxid_name_from_search(species_search, taxonomy)?;
-        
-        // Genus abstraction
-        let genus_search = taxonomy.parent_at_rank(
-            taxid, TaxRank::Genus
-        ).map_err(|err|WorkflowError::TaxRankNotFound(err, TaxRank::Genus.to_string(), taxid.to_owned()))?;
-
-        let (_, genus_name) = get_taxid_name_from_search(genus_search, taxonomy)?;
-        
-        // Domain abstraction
-        let domain_rank = match ncbi_domain {
-            true => { TaxRank::Superkingdom },
-            false => { TaxRank::Domain }
-        };
-
-        let domain_taxid_search: Option<(&str, f32)> = taxonomy.parent_at_rank(
-            taxid, domain_rank
-        ).map_err(|err|WorkflowError::TaxRankNotFound(err, domain_rank.to_string(), taxid.to_owned()))?;
-
-        let (_, domain_name) = match domain_taxid_search {
-            Some((domain_taxid, _)) => {
-                let domain_name = taxonomy.name(domain_taxid).map_err(
-                    |err|WorkflowError::TaxNameNotAvailable(err, taxid.to_owned())
-                )?;
-                (Some(domain_taxid.to_owned()), Some(domain_name.to_owned()))
-
-            },
-            None => (None, None)
-        };
 
 
-        Ok(Self { 
-            domain: domain_name,
-            genus: genus_name,
-            species: species_name
-        })
-
+pub fn lineage_to_str(lineage: Vec<String>) -> Result<String, WorkflowError> {
+    if lineage.len() >= 7 {
+        let base_lineage = format!(
+            "d__{};p__{};c__{};o__{};f__{};g__{};s__{}",
+            lineage[0], lineage[1], lineage[2], lineage[3], lineage[4], lineage[5], lineage[6]
+        );
+        Ok(base_lineage)
+    } else {
+        Err(WorkflowError::LineageStringTooShort(lineage.join(", ")))
     }
 }
+
+pub type TaxonLineage = String;
+
+impl LineageOperations for TaxonLineage {
+    fn from_taxid(taxid: &str, taxonomy: &GeneralTaxonomy) -> Result<String, WorkflowError> {
+        
+        match taxonomy.rank(taxid) {
+            Ok(_) => {
+
+                let lineage = vec![
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Superkingdom)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Phylum)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Class)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Order)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Family)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Genus)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                    taxonomy
+                        .name(taxonomy.parent_at_rank(taxid, TaxRank::Species)?.unwrap_or(("", 0.0)).0)
+                        .unwrap_or(""),
+                ]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>();
+
+                Ok(lineage_to_str(lineage)?)
+            },
+            Err(err) => {
+                log::warn!("Rank could not be determined for taxid {taxid} - using unclassified lineage");
+                log::warn!("Error from taxonomy: {}", err.to_string());
+                Ok(String::from("d__;p__;c__;o__;f__;g__;s__"))
+            }
+        }
+    }
+    fn get_domain(&self) -> Option<String> {
+        match self.split(";").collect::<Vec<_>>().first() {
+            Some(domain_str) => Some(domain_str.replace("d__", "").to_string()),
+            None => None
+        }
+    }
+}
+
 
 // Utility function wrapping the search result handling with name and taxid
 pub fn get_taxid_name_from_search(search_result: Option<(&str, f32)>, taxonomy: &GeneralTaxonomy) -> Result<(Option<String>, Option<String>), WorkflowError> {
