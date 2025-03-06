@@ -1,6 +1,7 @@
 
 import { FileTag, Role } from "./types";
 import type { Cerebro } from "./types";
+import { DisplayData } from "./types";
 
 export function getCssVariableAsHex(variableName: string | null | undefined, theme: string): string | null {
     if (!variableName) return null
@@ -261,6 +262,15 @@ export enum TaxRank {
     Species = 's__'
 }
 
+export const getValueDisplay = (displayData: DisplayData) => {
+    if (displayData == DisplayData.Rpm) {
+        return "rpm"
+    } else if (displayData == DisplayData.Reads) {
+        return "reads"
+    } else if (displayData == DisplayData.Abundance) {
+        return "%"
+    }
+}
 
 /**
  * Extracts the taxonomic rank value from a GTDB lineage string.

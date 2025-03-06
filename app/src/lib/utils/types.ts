@@ -1202,6 +1202,7 @@ export type TaxonOverviewRecord = {
     bracken: number;
     vircov: number;
     blast: number;
+    contigs: number;
     total: number;
 };
 

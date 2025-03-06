@@ -9,8 +9,9 @@
 	import { page } from "$app/stores";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import CircleIndicator from "$lib/general/icons/CircleIndicator.svelte";
-	import { baseTags, extractTaxon, TaxRank } from "$lib/utils/helpers";
+	import { baseTags, extractTaxon, getValueDisplay, TaxRank } from "$lib/utils/helpers";
     import { navigationLoading } from '$lib/stores/stores';
+	import SpeciesOverviewTableHeader from "$lib/general/tables/SpeciesOverviewTableHeader.svelte";
 
     export let displayData: DisplayData = DisplayData.Rpm;
     export let displayMode: AbundanceMode = AbundanceMode.Sequence;
@@ -116,7 +117,6 @@
     $: if ($selectedIdentifiers.length > 0) {
         getAggregatedTaxaOverview($selectedIdentifiers);
     }
-
     function transformTaxonOverview(
         taxa: Taxon[],
         mode: AbundanceMode,
@@ -143,7 +143,8 @@
                 kmcp: 0,
                 bracken: 0,
                 sylph: 0,
-                blast: 0
+                blast: 0,
+                contigs: 0, // New aggregated field for BLAST contigs.
             };
 
             let contributingTools = 0; // Track the number of tools contributing to the average
@@ -181,6 +182,12 @@
                 if (key in aggregatedResults) {
                     aggregatedResults[key] += record[data];
 
+                    // If the tool is Blast, also aggregate the contigs.
+                    if (record.tool === ProfileTool.Blast) {
+                        // Ensure that the record has a contigs property.
+                        aggregatedResults.contigs += record.contigs;
+                    }
+
                     // Exclude Blast contributions when counting tools for average.
                     if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
                         contributingTools++;
@@ -188,9 +195,9 @@
                 }
             });
 
-            // Calculate the total sum excluding 'blast'.
+            // Calculate the total sum, excluding 'blast' and 'contigs'.
             const totalSum = Object.entries(aggregatedResults).reduce((sum, [key, value]) => {
-                return key === "blast" ? sum : sum + value;
+                return (key === "blast" || key === "contigs") ? sum : sum + value;
             }, 0);
 
             // Calculate the average (if at least one tool contributed).
@@ -207,7 +214,7 @@
                 ...aggregatedResults,
                 total: displayTotal === DisplayTotal.Sum ? totalSum : average, // Use the adjusted total
             };
-        }).sort((a, b) => b.total - a.total);
+        }).sort((a, b) => b.total - a.total)
     }
 
     const applyClientSideFilters = (taxa: Taxon[], clientFilterConfig: ClientFilterConfig | null): Taxon[] => {
@@ -266,7 +273,18 @@
         tableData = transformTaxonOverview(filteredData, displayMode, displayData);
     }
 
-    $: {
+
+    // Sorting state variables.
+    let sortColumn: keyof TaxonOverviewRecord = "total";
+    let sortDirection: "asc" | "desc" = "desc";
+
+    $: { 
+        // Reset to first page if paginated
+
+
+        // Sort the transformed data based on sortColumn and sortDirection.
+        tableData = sortTableData(sortColumn, sortDirection);
+
         // If pagination is enabled, slice the data for the page and limits as configured in table footer
         if (pagination) {
             paginationSettings.size = filteredData.length;
@@ -276,6 +294,35 @@
             );
         }
     }
+
+    function sortTableData(sortColumn: keyof TaxonOverviewRecord, sortDirection: string) {
+
+        return tableData.sort((a, b) => {
+            const aVal = a[sortColumn];
+            const bVal = b[sortColumn];
+            if (typeof aVal === "number" && typeof bVal === "number") {
+                return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+            } else if (typeof aVal === "string" && typeof bVal === "string") {
+                return sortDirection === "asc"
+                    ? aVal.localeCompare(bVal)
+                    : bVal.localeCompare(aVal);
+            }
+            return 0;
+        });
+    }
+
+    // Apply pagination to sorted data.
+    // $: {
+    //     if (pagination) {
+    //         paginationSettings.size = tableData.length;
+    //         tableData = tableData.slice(
+    //             paginationSettings.page * paginationSettings.limit,
+    //             paginationSettings.page * paginationSettings.limit + paginationSettings.limit
+    //         );
+    //     } else {
+    //         tableData = tableData;
+    //     }
+    // }
 
     const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
         if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
@@ -304,6 +351,18 @@
         });
     };
 
+
+    // Handler for clicking a header.
+    function sortByColumn(column: keyof TaxonOverviewRecord) {
+        if (sortColumn === column) {
+            // Toggle direction if the same column is clicked.
+            sortDirection = sortDirection === "asc" ? "desc" : "asc";
+        } else {
+            sortColumn = column;
+            sortDirection = "desc"; // default direction when changing columns
+        }
+    }
+
 </script>
 
 <div>
@@ -330,71 +389,55 @@
                                 <span class="opacity-60">Species</span>
                             </div>
                                                         
-                            <div class="text-right flex flex-col items-end">
-                                <span class="opacity-60">{displayTotal}</span>
-                                <span class="text-xs opacity-40">rpm</span>
+                            <div on:click|preventDefault={() => sortByColumn("total")} role="columnheader">
+                                <SpeciesOverviewTableHeader tool={displayTotal} sortColumn={sortColumn} displayData={displayData} circleColor={null} sortOrder={sortDirection}/>
                             </div>
                             
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">{ProfileTool.Vircov}</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-primary-500"/><span class="text-xs opacity-40">rpm</span>
-                                    </div>
+                                <div on:click|preventDefault={() => sortByColumn("vircov")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Vircov} displayData={displayData} sortColumn={sortColumn} circleColor="bg-primary-500" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
                             
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">{ProfileTool.Kraken2}</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-400"/><span class="text-xs opacity-40">rpm</span>
-                                   </div>
+                                <div on:click|preventDefault={() => sortByColumn("kraken2")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Kraken2} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-400" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
                             
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">{ProfileTool.Bracken}</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-500"/><span class="text-xs opacity-40">rpm</span>
-                                    </div>
+                                <div on:click|preventDefault={() => sortByColumn("bracken")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Bracken} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-500" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
                             
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">{ProfileTool.Metabuli}</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-600"/><span class="text-xs opacity-40">rpm</span>
-                                    </div>
+                                <div on:click|preventDefault={() => sortByColumn("metabuli")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Metabuli} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-600" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
                             
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">{ProfileTool.Ganon2}</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-secondary-700"/><span class="text-xs opacity-40">rpm</span>
-                                    </div>
+                                <div on:click|preventDefault={() => sortByColumn("ganon2")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Ganon2} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-700" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
 
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">{ProfileTool.Sylph}</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-tertiary-500"/><span class="text-xs opacity-40"> est. rpm</span>
-                                    </div>
+                                <div on:click|preventDefault={() => sortByColumn("sylph")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Sylph} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-800" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
                             
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="opacity-60">Assembly</span>
-                                    <div class="flex items-center">
-                                        <CircleIndicator circleClass="mt-0.5 mr-1" color="bg-tertiary-500"/><span class="text-xs opacity-40">bp</span>
-                                    </div>
+                                <div on:click|preventDefault={() => sortByColumn("blast")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={ProfileTool.Blast} displayData={displayData} sortColumn={sortColumn} circleColor="bg-tertiary-500" sortOrder={sortDirection}/>
+                                </div>
+                            {/if}
+
+                            {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                                <div on:click|preventDefault={() => sortByColumn("contigs")} role="columnheader">
+                                    <SpeciesOverviewTableHeader tool={"Assembly"} displayData={displayData} sortColumn={sortColumn} circleColor="bg-tertiary-500" sortOrder={sortDirection}/>
                                 </div>
                             {/if}
 
@@ -436,6 +479,7 @@
                                         {/if}
                                         {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
                                             <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
+                                            <div class="text-right">{overview.contigs > 0 ? overview.contigs.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
                                         {/if}
                                             <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
                                         <div class="flex justify-end items-center pt-1">
@@ -486,7 +530,7 @@
                                         </div>
                                     </div>
                                 {#if selectedTaxid === overview.taxid && taxonEvidence}
-                                <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
+                                    <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
                                 {/if}
                             </ListBoxItem>
                         {/if}
