@@ -1,5 +1,5 @@
 
-use cerebro_pipe::taxa::filters::TaxonFilterConfig;
+use cerebro_pipe::taxa::filter::TaxonFilterConfig;
 use mongodb::bson::{doc, Document};
 use cerebro_model::api::cerebro::model::{SampleId, WorkflowId, CerebroId, RunId, Tag};
 
@@ -257,6 +257,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
         // Depending on the priority taxa selection (sample.priority) this might get large for memory?
         Some(doc! {
             "$project": {
+                "id": 1,
                 "run": 1,
                 "sample": 1,
                 "workflow": 1,
@@ -271,6 +272,9 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 },
                 "latest_workflow": {
                     "$max": "$workflow.completed"
+                },
+                "cerebro_ids": {
+                    "$addToSet": "$id"
                 },
                 "workflows": {
                     "$addToSet": "$workflow"

@@ -27,11 +27,6 @@ path = "src/cli.rs"
 # for the user from models in the database
 cerebro-pipe = { path = "../pipe" }
 
-
-# Report library dependency to access module structs and definitions
-# to use in endpoints e.g. to generate the report template
-cerebro-report = { path = "../report" }
-
 # Model library dependency to access shared module structs and definitions
 # to use in endpoints and client responses
 cerebro-model = { path = "../../lib/model" }

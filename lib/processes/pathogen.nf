@@ -825,7 +825,7 @@ process ProcessOutputIllumina {
     script:
 
     """
-    cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end
+    cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end --qc-fail-ok
     """  
 }
 

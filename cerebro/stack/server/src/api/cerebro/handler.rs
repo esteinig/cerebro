@@ -28,13 +28,13 @@ use cerebro_model::api::cerebro::model::{
     RunConfig
 };
 use cerebro_model::api::cerebro::schema::{
-    ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleSummaryQcSchema, TaxaSummarySchema
+    ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleSummaryQcSchema, SampleTypeSchema, TaxaSummarySchema
 };
 use cerebro_model::api::cerebro::response::TaxaSummaryMongoPipeline;
 
 use mongodb::options::{UpdateManyModel, WriteModel};
 
-use cerebro_pipe::taxa::{filters::*, taxon};
+use cerebro_pipe::taxa::filter::*;
 use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
 use cerebro_pipe::taxa::taxon::{Taxon, aggregate};
 
@@ -471,6 +471,7 @@ struct TaggedTaxa {
     pub name: String,
     pub sample_tags: Vec<String>
 }
+
 #[post("/cerebro/taxa")]
 async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
@@ -567,7 +568,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                             let taxa: Vec<Taxon> = taxa.into_iter().filter(|taxon| taxids.contains(&taxon.taxid.as_str())).collect();
 
                             HttpResponse::Ok().json(serde_json::json!({
-                                "status": "success", "message": "Retrieved aggregated taxon by taxid with evidence", "data": serde_json::json!({"taxa": taxa})
+                                "status": "success", "message": "Retrieved aggregated taxa by taxid with evidence", "data": serde_json::json!({"taxa": taxa})
                             }))
                         } else {
                             // Return all taxids
@@ -1120,13 +1121,85 @@ async fn sample_description_handler(data: web::Data<AppState>, update: web::Json
     };
 
 
-    match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.description": &update.description, "sample.type": &update.sample_type, "sample.group": &update.sample_group } }).await
+    match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.description": &update.description } }).await
     {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({
             "status": "success", "message": "Updated sample description", "data": serde_json::json!({})
         })),
         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error updating sample description", "data": serde_json::json!({})
+        })),
+    }
+}
+
+
+#[derive(Deserialize)]
+struct CerebroSampleTypeUpdateQuery {
+    // Required for access authorization in user guard middleware
+    db: DatabaseId,
+    project: ProjectId,
+    // Sample identifier to update in this project
+    id: SampleId
+}
+
+#[patch("/cerebro/samples/type")]
+async fn sample_type_handler(data: web::Data<AppState>, update: web::Json<SampleTypeSchema>, query: web::Query<CerebroSampleTypeUpdateQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    if !auth_guard.user.roles.contains(&Role::Data) {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
+            "status": "fail", "message": "You do not have permission to modify a sample", "data": serde_json::json!({"cerebro": []})
+        }))
+    }
+
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+
+    match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.sample_type": &update.sample_type } }).await
+    {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "status": "success", "message": "Updated sample type", "data": serde_json::json!({})
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "status": "error", "message": "Error updating sample type", "data": serde_json::json!({})
+        })),
+    }
+}
+
+
+#[derive(Deserialize)]
+struct CerebroSampleGroupUpdateQuery {
+    // Required for access authorization in user guard middleware
+    db: DatabaseId,
+    project: ProjectId,
+    // Sample identifier to update in this project
+    id: SampleId
+}
+
+#[patch("/cerebro/samples/group")]
+async fn sample_group_handler(data: web::Data<AppState>, update: web::Json<SampleGroupSchema>, query: web::Query<CerebroSampleGroupUpdateQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    if !auth_guard.user.roles.contains(&Role::Data) {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
+            "status": "fail", "message": "You do not have permission to modify a sample", "data": serde_json::json!({"cerebro": []})
+        }))
+    }
+
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+
+    match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.sample_group": &update.sample_group } }).await
+    {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "status": "success", "message": "Updated sample group", "data": serde_json::json!({})
+        })),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "status": "error", "message": "Error updating sample group", "data": serde_json::json!({})
         })),
     }
 }
@@ -1243,7 +1316,7 @@ async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<App
 
 #[derive(Deserialize)]
 struct CerebroSampleQuery {
-    // Required for access authorization in user guard middleware
+    // Required for access authorization  in middleware
     db: DatabaseId,
     project: ProjectId,
 }
@@ -1274,8 +1347,7 @@ async fn sample_handler(data: web::Data<AppState>, query: web::Query<CerebroSamp
 
 #[derive(Deserialize)]
 struct CerebroWorkflowQuery {
-    // Required for access authorization 
-    // in user guard middleware
+    // Required for access authorization in middleware
     db: DatabaseId,
     project: ProjectId
 }
@@ -1432,6 +1504,8 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(delete_sample_handler)
        .service(sample_qc_summary_handler)
        .service(sample_description_handler)
+       .service(sample_type_handler)
+       .service(sample_group_handler)
        .service(contamination_taxa_handler_project)
     //    .service(filtered_taxa_summary_handler)
        .service(status_handler);

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
 use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{lineage_to_str, Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{lineage_to_gtdb_str, Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
 
 use super::{alignment::Alignment, assembly::{MetagenomeAssembly, ContigRecord}, quality::QualityControl};
 
@@ -77,7 +77,7 @@ impl PathogenDetectionTableRecord {
                         .map(String::from)
                         .collect::<Vec<_>>();
 
-                        (Some(rank), Some(name), Some(lineage_to_str(lineage)?))
+                        (Some(rank), Some(name), Some(lineage_to_gtdb_str(lineage)?))
                     },
                     Err(_) => (Some(TaxRank::Unspecified), Some(record.name.clone()), Some(String::from("d__;p__;c__;o__;f__;g__;s__")))
                 }

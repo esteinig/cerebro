@@ -32,7 +32,7 @@ pub struct PanviralOutput {
 }
 impl PanviralOutput {
 
-    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>, fail_ok: bool) -> Result<Self, WorkflowError> {
 
         let id = match id {
             Some(id) => id,
@@ -43,7 +43,7 @@ impl PanviralOutput {
         
         Ok(Self{
             id: id.to_string(),
-            qc: QualityControlOutput::from_files(&id, &files.qc)? ,
+            qc: QualityControlOutput::from_files(&id, &files.qc, fail_ok)? ,
             vircov: match files.vircov { 
                 Some(ref path) => VircovSummary::from_tsv(path, true)?, 
                 None => {

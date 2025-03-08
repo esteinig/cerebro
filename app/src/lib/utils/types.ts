@@ -213,15 +213,16 @@ export type SampleOverviewWorkflowsResponseDataField = {
  */
 export type SampleOverviewData = {
     id: string,                      // sample identifier
+    cerebro_ids: string[],           // model identifiers for this sample
     description: string[],           // sample descriptions (should be only one)
     latest_run: string,              // latest sequencing run date for this sample
     latest_workflow: string,         // latest workflow run date for this sample
-    workflows: WorkflowConfig[],     // Workflow configurations for this sample
-    samples: SampleConfig[],         // Sample configurations for this sample
-    runs: RunConfig[],               // Run configurations for this sample
-    tags: string[][],                // Library tags for all sample configs in this overview
-    groups: string[],                // Groups for all sample configs in this overview
-    types: string[],                 // Sampel types for all sample configs in this overview
+    workflows: WorkflowConfig[],     // workflow configurations for this sample
+    samples: SampleConfig[],         // sample configurations for this sample
+    runs: RunConfig[],               // run configurations for this sample
+    tags: string[][],                // library tags for all sample configs in this overview
+    groups: string[],                // groups for all sample configs in this overview
+    types: string[],                 // sampel types for all sample configs in this overview
     priority: PriorityTaxon[],
     reports: ReportEntry[]
 }
@@ -2050,6 +2051,21 @@ export enum FileTag {
     ENV = "ENV",
     HOST = "HOST",
     SAMPLE = "SAMPLE"
+}
+
+
+/**
+ * 
+ * Sampel type enumeration
+ * 
+ * @file lib/utils/types
+ */
+export enum SampleType {
+    CSF = "CSF",
+    BAL = "BAL",
+    BRAIN = "BRAIN",
+    EYE = "EYE",
+    MOCK = "MOCK",
 }
 
 /**

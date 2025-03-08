@@ -14,10 +14,12 @@ fn main() -> anyhow::Result<()> {
             match subcommand {
 
                 ProcessCommands::Panviral(args) => {
+
                     let output = PanviralOutput::from(
                         &args.input, 
                         args.input_qc.clone(),
-                        args.id.clone()
+                        args.id.clone(),
+                        args.qc_fail_ok
                     )?;
                     let quality_control = QualityControl::from_panviral(&output);
                     let panviral = Alignment::from_panviral(&output)?;
@@ -38,7 +40,8 @@ fn main() -> anyhow::Result<()> {
                         args.input_qc.clone(),
                         args.id.clone(),
                         args.taxonomy_directory.clone(),
-                        if args.blast_lca { BlastTaxidMethod::LCA } else { BlastTaxidMethod::HighestBitscore }
+                        if args.blast_lca { BlastTaxidMethod::LCA } else { BlastTaxidMethod::HighestBitscore },
+                        args.qc_fail_ok
                     )?;
 
                     let quality_control = QualityControl::from_pathogen(&output);
@@ -78,7 +81,7 @@ fn main() -> anyhow::Result<()> {
 
                 ProcessCommands::Quality(args) => {
                     let output = QualityControlOutput::from(
-                        &args.input, args.id.clone()
+                        &args.input, args.id.clone(), args.qc_fail_ok
                     )?;
                     
                     let quality_control = QualityControl::from_quality(&output);

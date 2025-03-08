@@ -1128,15 +1128,12 @@ impl CerebroClient {
                 return Err(HttpClientError::ModelSampleIdentifierEmpty);
             }
             
-            let model_size = model.size_mb()?;
-            log::info!("Model size for '{}' is {:.2} MB", model.name, model_size);
+            model.check_size(
+                self.max_model_size, 
+                true, 
+                Some(16.0)
+            )?;
 
-            if let Some(max_size) = self.max_model_size {
-                if model_size > max_size {
-                    log::warn!("Model size is larger than allowed payload size ({:.2} MB)", max_size);
-                }
-            }
-            
             let url = format!("{}", self.routes.url(Route::DataCerebroInsertModel));
 
             let response = self.send_request_with_team_db_project(

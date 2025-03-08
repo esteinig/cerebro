@@ -200,14 +200,11 @@ fn main() -> anyhow::Result<()> {
 
         }
         Commands::UploadModel( args ) => {
-
             for path in &args.models {
                 log::info!("Reading model from: {}", path.display());
                 let model = Cerebro::from_json(path)?;
                 client.upload_models(&vec![model])?;
             }
-
-
         }
         Commands::Tower(subcommand) => {
             match subcommand {

@@ -359,7 +359,7 @@ process ProcessOutput {
     script:
 
     """
-    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json
+    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json --qc-fail-ok
     """
     
 }
@@ -381,7 +381,7 @@ process ProcessOutputNanopore {
     script:
 
     """
-    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json
+    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json --qc-fail-ok
     """
     
 }

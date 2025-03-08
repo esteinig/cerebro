@@ -2,8 +2,6 @@
 members = [
     "cerebro/cerebro",
     "cerebro/lib/model",
-    "cerebro/stack/report",
-    # "cerebro/stack/pipeline",
     "cerebro/stack/server",
     "cerebro/stack/client",
     "cerebro/stack/watcher",

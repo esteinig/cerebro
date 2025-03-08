@@ -3,18 +3,18 @@
     import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
 	import { getToastStore, ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig, selectedPrevalenceContamConfig, selectedModels } from "$lib/stores/stores";
-    import { AbundanceMode, FileTag } from "$lib/utils/types";
+    import { AbundanceMode } from "$lib/utils/types";
 	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { page } from "$app/stores";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
-	import CircleIndicator from "$lib/general/icons/CircleIndicator.svelte";
-	import { baseTags, extractTaxon, getValueDisplay, TaxRank } from "$lib/utils/helpers";
+	import { baseTags, extractTaxon, TaxRank } from "$lib/utils/helpers";
     import { navigationLoading } from '$lib/stores/stores';
 	import SpeciesOverviewTableHeader from "$lib/general/tables/SpeciesOverviewTableHeader.svelte";
 
     export let displayData: DisplayData = DisplayData.Rpm;
     export let displayMode: AbundanceMode = AbundanceMode.Mixed;
+    export let disableDrawer: boolean = false;
 
     let pagination: boolean = true;
 
@@ -48,8 +48,6 @@
             return 4
         }
     }
-
-    
 
     let publicApi = new CerebroApi();
     let toastStore = getToastStore();
@@ -529,7 +527,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                {#if selectedTaxid === overview.taxid && taxonEvidence}
+                                {#if selectedTaxid === overview.taxid && taxonEvidence && !disableDrawer}
                                     <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
                                 {/if}
                             </ListBoxItem>

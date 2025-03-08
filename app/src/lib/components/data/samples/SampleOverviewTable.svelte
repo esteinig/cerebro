@@ -1,10 +1,19 @@
 <script lang="ts">
 	import type { ProjectCollection, RunConfig, SampleOverviewData, Team, TeamDatabase } from "$lib/utils/types";
     import { PriorityTaxonType } from "$lib/utils/types";
-	import { Paginator, type PaginationSettings } from "@skeletonlabs/skeleton";
+    import { SampleType } from "$lib/utils/types";
+	import { popup, Paginator, type PopupSettings, type PaginationSettings, getToastStore } from "@skeletonlabs/skeleton";
     import { baseTags, getDateTimeString } from "$lib/utils/helpers";
 	import CandidateIcon from "$lib/general/icons/CandidateIcon.svelte";
 	import FileTagChip from "$lib/general/icons/FileTagChip.svelte";
+	import SampleTypeIcon from "$lib/general/icons/SampleTypeIcon.svelte";
+	import CerebroApi, { ApiResponse } from "$lib/utils/api";
+	import { page } from "$app/stores";
+	import { onMount } from "svelte";
+
+
+    const publicApi = new CerebroApi();
+    const toastStore = getToastStore();
 
     export let sampleOverviewData: Array<SampleOverviewData>;
     export let selectedSampleOverview: SampleOverviewData;
@@ -20,9 +29,22 @@
     
     let paginationSettings: PaginationSettings = {
         page: 0,
-        limit: 50,
+        limit: 500,
         size: sampleOverviewData.length,
-        amounts: [5, 10, 50, 100, 500],
+        amounts: [5, 10, 50, 100, 500, 1000],
+    };
+
+    const popupSampleTypeClick: PopupSettings = {
+        event: 'click',
+        target: 'popupSampleType',
+        placement: 'bottom'
+    };
+
+
+    const popupSampleGroupClick: PopupSettings = {
+        event: 'click',
+        target: 'popupSampleGroup',
+        placement: 'bottom'
     };
 
     const changeSelectedSample = (selectedSampleId: string) => {
@@ -58,6 +80,65 @@
             [0]?.id; // Get the id of the first (latest) run
     };
 
+    let sampleTypePopupIdentifier: string | null = null;
+    let sampleGroupPopupIdentifier: string | null = null;
+
+    async function handleSampleTypeSelection(sampleType: SampleType) {
+
+        let response: ApiResponse = await publicApi.fetchWithRefresh(
+            `${publicApi.routes.cerebro.updateSampleType}?team=${selectedTeam.id}&db=${selectedDatabase.id}&project=${selectedProject.id}&id=${sampleTypePopupIdentifier}`,
+            { 
+                method: 'PATCH',  
+                mode: 'cors',
+                credentials: 'include', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({
+                    "sample_type": sampleType
+                }) 
+            } as RequestInit,
+            $page.data.refreshToken, toastStore, `Sample type updated for ${sampleTypePopupIdentifier}`
+        )
+
+
+        if (response.ok){
+            // Update the sample overview with the tag so we don't have to invalidate and fetch data again
+            let sampleOverviewIndex = tableData.findIndex(sample => sample.id === sampleTypePopupIdentifier)
+            if (sampleOverviewIndex > -1) {
+                tableData[sampleOverviewIndex].types = [sampleType]
+            }
+        }
+
+        sampleTypePopupIdentifier = null;
+    }
+
+    async function handleSampleGroupSelection(sampleGroup: string) {
+        
+        let response: ApiResponse = await publicApi.fetchWithRefresh(
+            `${publicApi.routes.cerebro.updateSampleGroup}?team=${selectedTeam.id}&db=${selectedDatabase.id}&project=${selectedProject.id}&id=${sampleGroupPopupIdentifier}`,
+            { 
+                method: 'PATCH',  
+                mode: 'cors',
+                credentials: 'include', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({
+                    "sample_group": sampleGroup
+                }) 
+            } as RequestInit,
+            $page.data.refreshToken, toastStore, `Sample type updated for ${sampleGroupPopupIdentifier}`
+        )
+
+
+        if (response.ok){
+            // Update the sample overview with the tag so we don't have to invalidate and fetch data again
+            let sampleOverviewIndex = tableData.findIndex(sample => sample.id === sampleGroupPopupIdentifier)
+            if (sampleOverviewIndex > -1) {
+                tableData[sampleOverviewIndex].groups = [sampleGroup]
+            }
+        }
+
+        sampleGroupPopupIdentifier = null;
+    }
+
 </script>
 
 <div class="table-container">
@@ -67,8 +148,8 @@
                 <th>Sample</th>
                 <th>Libraries</th>
                 <th>Tags</th>
-                <th>Specimen</th>
-                <th>Group</th>
+                <th class="text-center">Specimen</th>
+                <th class="text-center">Group</th>
                 <th>Candidates</th>
                 <th>RunID</th>
                 <th>Completed</th>
@@ -82,13 +163,37 @@
         </thead>
         <tbody>
             {#each tableData as sample}
-                <tr class="hover:cursor-pointer items-center align-center" on:click={() => {selectedSampleOverview = sample}}>
+                <tr class="hover:cursor-pointer items-center align-center">
 
                         <td class="pt-1"><span class="ml-1 text-base">{sample.id}</span></td>
-                        <td class="truncate"><span class="ml-1 text-base"><FileTagChip tags={baseTags(sample.tags, true)} join={false}></FileTagChip></td>
-                        <td class="truncate"><span class="ml-1 text-base"><FileTagChip tags={baseTags(sample.tags, true, ["ENV", "NTC", "PS", "S", "NS"])}></FileTagChip></td>
-                        <td class="truncate"><span class="ml-1 text-base">{sample.types.join(", ")}</span></td>
-                        <td class="truncate"><span class="ml-1 text-base">{sample.groups.join(", ")}</span></td>
+                        <td class="truncate"><span class="ml-1 text-base"><FileTagChip tags={baseTags(sample.tags, true)} join={false}></FileTagChip></span></td>
+                        <td class="truncate">
+                            <span class="ml-1 text-base">
+                                <FileTagChip tags={baseTags(sample.tags, true, ["ENV", "NTC", "PS", "S", "NS"])}></FileTagChip> 
+                            </span>
+                        </td>
+                        <td class="truncate text-center">
+                            {#if sample.types && sample.types.filter(sampleType => sampleType !== "").length > 0}
+                                <button class="btn btn-sm" use:popup={popupSampleTypeClick} on:click={() => { sampleTypePopupIdentifier = sample.id }}>
+                                    <SampleTypeIcon sampleType={sample.types[0]}/>
+                                </button>
+                            {:else}
+                                <button class="btn btn-sm opacity-60" use:popup={popupSampleTypeClick} on:click={() => { sampleTypePopupIdentifier = sample.id }}>
+                                    <SampleTypeIcon sampleType={null}/>
+                                </button>
+                            {/if}
+                        </td>
+                        <td class="truncate text-center">
+                            {#if sample.groups && sample.groups.filter(sampleType => sampleType !== "").length > 0}
+                                <button class="btn btn-sm" use:popup={popupSampleGroupClick} on:click={() => { sampleTypePopupIdentifier = sample.id }}>
+                                    <SampleTypeIcon sampleType={sample.types[0]}/>
+                                </button>
+                            {:else}
+                                <button class="btn btn-sm opacity-60" use:popup={popupSampleGroupClick} on:click={() => { sampleTypePopupIdentifier = sample.id }}>
+                                    <SampleTypeIcon sampleType={null}/>
+                                </button>
+                            {/if}
+                        </td>
                         <td>
                             <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-1 items-center w-2/3 ml-1">
                             
@@ -113,7 +218,7 @@
                             </div>
                         </td>
                         <td><span class="ml-1 text-base">{getLatestRunId(sample)}</span></td>
-                        <td><span class="ml-1 text-base">{getDateTimeString(sample.latest_workflow)}</span></td>
+                        <td><span class="ml-1 text-base">{getDateTimeString(sample.latest_workflow, false)}</span><span class="ml-2 text-base opacity-80">{getDateTimeString(sample.latest_workflow, false, "", false, true)}</span></td>
                         <td>
                             <div class="text-base -mt-1">
                                 <!-- <button class="btn btn-sm variant-outline-primary mr-1">
@@ -154,6 +259,23 @@
 </div>
 
 <Paginator bind:settings={paginationSettings} showFirstLastButtons={false} showPreviousNextButtons={true} class="mt-2" select="paginator-select select text-xs" regionControl="opacity-30 dark:variant-filled-surface dark:opacity-60 text-xs"/>
+
+
+<div class="card p-4 w-72 shadow-xl" data-popup="popupSampleType">
+    <button class="btn btn-sm" on:click={() => handleSampleTypeSelection(SampleType.CSF)}><SampleTypeIcon sampleType={SampleType.CSF}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleTypeSelection(SampleType.EYE)}><SampleTypeIcon sampleType={SampleType.EYE}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleTypeSelection(SampleType.BRAIN)}><SampleTypeIcon sampleType={SampleType.BRAIN}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleTypeSelection(SampleType.BAL)}><SampleTypeIcon sampleType={SampleType.BAL}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleTypeSelection(SampleType.MOCK)}><SampleTypeIcon sampleType={SampleType.MOCK}/></button>
+</div>
+
+<div class="card p-4 w-72 shadow-xl" data-popup="popupSampleGroup">
+    <button class="btn btn-sm" on:click={() => handleSampleGroupSelection(SampleType.CSF)}><SampleTypeIcon sampleType={SampleType.CSF}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleGroupSelection(SampleType.EYE)}><SampleTypeIcon sampleType={SampleType.EYE}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleGroupSelection(SampleType.BRAIN)}><SampleTypeIcon sampleType={SampleType.BRAIN}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleGroupSelection(SampleType.BAL)}><SampleTypeIcon sampleType={SampleType.BAL}/></button>
+    <button class="btn btn-sm" on:click={() => handleSampleGroupSelection(SampleType.MOCK)}><SampleTypeIcon sampleType={SampleType.MOCK}/></button>
+</div>
 
 <style lang="postcss">
     .pathogen-icon {

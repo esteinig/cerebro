@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cerebro_pipe::taxa::filters::TaxonFilterConfig;
+use cerebro_pipe::taxa::filter::TaxonFilterConfig;
 
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
@@ -56,9 +56,17 @@ pub struct SampleSummaryQcSchema {
 
 #[derive(Deserialize)]
 pub struct SampleDescriptionSchema {
-    pub description: String,
-    pub sample_group: String,
-    pub sample_type: String,
+    pub description: String
+}
+
+#[derive(Deserialize)]
+pub struct SampleTypeSchema {
+    pub sample_type: String
+}
+
+#[derive(Deserialize)]
+pub struct SampleGroupSchema {
+    pub sample_group: String
 }
 
 

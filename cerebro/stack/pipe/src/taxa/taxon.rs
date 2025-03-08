@@ -63,27 +63,7 @@ impl TaxonEvidence {
 
 // Lineage in GTDB liek format
 
-pub trait LineageOperations {
-    fn from_taxid(taxid: &str, taxonomy: &GeneralTaxonomy) -> Result<String, WorkflowError>;
-    fn get_domain(&self) -> Option<String>;
-}
-
-
-pub fn lineage_to_str(lineage: Vec<String>) -> Result<String, WorkflowError> {
-    if lineage.len() >= 7 {
-        let base_lineage = format!(
-            "d__{};p__{};c__{};o__{};f__{};g__{};s__{}",
-            lineage[0], lineage[1], lineage[2], lineage[3], lineage[4], lineage[5], lineage[6]
-        );
-        Ok(base_lineage)
-    } else {
-        Err(WorkflowError::LineageStringTooShort(lineage.join(", ")))
-    }
-}
-
-pub type TaxonLineage = String;
-
-impl LineageOperations for TaxonLineage {
+pub trait LineageOperations: AsRef<str> {
     fn from_taxid(taxid: &str, taxonomy: &GeneralTaxonomy) -> Result<String, WorkflowError> {
         
         match taxonomy.rank(taxid) {
@@ -116,23 +96,73 @@ impl LineageOperations for TaxonLineage {
                 .map(String::from)
                 .collect::<Vec<_>>();
 
-                Ok(lineage_to_str(lineage)?)
+                Ok(lineage_to_gtdb_str(lineage)?)
             },
             Err(err) => {
-                log::warn!("Rank could not be determined for taxid {taxid} - using unclassified lineage");
                 log::warn!("Error from taxonomy: {}", err.to_string());
+                log::warn!("Rank could not be determined for taxid {taxid} - using unclassified lineage (d__;p__;c__;o__;f__;g__;s__)");
                 Ok(String::from("d__;p__;c__;o__;f__;g__;s__"))
             }
         }
     }
+
+    /// Helper method: Returns the taxon name for a given prefix (e.g. "d__", "p__", etc.)
+    fn get_taxon_by_prefix(&self, prefix: &str) -> Option<String> {
+        self.as_ref()
+            .split(";")
+            .find(|s| s.trim_start().starts_with(prefix))
+            .map(|s| s.trim_start_matches(prefix).to_string())
+    }
+
     fn get_domain(&self) -> Option<String> {
-        match self.split(";").collect::<Vec<_>>().first() {
-            Some(domain_str) => Some(domain_str.replace("d__", "").to_string()),
-            None => None
-        }
+        self.get_taxon_by_prefix("d__")
+    }
+
+    fn get_phylum(&self) -> Option<String> {
+        self.get_taxon_by_prefix("p__")
+    }
+
+    fn get_class(&self) -> Option<String> {
+        self.get_taxon_by_prefix("c__")
+    }
+
+    fn get_order(&self) -> Option<String> {
+        self.get_taxon_by_prefix("o__")
+    }
+
+    fn get_family(&self) -> Option<String> {
+        self.get_taxon_by_prefix("f__")
+    }
+
+    fn get_genus(&self) -> Option<String> {
+        self.get_taxon_by_prefix("g__")
+    }
+
+    fn get_species(&self) -> Option<String> {
+        self.get_taxon_by_prefix("s__")
+    }
+
+    fn get_labels(&self) -> Vec<&str> {
+        self.as_ref().split(";").collect()
     }
 }
 
+
+pub fn lineage_to_gtdb_str(lineage: Vec<String>) -> Result<String, WorkflowError> {
+    if lineage.len() >= 7 {
+        let base_lineage = format!(
+            "d__{};p__{};c__{};o__{};f__{};g__{};s__{}",
+            lineage[0], lineage[1], lineage[2], lineage[3], lineage[4], lineage[5], lineage[6]
+        );
+        Ok(base_lineage)
+    } else {
+        Err(WorkflowError::LineageStringTooShort(lineage.join(", ")))
+    }
+}
+
+pub type TaxonLineage = String;
+
+impl LineageOperations for TaxonLineage {}
 
 // Utility function wrapping the search result handling with name and taxid
 pub fn get_taxid_name_from_search(search_result: Option<(&str, f32)>, taxonomy: &GeneralTaxonomy) -> Result<(Option<String>, Option<String>), WorkflowError> {

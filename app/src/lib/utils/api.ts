@@ -221,6 +221,8 @@ interface CerebroRoutes {
     deleteSampleComment: string,
     addPriorityTaxon: string,
     deletePriorityTaxon: string,
+    updateSampleType: string,
+    updateSampleGroup: string,
     updatePriorityTaxaDecision: string,
     updatePrioritTaxaDecisionComment: string
 }
@@ -324,6 +326,8 @@ export class Routes {
             deleteSampleComment: `${cerebroRoute}/samples/comment`,
             addPriorityTaxon: `${cerebroRoute}/priority-taxa`,
             deletePriorityTaxon: `${cerebroRoute}/priority-taxa`,
+            updateSampleType: `${cerebroRoute}/samples/type`,
+            updateSampleGroup: `${cerebroRoute}/samples/group`,
             updatePriorityTaxaDecision: `${cerebroRoute}/priority-taxa/decision`,
             updatePrioritTaxaDecisionComment: `${cerebroRoute}/priority-taxa/decision/comment`,
         }

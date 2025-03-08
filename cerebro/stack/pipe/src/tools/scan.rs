@@ -35,6 +35,14 @@ impl ScanReport {
         Ok(())
     }
 }
+impl Default for ScanReport {
+    fn default() -> Self {
+        Self {
+            reads: 0,
+            bases: 0
+        }
+    }
+}
 
 pub struct ScanReads {
     pub input: Vec<PathBuf>,

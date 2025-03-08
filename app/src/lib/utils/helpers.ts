@@ -31,11 +31,12 @@ export const getDateTimeString = (
     isoString: string, 
     time: boolean = true, 
     sep: string = " ", 
-    localeString: boolean = false
+    localeString: boolean = false,
+    timeOnly: boolean = false
 ): string => {
     try {
         const date = new Date(isoString);
-
+        console.log(date)
         if (localeString) {
             const options: Intl.DateTimeFormatOptions = {
                 year: 'numeric',
@@ -47,7 +48,14 @@ export const getDateTimeString = (
         } else {
             const datePart = date.toISOString().split("T")[0];
             const timePart = date.toISOString().split("T")[1].substring(0, 8);
-            return time ? `${datePart}${sep}${timePart}` : datePart;
+            
+            if (time) {
+                return `${datePart}${sep}${timePart}`
+            } else if (timeOnly) {
+                return timePart
+            } else {
+                return datePart
+            }
         }
     } catch (error) {
         return isoString;
@@ -157,9 +165,11 @@ export const formatAsThousands = (num: number | null): string => {
 
 
 export const baseTags = (tags: string[][] | undefined, unique: boolean = false, base: string[] = [FileTag.DNA, FileTag.RNA]): string[] => {
+
     if (tags === undefined) {
         return []
     }
+
     let baseTags = tags.map(t => {
         return base.map(b => {
             if (t.includes(b)) {
@@ -169,11 +179,16 @@ export const baseTags = (tags: string[][] | undefined, unique: boolean = false, 
         }).flatMap(f => f ? [f] : [])
     }).flat()
 
+
     if (unique){
-        return baseTags.filter((x, i, a) => a.indexOf(x) == i)
+        baseTags = baseTags.filter((x, i, a) => a.indexOf(x) == i)
     }
 
-    return baseTags
+    if (baseTags.length > 0) {
+        return baseTags
+    } else {
+        return ["-"]
+    }
 }
 
 export const baseTagsFromModel = (model: Cerebro, unique: boolean = false, base: string[] = [FileTag.DNA, FileTag.RNA]): string[] => {

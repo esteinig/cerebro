@@ -388,6 +388,9 @@ pub struct ProcessArgs {
     /// Compute LCA for taxid reassignment from BLAST hits
     #[clap(long, short = 'l')]
     pub blast_lca: bool,
+    /// If read scanning outputs fail to be detected (input/output scanning) include sample with zero reads
+    #[clap(long, short = 'f')]
+    pub qc_fail_ok: bool,
     /// Output file of processed and filtered pathogen detection data
     #[clap(long)]
     pub filter_pathogen: Option<PathBuf>,

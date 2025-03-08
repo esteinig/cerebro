@@ -50,7 +50,7 @@ pub struct QualityControlOutput {
     pub output_scan: ScanReport,
 }
 impl QualityControlOutput {
-    pub fn from(path: &PathBuf, id: Option<String>) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, id: Option<String>, fail_ok: bool) -> Result<Self, WorkflowError> {
 
         let id = match id {
             Some(id) => id,
@@ -59,21 +59,26 @@ impl QualityControlOutput {
 
         let qc_files =  QualityControlFiles::from(path, &id)?;
 
-        Self::get_modular_qc(&id, &qc_files)
+        Self::get_modular_qc(&id, &qc_files, fail_ok)
     }
-    pub fn from_files(id: &str, qc_files: &QualityControlFiles) -> Result<Self, WorkflowError> {
+    pub fn from_files(id: &str, qc_files: &QualityControlFiles, fail_ok: bool) -> Result<Self, WorkflowError> {
 
-        Self::get_modular_qc(&id, &qc_files)
+        Self::get_modular_qc(&id, &qc_files, fail_ok)
         
     }
-    pub fn get_modular_qc(id: &str, qc_files: &QualityControlFiles) -> Result<Self, WorkflowError> {
+    pub fn get_modular_qc(id: &str, qc_files: &QualityControlFiles, fail_ok: bool) -> Result<Self, WorkflowError> {
         Ok(QualityControlOutput {
             id: id.to_string(), 
             input_scan: match qc_files.input_scan { 
                 Some(ref path) => ScanReport::from_json(path)?, 
                 None => {
-                    log::error!("No required read scanning file (input) detected for {id}");
-                    return Err(WorkflowError::PipelineOutputNotFound)
+                    if fail_ok {
+                        ScanReport::default()
+                    } else {
+                        log::error!("No required read scanning file (input) detected for {id}");
+                        return Err(WorkflowError::PipelineOutputNotFound)
+                    }
+                    
                 }
             },
             reads_qc_fastp: match qc_files.reads_qc_fastp { 
@@ -103,8 +108,12 @@ impl QualityControlOutput {
             output_scan: match qc_files.output_scan { 
                 Some(ref path) => ScanReport::from_json(path)?, 
                 None => {
-                    log::error!("No required read scanning file (output) detected for {id}");
-                    return Err(WorkflowError::PipelineOutputNotFound)
+                    if fail_ok {
+                        ScanReport::default()
+                    } else {
+                        log::error!("No required read scanning file (output) detected for {id}");
+                        return Err(WorkflowError::PipelineOutputNotFound)
+                    }
                 }
             },
         })

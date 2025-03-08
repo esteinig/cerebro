@@ -1,9 +1,5 @@
 use std::{
-    collections::HashMap, 
-    fmt, 
-    io::{Write, BufReader}, 
-    fs::File, 
-    path::PathBuf
+    collections::{HashMap, HashSet}, fmt, fs::File, io::{BufReader, Write}, path::PathBuf
 };
 use chrono::{NaiveDate, Utc};
 use fancy_regex::Regex;
@@ -16,8 +12,9 @@ use cerebro_pipe::{
     error::WorkflowError, 
     modules::quality::QualityControl, 
     nextflow::sheet::SampleSheet, 
-    taxa::filters::TaxonFilterConfig, 
-    taxa::taxon::Taxon
+    taxa::filter::TaxonFilterConfig, 
+    taxa::taxon::Taxon,
+    taxa::taxon::LineageOperations,
 };
 
 use crate::api::users::model::{UserId, User};
@@ -119,7 +116,11 @@ pub struct Cerebro {
 
     pub quality: QualityControl,                // the quality control data from the parsed workflow sample
 
-    pub taxa: Vec<Taxon>,                       // taxon data from the parsed workflow sample (as dictionary for taxon aggregation)
+    pub taxa: Vec<Taxon>,                       // taxon data from the parsed workflow sample 
+    
+    // Used for internal operations, not provided to users in frontend or model downloads:
+
+    pub tax_labels: Vec<String>               // unique taxon labels at all taxonomic ranks detected (for searching samples in database)
     
 }
 impl Cerebro {
@@ -175,6 +176,7 @@ impl Cerebro {
                     sample: sample_config, 
                     workflow: workflow_config,
                     taxa: taxa.to_owned(),
+                    tax_labels: unique_taxonomic_labels(taxa),
                     quality: quality.to_owned(),
                 }
             )
@@ -187,6 +189,34 @@ impl Cerebro {
     }
     pub fn size_mb(&self) -> Result<f64, ModelError> {
         Ok(self.size()? as f64 / (1024.0 * 1024.0))
+    }
+    pub fn check_size(&self, max_size: Option<f64>, no_taxa: bool, no_taxa_max_size: Option<f64>) -> Result<(), ModelError> {
+
+        let model_size = self.size_mb()?;
+        log::info!("Model size with taxa is {:.2} MB ({})", model_size, self.name);
+
+        if let Some(max_size) = max_size {
+            if model_size > max_size {
+                log::warn!("Model size ({}) >>with<< taxa is larger than allowed size ({:.2} MB)", self.name, max_size);
+            }
+        }
+
+        if no_taxa {
+            let mut model = self.clone();
+            model.taxa.clear();
+            let model_size = model.size_mb()?;
+            log::info!("Model size without taxa is {:.2} MB ({})", model_size, self.name);
+
+            if let Some(max_size) = no_taxa_max_size {
+                if model_size > max_size {
+                    log::warn!("Model size ({}) >>without<< taxa is larger than allowed size ({:.2} MB)", self.name, max_size);
+                }
+            }
+
+        }
+
+
+        Ok(())
     }
     pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
         let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
@@ -202,6 +232,23 @@ impl Cerebro {
 
 }
 
+
+
+/// Returns a sorted vector of all unique taxonomic labels found in the input taxa.
+pub fn unique_taxonomic_labels(taxa: &Vec<Taxon>) -> Vec<String> {
+    let mut unique_labels = HashSet::new();
+    
+    for taxon in taxa {
+        // Use the trait method `get_labels` which splits the lineage into its components.
+        // Each label is in GTDB format like "p__Bacteria" or "s__Staphylococcus aureus"
+        for label in taxon.lineage.get_labels() {
+            unique_labels.insert(label.to_string());
+        }
+    }
+    
+    // Convert the HashSet into a Vec
+    unique_labels.into_iter().collect()
+}
 
 /*
 ========================

@@ -33,7 +33,6 @@ use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_watcher::utils::WatcherConfigArgs;
 use cerebro_watcher::utils::UploadConfigArgs;
 
-use cerebro_pipeline::taxon::TaxonThresholdConfig;
 use clap::Parser;
 use rayon::prelude::*;
 

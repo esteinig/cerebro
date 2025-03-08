@@ -126,7 +126,7 @@ pub struct PathogenDetectionOutput {
 }
 impl PathogenDetectionOutput {
 
-    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod) -> Result<Self, WorkflowError> {
+    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod, fail_ok: bool) -> Result<Self, WorkflowError> {
 
         let taxonomy = match taxonomy {
             Some(path) => Some(ncbi::load(&path)?),
@@ -148,7 +148,7 @@ impl PathogenDetectionOutput {
         
         Ok(Self{
             id: id.to_string(),
-            qc: QualityControlOutput::from_files(&id, &files.qc)?,
+            qc: QualityControlOutput::from_files(&id, &files.qc, fail_ok)?,
             profile: PathogenOutput::from_files(&id, &files.profile)?,
             assembly: MetagenomeAssemblyOutput::from_files(&id, &files.mag, taxonomy.as_ref(), blast_taxid)?
         })
