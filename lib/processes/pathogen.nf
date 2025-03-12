@@ -825,7 +825,7 @@ process ProcessOutputIllumina {
     script:
 
     """
-    cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end --qc-fail-ok
+    cerebro-pipeline process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --paired-end --qc-fail-ok
     """  
 }
 
@@ -845,7 +845,7 @@ process ProcessOutputNanopore {
     script:
 
     """
-    cerebro-pipe process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json
+    cerebro-pipeline process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json
     """
 }
 
@@ -866,6 +866,6 @@ process PathogenDetectionTable {
 
     """
     echo '{"ranks": ["Species"]}' > filter.json
-    cerebro-pipe table pathogen-detection --json *.pd.json --output species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
+    cerebro-pipeline table pathogen-detection --json *.pd.json --output species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
     """
 }

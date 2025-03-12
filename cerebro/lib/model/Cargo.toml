@@ -23,7 +23,7 @@ name = "cerebro_model"
 
 [dependencies]
 
-cerebro-pipe = { path = "../../stack/pipe" }
+cerebro-pipeline = { path = "../../stack/pipeline" }
 
 anyhow = "1.0"
 thiserror = "1.0"

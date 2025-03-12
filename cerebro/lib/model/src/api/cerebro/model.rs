@@ -8,7 +8,7 @@ use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
 use chrono::{TimeZone, SecondsFormat};
 
-use cerebro_pipe::{
+use cerebro_pipeline::{
     error::WorkflowError, 
     modules::quality::QualityControl, 
     nextflow::sheet::SampleSheet, 

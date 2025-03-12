@@ -34,9 +34,9 @@ use cerebro_model::api::cerebro::response::TaxaSummaryMongoPipeline;
 
 use mongodb::options::{UpdateManyModel, WriteModel};
 
-use cerebro_pipe::taxa::filter::*;
-use cerebro_pipe::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
-use cerebro_pipe::taxa::taxon::{Taxon, aggregate};
+use cerebro_pipeline::taxa::filter::*;
+use cerebro_pipeline::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
+use cerebro_pipeline::taxa::taxon::{Taxon, aggregate};
 
 type CerebroIds = String;
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cerebro_pipe::taxa::taxon::Taxon;
+use cerebro_pipeline::taxa::taxon::Taxon;
 use futures::io::{AsyncWriteExt, AsyncReadExt};
 
 use mongodb::gridfs::GridFsBucket;

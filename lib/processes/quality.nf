@@ -16,7 +16,7 @@ process InputScan {
     script:
     
     """
-    cerebro-pipe tools scan-reads -i $forward -i $reverse --json ${sampleID}.input.json
+    cerebro-pipeline tools scan-reads -i $forward -i $reverse --json ${sampleID}.input.json
     """
 
 }
@@ -40,7 +40,7 @@ process OutputScan {
     script:
     
     """
-    cerebro-pipe tools scan-reads -i $forward -i $reverse --json ${sampleID}.output.json
+    cerebro-pipeline tools scan-reads -i $forward -i $reverse --json ${sampleID}.output.json
     """
 
 }
@@ -62,7 +62,7 @@ process InputScanNanopore {
     script:
     
     """
-    cerebro-pipe tools scan-reads -i $reads --json ${sampleID}.input.json
+    cerebro-pipeline tools scan-reads -i $reads --json ${sampleID}.input.json
     """
 
 }
@@ -85,7 +85,7 @@ process OutputScanNanopore {
     script:
     
     """
-    cerebro-pipe tools scan-reads -i $reads --json ${sampleID}.output.json
+    cerebro-pipeline tools scan-reads -i $reads --json ${sampleID}.output.json
     """
 
 }
@@ -223,7 +223,7 @@ process Deduplication {
     script:
     
     """
-    cerebro-pipe tools umi-dedup-naive -i $forward -i $reverse -o ${sampleID}__dedup__R1.fq.gz -o ${sampleID}__dedup__R2.fq.gz --head $head --reads $forward --json ${sampleID}.dedup.json
+    cerebro-pipeline tools umi-dedup-naive -i $forward -i $reverse -o ${sampleID}__dedup__R1.fq.gz -o ${sampleID}__dedup__R2.fq.gz --head $head --reads $forward --json ${sampleID}.dedup.json
     """
 
 }
@@ -359,7 +359,7 @@ process ProcessOutput {
     script:
 
     """
-    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json --qc-fail-ok
+    cerebro-pipeline process quality --id ${sampleID} --qc ${sampleID}.qc.json --qc-fail-ok
     """
     
 }
@@ -381,7 +381,7 @@ process ProcessOutputNanopore {
     script:
 
     """
-    cerebro-pipe process quality --id ${sampleID} --qc ${sampleID}.qc.json --qc-fail-ok
+    cerebro-pipeline process quality --id ${sampleID} --qc ${sampleID}.qc.json --qc-fail-ok
     """
     
 }
@@ -402,7 +402,7 @@ process QualityControlTables {
     script:
 
     """
-    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_background.tsv --controls qc_controls.tsv
+    cerebro-pipeline table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_background.tsv --controls qc_controls.tsv
     """
     
 }
@@ -424,7 +424,7 @@ process QualityControlTablesNanopore {
     script:
 
     """
-    cerebro-pipe table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_background.tsv --controls qc_controls.tsv
+    cerebro-pipeline table quality-control --json *.qc.json --reads qc_reads.tsv --background qc_background.tsv --controls qc_controls.tsv
     """
     
 }

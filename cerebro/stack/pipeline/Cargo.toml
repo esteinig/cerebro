@@ -1,5 +1,5 @@
 [package]
-name = "cerebro-pipe"
+name = "cerebro-pipeline"
 version = "0.8.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
 description = "Cerebro: pipeline module for internal utility tools and output handling"
@@ -18,11 +18,11 @@ include = [
 ]
 
 [[bin]]
-name = "cerebro-pipe"
+name = "cerebro-pipeline"
 path = "src/cli.rs"
 
 [lib]
-name = "cerebro_pipe"
+name = "cerebro_pipeline"
 path = "src/lib.rs"
 
 [dependencies]

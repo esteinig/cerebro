@@ -3,9 +3,9 @@ use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
-use cerebro_pipe::modules::alignment::Alignment;
-use cerebro_pipe::modules::pathogen::PathogenDetection;
-use cerebro_pipe::modules::quality::QualityControl;
+use cerebro_pipeline::modules::alignment::Alignment;
+use cerebro_pipeline::modules::pathogen::PathogenDetection;
+use cerebro_pipeline::modules::quality::QualityControl;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
@@ -13,7 +13,7 @@ use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{App, Commands, DatabaseCommands, ProjectCommands, StageCommands, TowerCommands, WatcherCommands};
 
 use cerebro_model::api::cerebro::model::Cerebro;
-use cerebro_pipe::taxa::taxon::TaxonExtraction;
+use cerebro_pipeline::taxa::taxon::TaxonExtraction;
 
 fn main() -> anyhow::Result<()> {
 

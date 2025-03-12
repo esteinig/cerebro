@@ -71,7 +71,7 @@ process ProcessOutput {
     script:
 
     """
-    cerebro-pipe process panviral --id ${sampleID} --qc ${sampleID}.qc.json --panviral ${sampleID}.pv.json --paired-end --qc-fail-ok
+    cerebro-pipeline process panviral --id ${sampleID} --qc ${sampleID}.qc.json --panviral ${sampleID}.pv.json --paired-end --qc-fail-ok
     """
     
 }

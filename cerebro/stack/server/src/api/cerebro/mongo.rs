@@ -1,5 +1,5 @@
 
-use cerebro_pipe::taxa::filter::TaxonFilterConfig;
+use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use mongodb::bson::{doc, Document};
 use cerebro_model::api::cerebro::model::{SampleId, WorkflowId, CerebroId, RunId, Tag};
 

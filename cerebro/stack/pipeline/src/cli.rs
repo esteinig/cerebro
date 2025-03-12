@@ -1,4 +1,4 @@
-use cerebro_pipe::{modules::{alignment::Alignment, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{mag::BlastTaxidMethod, panviral::PanviralOutput, pathogen::PathogenDetectionOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
+use cerebro_pipeline::{modules::{alignment::Alignment, pathogen::{write_pathogen_table, PathogenDetection, PathogenDetectionFilter}, quality::{write_quality_table, QualityControl}}, nextflow::{mag::BlastTaxidMethod, panviral::PanviralOutput, pathogen::PathogenDetectionOutput, quality::{QualityControlFiles, QualityControlOutput}}, terminal::{App, Commands, ProcessCommands, TableCommands, ToolsCommands}, tools::{scan::ScanReads, sheet::SampleSheet, umi::Umi}, utils::init_logger};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {

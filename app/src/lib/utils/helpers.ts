@@ -36,7 +36,7 @@ export const getDateTimeString = (
 ): string => {
     try {
         const date = new Date(isoString);
-        console.log(date)
+        
         if (localeString) {
             const options: Intl.DateTimeFormatOptions = {
                 year: 'numeric',
