@@ -6,18 +6,18 @@ process VirusRecovery {
     tag { sampleID }
 
     publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}.vircov.tsv"
-    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "data/*"
+    publishDir "$params.outputDirectory/panviral/$sampleID", mode: "copy", pattern: "${sampleID}/*"
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
     val(aligner)
     val(vircovArgs)
 
     output:
     tuple (val(sampleID), path(forward), path(reverse), emit: reads)
     tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
-    tuple (val(sampleID), path("data/*"), emit: output)
+    tuple (val(sampleID), path("${sampleID}/*"), emit: output)
 
     script:
 
@@ -25,7 +25,7 @@ process VirusRecovery {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    vircov run -i $forward -i $reverse -o ${sampleID}.vircov.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.resources.threads.vircovRemap --remap-parallel $params.resources.threads.vircovParallel --workdir data/ --keep $vircovArgs
+    vircov run -i $forward -i $reverse -o ${sampleID}.vircov.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --scan-threads $task.cpus --remap-threads $params.resources.threads.vircovRemap --remap-parallel $params.resources.threads.vircovParallel --workdir ${sampleID} --keep $vircovArgs
     """
     
 }

@@ -13,6 +13,8 @@ pub struct RegisterFileSchema {
     pub fid: SeaweedFileId,
     pub run_id: Option<String>,
     pub sample_id: Option<String>,
+    pub pipeline_id: Option<String>,
+    pub description: Option<String>,
     pub ftype: Option<FileType>,
     pub watcher: Option<ProductionWatcher>
 }

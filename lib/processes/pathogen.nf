@@ -565,7 +565,7 @@ process MetaMdbgNanopore {
 
     output:
     tuple(val(sampleID), val("metamdbg"), path("${sampleID}.metamdbg.fasta"), emit: contigs)
-    tuple(val(sampleID), path(forward), path(reverse), emit: reads)
+    tuple(val(sampleID), path(reads), emit: reads)
 
     script:
 
@@ -585,11 +585,13 @@ process ContigCoverage {
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
-    tuple val(sampleID), path(forward), path(reverse)
+    tuple val(sampleID2), path(forward), path(reverse)
 
     output:
     tuple(val(sampleID), val(assembler), path(contigs), emit: contigs)
     tuple(val(sampleID), path("${sampleID}.${assembler}.bam"), path("${sampleID}.${assembler}.bam.bai"), emit: coverage)
+
+    script:
 
     """
     minimap2 -ax sr -t $task.cpus $contigs $forward $reverse | samtools view -@ $task.cpus -hbF 4 - | samtools sort -@ $task.cpus - > ${sampleID}.${assembler}.bam
@@ -605,11 +607,13 @@ process ContigCoverageNanopore {
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
-    tuple val(sampleID), path(reads)
+    tuple val(sampleID2), path(reads)
 
     output:
     tuple(val(sampleID), val(assembler), path(contigs), emit: contigs)
     tuple(val(sampleID), path("${sampleID}.contigs.bam"), path("${sampleID}.contigs.bam.bai"), emit: coverage)
+
+    script:
 
     """
     minimap2 -ax map-ont -t $task.cpus $contigs $reads | samtools view -@ $task.cpus -hbF 4 - | samtools sort -@ $task.cpus - > ${sampleID}.contigs.bam
@@ -629,7 +633,7 @@ process Concoct {
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
-    tuple val(sampleID), path(contigBam), path(contigBai)
+    tuple val(sampleID2), path(contigBam), path(contigBai)
     val(chunkSize)
     val(readLength)
     val(minBinSize)
@@ -637,6 +641,8 @@ process Concoct {
 
     output:
     tuple(val(sampleID), path("concoct_bins"), emit: bins)
+
+    script:
 
     """
     cut_up_fasta.py $contigs -c $chunkSize -o 0 --merge_last -b contigs_${chunkSize}.bed > contigs_${chunkSize}.fasta
@@ -658,12 +664,12 @@ process Metabat2 {
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
-    tuple val(sampleID), path(contigBam), path(contigBai)
+    tuple val(sampleID2), path(contigBam), path(contigBai)
     val(minBinSize)
     val(minContigLength)
 
-    output:
 
+    script:
 
     """
     runMetaBat.sh --numThreads $task.cpus --minContig $minContigLength --minClsSize $minBinSize $contigs $contigBam
@@ -680,10 +686,10 @@ process SemiBin2 {
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
-    tuple val(sampleID), path(contigBam), path(contigBai)
+    tuple val(sampleID2), path(contigBam), path(contigBai)
     val(minContigLength)
 
-    output:
+    script:
 
     """
     SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global --threads $task.cpus --min-len $minContigLength
@@ -700,9 +706,9 @@ process Vamb {
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
-    tuple val(sampleID), path(contigBam), path(contigBai)
+    tuple val(sampleID2), path(contigBam), path(contigBai)
 
-    output:
+    script:
 
     """
     SemiBin2 single_easy_bin -i $contigs -b $contigBam -o semibin2 --environment global --threads $task.cpus
@@ -719,7 +725,7 @@ process Vircov {
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
     val(aligner)
     val(secondary)
     val(remapThreads)
@@ -753,7 +759,7 @@ process VircovNanopore {
 
     input:
     tuple val(sampleID), path(reads)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
     val(aligner)
     val(secondary)
     val(remapThreads)

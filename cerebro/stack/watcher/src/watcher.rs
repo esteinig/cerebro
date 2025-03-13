@@ -9,6 +9,7 @@ use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::slack::{SlackConfig, SlackTools};
 use notify::event::CreateKind;
+use std::fs::create_dir_all;
 use std::path::Path;
 use std::time::Duration;
 use notify::EventKind;
@@ -65,8 +66,9 @@ impl CerebroWatcher {
         };
 
         if let Some(_) = auto_tower_config {
-            // Tower requires full team, database and project authentication 
-            // for staging samples and configure pipeline output deposition
+
+            // Automated tower config requires full team, database and project authentication 
+            // for staging samples and configure pipeline output upload
 
             api_client.log_team_warning();
             api_client.log_db_warning();
@@ -83,6 +85,12 @@ impl CerebroWatcher {
         })
     }
     pub fn watch<P: AsRef<Path>>(&self, path: P, interval: Duration, timeout: Duration, timeout_interval: Duration) -> Result<(), WatcherError> {
+
+        if !path.as_ref().exists() {
+            log::warn!("Watcher directory path does not exist!");
+            create_dir_all(&path.as_ref())?;
+            log::warn!("Created new directory: {}", path.as_ref().display());
+        }
 
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_c = tx.clone();

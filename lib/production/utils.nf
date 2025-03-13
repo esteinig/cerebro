@@ -7,7 +7,8 @@ def getProductionConfig() {
     return [
         apiUrl: params.cerebroProduction.authConfig.apiUrl ? params.cerebroProduction.authConfig.apiUrl : error("URL for Cerebro API was not provided (-> params.cerebroProduction.authConfig.apiUrl)"),
         authToken: params.cerebroProduction.authConfig.tokenEnvironmentVariable ? System.getenv(params.cerebroProduction.authConfig.tokenEnvironmentVariable): error("No token environment variable was provided for production configuration (-> params.cerebroProduction.authConfig.tokenEnvironmentVariable)"),
-     ]
+        fsTeam: params.cerebroProduction.fsConfig.enabled ? params.cerebroProduction.fsConfig.team ? params.cerebroProduction.fsConfig.team : error("Team name for CerebroFS was not provided (-> params.cerebroProduction.fsConfig.team)") : null
+    ]
 }
 
 /* Panviral Enrichment */

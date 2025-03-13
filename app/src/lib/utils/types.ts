@@ -1402,10 +1402,16 @@ export type ClientFilterConfig = {
     domains: Array<string | null>,
     genera: Array<string | null>,
     species: Array<string | null>,
+    evidence: ClientFilterEvidence,
     modules: ClientFilterModules,
     tools: ProfileTool[],
     minimum: ClientFilterMinimum,
     contam: ClientFilterContam,
+}
+
+export type ClientFilterEvidence = {
+    display: boolean,
+    opacity: number
 }
 
 export type ClientFilterContam = {

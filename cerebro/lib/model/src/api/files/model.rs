@@ -12,8 +12,11 @@ File system and storage
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum FileType {
-    ReadsPaired,
-    ReadsSingle,
+    ReadPaired,
+    ReadSingle,
+    QualityOutput,
+    PanviralOutput,
+    PathogenOutput,
     Other
 }
 

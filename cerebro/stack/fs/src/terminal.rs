@@ -161,6 +161,12 @@ pub struct UploadFileArgs {
     /// Biological sample identifier
     #[clap(long, short = 's')]
     pub sample_id: Option<String>,
+    /// Pipeline run identifier
+    #[clap(long, short = 'p')]
+    pub pipeline_id: Option<String>,
+    /// File description
+    #[clap(long, short = 'd')]
+    pub description: Option<String>,
 }
 
 

@@ -29,7 +29,8 @@ import type {
     AppendixBioinformatics,
     AppendixLaboratory,
     AppendixBioinformaticsHeader,
-    AppendixLaboratoryHeader, 
+    AppendixLaboratoryHeader,
+    ClientFilterEvidence, 
 } from "$lib/utils/types";
 
 import { writable, type Writable } from "svelte/store";
@@ -67,6 +68,10 @@ const defaultClientFilterConfig: ClientFilterConfig = {
         display: true,
         opacity: 20
     } satisfies ClientFilterContam,
+    evidence: {
+        display: false,
+        opacity: 20
+    } satisfies ClientFilterEvidence,
     modules: {
         alignment: false,
         profile: false,

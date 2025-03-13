@@ -22,10 +22,10 @@ impl WatcherFormat {
     }
     pub fn file_type(&self) -> FileType {
         match self {
-            Self::Fastq => FileType::ReadsSingle,
-            Self::FastqPe => FileType::ReadsPaired,
-            Self::Iseq =>  FileType::ReadsPaired,
-            Self::Nextseq => FileType::ReadsPaired
+            Self::Fastq => FileType::ReadSingle,
+            Self::FastqPe => FileType::ReadPaired,
+            Self::Iseq =>  FileType::ReadPaired,
+            Self::Nextseq => FileType::ReadPaired
         }
     }
 }

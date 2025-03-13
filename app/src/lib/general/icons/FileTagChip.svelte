@@ -6,7 +6,7 @@
     export let separator: string = "-";
     export let variantColor: "primary" | "secondary" | "tertiary" = "primary";
 
-    let displayTags = join ? [tags.join(separator)] : tags;
+    $: displayTags = join ? [tags.join(separator)] : tags;
 
 </script>
 

@@ -51,6 +51,8 @@ fn main() -> Result<()> {
                 &args.files,  
                 args.run_id.clone(),
                 args.sample_id.clone(),
+                args.pipeline_id.clone(),
+                args.description.clone(),
                 args.file_type.clone(),
                 UploadConfig::default(),
                 None,

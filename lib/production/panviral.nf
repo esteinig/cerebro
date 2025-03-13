@@ -45,8 +45,14 @@ workflow PanviralEnrichment {
             workflowStarted
         )
 
-        if (params.cerebroProduction.enabled) {
+
+        if (params.cerebroProduction.enabled && params.cerebroProduction.fsConfig.enabled) {
             
+            // Collect and upload all output files to CerebroFS
+
+        }
+
+        if (params.cerebroProduction.enabled && params.cerebroProduction.uploadConfig.enabled) {
             
             UploadOutput(
                 stagedFileData.mix(ProcessOutput.out.results) | groupTuple | map { d -> d.flatten() }, 

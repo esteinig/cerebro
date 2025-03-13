@@ -10,17 +10,18 @@
 	import { getDateTimeString } from "$lib/utils/helpers";
 	import SampleViewSelection from "./SampleViewSelection.svelte";
 	import { goto } from "$app/navigation";
+	import WellMap from "$lib/components/visualisations/samples/wellmap/WellMap.svelte";
 
     const modalStore = getModalStore();
     const toastStore = getToastStore();
 
     const publicApi = new CerebroApi();
 
+    export let sampleOverviewData: SampleOverviewData[] = [];
+
     // All need to be reactive since navigating to a new page with changes
     // in query parameters invalidates server side data, but does not 
-    // update client-side data
-
-    $: sampleOverviewData = $page.data.sampleOverview;
+    // update client-side data\
 
     $: selectedTeamName = $page.data.selectedTeam.name;
     $: selectedDatabaseName = $page.data.selectedDatabase.name;
@@ -31,20 +32,26 @@
     $: selectedProject = $page.data.selectedProject;
 
     let searchTerms: string[] = [];
-
-    let selectedSampleOverview: SampleOverviewData;
     let selectedSamples: string[] = [];
 
     let loading: boolean = false;
 
-    function changeTeam() {
-        goto(`/cerebro/data/samples/team=${selectedTeamName}&db=0&project=0`, { invalidateAll: true })
+    function clearData() {
+        selectedSamples = []
+        searchTerms = []
     }
-    function changeDatabase() {
-        goto(`/cerebro/data/samples/team=${selectedTeamName}&db=${selectedDatabaseName}&project=0`, { invalidateAll: true })
+
+    async function changeTeam() {
+        clearData()
+        await goto(`/cerebro/data/samples/team=${selectedTeamName}&db=0&project=0`, { invalidateAll: true })
     }
-    function changeProject() {
-        goto(`/cerebro/data/samples/team=${selectedTeamName}&db=${selectedDatabaseName}&project=${selectedProjectName}`, { invalidateAll: true })
+    async function changeDatabase() {
+        clearData()
+        await goto(`/cerebro/data/samples/team=${selectedTeamName}&db=${selectedDatabaseName}&project=0`, { invalidateAll: true })
+    }
+    async function changeProject() {
+        clearData()
+        await goto(`/cerebro/data/samples/team=${selectedTeamName}&db=${selectedDatabaseName}&project=${selectedProjectName}`, { invalidateAll: true })
     }
 
     async function deleteSelectedSamples() {
@@ -162,7 +169,10 @@
     let newProjectDesription: string = "";
     let newDatabaseName: string = "";
     let newDatabaseDescription: string = "";
+
     let create: TeamDataCrud = TeamDataCrud.CreateProject;
+
+    let selectedView: string = "samples";
 
 </script>
 
@@ -170,7 +180,7 @@
 <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-4 gap-16 pt-10">
     <div class="gap-y-4 md:mt-5 col-span-1 text-lg">
         <div class="mb-4">
-            <SampleViewSelection selectedView={"samples"}></SampleViewSelection>
+            <SampleViewSelection bind:selectedView={selectedView}></SampleViewSelection>
         </div>
         <div class="mb-4 p-4 pl-6 border-token border-primary-500">
             <div class="mb-4">
@@ -347,14 +357,19 @@
                 {/if}
             </div>
             <div class="mt-5">
+                {#if selectedView === "samples"}
                 <SampleOverviewTable 
                     sampleOverviewData={sampleOverviewData} 
-                    bind:selectedSampleOverview 
                     bind:selectedSamples 
                     selectedTeam={selectedTeam}
                     selectedDatabase={selectedDatabase}
                     selectedProject={selectedProject}
                 ></SampleOverviewTable>
+                {:else if selectedView === "runs"}
+                    <WellMap></WellMap>
+                {:else}
+
+                {/if}
             </div>
         {/if}
     </div>

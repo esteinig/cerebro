@@ -100,7 +100,7 @@ process InternalControls {
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
     val(aligner)
 
     output:
@@ -131,7 +131,7 @@ process InternalControlsNanopore {
 
     input:
     tuple val(sampleID), path(reads)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
 
     output:
     tuple (val(sampleID), path("${sampleID}__controls.fq.gz"), emit: reads)
@@ -293,7 +293,7 @@ process BackgroundDepletion {
 
     input:
     tuple val(sampleID), path(forward), path(reverse)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
     val(aligner)
 
     output:
@@ -324,7 +324,7 @@ process BackgroundDepletionNanopore {
 
     input:
     tuple val(sampleID), path(reads)
-    tuple path(index), (path(reference) , stageAs: 'vircov__reference')  // index and reference can be the same
+    tuple path(index), path(reference, name: 'vircov__reference')  // index and reference can be the same
 
     output:
     tuple (val(sampleID), path("${sampleID}__background.fq.gz"), emit: reads)

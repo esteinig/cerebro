@@ -7,9 +7,6 @@
 
     export let clientFilterConfig: ClientFilterConfig;
 
-    let numericInputClass: string = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
-
-
     const domainOptions: AutocompleteOption<string, null>[] = [
         { label: 'Eukaryota', value: 'Eukaryota', keywords: 'eukaryotes, protozoan, fungus, amoeba, worms' },
         { label: 'Bacteria', value: 'Bacteria', keywords: 'bacteria' },
@@ -207,13 +204,19 @@
             <div class="rounded-full bg-tertiary-500 h-2 w-2 ml-2"></div>
         </span>
     </div>
-    <p class="pt-4"><span class="opacity-40">Prevalence contamination</span></p>
+    <p class="pt-4"><span class="opacity-40">Display filtered</span></p>
     <div class="p-4">
         <span class="chip {clientFilterConfig.contam.display ? 'variant-ghost-surface' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.contam.display ? clientFilterConfig.contam.display = false : clientFilterConfig.contam.display = true }} on:keypress aria-hidden>
             {#if clientFilterConfig.contam.display}
                 <span><CheckmarkIcon /></span>
             {/if}
-            <span>Display</span>
+            <span>Prevalence Contamination</span>
+        </span>
+        <span class="chip {clientFilterConfig.evidence.display ? 'variant-ghost-surface' : 'variant-soft'} mr-2" on:click={() => { clientFilterConfig.evidence.display ? clientFilterConfig.evidence.display = false : clientFilterConfig.evidence.display = true }} on:keypress aria-hidden>
+            {#if clientFilterConfig.evidence.display}
+                <span><CheckmarkIcon /></span>
+            {/if}
+            <span>NTC Comparison (no evidence)</span>
         </span>
     </div>
 </div>

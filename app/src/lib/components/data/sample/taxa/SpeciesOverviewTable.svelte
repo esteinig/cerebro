@@ -27,6 +27,9 @@
     // Taxa filtered client-side
     let filteredData: Taxon[] = [];
 
+    // Taxid filtered client-side due to no evidence from NTC comparison
+    let ntcTaxid: string[] = [];
+
     // Contamination taxids
     let contamTaxid: string[] = [];
 
@@ -115,10 +118,11 @@
     $: if ($selectedIdentifiers.length > 0) {
         getAggregatedTaxaOverview($selectedIdentifiers);
     }
+
     function transformTaxonOverview(
         taxa: Taxon[],
         mode: AbundanceMode,
-        field: DisplayData
+        field: DisplayData,
     ): TaxonOverviewRecord[] {
         // Mapping for Mixed mode: tool -> expected AbundanceMode.
         const mixedToolModeMapping: Record<string, AbundanceMode> = {
@@ -133,6 +137,7 @@
         };
 
         return taxa.map((taxon) => {
+
             const aggregatedResults = {
                 vircov: 0,
                 kraken2: 0,
@@ -221,11 +226,15 @@
             return taxa
         }
 
+        // Reset the evidence filtered identifier list
+        ntcTaxid = [];
+
         return taxa.filter(taxon => {
 
             // Filter decision
             let taxonomy: boolean = true;
-            let modules: boolean = true;
+            let evidence: boolean = true;
+
             let contam: boolean = true;
             let syndrome: boolean = true;
 
@@ -240,6 +249,15 @@
                 taxonomy = $selectedClientFilterConfig.species.includes(extractTaxon(taxon.lineage, TaxRank.Species));
             }
 
+            if (taxon.evidence.profile.length == 0) {
+                evidence = $selectedClientFilterConfig.evidence.display
+                ntcTaxid.push(taxon.taxid)
+            }
+
+            if (taxon.name === "Xipapillomavirus 1"){
+                console.log(taxon)
+            }
+
             // if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxon.name.includes(species))) {
             //     contam = false
             // } else  {
@@ -252,20 +270,21 @@
             //     syndrome = false
             // }
                 
-            return (taxonomy && modules) // && metrics  -> || syndrome will always show syndromic ones even if they should be client filtered
+            return (taxonomy && evidence) // && metrics  -> || syndrome will always show syndromic ones even if they should be client filtered
         })
     }
 
     let paginationSettings: PaginationSettings = {
         page: 0,
-        limit: 500,
+        limit: 1000,
         size: taxa.length,
-        amounts: [5, 10, 20, 50, 100, 500],
+        amounts: [5, 10, 20, 50, 100, 500, 1000, 5000, 10000],
     };
 
     $: {    
         // Whenever data changes apply client side filters...
         filteredData = applyClientSideFilters(taxa, $selectedClientFilterConfig);
+
 
         // ... and transform filtered data into the overview table rows
         tableData = transformTaxonOverview(filteredData, displayMode, displayData);
@@ -451,7 +470,7 @@
                         {#if contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true}
                             <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover="hover:variant-soft" regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                                 
-                                    <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' : ''}">
+                                    <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' :  ntcTaxid.includes(overview.taxid) ? 'opacity-60' : ''}">
                                         
                                         <div class="opacity-70">{overview.domain}</div>
                                         <div class="col-span-2 truncate italic">{overview.name}</div>

@@ -42,7 +42,7 @@ process StageInputFiles {
     path(stageJson)
 
     output:
-    tuple env(PIPELINE), env(SAMPLE_ID), path("*.gz"), path(stageJson)
+    tuple env("PIPELINE"), env("SAMPLE_ID"), path("*.gz"), path(stageJson)  // TODO: better way of globbing input files
 
     script:
 
@@ -52,12 +52,6 @@ process StageInputFiles {
     """
 }
 
-
-def pipelineSelection = branchCriteria {
-    panviral: it[0] == 'panviral-enrichment'
-    pathogen: it[0] == 'pathogen-detection'
-    culture:  it[0] == 'culture-identification'
-}
 
 def pairedReadsFromStage(channel) {
     return channel.map { tuple(
@@ -83,8 +77,14 @@ def stagedFileDataFromStage(channel) {
 workflow production {
 
     params.cerebroProduction.enabled = true
-    
+
     productionConfig = getProductionConfig()
+
+    def pipelineSelection = branchCriteria {
+        panviral: it[0] == 'panviral-enrichment'
+        pathogen: it[0] == 'pathogen-detection'
+        culture:  it[0] == 'culture-identification'
+    }
 
     /* Staged sample files provided by tower */
 

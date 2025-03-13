@@ -46,7 +46,7 @@ type SampleId = String;
 type Tag = String;
 
 
-pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>) -> Vec<Taxon> {
+pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>, allow_no_evidence: bool) -> Vec<Taxon> {
 
     let only_ntc = sample_tags.clone().into_values().all(|tags| tags.contains(&"NTC".to_string()));
 
@@ -113,10 +113,11 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .filter(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
                     if tags.contains(&"NTC".to_string()) {
+
                         if only_ntc {
                             return true // If we have aggregated NTC evidence only, return the evidence
                         } else {
-                            return false // If we have aggregated sample evidence, exclude the evidence from returned taxa
+                            return false // If we have aggregated sample evidence, exclude the NTC evidence from returned taxa
                         }
                     }
                     let nucleic_acid_tag = tags
@@ -168,7 +169,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
 
          taxon
      })
-     .filter(|taxon| !taxon.evidence.profile.is_empty()) // Remove taxa with no evidence left
+     .filter(|taxon| if allow_no_evidence { true } else { !taxon.evidence.profile.is_empty() }) // Remove taxa with no evidence left (or retain if allow_no_evidence is true)
      .collect();
 
     taxa

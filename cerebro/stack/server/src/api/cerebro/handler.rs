@@ -460,7 +460,8 @@ struct TaxaQuery {
     overview: Option<bool>,
     taxid: Option<String>,
     run_id: Option<String>,
-    date_range: Option<String>
+    date_range: Option<String>,
+    no_evidence: Option<bool>
 }
 
 
@@ -555,7 +556,12 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     }          
                          
                     // Applying the rank/evidence filters from the post body - i.e. selected by user in filter interface
-                    let taxa: Vec<Taxon> = apply_filters(aggregated_taxa.into_values().collect(), &filter_config, &tag_map);
+                    let taxa: Vec<Taxon> = apply_filters(
+                        aggregated_taxa.into_values().collect(), 
+                        &filter_config, 
+                        &tag_map, 
+                        match query.no_evidence { Some(no_evidence) => no_evidence, None => false }
+                    );
                     
                     if query.overview.is_some_and(|x| x) {                        
                         HttpResponse::Ok().json(serde_json::json!({
@@ -590,7 +596,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
 
 }
 
-pub fn apply_contamination_filter(
+pub fn apply_prevalence_contamination_filter(
     cerebros: Vec<Cerebro>,
     min_rpm: f64,
     threshold: f64, // Prevalence percentage threshold (e.g., 0.5 for 50%)
@@ -687,7 +693,7 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
                 };
             }
 
-            let contamination_taxids = apply_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone());
+            let contamination_taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone());
             
             HttpResponse::Ok().json(
                 serde_json::json!({"status": "fail", "message": "Identified prevalence based contaminant taxids in project", "data": serde_json::json!({"taxid": contamination_taxids})})

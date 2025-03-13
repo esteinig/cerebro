@@ -201,13 +201,13 @@ services:
   
   {{#if fs.enabled }}
   cerebro-fs-master:
+    restart: unless-stopped
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
     ports:
       - 19333:19333  # gRPC port required to be open for current `weed` file upload implementation (weed volume to master node communication)
     command: "weed master -mdir=/data -ip=cerebro-fs-master -ip.bind=0.0.0.0 -metricsPort=9324 -defaultReplication={{{ fs.default_replication }}}" # diff data center replication to replicate to backup
-    restart: unless-stopped
     expose:
       - 9324
       - 9333
@@ -228,6 +228,7 @@ services:
       traefik.http.routers.cerebro-fs-test.entrypoints: "http"
 
   cerebro-fs-primary:
+    restart: unless-stopped
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
@@ -246,6 +247,7 @@ services:
 
   {{#if fs.secondary }}
   cerebro-fs-secondary:
+    restart: unless-stopped
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
