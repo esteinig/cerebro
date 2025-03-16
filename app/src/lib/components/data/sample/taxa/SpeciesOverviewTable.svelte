@@ -8,18 +8,19 @@
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { page } from "$app/stores";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
-	import { baseTags, extractTaxon, TaxRank } from "$lib/utils/helpers";
+	import { baseTags, extractTaxon, TaxRank, transformTaxonOverview } from "$lib/utils/helpers";
     import { navigationLoading } from '$lib/stores/stores';
 	import SpeciesOverviewTableHeader from "$lib/general/tables/SpeciesOverviewTableHeader.svelte";
 
     export let displayData: DisplayData = DisplayData.Rpm;
     export let displayMode: AbundanceMode = AbundanceMode.Mixed;
+
     export let disableDrawer: boolean = false;
 
-    let pagination: boolean = true;
-
     // Selected taxonomic identifier
-    let selectedTaxid: string;
+    export let selectedTaxid: string = "";
+
+    let pagination: boolean = true;
 
     // Taxa returned server-side filtered
     let taxa: Taxon[] = [];
@@ -39,6 +40,7 @@
     // Display data modes for table
     let displayTotal: DisplayTotal = DisplayTotal.Average;
 
+    // Taxon evidence for drawer
     let taxonEvidence: TaxonEvidence | null = null;
 
     // Number precision to display in table
@@ -119,106 +121,6 @@
         getAggregatedTaxaOverview($selectedIdentifiers);
     }
 
-    function transformTaxonOverview(
-        taxa: Taxon[],
-        mode: AbundanceMode,
-        field: DisplayData,
-    ): TaxonOverviewRecord[] {
-        // Mapping for Mixed mode: tool -> expected AbundanceMode.
-        const mixedToolModeMapping: Record<string, AbundanceMode> = {
-            [ProfileTool.Vircov]: AbundanceMode.Sequence,
-            [ProfileTool.Kraken2]: AbundanceMode.Sequence,
-            [ProfileTool.Metabuli]: AbundanceMode.Sequence,
-            [ProfileTool.Ganon2]: AbundanceMode.Sequence,
-            [ProfileTool.Kmcp]: AbundanceMode.Sequence,
-            [ProfileTool.Bracken]: AbundanceMode.Profile,
-            [ProfileTool.Sylph]: AbundanceMode.Sequence,
-            [ProfileTool.Blast]: AbundanceMode.Bases,
-        };
-
-        return taxa.map((taxon) => {
-
-            const aggregatedResults = {
-                vircov: 0,
-                kraken2: 0,
-                metabuli: 0,
-                ganon2: 0,
-                kmcp: 0,
-                bracken: 0,
-                sylph: 0,
-                blast: 0,
-                contigs: 0, // New aggregated field for BLAST contigs.
-            };
-
-            let contributingTools = 0; // Track the number of tools contributing to the average
-
-            taxon.evidence.profile.forEach((record) => {
-                // Only include records from selected tools.
-                if (!$selectedClientFilterConfig.tools.includes(record.tool)) {
-                    return;
-                }
-
-                // Determine the data field to use. For Blast, always use Bases.
-                let data = field;
-                if (record.tool === ProfileTool.Blast) {
-                    data = DisplayData.Bases;
-                }
-
-                // Mixed mode: include only records with the expected mode for each tool.
-                if (mode === AbundanceMode.Mixed) {
-                    const expectedMode = mixedToolModeMapping[record.tool];
-                    if (!expectedMode) {
-                        return;
-                    }
-                    if (record.mode !== expectedMode) {
-                        return;
-                    }
-                } else {
-                    // Non-mixed mode: only include records matching the provided mode.
-                    if (record.mode !== mode) {
-                        return;
-                    }
-                }
-
-                // Aggregate data.
-                const key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
-                if (key in aggregatedResults) {
-                    aggregatedResults[key] += record[data];
-
-                    // If the tool is Blast, also aggregate the contigs.
-                    if (record.tool === ProfileTool.Blast) {
-                        // Ensure that the record has a contigs property.
-                        aggregatedResults.contigs += record.contigs;
-                    }
-
-                    // Exclude Blast contributions when counting tools for average.
-                    if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
-                        contributingTools++;
-                    }
-                }
-            });
-
-            // Calculate the total sum, excluding 'blast' and 'contigs'.
-            const totalSum = Object.entries(aggregatedResults).reduce((sum, [key, value]) => {
-                return (key === "blast" || key === "contigs") ? sum : sum + value;
-            }, 0);
-
-            // Calculate the average (if at least one tool contributed).
-            const average = contributingTools > 0 ? totalSum / contributingTools : 0;
-
-            return {
-                taxid: taxon.taxid,
-                name: taxon.name,
-                domain: extractTaxon(taxon.lineage, TaxRank.Domain),
-                genus: extractTaxon(taxon.lineage, TaxRank.Genus),
-                profile: taxon.evidence.profile.length > 0,
-                alignment: taxon.evidence.alignment.length > 0,
-                assembly: taxon.evidence.assembly.length > 0,
-                ...aggregatedResults,
-                total: displayTotal === DisplayTotal.Sum ? totalSum : average, // Use the adjusted total
-            };
-        }).sort((a, b) => b.total - a.total)
-    }
 
     const applyClientSideFilters = (taxa: Taxon[], clientFilterConfig: ClientFilterConfig | null): Taxon[] => {
         
@@ -287,7 +189,7 @@
 
 
         // ... and transform filtered data into the overview table rows
-        tableData = transformTaxonOverview(filteredData, displayMode, displayData);
+        tableData = transformTaxonOverview(filteredData, displayMode, displayData, displayTotal, $selectedClientFilterConfig);
     }
 
 
@@ -296,8 +198,6 @@
     let sortDirection: "asc" | "desc" = "desc";
 
     $: { 
-        // Reset to first page if paginated
-
 
         // Sort the transformed data based on sortColumn and sortDirection.
         tableData = sortTableData(sortColumn, sortDirection);
@@ -328,19 +228,6 @@
         });
     }
 
-    // Apply pagination to sorted data.
-    // $: {
-    //     if (pagination) {
-    //         paginationSettings.size = tableData.length;
-    //         tableData = tableData.slice(
-    //             paginationSettings.page * paginationSettings.limit,
-    //             paginationSettings.page * paginationSettings.limit + paginationSettings.limit
-    //         );
-    //     } else {
-    //         tableData = tableData;
-    //     }
-    // }
-
     const getTaxonBackgroundColor = (overview: TaxonOverviewRecord): string =>  {
         if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
             return 'variant-soft-secondary rounded-token py-1.5 px-2'
@@ -350,7 +237,15 @@
             return 'rounded-token py-1.5 px-2'
         }
     }
-
+    const getTaxonBackgroundHover = (overview: TaxonOverviewRecord): string =>  {
+        if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
+            return 'hover:variant-soft-secondary'
+        } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
+            return 'hover:variant-soft-tertiary'
+        } else {
+            return 'hover:variant-soft'
+        }
+    }
 
     const addSelectedTaxon = (overview: TaxonOverviewRecord) => {
         selectedTaxa.update(currentTaxa => {
@@ -468,7 +363,7 @@
                     </ListBoxItem>
                     {#each tableData as overview, i}
                         {#if contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true}
-                            <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover="hover:variant-soft" regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
+                            <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonBackgroundHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                                 
                                     <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' :  ntcTaxid.includes(overview.taxid) ? 'opacity-60' : ''}">
                                         

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Cerebro } from "$lib/utils/types";
+	import type { Cerebro, FileTag } from "$lib/utils/types";
 	import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
 	import FileTagChip from "$lib/general/icons/FileTagChip.svelte";
     
@@ -7,6 +7,7 @@
     export let identifiers: string[];
     export let variant: string = "sample";
     export let variantColor: string = "secondary";
+    
 </script>
 
 <div>

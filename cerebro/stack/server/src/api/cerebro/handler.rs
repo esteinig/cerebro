@@ -1,5 +1,6 @@
+use futures::StreamExt;
 use mongodb::gridfs::GridFsBucket;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use futures::stream::TryStreamExt;
 use mongodb::{bson::doc, Collection, Database};
@@ -513,7 +514,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
             match docs.is_empty() {
                 false => {
                     
-                    // `cerebro_taxa` is a Vec<Hashmap<TaxId, Taxon>> for each requested 
+                    // `cerebro_taxa` is a Vec<Taxon> for each requested 
                     //  Cerebro document but we need to transform from the BSON format
 
                     let mut tagged_taxa = Vec::new();
@@ -701,6 +702,104 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
         },
         Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error in retrieving aggregated taxa with evidence", "data": serde_json::json!({"taxid": []})
+        }))
+    }
+}
+
+
+#[derive(Deserialize)]
+struct TaxaHistoryQuery {
+    // Required for access authorization in user guard middleware
+    db: DatabaseId,
+    project: ProjectId,
+    taxon_label: String,
+    host_label: String
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TaxonHistoryResult {
+    pub id: CerebroId,
+    pub sample_id: String,
+    pub sample_tags: Vec<String>,
+    pub run_id: String,
+    pub run_date: String,
+    pub input_reads: u64,
+    pub host_reads: Option<u64>,
+    pub taxa: Vec<Taxon>,
+}
+
+
+#[get("/cerebro/taxa/history")]
+async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaHistoryQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+
+    // Match documents that have the provided tax label in their tax_labels array.
+    let pipeline = vec![
+        doc! { "$match": { "tax_labels": query.taxon_label.clone() } },
+        doc! { "$project": {
+            "_id": 0,
+            "id": "$id",
+            "sample_id": "$sample.id",
+            "sample_tags": "$sample.tags",
+            "run_id": "$run.id",
+            "run_date": "$run.date",
+            "input_reads": "$quality.reads.input_reads",
+            "host_reads": "$quality.reads.host_reads",
+            "taxa": "$taxa"
+        } },
+    ];
+
+    match project_collection.aggregate(pipeline).await {
+        Ok(cursor) => {
+            
+            let docs = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
+
+            match docs.is_empty() {
+                false => {
+                    
+                    let mut history_results: Vec<TaxonHistoryResult> = Vec::new();
+                    for doc in docs {
+
+                        let mut model: TaxonHistoryResult = match mongodb::bson::from_document(doc) {
+                            Ok(m) => m,
+                            Err(err) => {
+                                return HttpResponse::InternalServerError().json(
+                                    serde_json::json!({
+                                        "status": "fail",
+                                        "message": format!("Failed to convert document to TaxonHistoryResult model: {}", err),
+                                        "data": []
+                                    })
+                                );
+                            }
+                        };
+                        
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+                            Ok(taxa) => {
+                                model.taxa = taxa.into_iter().filter(|taxon| taxon.lineage.contains(&query.taxon_label) || taxon.lineage.contains(&query.host_label) ).collect();
+                                history_results.push(model)
+                            }
+                            Err(err) => {
+                                return HttpResponse::InternalServerError().json(format!("GridFS download error: {}", err));
+                            }
+                        };
+                    }
+
+                    HttpResponse::Ok().json(serde_json::json!({
+                        "status": "success", "message": "Retrieved taxon history", "data": history_results
+                    }))
+
+                },
+                true => HttpResponse::InternalServerError().json(serde_json::json!({
+                    "status": "error", "message": "Failed to find taxon history in collection", "data": []
+                }))
+            }
+        },
+        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "status": "error", "message": "Error in retrieving taxon history ", "data": []
         }))
     }
 }
@@ -1512,9 +1611,11 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(sample_description_handler)
        .service(sample_type_handler)
        .service(sample_group_handler)
+       .service(history_taxa_handler)
        .service(contamination_taxa_handler_project)
     //    .service(filtered_taxa_summary_handler)
        .service(status_handler);
+
 
     if config.security.components.comments {
         // Disable comments on sample and priority taxon decision comment modification endpoints

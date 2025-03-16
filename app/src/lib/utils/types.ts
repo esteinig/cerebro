@@ -1192,6 +1192,7 @@ export type TaxonOverviewRecord = {
     name: string;
     domain: string | null;
     genus: string | null;
+    lineage: string;
     profile: boolean;
     alignment: boolean;
     assembly: boolean;
@@ -1238,6 +1239,39 @@ export type TaxaOverviewResponseData = {
 export type TaxaOverviewResponseDataField = {                     
     taxa: Array<TaxonOverview>
 }
+
+export type TaxonHistory = {
+    id: string,
+    sample_id: string,
+    sample_tags: string[],
+    run_id: string,
+    run_date: string,
+    input_reads: number,
+    host_reads: number | null,
+    taxa: Taxon[]
+}
+
+/**
+ * Status and data returned in successful taxa history endpoint response
+ * 
+ * @file lib/utils/types
+ * @param {string} data - Response data containing history taxa
+ */
+export type TaxonHistoryResponseData = {              
+    data: TaxaHistoryResponseDataField
+} & ErrorResponseData
+
+/**
+ * Taxon data returned in successful taxa overview response
+ * 
+ * @file lib/utils/types
+ * @param {Array<TaxonHistory>} taxa - Array of taxa, summarized as overview models
+ */
+
+export type TaxaHistoryResponseDataField = {                     
+    taxa: Array<TaxonHistory>
+}
+
 
 /**
  * =================

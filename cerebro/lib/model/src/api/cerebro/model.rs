@@ -1,5 +1,9 @@
 use std::{
-    collections::{HashMap, HashSet}, fmt, fs::File, io::{BufReader, Write}, path::PathBuf
+    collections::HashSet, 
+    fmt, 
+    fs::File, 
+    io::{BufReader, Write}, 
+    path::PathBuf
 };
 use chrono::{NaiveDate, Utc};
 use fancy_regex::Regex;
@@ -28,7 +32,7 @@ use crate::api::cerebro::schema::{
 };
 
 
-const SCHEMA_VERSION: &str = "0.10.0";
+const SCHEMA_VERSION: &str = "0.11.0";
 
 /*
 ========================
@@ -120,7 +124,7 @@ pub struct Cerebro {
     
     // Used for internal operations, not provided to users in frontend or model downloads:
 
-    pub tax_labels: Vec<String>               // unique taxon labels at all taxonomic ranks detected (for searching samples in database)
+    pub tax_labels: Vec<String>                 // unique taxon labels at all taxonomic ranks detected (for searching samples in database)
     
 }
 impl Cerebro {

@@ -20,6 +20,8 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
     // by getting the single sample overview which contains the workflow configurations
 
     let negativeTemplateControl: string = FileTag.NTC;   // We can get that from user settings later i.e from current user locals
+    let environmentalControl: string = FileTag.ENV;   // We can get that from user settings later i.e from current user locals
+
     let positiveControl: string = FileTag.POS;
     
     let sampleWorkflows: Array<WorkflowConfig> = [];
@@ -77,7 +79,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
         
         // Get all run-specific negative control documents for the samples 
         const sampleControlResponse: Response = await fetch(
-            `${api.routes.cerebro.workflows}/${requestedWorkflow}?team=${params.team}&db=${params.db}&project=${params.project}&runs=${sampleRuns.join(',')}&tags=${negativeTemplateControl}`, 
+            `${api.routes.cerebro.workflows}/${requestedWorkflow}?team=${params.team}&db=${params.db}&project=${params.project}&runs=${sampleRuns.join(',')}&tags=${negativeTemplateControl},${environmentalControl}`, 
             { method: 'GET', mode: 'cors', credentials: 'include' } as RequestInit
         );
         
@@ -86,6 +88,7 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
             controlCerebro = workflowSampleControlsData.data.cerebro;
         }
     }
+
 
     // Finally we return the data to the page
 

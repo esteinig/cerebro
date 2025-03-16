@@ -165,7 +165,7 @@
             <div class="mb-4 p-4 text-sm">
                 <SampleSelection models={$page.data.sampleCerebro} bind:identifiers={selectedLibraryIdentifiers} variant="sample" variantColor="primary"/>
             </div>
-            <p class="mb-1"><span class="opacity-40">Negative template controls</span></p>
+            <p class="mb-1"><span class="opacity-40">Run Controls</span></p>
             <div class="mb-4 p-4 text-sm">
                 <SampleSelection models={$page.data.controlCerebro} bind:identifiers={selectedNegativeTemplateControlIdentifiers}  variant="control" variantColor="secondary"/>
             </div>

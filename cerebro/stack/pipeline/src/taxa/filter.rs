@@ -48,7 +48,7 @@ type Tag = String;
 
 pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>, allow_no_evidence: bool) -> Vec<Taxon> {
 
-    let only_ntc = sample_tags.clone().into_values().all(|tags| tags.contains(&"NTC".to_string()));
+    let only_ntc = sample_tags.clone().into_values().all(|tags| tags.contains(&"NTC".to_string()) || tags.contains(&"ENV".to_string()));
 
     // Filter by taxonomic rank
     if let Some(rank) = &filter_config.rank {
@@ -87,7 +87,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .iter()
             .filter(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
-                    tags.contains(&"NTC".to_string()) // Find records with "NTC" tag
+                    tags.contains(&"NTC".to_string()) || tags.contains(&"ENV".to_string()) // Find records with "NTC" tag
                 } else {
                     false
                 }
@@ -112,7 +112,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .into_iter()
             .filter(|record| {
                 if let Some(tags) = sample_tags.get(&record.id) {
-                    if tags.contains(&"NTC".to_string()) {
+                    if tags.contains(&"NTC".to_string()) || tags.contains(&"ENV".to_string()) {
 
                         if only_ntc {
                             return true // If we have aggregated NTC evidence only, return the evidence

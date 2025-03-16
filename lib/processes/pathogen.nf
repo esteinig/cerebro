@@ -819,7 +819,7 @@ process ProcessOutputIllumina {
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
     
-    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "symlink", pattern: "*"
+    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "copy", pattern: "*"
 
     input:
     tuple val(sampleID), path(result_files)
@@ -841,6 +841,10 @@ process ProcessOutputNanopore {
     label "cerebro"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
+
+    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
+    publishDir "$params.outputDirectory/results/samples/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
 
     input:
     tuple val(sampleID), path(result_files)
@@ -851,7 +855,7 @@ process ProcessOutputNanopore {
     script:
 
     """
-    cerebro-pipeline process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json
+    cerebro-pipeline process pathogen --id ${sampleID} --qc ${sampleID}.qc.json --pathogen ${sampleID}.pd.json --qc-fail-ok
     """
 }
 

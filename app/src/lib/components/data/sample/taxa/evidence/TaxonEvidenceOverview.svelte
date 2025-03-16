@@ -13,7 +13,7 @@
 
 </script>
 
-<div class="p-8 mt-4 border border-primary-500 border-opacity-30 rounded-lg">
+<div class="p-8 mt-4">
         
     <div class="flex align-center">
         

@@ -1,7 +1,6 @@
-
-import { FileTag, Role } from "./types";
-import type { Cerebro } from "./types";
-import { DisplayData } from "./types";
+import { FileTag, ProfileTool, Role } from "./types";
+import type { Cerebro, ClientFilterConfig, Taxon, TaxonOverviewRecord } from "./types";
+import { DisplayData, AbundanceMode, DisplayTotal } from "./types";
 
 export function getCssVariableAsHex(variableName: string | null | undefined, theme: string): string | null {
     if (!variableName) return null
@@ -308,6 +307,114 @@ export function extractTaxon(lineage: string, rank: TaxRank): string | null {
     return null;
   }
 
+
+
+export function transformTaxonOverview(
+    taxa: Taxon[],
+    mode: AbundanceMode,
+    field: DisplayData,
+    displayTotal: DisplayTotal,
+    clientFilterConfig?: ClientFilterConfig,
+): TaxonOverviewRecord[] {
+
+        // Mapping for Mixed mode: tool -> expected AbundanceMode
+
+        const mixedToolModeMapping: Record<string, AbundanceMode> = {
+            [ProfileTool.Vircov]: AbundanceMode.Sequence,
+            [ProfileTool.Kraken2]: AbundanceMode.Sequence,
+            [ProfileTool.Metabuli]: AbundanceMode.Sequence,
+            [ProfileTool.Ganon2]: AbundanceMode.Sequence,
+            [ProfileTool.Kmcp]: AbundanceMode.Sequence,
+            [ProfileTool.Bracken]: AbundanceMode.Profile,
+            [ProfileTool.Sylph]: AbundanceMode.Sequence,
+            [ProfileTool.Blast]: AbundanceMode.Bases,
+        };
+
+        return taxa.map((taxon) => {
+
+            const aggregatedResults = {
+                vircov: 0,
+                kraken2: 0,
+                metabuli: 0,
+                ganon2: 0,
+                kmcp: 0,
+                bracken: 0,
+                sylph: 0,
+                blast: 0,
+                contigs: 0, // New aggregated field for BLAST contigs.
+            };
+
+            let contributingTools = 0; // Track the number of tools contributing to the average
+
+            taxon.evidence.profile.forEach((record) => {
+
+                // Only include records from selected tools.
+                if (clientFilterConfig && !clientFilterConfig.tools.includes(record.tool)) {
+                    return;
+                }
+
+                // Determine the data field to use. For Blast, always use Bases.
+                let data = field;
+                if (record.tool === ProfileTool.Blast) {
+                    data = DisplayData.Bases;
+                }
+
+                // Mixed mode: include only records with the expected mode for each tool.
+                if (mode === AbundanceMode.Mixed) {
+                    const expectedMode = mixedToolModeMapping[record.tool];
+                    if (!expectedMode) {
+                        return;
+                    }
+                    if (record.mode !== expectedMode) {
+                        return;
+                    }
+                } else {
+                    // Non-mixed mode: only include records matching the provided mode.
+                    if (record.mode !== mode) {
+                        return;
+                    }
+                }
+
+                // Aggregate data.
+                const key = record.tool.toLowerCase() as keyof typeof aggregatedResults;
+                if (key in aggregatedResults) {
+                    aggregatedResults[key] += record[data];
+
+                    // If the tool is Blast, also aggregate the contigs.
+                    if (record.tool === ProfileTool.Blast) {
+                        // Ensure that the record has a contigs property.
+                        aggregatedResults.contigs += record.contigs;
+                    }
+
+                    // Exclude Blast contributions when counting tools for average.
+                    if (record[data] > 0 && record.tool !== ProfileTool.Blast) {
+                        contributingTools++;
+                    }
+                }
+            });
+
+            // Calculate the total sum, excluding 'blast' and 'contigs'.
+            const totalSum = Object.entries(aggregatedResults).reduce((sum, [key, value]) => {
+                return (key === "blast" || key === "contigs") ? sum : sum + value;
+            }, 0);
+
+            // Calculate the average (if at least one tool contributed).
+            const average = contributingTools > 0 ? totalSum / contributingTools : 0;
+
+            return {
+                taxid: taxon.taxid,
+                name: taxon.name,
+                lineage: taxon.lineage,
+                domain: extractTaxon(taxon.lineage, TaxRank.Domain),
+                genus: extractTaxon(taxon.lineage, TaxRank.Genus),
+                profile: taxon.evidence.profile.length > 0,
+                alignment: taxon.evidence.alignment.length > 0,
+                assembly: taxon.evidence.assembly.length > 0,
+                ...aggregatedResults,
+                total: displayTotal === DisplayTotal.Sum ? totalSum : average, // Use the adjusted total
+            } as TaxonOverviewRecord;
+        }).sort((a, b) => b.total - a.total)
+    }
 
 export const ERCC_CONCENTRATIONS: Map<string, number> = new Map([
     ["ERCC-00130", 30000],
