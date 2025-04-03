@@ -1329,3 +1329,43 @@ export const PATHOGENS: string[] = [
     'Yaba monkey tumor virus',
     'unidentified human coronavirus'
 ]
+
+export const VALIDATION = [
+    'Streptococcus mitis',
+    'Streptococcus pneumoniae',
+    'Candida albicans',
+    'Streptococcus agalactiae',
+    'Enterovirus',
+    'Aspergillus niger',
+    'Listeria monocytogenes',
+    'Neisseria meningitidis',
+    'Parechovirus ahumpari',
+    'Simplexvirus humanalpha1',
+    'Simplexvirus humanalpha2',
+    'Staphylococcus epidermidis',
+    'Toxoplasma gondii',
+    'Treponema pallidum',
+    'Cryptococcus gattii',
+    'Cryptococcus neoformans',
+    'Haemophilus influenzae',
+    'Lentivirus humimdef1',
+    'Lentivirus humimdef2',
+    'Mycobacterium tuberculosis',
+    'Staphylococcus aureus',
+    'Orthoflavivirus murrayense',
+    'Capnocytophaga canimorsus',
+    'Roseolovirus humanbeta6a',
+    'Roseolovirus humanbeta6b',
+    'Varicellovirus humanalpha3',
+    'Mastadenovirus caesari'
+]
+
+export const POSITIVE_CONTROLS = [
+    "Imtechella halotolerans", 
+    "Truepera radiovictrix", 
+    "Allobacillus halotolerans",
+    "Orthopoxvirus vaccinia", 
+    "Betacoronavirus muris",
+    "Saccharomyces cerevisiae", 
+    "Pneumocystis jirovecii"
+]

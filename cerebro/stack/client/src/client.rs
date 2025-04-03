@@ -1,5 +1,17 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::create_dir_all;
+use std::time::Duration;
 use anyhow::Result;
+use cerebro_model::api::cerebro::response::CerebroIdentifierResponse;
+use cerebro_model::api::cerebro::response::CerebroIdentifierSummary;
+use cerebro_model::api::cerebro::response::ContaminationTaxaResponse;
+use cerebro_model::api::cerebro::response::FilteredTaxaResponse;
+use cerebro_model::api::cerebro::response::TaxonHistoryResponse;
+use cerebro_model::api::cerebro::response::TaxonHistoryResult;
+use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
+use cerebro_model::api::cerebro::schema::ContaminationSchema;
+use cerebro_model::api::files::model::FileTag;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
@@ -23,6 +35,9 @@ use cerebro_model::api::watchers::response::ListWatchersResponse;
 use cerebro_model::api::watchers::response::PingWatcherResponse;
 use cerebro_model::api::watchers::response::RegisterWatcherResponse;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
+use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
+use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
+use cerebro_pipeline::taxa::taxon::Taxon;
 use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
@@ -39,14 +54,14 @@ use actix_web_httpauth::headers::authorization::Bearer;
 use cerebro_model::api::utils::ErrorResponse;
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_model::api::auth::schema::AuthLoginSchema;
-use cerebro_model::api::teams::model::ProjectCollection;
 use cerebro_model::api::users::response::UserSelfResponse;
-use cerebro_model::api::users::response::UserSelfTeamResponse;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
 use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 
 use crate::error::HttpClientError;
+use crate::regression::RpmAnalyzer;
+use crate::regression::RpmConfigBuilder;
 use std::fmt;
 
 
@@ -60,7 +75,11 @@ pub enum Route {
     DataUserSelf,
     DataUserSelfTeams,
     DataCerebroInsertModel,
+    DataCerebroIdentifiers,
     DataCerebroTaxaSummary,
+    DataCerebroTaxaHistory,
+    DataCerebroTaxaFiltered,
+    DataCerebroTaxaContamination,
     TeamProjectCreate,
     TeamDatabaseCreate,
     TeamFilesRegister,
@@ -90,7 +109,11 @@ impl Route {
             Route::DataUserSelf => "users/self",
             Route::DataUserSelfTeams => "users/self/teams",
             Route::DataCerebroInsertModel => "cerebro",
+            Route::DataCerebroIdentifiers => "cerebro/ids",
             Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
+            Route::DataCerebroTaxaHistory => "cerebro/taxa/history",
+            Route::DataCerebroTaxaContamination => "cerebro/taxa/contamination",
+            Route::DataCerebroTaxaFiltered => "cerebro/taxa",
             Route::TeamDatabaseCreate => "teams/database",
             Route::TeamProjectCreate => "teams/project",
             Route::TeamFilesRegister => "files/register",
@@ -107,7 +130,7 @@ impl Route {
             Route::TeamStagedSamplesRegister => "stage/register",
             Route::TeamStagedSamplesList => "stage",
             Route::TeamStagedSamplesDelete => "stage",
-            Route::TeamStagedSamplesPull => "stage"
+            Route::TeamStagedSamplesPull => "stage",
         }
     }
 }
@@ -185,6 +208,7 @@ impl CerebroClient {
 
         let client = Client::builder()
             .danger_accept_invalid_certs(danger_accept_invalid_certs)
+            .timeout(Duration::from_secs(600))
             .build()?;
 
         Ok(Self {
@@ -1154,4 +1178,214 @@ impl CerebroClient {
 
         Ok(())
     }
+
+    pub fn get_identifiers(
+        &self,
+        schema: &CerebroIdentifierSchema,
+    ) -> Result<Option<Vec<CerebroIdentifierSummary>>, HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+        
+        let url = format!("{}", self.routes.url(Route::DataCerebroIdentifiers));
+
+        let response = self.send_request_with_team_db_project(
+            self.client
+                .post(url)
+                .json(schema)
+        )?;
+
+        let response = self.handle_response::<CerebroIdentifierResponse>(
+            response,
+            None,
+            "Cerebro identifiers retrieval failed",
+        )?;
+
+        Ok(response.data)
+    } 
+    pub fn get_aneuploidy(&self, sample: &str) -> Result<Option<&str>, HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
+        Ok(None)
+    }
+    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
+        let url = self.build_request_url(
+            format!("{}", self.routes.url(Route::DataCerebroTaxaHistory)), 
+            &[("taxon_label", taxon_label), ("host_label", host_label)]
+        );
+
+        let response = self.send_request_with_team_db_project(
+            self.client.get(url)
+        )?;
+
+        let response = self.handle_response::<TaxonHistoryResponse>(
+            response,
+            None,
+            "Taxon history retrieval failed",
+        )?;
+
+        if regression {
+
+            // Build the analysis configuration.
+            let config = RpmConfigBuilder::new()
+            .confidence_level(0.95)
+            .only_high_outliers(true)
+            .build();
+                
+            // Create the analyzer from taxon history.
+            let analyzer = RpmAnalyzer::from_taxon_history(config, response.data);
+
+            // Run the regression and outlier detection.
+            let result = analyzer.run();
+
+            println!("Regression result:");
+            println!("Intercept (log₁₀ scale): {:.4}", result.intercept);
+            println!("Slope: {:.4} ({})", result.slope, result.relationship);
+            println!("Residual standard error: {:.4}", result.residual_standard_error);
+
+            if !result.outliers.is_empty() {
+                println!("Outliers detected:");
+                for outlier in &result.outliers {
+                    println!("Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}", 
+                        outlier.sample_id, outlier.raw_host, outlier.raw_taxon);
+                }
+            } else {
+                println!("No outliers detected.");
+            }
+
+            // Create a PNG plot of the regression.
+            analyzer.plot_regression(&result, "rpm_regression.png")?;
+            println!("Plot saved as rpm_regression.png");
+        }
+
+        Ok(())
+    }
+    fn split_taxa(&self, map: HashMap<String, (Vec<Taxon>, Vec<Taxon>)>) -> (Vec<Taxon>, Vec<Taxon>) {
+        let mut sample_taxa: Vec<Taxon> = Vec::new();
+        let mut contam_taxa: Vec<Taxon> = Vec::new();
+        
+        for (_key, (sample_vec, contam_vec)) in map.into_iter() {
+            sample_taxa.extend(sample_vec);
+            contam_taxa.extend(contam_vec);
+        }
+        
+        (sample_taxa, contam_taxa)
+    }
+    pub fn get_taxa(
+        &self,
+        schema: &CerebroIdentifierSchema,
+        filter_config: &TaxonFilterConfig,
+        contam_config: &mut PrevalenceContaminationConfig
+    ) -> Result<(Vec<Taxon>, Vec<Taxon>), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
+        // Ensure that the contam config has the same "collapse_variants" setting as the filter config,
+        // since the returned 'taxid' from the filter required for the contamination detection may have
+        // changed
+
+        contam_config.collapse_variants = filter_config.collapse_variants;
+        
+        let identifier_response = self.get_identifiers(schema)?;
+
+        let mut tag_data = HashMap::new();
+        if let Some(identifiers) = identifier_response {
+
+            // Initialize the DNA and RNA groups
+            let mut groups: HashMap<&str, Vec<CerebroIdentifierSummary>> = HashMap::from([
+                ("DNA", Vec::new()), ("RNA", Vec::new())
+            ]);
+
+            // Group each summary based on its sample tags
+            for summary in identifiers {
+
+                if summary.sample_tags.contains(&"DNA".to_string()) {
+                    groups.get_mut("DNA").unwrap().push(summary.clone());
+                }
+
+                if summary.sample_tags.contains(&"RNA".to_string()) {
+                    groups.get_mut("RNA").unwrap().push(summary.clone());
+                }
+            }
+
+
+            // Log the grouped summaries
+            for (tag, summaries) in groups {
+                if !summaries.is_empty() {
+
+                    let ids: Vec<String> = summaries.iter().map(|s| s.cerebro_id.clone()).collect();
+
+                    let url = self.build_request_url(
+                        format!("{}", self.routes.url(Route::DataCerebroTaxaFiltered)), 
+                        &[("id", ids.join(","))]
+                    );
+
+                    let response = self.send_request_with_team_db_project(
+                        self.client
+                            .post(url)
+                            .json(filter_config)
+                    )?;
+
+                    let taxa_response_data = self.handle_response::<FilteredTaxaResponse>(
+                        response,
+                        None,
+                        "Taxon retrieval failed",
+                    )?;
+
+                    let url = format!("{}", self.routes.url(Route::DataCerebroTaxaContamination));
+
+                    let contamination_schema = ContaminationSchema::from_config(
+                        taxa_response_data.data.taxa.iter().map(|t| t.taxid.to_string()).collect(),
+                        vec![tag.to_string()], 
+                        contam_config
+                    );
+
+                    let response = self.send_request_with_team_db_project(
+                        self.client
+                            .post(url)
+                            .json(&contamination_schema)
+                    )?;
+
+
+                    let contam_response_data = self.handle_response::<ContaminationTaxaResponse>(
+                        response,
+                        None,
+                        "Prevalence contamination retrieval failed",
+                    )?;
+
+                    let contam_taxids: HashSet<String> = HashSet::from_iter(contam_response_data.data.taxid);
+
+                    let contam_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                        .iter()
+                        .filter(|tax| contam_taxids.contains(&tax.taxid))
+                        .cloned()
+                        .collect();
+
+                    let sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                        .iter()
+                        .filter(|tax| !contam_taxids.contains(&tax.taxid))
+                        .cloned()
+                        .collect();
+
+                    tag_data.insert(tag.to_string(), (sample_control_taxa, contam_taxa));
+
+                }   
+            }
+        }   
+        
+        Ok(self.split_taxa(tag_data))
+    }
+
+    
 }

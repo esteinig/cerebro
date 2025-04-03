@@ -86,11 +86,15 @@ pub enum Commands {
     UploadPanviral(UploadPanviralArgs),
     /// Upload processed model to database
     UploadModel(UploadModelArgs),
+
     /// Summary of taxa evidence for requested models
     GetTaxa(TaxaArgs),
     /// Summary of quality control for requested models or samples
     GetQuality(QualityArgs),
     
+    /// Taxon history query for data and host regression
+    GetTaxonHistory(TaxonHistoryArgs),
+
     /// CRUD operations for production watchers
     #[clap(subcommand)]
     Watcher(WatcherCommands),
@@ -278,37 +282,6 @@ pub struct UploadModelArgs {
     pub models: Vec<PathBuf>
 }
 
-#[derive(Debug, Args)]
-pub struct TaxaArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'p')]
-    pub project_name: String,
-    /// Output summary (.csv)
-    #[clap(long, short = 'o')]
-    pub output: PathBuf,
-    /// Database name for model query
-    #[clap(long, short = 'd')]
-    pub db_name: Option<String>,
-    /// Filter JSON that satisfies `CerebroFilterConfig` schema
-    #[clap(long, short = 'f')]
-    pub filter_config: Option<PathBuf>,
-    /// Run identifiers to filter results
-    #[clap(long, short = 'r', num_args(0..))]
-    pub run_ids: Option<Vec<String>>,
-    /// Sample identifiers to filter results
-    #[clap(long, short = 's', num_args(0..))]
-    pub sample_ids: Option<Vec<String>>,
-    /// Workflow identifiers to filter results
-    #[clap(long, short = 'w', num_args(0..))]
-    pub workflow_ids: Option<Vec<String>>,
-    /// Workflow mnemnonic names to filter results
-    #[clap(long, short = 'n', num_args(0..))]
-    pub workflow_names: Option<Vec<String>>,
-}
-
 
 #[derive(Debug, Args)]
 pub struct QualityArgs {
@@ -333,7 +306,44 @@ pub struct QualityArgs {
     /// ERCC control input mass for biomass calculations (picogram)
     #[clap(long, short = 'e')]
     pub ercc_pg: Option<f64>,
+}
 
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("user")
+    .required(false)
+    .multiple(true)
+    .args(&["sample", "controls", "tags"])
+)]
+#[clap(group = ArgGroup::new("json")
+    .required(false)
+    .args(&["json"])
+)]
+pub struct TaxaArgs {
+    /// Sample identifier for query
+    #[clap(long, short = 's', group = "user", help_heading = "User Query")]
+    pub sample: String,
+    /// Control sample identifiers associated with sample, otherwise uses query for run controls (ENV, NTC) processed with same workflow
+    #[clap(long, short = 'c', num_args(0..), group = "user", help_heading = "User Query")]
+    pub controls: Vec<String>,
+    /// Tags for sample and model query
+    #[clap(long, short = 't', num_args(0..), group = "user", help_heading = "User Query")]
+    pub tags: Vec<String>,
+    /// JSON file of request schema
+    #[clap(long, short = 'j', group = "json", help_heading = "JSON Query")]
+    pub json: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct TaxonHistoryArgs {
+    /// GTDB-like taxon label to query (example: "s__Staphylococcus aureus")
+    #[clap(long, short = 't')]
+    pub taxon_label: String,
+    /// GTDB-like host label to query (example: "s__Homo sapiens")
+    #[clap(long, short = 'l', default_value="s__Homo sapiens")]
+    pub host_label: String,
+    /// Output regression data instead of history data
+    #[clap(long, short = 'r')]
+    pub regression: bool,
 }
 
 #[derive(Debug, Args)]

@@ -1085,6 +1085,13 @@ export enum AbundanceMode {
     Mixed = "Mixed"
 }
 
+export enum DisplayVisualisation {
+    Table = "Table",
+    Run = "Run",
+    History = "History",
+    Threshold = "Threshold"
+}
+
 
 export enum DisplayData {
     Reads = "reads",
@@ -1244,6 +1251,7 @@ export type TaxonHistory = {
     id: string,
     sample_id: string,
     sample_tags: string[],
+    sample_type: string | null,
     run_id: string,
     run_date: string,
     input_reads: number,
@@ -1411,22 +1419,40 @@ export enum PathogenDetectionRank {
     Family = "Family"
 }
 
-export type TaxonFilterConfig = {       // ADD WORKFLOW ID
-    rank: PathogenDetectionRank | null, // Filter by specific taxonomic rank
-    domains: Array<string>,             // Filter by domain names
-    tools: Array<string>,               // Filter by specific detection tools
-    modes: Array<string>,               // Filter by detection modes (Sequence/Profile)
-    min_bases: number,                  // Minimum base pair count of contigs for inclusion
-    min_bpm: number,                    // Minimum BPM of contigs for inclusion
-    min_reads: number,                  // Minimum read count for inclusion
-    min_rpm: number,                    // Minimum RPM for inclusion
-    min_abundance: number,              // Minimum abundance for inclusion
-    ntc_ratio: number | null            // NTC ratio if selected
+export type TaxonFilterConfig = {               // ADD WORKFLOW ID
+    rank: PathogenDetectionRank | null,         // Filter by specific taxonomic rank
+    domains: Array<string>,                     // Filter by domain names
+    tools: Array<string>,                       // Filter by specific detection tools
+    modes: Array<string>,                       // Filter by detection modes (Sequence/Profile)
+    min_bases: number,                          // Minimum base pair count of contigs for inclusion
+    max_bases: number | null,                   // Maximum base pair count of contigs for inclusion
+    min_bpm: number,                            // Minimum BPM of contigs for inclusion
+    min_reads: number,                          // Minimum read count for inclusion
+    min_rpm: number,                            // Minimum RPM for inclusion
+    max_rpm: number | null,                     // Maximum RPM for inclusion
+    min_abundance: number,                      // Minimum abundance for inclusion
+    ntc_ratio: number | null                    // NTC ratio if selected
+    lineage: Array<LineageFilterConfig> | null  // Lineage specific filters
+    targets: Array<string> | null
+    collapse_variants: boolean                  // Collapse taxon name variants
 }
 
 export type PrevalenceContaminationConfig = {
     min_rpm: number,
-    threshold: number
+    threshold: number,
+    sample_type: string | null,
+    collapse_variants: boolean
+}
+
+
+export type LineageFilterConfig = {
+    lineages: string[],
+    tags: string[],
+    min_alignment_tools: number | null,
+    min_alignment_rpm: number | null,
+    min_kmer_tools: number | null,
+    min_kmer_rpm: number | null,
+    min_assembly_tools: number | null,
 }
 
 // Client-side selection of taxa
@@ -1470,7 +1496,9 @@ export type ClientFilterMinimum = {
 
 export type TaxonHighlightConfig = {
     contamination: HighlightConfig,
-    syndrome: HighlightConfig
+    syndrome: HighlightConfig,
+    validation: HighlightConfig,
+    positive_controls: HighlightConfig
 }
 
 export type HighlightConfig = {
@@ -2090,7 +2118,10 @@ export enum FileTag {
     TMP = "TMP",
     ENV = "ENV",
     HOST = "HOST",
-    SAMPLE = "SAMPLE"
+    SAMPLE = "SAMPLE",
+    PS = "PS",
+    S = "S",
+    NS = "NS"
 }
 
 

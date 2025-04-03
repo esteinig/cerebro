@@ -1,10 +1,9 @@
 <script lang="ts">
-	import type { ClientFilterConfig, Taxon, TaxonOverviewRecord, TaxonEvidence } from "$lib/utils/types";
-    import { DisplayData, DisplayTotal, ProfileTool } from "$lib/utils/types";
+	import type { ClientFilterConfig, Taxon, TaxonOverviewRecord, TaxonEvidence, TaxonFilterConfig, PrevalenceContaminationConfig } from "$lib/utils/types";
+    import { DisplayData, DisplayTotal, ProfileTool, DisplayVisualisation } from "$lib/utils/types";
 	import { getToastStore, ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig, selectedPrevalenceContamConfig, selectedModels } from "$lib/stores/stores";
     import { AbundanceMode } from "$lib/utils/types";
-	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import { page } from "$app/stores";
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
@@ -14,11 +13,16 @@
 
     export let displayData: DisplayData = DisplayData.Rpm;
     export let displayMode: AbundanceMode = AbundanceMode.Mixed;
-
-    export let disableDrawer: boolean = false;
+    export let selectedVisualisation: DisplayVisualisation = DisplayVisualisation.Table;
 
     // Selected taxonomic identifier
     export let selectedTaxid: string = "";
+    
+    // Server filter config, otherwise selectedServerFilterConfig
+    export let serverFilterConfig: TaxonFilterConfig | null = null;
+
+    // Disable prevalence contamination request
+    export let disablePrevalenceContamination: boolean = false;
 
     let pagination: boolean = true;
 
@@ -72,7 +76,7 @@
                 mode: 'cors',
                 credentials: 'include', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify($selectedServerFilterConfig) 
+                body: JSON.stringify(serverFilterConfig ?? $selectedServerFilterConfig) 
             } as RequestInit,
             $page.data.refreshToken, toastStore, "Taxa loaded"
         )
@@ -82,13 +86,15 @@
         if (response.ok){
             taxa = response.json.data.taxa;
 
-            let tags = baseTags($selectedModels.map(model => model.sample.tags), true);
+            let tags = baseTags($selectedModels.map(model => model.sample.tags), true); // TODO: check this is correctly using only DNA or RNA tags
 
-            await getPrevalenceContamination(taxa.map(taxon => taxon.taxid), tags, $selectedPrevalenceContamConfig.threshold, $selectedPrevalenceContamConfig.min_rpm);
+            if (!disablePrevalenceContamination) {
+                await getPrevalenceContamination(taxa.map(taxon => taxon.taxid), tags, $selectedPrevalenceContamConfig);
+            }
         }
     }    
 
-    async function getPrevalenceContamination(taxid: string[], tags: string[], threshold: number, min_rpm: number) {
+    async function getPrevalenceContamination(taxid: string[], tags: string[], config: PrevalenceContaminationConfig) {
 
         $navigationLoading = true; // use the navigation loading for background loading status
 
@@ -102,9 +108,10 @@
                 body: JSON.stringify({
                     taxid: taxid,
                     tags: tags,
-                    threshold: threshold,
-                    min_rpm: min_rpm,
-                    sample_type: null
+                    threshold: config.threshold,
+                    min_rpm: config.min_rpm,
+                    sample_type: config.sample_type,
+                    collapse_variants: config.collapse_variants
                 }) 
             } as RequestInit,
             $page.data.refreshToken, toastStore, "Contaminants identified from project libraries"
@@ -156,10 +163,6 @@
                 ntcTaxid.push(taxon.taxid)
             }
 
-            if (taxon.name === "Xipapillomavirus 1"){
-                console.log(taxon)
-            }
-
             // if ($selectedTaxonHighlightConfig.contamination.species.some(species => taxon.name.includes(species))) {
             //     contam = false
             // } else  {
@@ -171,6 +174,7 @@
             // } else {
             //     syndrome = false
             // }
+
                 
             return (taxonomy && evidence) // && metrics  -> || syndrome will always show syndromic ones even if they should be client filtered
         })
@@ -233,17 +237,33 @@
             return 'variant-soft-secondary rounded-token py-1.5 px-2'
         } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
             return 'variant-soft-tertiary rounded-token py-1.5 px-2'
+        } else if ($selectedTaxonHighlightConfig.validation.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
+            return 'variant-soft-secondary rounded-token py-1.5 px-2'
+        }  else if ($selectedTaxonHighlightConfig.positive_controls.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
+            return 'variant-soft-secondary rounded-token py-1.5 px-2'
         } else {
             return 'rounded-token py-1.5 px-2'
         }
     }
-    const getTaxonBackgroundHover = (overview: TaxonOverviewRecord): string =>  {
+
+    const getTaxonBackgroundHover = (overview: TaxonOverviewRecord, selectedVisualisation: DisplayVisualisation): string =>  {
+
+        let cursor = selectedVisualisation !== DisplayVisualisation.Table ? 'hover:cursor-pointer' : 'hover:cursor-default';
+
         if ($selectedTaxonHighlightConfig.contamination.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
-            return 'hover:variant-soft-secondary'
+            return `hover:variant-soft ${cursor}`
         } else if ($selectedTaxonHighlightConfig.syndrome.species.some(species => overview.name.toLowerCase().includes(species.toLowerCase()))) {
-            return 'hover:variant-soft-tertiary'
+            return `hover:variant-soft ${cursor}`
         } else {
-            return 'hover:variant-soft'
+            return `hover:variant-soft ${cursor}`
+        }
+    }
+
+    const getTaxonActive = (overview: TaxonOverviewRecord) => {
+        if ($selectedTaxa.some(taxon => taxon.taxid === overview.taxid)) {
+            return getTaxonBackgroundColor(overview)
+        } else {
+            return `variant-ghost`
         }
     }
 
@@ -347,6 +367,7 @@
                                 </div>
                             {/if}
 
+
                             {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
                                 <div on:click|preventDefault={() => sortByColumn("contigs")} role="columnheader">
                                     <SpeciesOverviewTableHeader tool={"Assembly"} displayData={displayData} sortColumn={sortColumn} circleColor="bg-tertiary-500" sortOrder={sortDirection}/>
@@ -363,7 +384,7 @@
                     </ListBoxItem>
                     {#each tableData as overview, i}
                         {#if contamTaxid.includes(overview.taxid) ? $selectedClientFilterConfig.contam.display : true}
-                            <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='' hover={getTaxonBackgroundHover(overview)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
+                            <ListBoxItem bind:group={selectedTaxid} name={overview.name} value={overview.taxid} active='variant-ghost' hover={getTaxonBackgroundHover(overview, selectedVisualisation)} regionDefault={getTaxonBackgroundColor(overview)} rounded='rounded-token' on:click={() => addSelectedTaxon(overview)}> 
                                 
                                     <div class="grid grid-cols-12 sm:grid-cols-12 md:grid-cols-12 gap-x-1 gap-y-4 w-full text-sm {contamTaxid.includes(overview.taxid) ? 'opacity-20' :  ntcTaxid.includes(overview.taxid) ? 'opacity-60' : ''}">
                                         
@@ -440,10 +461,21 @@
                                                 {/if}
                                             </div>
                                         </div>
+                                        <div class="info-buttons flex items-center align-center justify-end gap-x-1">
+                                            <div class="mt-1 ml-1">
+                                                <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5">
+                                                    <title>Candidate Selection</title>
+                                                    <path d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                </svg>
+                                            </div>
+                                            <div class="mt-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                                    <title>Taxon Details</title>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                                                </svg>                                                  
+                                            </div>                                              
+                                        </div>
                                     </div>
-                                {#if selectedTaxid === overview.taxid && taxonEvidence && !disableDrawer}
-                                    <TaxonEvidenceOverview taxonEvidence={taxonEvidence}></TaxonEvidenceOverview>
-                                {/if}
                             </ListBoxItem>
                         {/if}
                     {/each}
@@ -457,3 +489,4 @@
         {/if}
     {/if}
 </div>
+

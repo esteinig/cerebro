@@ -24,7 +24,6 @@
                         <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
                 </div>
-                Taxon
             </button>
             <button class="btn btn-sm variant-outline-primary mr-2" type="button">
                 <div class="h-5 w-5 mr-2">

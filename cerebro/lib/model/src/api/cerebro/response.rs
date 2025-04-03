@@ -1,86 +1,166 @@
-use std::collections::HashMap;
+use cerebro_pipeline::taxa::taxon::Taxon;
 use serde::{Deserialize, Serialize};
 
-use cerebro_pipeline::taxa::taxon::Taxon;
+use super::model::CerebroId;
 
-#[derive(Deserialize)]
-pub struct TaxaSummaryMongoPipeline {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CerebroIdentifierSummary {
     pub cerebro_id: String,
-    pub workflow_id: String,
-    pub workflow_name: String,
     pub run_id: String,
     pub run_date: String,
     pub sample_id: String,
     pub sample_tags: Vec<String>,
-    pub sample_type: String,
-    pub sample_group: String,
-    pub taxa: HashMap<String, Taxon>
+    pub sample_type: Option<String>,
+    pub workflow_id: String,
+    pub workflow_name: String,
+}
+#[derive(Serialize, Deserialize)]
+pub struct CerebroIdentifierResponse {
+    pub status: String,
+    pub message: String,
+    pub data: Option<Vec<CerebroIdentifierSummary>>
+}
+impl CerebroIdentifierResponse {
+    pub fn success(summaries: Vec<CerebroIdentifierSummary>) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Cerebro identifier summaries retrieved"),
+            data: Some(summaries)
+        }
+    }
+    pub fn sample_not_found(name: &str) -> Self {
+        Self {
+            status: String::from("fail"),
+            message: format!("Cerebro primary sample could not be found in database: {name}"),
+            data: None
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("Cerebro identifier summaries could not be found in database"),
+            data: None
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct FilteredTaxaResponse {
+    pub status: String,
+    pub message: String,
+    pub data: FilteredTaxaData
+}
+impl FilteredTaxaResponse {
+    pub fn success(taxa: Vec<Taxon>) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Filtered taxa retrieved"),
+            data: FilteredTaxaData { taxa }
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("Filtered taxa could not be found in database"),
+            data: FilteredTaxaData::default()
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: FilteredTaxaData::default()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct ContaminationTaxaData {
+    pub taxid: Vec<String>
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ContaminationTaxaResponse {
+    pub status: String,
+    pub message: String,
+    pub data: ContaminationTaxaData
+}
+impl ContaminationTaxaResponse {
+    pub fn success(taxid: Vec<String>) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Prevalence contamination taxids retrieved"),
+            data: ContaminationTaxaData { taxid }
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("Taxids could not be found in database"),
+            data: ContaminationTaxaData::default()
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: ContaminationTaxaData::default()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct FilteredTaxaData {
+    pub taxa: Vec<Taxon>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TaxonHistoryResult {
+    pub id: CerebroId,
+    pub sample_id: String,
+    pub sample_tags: Vec<String>,
+    pub sample_type: Option<String>,
+    pub run_id: String,
+    pub run_date: String,
+    pub input_reads: u64,
+    pub host_reads: Option<u64>,
+    pub taxa: Vec<Taxon>,
 }
 
 
-// // TaxonOverview + TaxaSummary
-// #[derive(Deserialize, Serialize, Debug)]
-// pub struct TaxonSummaryOverview {
-//     pub cerebro_id: String,
-//     pub workflow_id: String,
-//     pub workflow_name: String,
-//     pub run_id: String,
-//     pub run_date: String,
-//     pub sample_id: String,
-//     pub sample_tag: String,
-//     pub sample_type: String,
-//     pub sample_group: String,
-//     pub taxid: String,
-//     pub domain: Option<String>,
-//     pub genus: Option<String>,
-//     pub name: String,                // used to later map back the tags
-//     // pub rpm: f64,                 // total rpm summed from k-mer and alignment evidence
-//     // pub rpm_kmer: f64,            // total rpm summed from k-mer evidence
-//     // pub rpm_alignment: f64,       // total rpm summed from  alignment evidence
-//     // pub contigs: u64,             // total assembled and identified contig evidence
-//     // pub contigs_bases: u64,
-//     pub kmer: bool,
-//     pub alignment: bool,
-//     pub assembly: bool
-// }
-// impl TaxonSummaryOverview {
-//     pub fn from_taxon_overview(taxa_summary: &TaxaSummaryMongoPipeline, taxon_overview: &TaxonOverview) -> Self {
-//         Self {
-//             cerebro_id: taxa_summary.cerebro_id.clone(),
-//             workflow_id: taxa_summary.workflow_id.clone(),
-//             workflow_name: taxa_summary.workflow_name.clone(),
-//             run_id: taxa_summary.run_id.clone(),
-//             run_date: taxa_summary.run_date.clone(),
-//             sample_id: taxa_summary.sample_id.clone(),
-//             sample_tag: taxa_summary.sample_tags.join("-"),
-//             sample_type: taxa_summary.sample_type.clone(),
-//             sample_group: taxa_summary.sample_group.clone(),
-//             taxid: taxon_overview.taxid.clone(),
-//             domain: taxon_overview.domain.clone(),
-//             genus: taxon_overview.genus.clone(),
-//             name: taxon_overview.name.clone(),            
-//             // rpm: taxon_overview.rpm,                 
-//             // rpm_kmer: taxon_overview.rpm_kmer,            
-//             // rpm_alignment: taxon_overview.rpm_alignment,  
-//             // contigs: taxon_overview.contigs,             
-//             // contigs_bases: taxon_overview.contigs_bases,
-//             kmer: taxon_overview.kmer,
-//             alignment: taxon_overview.alignment,
-//             assembly: taxon_overview.assembly
-//         }
-//     }
-// }
-
-
-// #[derive(Deserialize)]
-// pub struct TaxaSummaryDataResponse {
-//     pub status: String,
-//     pub message: String,
-//     pub data: TaxaSummaryData
-// }
-// #[derive(Deserialize)]
-// pub struct TaxaSummaryData {
-//     pub taxa_summary: Vec<TaxonSummaryOverview>,
-//     pub csv: String,
-// }
-
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TaxonHistoryResponse {
+    pub status: String,
+    pub message: String,
+    pub data: Vec<TaxonHistoryResult>
+}
+impl TaxonHistoryResponse {
+    pub fn success(data: Vec<TaxonHistoryResult>) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Taxon history retrieved"),
+            data: data
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("Taxon history data could not be found in database"),
+            data: vec![]
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: vec![]
+        }
+    }
+}

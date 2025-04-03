@@ -1,4 +1,5 @@
 use cerebro_client::error::HttpClientError;
+use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -6,6 +7,7 @@ use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_pipeline::modules::alignment::Alignment;
 use cerebro_pipeline::modules::pathogen::PathogenDetection;
 use cerebro_pipeline::modules::quality::QualityControl;
+use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig};
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
@@ -14,6 +16,7 @@ use cerebro_client::terminal::{App, Commands, DatabaseCommands, ProjectCommands,
 
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipeline::taxa::taxon::TaxonExtraction;
+
 
 fn main() -> anyhow::Result<()> {
 
@@ -415,17 +418,26 @@ fn main() -> anyhow::Result<()> {
         // Query sample models for taxon summary
         Commands::GetTaxa( args ) => {
 
-            // client.taxa_summary(
-            //     &args.team_name, 
-            //     &args.project_name, 
-            //     args.db_name.as_ref(),
-            //     args.filter_config.as_ref(),
-            //     args.run_ids.clone(),
-            //     args.sample_ids.clone(),
-            //     args.workflow_ids.clone(),
-            //     args.workflow_names.clone(),
-            //     &args.output
-            // )?;
+            // TEST IMPLEMENTATION
+
+            let schema = CerebroIdentifierSchema::new(
+                args.sample.clone(),
+                (!args.controls.is_empty()).then(|| args.controls.clone()),
+                (!args.tags.is_empty()).then(|| args.tags.clone()),
+            );
+
+            schema.assert_allowed_tags();
+
+            let filter_config = TaxonFilterConfig::validation();
+            let mut contam_config = PrevalenceContaminationConfig::validation();
+
+            client.get_taxa(&schema, &filter_config, &mut contam_config)?;
+
+        },
+        // Query sample models for quality control summary
+        Commands::GetTaxonHistory( args ) => {
+
+            client.get_taxon_history(args.taxon_label.clone(), args.host_label.clone(), args.regression)?;
 
         },
         // Query sample models for quality control summary

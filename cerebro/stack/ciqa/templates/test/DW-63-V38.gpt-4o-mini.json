@@ -1,0 +1,214 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Haemophilus influenzae'",
+  "candidate_description": "In the context of this CSF sample from a patient exhibiting neuroinflammatory or neurological symptoms, the detection of *Haemophilus influenzae* stands out as a significant candidate pathogen. While traditionally recognized as a respiratory tract pathogen, *H. influenzae* can also be implicated in central nervous system infections, such as meningitis or encephalitis, particularly in pediatric populations or immunocompromised individuals. The metagenomic profiling has shown sufficient evidence for *H. influenzae* presence below the threshold of typical infectious involvement, indicating a potential pathogen despite the lack of stronger indicators of direct infection from above-threshold data. Its identification here may warrant further investigation into its clinical implications, particularly given the patient's symptoms and the potential for this pathogen to contribute to neuroinflammatory processes. The risk of contamination from handling or sampling sites needs to be considered; however, the presence of *H. influenzae* aligns with the rare possibility of infectious agents affecting the neurological status of the patient.",
+  "pathogen": "'s__Haemophilus influenzae'",
+  "pathogen_description": "In this CSF sample from a patient presenting neuroinflammatory or neurological symptoms, *Haemophilus influenzae* is identified as a significant candidate pathogen. This organism, while commonly recognized for respiratory infections, can also lead to critical central nervous system infections like meningitis, particularly in susceptible populations such as children or immunocompromised individuals. The metagenomic profiling indicates it was detected below threshold levels, yet its presence aligns with the clinical observations of the patient, who may be experiencing complications associated with this bacterium. Considering the strengths of the metagenomic evidence and the rare nature of *H. influenzae* as a contaminant in this context, it was prioritized over other potential candidates. This necessitates further investigation to clarify its role, especially in light of the clinical symptoms and the context of the sample type.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Haemophilus influenzae'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "In the context of this CSF sample from a patient exhibiting neuroinflammatory or neurological symptoms, the detection of *Haemophilus influenzae* stands out as a significant candidate pathogen. While traditionally recognized as a respiratory tract pathogen, *H. influenzae* can also be implicated in central nervous system infections, such as meningitis or encephalitis, particularly in pediatric populations or immunocompromised individuals. The metagenomic profiling has shown sufficient evidence for *H. influenzae* presence below the threshold of typical infectious involvement, indicating a potential pathogen despite the lack of stronger indicators of direct infection from above-threshold data. Its identification here may warrant further investigation into its clinical implications, particularly given the patient's symptoms and the potential for this pathogen to contribute to neuroinflammatory processes. The risk of contamination from handling or sampling sites needs to be considered; however, the presence of *H. influenzae* aligns with the rare possibility of infectious agents affecting the neurological status of the patient."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Haemophilus influenzae'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In this CSF sample from a patient presenting neuroinflammatory or neurological symptoms, *Haemophilus influenzae* is identified as a significant candidate pathogen. This organism, while commonly recognized for respiratory infections, can also lead to critical central nervous system infections like meningitis, particularly in susceptible populations such as children or immunocompromised individuals. The metagenomic profiling indicates it was detected below threshold levels, yet its presence aligns with the clinical observations of the patient, who may be experiencing complications associated with this bacterium. Considering the strengths of the metagenomic evidence and the rare nature of *H. influenzae* as a contaminant in this context, it was prioritized over other potential candidates. This necessitates further investigation to clarify its role, especially in light of the clinical symptoms and the context of the sample type."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "1571798040",
+        "rank": "Species",
+        "name": "Haemophilus influenzae_D",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Enterobacterales;f__Pasteurellaceae;g__Haemophilus;s__Haemophilus influenzae_D",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 30,
+              "rpm": 0.8936251817857026,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.001223207674568045
+            },
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 50,
+              "rpm": 1.489375302976171,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0020386794576134075
+            },
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 22,
+              "rpm": 0.6553251333095153,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0008970189613498994
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1597833729",
+        "rank": "Species",
+        "name": "Haemophilus influenzae_H",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Enterobacterales;f__Pasteurellaceae;g__Haemophilus;s__Haemophilus influenzae_H",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 36,
+              "rpm": 1.072350218142843,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0014678492094816534
+            },
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 108,
+              "rpm": 3.217050654428529,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004403547628444961
+            },
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 41,
+              "rpm": 1.2212877484404605,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.001671717155242994
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1310362800",
+        "rank": "Species",
+        "name": "Haemophilus influenzae",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Enterobacterales;f__Pasteurellaceae;g__Haemophilus;s__Haemophilus influenzae",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 44,
+              "rpm": 1.3106502666190305,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0017940379226997988
+            },
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 182,
+              "rpm": 5.421326102833262,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007420793225712804
+            },
+            {
+              "id": "DW-63-V38__DNA__S_S31",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 113,
+              "rpm": 3.3659881847261466,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004607415574206301
+            }
+          ]
+        }
+      }
+    ],
+    "target": []
+  }
+}

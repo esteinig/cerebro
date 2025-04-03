@@ -30,8 +30,8 @@ pub enum FileTag {
     Pos,
     #[serde(rename = "NEG")]
     Neg,
-    #[serde(rename = "TMP")]
-    Tmp,
+    #[serde(rename = "NTC")]
+    Ntc,
     #[serde(rename = "ENV")]
     Env,
     #[serde(rename = "HOST")]

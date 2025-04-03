@@ -1,0 +1,3377 @@
+[
+    {
+        "sample_id": "DW-63-V01",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus mitis", "s__Streptococcus oralis"],
+                        "note": "Culture without further tests - generally difficult to distinguish between Streptococcus mitis and Streptococcus oralis"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V02",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "VIDRL in-house PCR",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V03",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha2"],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "positive",
+                        "taxa": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V04",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "Herpesvirus multiplex PCR - unknown provider used test details from: https://pathology.alfred.org.au/handbook/index?testid=787",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V05",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "unknown",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Candida albicans"],
+                        "result": "positive",
+                        "taxa": ["s__Candida albicans"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V06",
+        "sample_type": "NTC",
+        "result": null,
+        "note": "TE Buffer",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V07",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "Called negative but suspected Streptococcus agalactiae including from blood cultures from same hospital submission, 16S PCR confirmation after detection from metagenomics data",
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "16S rRNA for Bacterial Identification",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus agalactiae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V08",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V09",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": "Very high qPCR values on internal testing of sample (~ Ct 39)",
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "positive",
+                        "taxa": ["g__Enterovirus"],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V10",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V11",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Aspergillus niger"],
+                        "result": "positive",
+                        "taxa": ["s__Aspergillus niger"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V12",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Mastadenovirus caesari"],
+                        "result": "positive",
+                        "taxa": ["s__Mastadenovirus caesari"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V13",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "Herpesvirus multiplex PCR - unknown provider used test details from: https://pathology.alfred.org.au/handbook/index?testid=787",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V14",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "positive",
+                        "taxa": ["s__Listeria monocytogenes"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V15",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for ",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V16",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "Negative CSF",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V17",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnsotics Encephelitis, Meningitis, Herpes multiplex PCR (8 well) ",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Leptospira interrogans"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Mycobacterium tuberculosis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": "Mycobacterium tuberculosis complex, species do not exist in GTDB - all are part of s__Mycobacterium tuberculosis"
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Lymphocryptovirus humangamma4"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cryptococcus gattii", "s__Cryptococcus neoformans"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V18",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Betapolyomavirus secuhominis"],
+                        "result": "positive",
+                        "taxa": ["s__Betapolyomavirus secuhominis"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V19",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "VIDRL in-house PCR",
+                "tests": [
+                    {
+                        "test": ["s__Mycobacterium tuberculosis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for ",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V20",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "Potentially negative, sample derived from other eye - qPCR negative on testing this sample and deemed negative result",
+        "orthogonal": [
+            {
+                "method": "unknown",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Treponema pallidum"],
+                        "result": "positive",
+                        "taxa": ["s__Treponema pallidum"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V21",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V22",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "Mixed culture",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": "MALDI-TOF"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V23",
+        "sample_type": "ENV",
+        "result": null,
+        "note": "Environmental Control - TD Specimen BSC",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V24",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "positive",
+                        "taxa": ["s__Varicellovirus humanalpha3"],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V25",
+        "sample_type": "NTC",
+        "result": null,
+        "note": "NFW",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V26",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "Herpesvirus multiplex PCR - unknown provider used test details from: https://pathology.alfred.org.au/handbook/index?testid=787",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V27",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "Cryptococcus gattii cultured from another lung biopsy sample - qPCR negative on testing this sample and deemed negative result",
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus gattii", "s__Cryptococcus neoformans"],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Encephelitis, Meningitis, Herpes multiplex PCR (8 well) ",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Leptospira interrogans"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Mycobacterium tuberculosis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": "Mycobacterium tuberculosis complex, species do not exist in GTDB - all are part of s__Mycobacterium tuberculosis"
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Lymphocryptovirus humangamma4"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cryptococcus gattii", "s__Cryptococcus neoformans"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }            
+        ]
+    },
+    {
+        "sample_id": "DW-63-V28",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "Bloodstream sepsis",
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V29",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "positive",
+                        "taxa": ["s__Neisseria meningitidis"],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V30",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V31",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "positive",
+                        "taxa": ["s__Parechovirus ahumpari"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V32",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V33",
+        "sample_type": "POS",
+        "result": null,
+        "note": "Positive Control Mixture",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V34",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "Herpesvirus multiplex PCR - unknown provider used test details from: https://pathology.alfred.org.au/handbook/index?testid=787",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V35",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "unknown",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "positive",
+                        "taxa": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V36",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V37",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "Herpesvirus multiplex PCR - unknown provider used test details from: https://pathology.alfred.org.au/handbook/index?testid=787",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V38",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": "MALDI-TOF +"
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V39",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Mastadenovirus caesari"],
+                        "result": "positive",
+                        "taxa": ["s__Mastadenovirus caesari"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V40",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V41",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V42",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Aspergillus niger"],
+                        "result": "positive",
+                        "taxa": ["s__Aspergillus niger"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V43",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "Negative CSF",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V44",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "Pure culture",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "positive",
+                        "taxa": ["s__Staphylococcus epidermidis"],
+                        "note": "MALDI-TOF"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V45",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V46",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "VIDRL in-house PCR for HTLV-1",
+                "tests": [
+                    {
+                        "test": ["g__Deltaretrovirus"],
+                        "result": "positive",
+                        "taxa": ["s__Primate T-lymphotropic virus 1"],
+                        "note": "High CT value (CT = 38)"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V47",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V48",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": "CT = 27"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V49",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "16S rRNA for confirmation of metagenomic result",
+                "tests": [
+                    {
+                        "test": ["s__Capnocytophaga canimorsus"],
+                        "result": "positive",
+                        "taxa": ["s__Capnocytophaga canimorsus"],
+                        "note": "CT = 27"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V50",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": null,
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V51",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "MDU in-house PCR",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": "CT = 24"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V52",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V53",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Mastadenovirus caesari"],
+                        "result": "positive",
+                        "taxa": ["s__Mastadenovirus caesari"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V54",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V55",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": "TEB contamination in this sample",
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Orthoflavivirus murrayense"],
+                        "result": "positive",
+                        "taxa": ["s__Orthoflavivirus murrayense"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V56",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V57",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "qPCR negative on testing this sample and deemed negative result, questions about whether orthogonal tests were conducted on same sample",
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus gattii"],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "positive",
+                        "taxa": ["g__Cryptococcus"],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "stain",
+                "detail": "Indian ink stain",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "positive",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V58",
+        "sample_type": "NTC",
+        "result": null,
+        "note": "NFW",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V59",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "VIDRL in-house PCR",
+                "tests": [
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "positive",
+                        "taxa": ["s__Neisseria meningitidis"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V60",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for ",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V61",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for ",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V62",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "Negative CSF",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V63",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V64",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "positive",
+                        "taxa": ["s__Staphylococcus aureus"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V65",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V66",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "positive",
+                        "taxa": ["s__Varicellovirus humanalpha3"],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V67",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "VIDRL in-house PCR",
+                "tests": [
+                    {
+                        "test": ["s__Betapolyomavirus hominis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V68",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": "No data",
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "BioFire Meningitis Panel at MDU",
+                "tests": [
+                    {
+                        "test": ["s__Escherichia coli"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Listeria monocytogenes"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Neisseria meningitidis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Streptococcus agalactiae"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V69",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "VIDRL in-house PCR",
+                "tests": [
+                    {
+                        "test": ["s__Betapolyomavirus hominis"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V70",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": "qPCR with very high Ct value for this sample (~ Ct 40)",
+        "orthogonal": [
+            {
+                "method": "unknown",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha2"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V71",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Mastadenovirus caesari"],
+                        "result": "positive",
+                        "taxa": ["s__Mastadenovirus caesari"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V72",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus neoformans"],
+                        "note": "MALDI-TOF"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V73",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Parechovirus ahumpari"],
+                        "result": "positive",
+                        "taxa": ["s__Parechovirus ahumpari"],
+                        "note": "CT = 27"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V74",
+        "sample_type": "ENV",
+        "result": null,
+        "note": "Environmental Control - TD Template BSC",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V75",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": "CT = 28"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V76",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "antigen",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Cryptococcus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V77",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+
+            {
+                "method": "pcr",
+                "detail": "Roche Cobas 6800",
+                "tests": [
+                    {
+                        "test": ["s__Lentivirus humimdef1", "s__Lentivirus humimdef2"],
+                        "result": "positive",
+                        "taxa": ["s__Lentivirus humimdef1", "s__Lentivirus humimdef2"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V78",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V79",
+        "sample_type": "POS",
+        "result": null,
+        "note": "Positive Control Mixture",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V80",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V81",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Aspergillus niger"],
+                        "result": "positive",
+                        "taxa": ["s__Aspergillus niger"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V82",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V83",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "unknown",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Staphylococcus aureus"],
+                        "result": "positive",
+                        "taxa": ["s__Staphylococcus aureus"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V84",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            },
+            {
+                "method": "pcr",
+                "detail": "AusDiagnostics Herpesvirus multiplex PCR - Enterovirus and Mastadenovirus includes species this test likely does not test for",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Simplexvirus humanalpha2"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Varicellovirus humanalpha3"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["s__Cytomegalovirus humanbeta5"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    },
+                    {
+                        "test": ["g__Mastadenovirus"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V85",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V86",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Enterovirus"],
+                        "result": "positive",
+                        "taxa": ["g__Enterovirus"],
+                        "note": "CT = 30"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V87",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V88",
+        "sample_type": "POS",
+        "result": null,
+        "note": "Positive Control Mixture",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V89",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "culture",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["d__Bacteria"],
+                        "result": "negative",
+                        "taxa": [],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V90",
+        "sample_type": "EYE",
+        "result": "positive",
+        "note": "No data",
+        "orthogonal": [
+            {
+                "method": "unknown",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["g__Streptococcus"],
+                        "result": "positive",
+                        "taxa": ["g__Streptococcus"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V91",
+        "sample_type": "EYE",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V92",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "pcr",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": "CT = 28"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V93",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V94",
+        "sample_type": "CSF",
+        "result": "positive",
+        "note": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "",
+                "tests": [
+                    {
+                        "test": ["s__Mycobacterium tuberculosis"],
+                        "result": "positive",
+                        "taxa": ["s__Mycobacterium tuberculosis"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V95",
+        "sample_type": "CSF",
+        "result": "negative",
+        "note": "No data",
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V96",
+        "sample_type": "NTC",
+        "result": null,
+        "note": "NFW",
+        "orthogonal": []
+    }
+]
+

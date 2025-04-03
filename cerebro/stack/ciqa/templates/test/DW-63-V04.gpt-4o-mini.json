@@ -1,0 +1,562 @@
+{
+  "diagnosis": "NonInfectious",
+  "candidate": null,
+  "candidate_description": null,
+  "pathogen": null,
+  "pathogen_description": null,
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_non_infectious_flight_check",
+    "diagnose_non_infectious",
+    "diagnose_non_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "diagnose_non_infectious_flight_check",
+      "question": "Consider the below threshold and target evidence and consider whether a previous node associated with threshold checks in this decision tree was called 'infectious'. If a previous node made an infectious call re-consider the candidate taxa from that node as pathogen or contamination. Make a call whether the sample is 'infectious' when the candidate taxa are known human pathogens but are rare or unusual for this presentation; alternatively make a call for 'non-infectious' when no taxa qualify as pathogen candidates.\nInstructions: Answer 'yes' if unusual or rare taxa were called that support an 'infectious' diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "diagnose_non_infectious",
+      "question": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. \nInstructions: Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis.\n",
+      "answer": "yes"
+    },
+    {
+      "node_key": "diagnose_non_infectious",
+      "question": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. \nInstructions: Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "921576080",
+        "rank": "Species",
+        "name": "Micrococcus luteus",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Actinomycetales;f__Micrococcaceae;g__Micrococcus;s__Micrococcus luteus",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.6679796920814014,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005984619527813519
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 36,
+              "rpm": 6.011817228732612,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.053861575750321675
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 3,
+              "rpm": 0.500984769061051,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004488464645860139
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "724502577",
+        "rank": "Species",
+        "name": "Acidovorax sp022763525",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Burkholderiales;f__Burkholderiaceae;g__Acidovorax;s__Acidovorax sp022763525",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 1.001969538122102,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.008976929291720278
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 22,
+              "rpm": 3.673888306447707,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.032915407402974356
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 3,
+              "rpm": 0.500984769061051,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004488464645860139
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "928293928",
+        "rank": "Species",
+        "name": "Algoriphagus sp023653075",
+        "lineage": "d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Cytophagales;f__Cyclobacteriaceae;g__Algoriphagus;s__Algoriphagus sp023653075",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.3359593841628028,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.011969239055627036
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 10,
+              "rpm": 1.6699492302035035,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0149615488195338
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 3,
+              "rpm": 0.500984769061051,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004488464645860139
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1861533247",
+        "rank": "Species",
+        "name": "Aquabacterium commune",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Burkholderiales;f__Burkholderiaceae;g__Aquabacterium;s__Aquabacterium commune",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.6679796920814014,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005984619527813519
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 18,
+              "rpm": 3.005908614366306,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.026930787875160837
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 5,
+              "rpm": 0.8349746151017517,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0074807744097669
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "501359018",
+        "rank": "Species",
+        "name": "Corynebacterium pseudodiphtheriticum",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Mycobacteriales;f__Mycobacteriaceae;g__Corynebacterium;s__Corynebacterium pseudodiphtheriticum",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 20,
+              "rpm": 3.339898460407007,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0299230976390676
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 24,
+              "rpm": 4.007878152488408,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.03590771716688111
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 10,
+              "rpm": 1.6699492302035035,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0149615488195338
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1402272518",
+        "rank": "Species",
+        "name": "Sphingobium scionense",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Alphaproteobacteria;o__Sphingomonadales;f__Sphingomonadaceae;g__Sphingobium;s__Sphingobium scionense",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.3359593841628028,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.011969239055627036
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 18,
+              "rpm": 3.005908614366306,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.026930787875160837
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.6679796920814014,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005984619527813519
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "735233080",
+        "rank": "Species",
+        "name": "Dolosigranulum pigrum",
+        "lineage": "d__Bacteria;p__Bacillota;c__Bacilli;o__Lactobacillales;f__Carnobacteriaceae;g__Dolosigranulum;s__Dolosigranulum pigrum",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 44,
+              "rpm": 7.347776612895415,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.06583081480594871
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 74,
+              "rpm": 12.357624303505924,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.11071546126455012
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 17,
+              "rpm": 2.838913691345956,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.025434632993207456
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1132231887",
+        "rank": "Species",
+        "name": "Lawsonella clevelandensis_A",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Mycobacteriales;f__Mycobacteriaceae;g__Lawsonella;s__Lawsonella clevelandensis_A",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 12,
+              "rpm": 2.003939076244204,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.017953858583440556
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 16,
+              "rpm": 2.6719187683256056,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.023938478111254075
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 1.001969538122102,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.008976929291720278
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1517760408",
+        "rank": "Species",
+        "name": "Acinetobacter ursingii",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Pseudomonadales;f__Moraxellaceae;g__Acinetobacter;s__Acinetobacter ursingii",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.3359593841628028,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.011969239055627036
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 42,
+              "rpm": 7.013786766854714,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.06283850504204196
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.6679796920814014,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005984619527813519
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1350492367",
+        "rank": "Species",
+        "name": "Diaphorobacter nitroreducens",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Burkholderiales;f__Burkholderiaceae;g__Diaphorobacter;s__Diaphorobacter nitroreducens",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 12,
+              "rpm": 2.003939076244204,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.017953858583440556
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 30,
+              "rpm": 5.00984769061051,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.04488464645860139
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.3359593841628028,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.011969239055627036
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "571604066",
+        "rank": "Species",
+        "name": "Novosphingobium humi",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Alphaproteobacteria;o__Sphingomonadales;f__Sphingomonadaceae;g__Novosphingobium;s__Novosphingobium humi",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.3359593841628028,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.011969239055627036
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 12,
+              "rpm": 2.003939076244204,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.017953858583440556
+            },
+            {
+              "id": "DW-63-V04__DNA__S_S4",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.6679796920814014,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005984619527813519
+            }
+          ]
+        }
+      }
+    ],
+    "target": []
+  }
+}

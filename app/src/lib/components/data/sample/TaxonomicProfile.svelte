@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { AbundanceMode, DisplayData } from "$lib/utils/types";
+	import { AbundanceMode, DisplayData, DisplayVisualisation } from "$lib/utils/types";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
-	import TaxonHeatmap from "$lib/components/visualisations/taxa/heatmap/TaxonHeatmap.svelte";
 	import VisualisationSelection from "./taxa/visualisations/VisualisationSelection.svelte";
-	import { selectedModels, selectedIdentifiers, selectedTaxa } from "$lib/stores/stores";
+	import { primaryThresholdServerFilterConfig, secondaryThresholdServerFilterConfig, selectedModels, selectedTaxa, validationThresholdServerFilterConfig } from "$lib/stores/stores";
 	import TableDataSelection from "./taxa/visualisations/TableDataSelection.svelte";
 	import TableModeSelection from "./taxa/visualisations/TableModeSelection.svelte";
 	import TaxonHistory from "$lib/components/visualisations/taxa/history/TaxonHistory.svelte";
     
-    let selectedVisualisation: string = "Table";
+    let selectedVisualisation: DisplayVisualisation = DisplayVisualisation.Threshold;
 
     let selectedTableData: DisplayData = DisplayData.Rpm;
     let selectedTableMode: AbundanceMode = AbundanceMode.Mixed;
@@ -16,7 +15,7 @@
     $: numSelectedModels = $selectedModels.length;
 
     $: {
-        selectedVisualisation
+        selectedVisualisation // on any change in selected visualisation reset selected taxa to empty
         $selectedTaxa = [];
     }
 
@@ -37,16 +36,34 @@
     {/if}
 </div>
 <div>
-    {#if selectedVisualisation === "Heatmap"}
-        <TaxonHeatmap selectedModels={$selectedModels} selectedIdentifiers={$selectedIdentifiers} displayData={DisplayData.Rpm}></TaxonHeatmap>
-    {:else if selectedVisualisation === "History"}
-        {#each $selectedTaxa as selectedTaxon}
-            <TaxonHistory selectedTaxon={selectedTaxon}></TaxonHistory>
-        {/each}
+    {#if selectedVisualisation === DisplayVisualisation.Run}
+        <p class="flex justify-center py-12 opacity-60">Select taxa from the table for run comparison</p>
+    {:else if selectedVisualisation === DisplayVisualisation.History}
+        {#if $selectedTaxa.length > 0}
+            {#each $selectedTaxa as selectedTaxon}
+                <TaxonHistory selectedTaxon={selectedTaxon}></TaxonHistory>
+            {/each}
+        {:else}
+            <p class="flex justify-center py-12 opacity-60">Select taxa from the table for historical comparison</p>
+        {/if}
+    {:else if selectedVisualisation === DisplayVisualisation.Threshold}
+    {#if $selectedTaxa.length > 0}
+            {#each $selectedTaxa as selectedTaxon}
+                <TaxonHistory selectedTaxon={selectedTaxon}></TaxonHistory>
+            {/each}
+        {:else}
+            <p class="flex justify-center py-12 opacity-60">Select taxa from the table for historical comparison</p>
+        {/if}
+        <p class="text-lg opacity-60 py-12">Threshold taxonomic profiling</p>
+        <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={primaryThresholdServerFilterConfig}></SpeciesOverviewTable>
+        <p class="text-lg opacity-60 py-12">Sub-threshold taxonomic profiling</p>
+        <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={secondaryThresholdServerFilterConfig}></SpeciesOverviewTable>
+        <p class="text-lg opacity-60 py-12">Validation plate</p>
+        <SpeciesOverviewTable displayData={DisplayData.Rpm} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={validationThresholdServerFilterConfig} disablePrevalenceContamination={true}></SpeciesOverviewTable>
     {:else}
-        <p>Not found</p>
+
+        <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation}></SpeciesOverviewTable>
     {/if}
-    <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} disableDrawer={selectedVisualisation !== "Table"}></SpeciesOverviewTable>
 </div>
 
 

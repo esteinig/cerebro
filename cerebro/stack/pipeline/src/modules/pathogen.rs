@@ -842,6 +842,7 @@ pub enum AbundanceMode {
     Bases,
     Profile,
     Sequence,
+    Mixed // for filtering only
 }
 impl AbundanceMode {
     pub fn to_string(&self) -> String {
@@ -849,6 +850,7 @@ impl AbundanceMode {
             Self::Bases => "Bases".to_string(),
             Self::Profile => "Profile".to_string(),
             Self::Sequence => "Sequence".to_string(),
+            Self::Mixed => "Mixed".to_string(),
         }
     }
 }

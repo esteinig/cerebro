@@ -1,0 +1,285 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Aspergillus fumigatus'; 's__Aspergillus brasiliensis'; 's__Aspergillus nidulans'",
+  "candidate_description": "In the context of the patient’s clinical presentation of neuroinflammatory or neurological symptoms, the detected Aspergillus species—specifically *Aspergillus fumigatus*, *Aspergillus brasiliensis*, and *Aspergillus nidulans*—are noteworthy as potential pathogens. These taxa are known to be opportunistic fungal pathogens, particularly in immunocompromised individuals, and they can cause a range of infections, including central nervous system involvement that may lead to symptoms observed in the patient. The evidence from metagenomic profiling supports the presence of these organisms, suggesting a possible infectious etiology that aligns with the patient's symptoms, despite the potential for skin microbiome contamination from the sampling site. The detection of these fungi in the cerebrospinal fluid (CSF) sample warrants consideration of invasive fungal infection, which is a rare but significant finding in this sample type, emphasizing the need for further diagnostic evaluation and potential therapeutic intervention.",
+  "pathogen": "'s__Aspergillus brasiliensis'",
+  "pathogen_description": "In the context of the patient’s clinical presentation of neuroinflammatory or neurological symptoms, the detected taxon *Aspergillus brasiliensis* is a significant pathogen candidate. This organism is an opportunistic fungal pathogen known to affect immunocompromised individuals, and its presence in cerebrospinal fluid (CSF) is concerning given its potential to cause central nervous system infections that could manifest as the neurological symptoms observed in the patient. The strength of the metagenomic profiling evidence supports the detection of *A. brasiliensis*, making it a plausible infectious agent despite the risk of contamination from the skin microbiome during sample handling. Given that *A. brasiliensis* is less commonly associated with contamination compared to other environmental fungi, and its clinical relevance as an agent of infection affords it priority over other candidates present in the sample. Thus, this taxon was identified as the most likely cause of the patient's infection.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Aspergillus fumigatus'; 's__Aspergillus brasiliensis'; 's__Aspergillus nidulans'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "In the context of the patient’s clinical presentation of neuroinflammatory or neurological symptoms, the detected Aspergillus species—specifically *Aspergillus fumigatus*, *Aspergillus brasiliensis*, and *Aspergillus nidulans*—are noteworthy as potential pathogens. These taxa are known to be opportunistic fungal pathogens, particularly in immunocompromised individuals, and they can cause a range of infections, including central nervous system involvement that may lead to symptoms observed in the patient. The evidence from metagenomic profiling supports the presence of these organisms, suggesting a possible infectious etiology that aligns with the patient's symptoms, despite the potential for skin microbiome contamination from the sampling site. The detection of these fungi in the cerebrospinal fluid (CSF) sample warrants consideration of invasive fungal infection, which is a rare but significant finding in this sample type, emphasizing the need for further diagnostic evaluation and potential therapeutic intervention."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Aspergillus brasiliensis'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In the context of the patient’s clinical presentation of neuroinflammatory or neurological symptoms, the detected taxon *Aspergillus brasiliensis* is a significant pathogen candidate. This organism is an opportunistic fungal pathogen known to affect immunocompromised individuals, and its presence in cerebrospinal fluid (CSF) is concerning given its potential to cause central nervous system infections that could manifest as the neurological symptoms observed in the patient. The strength of the metagenomic profiling evidence supports the detection of *A. brasiliensis*, making it a plausible infectious agent despite the risk of contamination from the skin microbiome during sample handling. Given that *A. brasiliensis* is less commonly associated with contamination compared to other environmental fungi, and its clinical relevance as an agent of infection affords it priority over other candidates present in the sample. Thus, this taxon was identified as the most likely cause of the patient's infection."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [
+      {
+        "taxid": "1118773154",
+        "rank": "Species",
+        "name": "Aspergillus nidulans",
+        "lineage": "d__Eukaryota;p__Ascomycota;c__Eurotiomycetes;o__Eurotiales;f__Aspergillaceae;g__Aspergillus;s__Aspergillus nidulans",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 3,
+              "bases": 1619,
+              "bpm": 0.520509288973406,
+              "abundance": 0.0005038106868017922
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 5794,
+              "rpm": 271.0335913251288,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.17719749048717995
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 6506,
+              "rpm": 304.33975580968036,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.19897253591812095
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 2512,
+              "rpm": 117.50714211403582,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0768243175878143
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "2096478498",
+        "rank": "Species",
+        "name": "Aspergillus brasiliensis",
+        "lineage": "d__Eukaryota;p__Ascomycota;c__Eurotiomycetes;o__Eurotiales;f__Aspergillaceae;g__Aspergillus;s__Aspergillus brasiliensis",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 188,
+              "bases": 100906,
+              "bpm": 32.441328173656885,
+              "abundance": 0.03140056896999485
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 27440,
+              "rpm": 1283.5971256405824,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.8391955711025575
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 32138,
+              "rpm": 1503.361677253536,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.9828741714319968
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 13125,
+              "rpm": 613.9654618816561,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.40140094281053446
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "153273162",
+        "rank": "Species",
+        "name": "Penicillium rubens",
+        "lineage": "d__Eukaryota;p__Ascomycota;c__Eurotiomycetes;o__Eurotiales;f__Aspergillaceae;g__Penicillium;s__Penicillium rubens",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 8,
+              "bases": 3965,
+              "bpm": 1.2747494322294963,
+              "abundance": 0.0012338538438351487
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 722,
+              "rpm": 33.77394769360425,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0220808747207014
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 640,
+              "rpm": 29.93812537937218,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01957307454466606
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 270,
+              "rpm": 12.63014664442264,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.008257390823530995
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1177595400",
+        "rank": "Species",
+        "name": "Aspergillus fumigatus",
+        "lineage": "d__Eukaryota;p__Ascomycota;c__Eurotiomycetes;o__Eurotiales;f__Aspergillaceae;g__Aspergillus;s__Aspergillus fumigatus",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 183,
+              "bases": 86714,
+              "bpm": 27.87859325759107,
+              "abundance": 0.0269842124121869
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 10854,
+              "rpm": 507.73189510579016,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.331947111105946
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 11032,
+              "rpm": 516.0584362269279,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.33739087246368127
+            },
+            {
+              "id": "DW-63-V11__DNA__PS_S11",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 5854,
+              "rpm": 273.8402905794449,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.1790324662257424
+            }
+          ]
+        }
+      }
+    ],
+    "below": [],
+    "target": []
+  }
+}

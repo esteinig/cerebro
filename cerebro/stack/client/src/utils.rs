@@ -3,6 +3,7 @@ use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
 
+
 pub fn init_logger() {
 
     Builder::new()

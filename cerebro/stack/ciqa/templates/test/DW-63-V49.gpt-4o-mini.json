@@ -1,0 +1,106 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Capnocytophaga canimorsus'",
+  "candidate_description": "The detected taxon, *s__Capnocytophaga canimorsus*, is a fastidious Gram-negative bacterium commonly found in the oral microbiota of dogs and cats. In the context of the vitreous fluid from a patient with ocular infection or neurological symptoms, its presence at high to medium abundance suggests a potential role as the causative agent of infection, particularly in cases involving dog or cat bites or exposure to their saliva. The strength of the metagenomic profiling evidence indicates that the pathogen's presence is not consistent with mere contamination, reinforcing the likelihood of its involvement in the patient's clinical condition. While *C. canimorsus* infections can lead to severe complications, including endophthalmitis or meningitis, they are relatively rare, typically emerging in immunocompromised individuals. Thus, careful consideration of the patient's history with pets may provide further contextual understanding of the infection's origin.",
+  "pathogen": "'s__Capnocytophaga canimorsus'",
+  "pathogen_description": "The detected taxon, *s__Capnocytophaga canimorsus*, is a fastidious Gram-negative bacterium that is predominantly part of the normal oral flora of dogs and cats. In this case, the patient presented with ocular infection or neurological symptoms, and the presence of *C. canimorsus* at high to medium abundance in the vitreous fluid strongly suggests its role as the causative agent of the infection, particularly in the context of potential exposure to canine or feline saliva. The metagenomic profiling evidence reinforces this association, indicating that its presence is likely of clinical significance rather than mere contamination from sampling or handling. Although infections caused by *C. canimorsus* are relatively rare and typically occur in immunocompromised individuals, they can result in severe outcomes, such as endophthalmitis or meningitis. The clear link between the patient's symptoms, the abundance of the pathogen, and its established health implications justifies the selection of *s__Capnocytophaga canimorsus* as the most likely pathogen in this case, over other potential candidates.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                Vitreous fluid sample from a patient with ocular infection or neurological symptoms. Unusual bacterial species at high to medium abundance should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Capnocytophaga canimorsus'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "The detected taxon, *s__Capnocytophaga canimorsus*, is a fastidious Gram-negative bacterium commonly found in the oral microbiota of dogs and cats. In the context of the vitreous fluid from a patient with ocular infection or neurological symptoms, its presence at high to medium abundance suggests a potential role as the causative agent of infection, particularly in cases involving dog or cat bites or exposure to their saliva. The strength of the metagenomic profiling evidence indicates that the pathogen's presence is not consistent with mere contamination, reinforcing the likelihood of its involvement in the patient's clinical condition. While *C. canimorsus* infections can lead to severe complications, including endophthalmitis or meningitis, they are relatively rare, typically emerging in immunocompromised individuals. Thus, careful consideration of the patient's history with pets may provide further contextual understanding of the infection's origin."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Capnocytophaga canimorsus'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "The detected taxon, *s__Capnocytophaga canimorsus*, is a fastidious Gram-negative bacterium that is predominantly part of the normal oral flora of dogs and cats. In this case, the patient presented with ocular infection or neurological symptoms, and the presence of *C. canimorsus* at high to medium abundance in the vitreous fluid strongly suggests its role as the causative agent of the infection, particularly in the context of potential exposure to canine or feline saliva. The metagenomic profiling evidence reinforces this association, indicating that its presence is likely of clinical significance rather than mere contamination from sampling or handling. Although infections caused by *C. canimorsus* are relatively rare and typically occur in immunocompromised individuals, they can result in severe outcomes, such as endophthalmitis or meningitis. The clear link between the patient's symptoms, the abundance of the pathogen, and its established health implications justifies the selection of *s__Capnocytophaga canimorsus* as the most likely pathogen in this case, over other potential candidates."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [
+      {
+        "taxid": "147935875",
+        "rank": "Species",
+        "name": "Capnocytophaga canimorsus",
+        "lineage": "d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Flavobacteriales;f__Flavobacteriaceae;g__Capnocytophaga;s__Capnocytophaga canimorsus",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V49__DNA__S_S41",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 1774,
+              "rpm": 47.979731457388944,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.35954746472421856
+            },
+            {
+              "id": "DW-63-V49__DNA__S_S41",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 1894,
+              "rpm": 51.22526007908379,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.3838686010077057
+            },
+            {
+              "id": "DW-63-V49__DNA__S_S41",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 889,
+              "rpm": 24.043957872389385,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.1801790846335007
+            }
+          ]
+        }
+      }
+    ],
+    "below": [],
+    "target": []
+  }
+}

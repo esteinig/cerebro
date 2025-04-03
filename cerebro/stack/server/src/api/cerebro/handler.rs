@@ -1,4 +1,6 @@
+use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, TaxonHistoryResponse, TaxonHistoryResult};
 use futures::StreamExt;
+use mongodb::bson::from_document;
 use mongodb::gridfs::GridFsBucket;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -29,22 +31,21 @@ use cerebro_model::api::cerebro::model::{
     RunConfig
 };
 use cerebro_model::api::cerebro::schema::{
-    ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleSummaryQcSchema, SampleTypeSchema, TaxaSummarySchema
+    CerebroIdentifierSchema, ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleSummaryQcSchema, SampleTypeSchema, TaxaSummarySchema
 };
-use cerebro_model::api::cerebro::response::TaxaSummaryMongoPipeline;
 
 use mongodb::options::{UpdateManyModel, WriteModel};
 
 use cerebro_pipeline::taxa::filter::*;
 use cerebro_pipeline::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
-use cerebro_pipeline::taxa::taxon::{Taxon, aggregate};
+use cerebro_pipeline::taxa::taxon::{aggregate, collapse_taxa, Taxon};
 
 type CerebroIds = String;
 
 fn qc_config_from_model(sample_config: Option<SampleConfig>, run_config: Option<RunConfig>, workflow_config: Option<WorkflowConfig>) -> ModelConfig {
 
     let (sample_type, sample_group, ercc_input_mass, library_tag) = match sample_config {
-        Some(config) => (Some(config.sample_type), Some(config.sample_group), config.ercc_input_mass, Some(config.tags.join("-"))), 
+        Some(config) => (config.sample_type, config.sample_group, config.ercc_input_mass, Some(config.tags.join("-"))), 
         None => (None, None, None, None)
     };
 
@@ -73,9 +74,9 @@ fn qc_config_from_model(sample_config: Option<SampleConfig>, run_config: Option<
 
 
 #[post("/cerebro")]
-async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -129,17 +130,14 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
 
 #[derive(Deserialize)]
 struct CerebroGetQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId,
     // Optional parameters
     taxa: Option<bool>
 }
 
 #[get("/cerebro/{id}")]
-async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, query: web::Query<CerebroGetQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, query: web::Query<CerebroGetQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -450,12 +448,99 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
 }
 
 
+#[post("/cerebro/ids")]
+async fn cerebro_identifier_handler(data: web::Data<AppState>, body: web::Json<CerebroIdentifierSchema>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+    // Primary sample request check
+    match project_collection
+        .find_one(doc! { "sample.id": &body.sample })
+        .await {
+            Ok(Some(_)) => {},
+            Ok(None) => return HttpResponse::NotFound().json(
+                CerebroIdentifierResponse::sample_not_found(&body.sample)
+            ),
+            Err(err) => return HttpResponse::InternalServerError().json(
+                CerebroIdentifierResponse::server_error(err.to_string())
+            )
+        }
+
+    // Build the match conditions dynamically.
+    let mut match_conditions = vec![];
+
+    // If controls are provided, match primary sample or controls; otherwise, just the primary sample.
+    if let Some(controls) = &body.controls {
+        match_conditions.push(doc! {
+            "$or": [
+                { "sample.id": &body.sample },
+                { "sample.id": { "$in": controls } }
+            ]
+        });
+    } else {
+        match_conditions.push(doc! {
+            "sample.id": &body.sample
+        });
+    }
+
+    // If tags are provided, add a condition to filter on sample tags.
+    if let Some(tags) = &body.tags {
+        match_conditions.push(doc! {
+            "sample.tags": { "$in": tags }
+        });
+    }
+
+    let pipeline = vec![
+        // Combine the dynamically built match conditions.
+        doc! { "$match": { "$and": match_conditions } },
+        // Project only the fields required for CerebroIdentifierSummary.
+        doc! { "$project": {
+            "_id": 0,
+            "cerebro_id": "$id",
+            "sample_id": "$sample.id",
+            "sample_tags": "$sample.tags",
+            "sample_type": "$sample.sample_type",
+            "run_id": "$run.id",
+            "run_date": "$run.date",
+            "workflow_id": "$workflow.id",
+            "workflow_name": "$workflow.name"
+        } },
+    ];
+
+    match project_collection
+        .aggregate(pipeline)
+        .await
+        {
+            Ok(cursor) => {
+                
+                let watchers: Vec<CerebroIdentifierSummary> = cursor
+                    .try_collect::<Vec<_>>()
+                    .await
+                    .unwrap_or_else(|_| vec![])
+                    .into_iter()
+                    .filter_map(|doc| from_document(doc).ok())
+                    .collect();
+    
+                match watchers.is_empty() {
+                    false => HttpResponse::Ok().json(
+                        CerebroIdentifierResponse::success(watchers)
+                    ),
+                    true => HttpResponse::NotFound().json(
+                        CerebroIdentifierResponse::not_found()
+                    )
+                }
+            },
+            Err(err) => HttpResponse::InternalServerError().json(
+                CerebroIdentifierResponse::server_error(err.to_string())
+            )
+        }
+}
 
 #[derive(Deserialize)]
 struct TaxaQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId,
     // Required model identifiers and overview switch
     id: Option<CerebroIds>,
     overview: Option<bool>,
@@ -475,9 +560,9 @@ struct TaggedTaxa {
 }
 
 #[post("/cerebro/taxa")]
-async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -514,9 +599,6 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
             match docs.is_empty() {
                 false => {
                     
-                    // `cerebro_taxa` is a Vec<Taxon> for each requested 
-                    //  Cerebro document but we need to transform from the BSON format
-
                     let mut tagged_taxa = Vec::new();
                     for doc in docs {
 
@@ -556,7 +638,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                         tag_map.insert(tt.name, tt.sample_tags);
                     }          
                          
-                    // Applying the rank/evidence filters from the post body - i.e. selected by user in filter interface
+                    // Applying the rank/evidence filters from the provided filter configuration
                     let taxa: Vec<Taxon> = apply_filters(
                         aggregated_taxa.into_values().collect(), 
                         &filter_config, 
@@ -565,44 +647,38 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     );
                     
                     if query.overview.is_some_and(|x| x) {                        
-                        HttpResponse::Ok().json(serde_json::json!({
-                            "status": "success", "message": "Retrieved aggregated taxa overview with summary of evidence", "data": serde_json::json!({"taxa": taxa})
-                        }))
+                        HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
                     } else {
-                        if let Some(taxid) = &query.taxid {
-                            let taxids = taxid.split(",").collect::<Vec<&str>>();
+                        // Additional filter for specific taxa by 'taxid':
 
+                        if let Some(taxid) = &query.taxid {
+
+                            let taxids = taxid.split(",").collect::<Vec<&str>>();
                             let taxa: Vec<Taxon> = taxa.into_iter().filter(|taxon| taxids.contains(&taxon.taxid.as_str())).collect();
 
-                            HttpResponse::Ok().json(serde_json::json!({
-                                "status": "success", "message": "Retrieved aggregated taxa by taxid with evidence", "data": serde_json::json!({"taxa": taxa})
-                            }))
+                            HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
                         } else {
-                            // Return all taxids
-                            HttpResponse::Ok().json(serde_json::json!({
-                                "status": "success", "message": "Retrieved aggregated taxa with evidence", "data": serde_json::json!({"taxa": taxa})
-                            }))
+                            // Return all otherwise - same as overview at the moment!
+                            HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
                         }
                     }
                 },
-                true => HttpResponse::Ok().json(serde_json::json!({
-                    "status": "fail", "message": "Failed to retrieve aggregated taxa with evidence", "data": serde_json::json!({"taxa": []})
-                }))
+                true => HttpResponse::NotFound().json(FilteredTaxaResponse::not_found())
             }
         },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "status": "error", "message": "Error in retrieving aggregated taxa with evidence", "data": serde_json::json!({"taxa": []})
-        }))
+        Err(err) => HttpResponse::InternalServerError().json(FilteredTaxaResponse::server_error(err.to_string()))
     }
 
 }
 
 pub fn apply_prevalence_contamination_filter(
     cerebros: Vec<Cerebro>,
-    min_rpm: f64,
-    threshold: f64, // Prevalence percentage threshold (e.g., 0.5 for 50%)
+    min_rpm: f64,              // Evidence from any read profiling tool > RPM
+    threshold: f64,            // Prevalence percentage threshold (e.g., 0.5 for 50%)
     taxid_subset: Vec<String>, // Only consider these Taxon.taxid values
+    collapse_variants: bool
 ) -> Vec<String> {
+
     // Check for edge cases
     if cerebros.is_empty() || taxid_subset.is_empty() {
         return Vec::new(); // No data or no subset to process
@@ -623,11 +699,23 @@ pub fn apply_prevalence_contamination_filter(
         // Collect Taxon IDs with matching evidence in this Cerebro object
         let mut found_taxa: HashSet<String> = HashSet::new();
 
-        for taxon in cerebro.taxa {
+        // If collapse variants is active, collapse the taxon variants (from GTDB)
+        // Note this will assign a new taxid to collapsed taxa, which should match
+        // any created previously through the 'apply_filter' function
+
+        let cerebro_taxa = if collapse_variants {
+           collapse_taxa(cerebro.taxa).expect("FAILED TO COLLAPSE TAXA")
+        } else {
+            cerebro.taxa
+        };
+
+        for taxon in cerebro_taxa {
+
             // Check if the Taxon is in the subset
             if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {
-                continue; // Skip taxa not in the subset if any are defined in subset, otherwise use taxon
+                continue; // Skip taxa not in the subset if any are defined in subset, otherwise use Taxon
             }
+
 
             // Check if the Taxon has any ProfileRecord evidence matching the criteria
             let has_matching_evidence = taxon
@@ -661,7 +749,7 @@ pub fn apply_prevalence_contamination_filter(
         .collect()
 }
 
-
+// Prevalence contamination identification
 #[post("/cerebro/taxa/contamination")]
 async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_schema: web::Json<ContaminationSchema>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
@@ -670,8 +758,6 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
         Err(error_response) => return error_response
     };
 
-
-    // Get all documents
     match project_collection.find(
             doc! { 
                 "sample.tags":  { "$in" : &contam_schema.tags }
@@ -694,48 +780,29 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
                 };
             }
 
-            let contamination_taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone());
+            let taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone(), contam_schema.collapse_variants);
             
-            HttpResponse::Ok().json(
-                serde_json::json!({"status": "fail", "message": "Identified prevalence based contaminant taxids in project", "data": serde_json::json!({"taxid": contamination_taxids})})
-            )
+            HttpResponse::Ok().json(ContaminationTaxaResponse::success(taxids))
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "status": "error", "message": "Error in retrieving aggregated taxa with evidence", "data": serde_json::json!({"taxid": []})
-        }))
+        Err(err) => HttpResponse::InternalServerError().json(ContaminationTaxaResponse::server_error(err.to_string()))
     }
 }
 
 
 #[derive(Deserialize)]
 struct TaxaHistoryQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId,
     taxon_label: String,
     host_label: String
-}
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TaxonHistoryResult {
-    pub id: CerebroId,
-    pub sample_id: String,
-    pub sample_tags: Vec<String>,
-    pub run_id: String,
-    pub run_date: String,
-    pub input_reads: u64,
-    pub host_reads: Option<u64>,
-    pub taxa: Vec<Taxon>,
 }
 
 
 #[get("/cerebro/taxa/history")]
-async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaHistoryQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaHistoryQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
-
 
     // Match documents that have the provided tax label in their tax_labels array.
     let pipeline = vec![
@@ -745,6 +812,7 @@ async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaH
             "id": "$id",
             "sample_id": "$sample.id",
             "sample_tags": "$sample.tags",
+            "sample_type": "$sample.sample_type",
             "run_id": "$run.id",
             "run_date": "$run.date",
             "input_reads": "$quality.reads.input_reads",
@@ -763,16 +831,11 @@ async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaH
                     
                     let mut history_results: Vec<TaxonHistoryResult> = Vec::new();
                     for doc in docs {
-
                         let mut model: TaxonHistoryResult = match mongodb::bson::from_document(doc) {
                             Ok(m) => m,
                             Err(err) => {
                                 return HttpResponse::InternalServerError().json(
-                                    serde_json::json!({
-                                        "status": "fail",
-                                        "message": format!("Failed to convert document to TaxonHistoryResult model: {}", err),
-                                        "data": []
-                                    })
+                                    TaxonHistoryResponse::server_error(err.to_string())
                                 );
                             }
                         };
@@ -783,116 +846,20 @@ async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaH
                                 history_results.push(model)
                             }
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(format!("GridFS download error: {}", err));
+                                return HttpResponse::InternalServerError().json(TaxonHistoryResponse::server_error(err.to_string()));
                             }
                         };
                     }
 
-                    HttpResponse::Ok().json(serde_json::json!({
-                        "status": "success", "message": "Retrieved taxon history", "data": history_results
-                    }))
+                    HttpResponse::Ok().json(TaxonHistoryResponse::success(history_results))
 
                 },
-                true => HttpResponse::InternalServerError().json(serde_json::json!({
-                    "status": "error", "message": "Failed to find taxon history in collection", "data": []
-                }))
+                true => HttpResponse::NotFound().json(TaxonHistoryResponse::not_found())
             }
         },
-        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "status": "error", "message": "Error in retrieving taxon history ", "data": []
-        }))
+        Err(err) => HttpResponse::InternalServerError().json(TaxonHistoryResponse::server_error(err.to_string()))
     }
 }
-
-#[derive(Deserialize)]
-struct TaxaSummaryQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId,
-    // CSV formatted string of data
-    csv: bool
-}
-
-use futures::{future::ok, stream::once};
-
-// #[post("/cerebro/taxa/summary")]
-// async fn filtered_taxa_summary_handler(data: web::Data<AppState>, schema: web::Json<TaxaSummarySchema>, query: web::Query<TaxaSummaryQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-//     let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
-//         Ok(authorized) => authorized,
-//         Err(error_response) => return error_response
-//     };
-
-//     let pipeline = get_matched_taxa_summary_pipeline(&schema.sample_ids, &schema.run_ids, &schema.workflow_ids, &schema.workflow_names);
-    
-//     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
-
-//     match project_collection
-//         .aggregate(pipeline)
-//         .await
-//     {
-//         Ok(cursor) => {
-//             let cerebro_taxa_summary = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
-//             match cerebro_taxa_summary.is_empty() {
-//                 false => {
-
-//                     let taxon_data: Vec<TaxaSummaryMongoPipeline> = cerebro_taxa_summary.iter().map(
-//                         |taxa_summary| mongodb::bson::from_bson(taxa_summary.into()).map_err(|_| {
-//                             HttpResponse::InternalServerError().json(serde_json::json!({
-//                                 "status": "error", "message": "Failed to transform retrieved taxa summary"
-//                             }))
-//                         }).unwrap()
-//                     ).collect();
-
-//                     let taxa_overview_data: Vec<Vec<TaxonSummaryOverview>> = taxon_data.into_iter().map(|taxa_summary| {
-//                         let taxa: Vec<Taxon> = apply_filters(taxa_summary.taxa.clone().into_values().collect(), &schema.filter_config);
-//                         let taxa_overview: Vec<TaxonOverview> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
-//                         let taxa_overview_summary: Vec<TaxonSummaryOverview> = taxa_overview.iter().map(|taxon_overview|{
-//                             TaxonSummaryOverview::from_taxon_overview(&taxa_summary, &taxon_overview)
-//                         }).collect();
-//                         taxa_overview_summary
-//                     }).collect();
-
-//                     let taxa_summary_overview: Vec<TaxonSummaryOverview> = taxa_overview_data.into_iter().flatten().collect();
-                                        
-//                     // Streaming responses due to size
-                    
-//                     match query.csv {
-//                         true => {
-//                             let csv_string = as_csv_string(taxa_summary_overview).unwrap();
-
-//                             let response = serde_json::to_string(&serde_json::json!({
-//                                 "status": "succes", "message": "Retrieved taxa summaries for requested samples", "data": serde_json::json!({"taxa_summary": [], "csv": csv_string})
-//                             })).unwrap().try_into_bytes().unwrap();
-
-//                             let body = once(ok::<_, actix_web::Error>(response));
-
-//                             HttpResponse::Ok().content_type("application/json").streaming(body)
-//                         },
-//                         false => {
-
-//                             let response = serde_json::to_string(&serde_json::json!({
-//                                 "status": "succes", "message": "Retrieved taxa summaries for requested samples", "data": serde_json::json!({"taxa_summary": taxa_summary_overview, "csv": ""})
-//                             })).unwrap().try_into_bytes().unwrap();
-
-//                             let body = once(ok::<_, actix_web::Error>(response));
-
-//                             HttpResponse::Ok().content_type("application/json").streaming(body)
-//                         }
-//                     }
-
-//                 },
-//                 true => HttpResponse::Ok().json(serde_json::json!({
-//                     "status": "fail", "message": "Failed to retrieve taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
-//                 }))
-//             }
-//         },
-//         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
-//             "status": "error", "message": "Error in retrieving taxa summaries", "data": serde_json::json!({"taxa_summary": [], "csv": ""})
-//         }))
-//     }
-
-// }
 
 
 #[derive(Deserialize)]
@@ -1595,6 +1562,7 @@ pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>
 pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
     
     cfg.service(insert_model_handler)
+       .service(cerebro_identifier_handler)
        .service(samples_overview_handler)
        .service(sample_overview_id_handler)
        .service(sample_id_handler)

@@ -1,7 +1,12 @@
+use std::fs::File;
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
+
 use serde::{Deserialize, Serialize};
 
-use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
+use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig};
 
+use crate::api::files::model::FileTag;
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
     PriorityTaxonId, 
@@ -12,6 +17,8 @@ use crate::api::cerebro::model::{
     PriorityTaxonDecision, 
     WorkflowConfig
 };
+
+use super::model::ModelError;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -127,7 +134,7 @@ pub struct PatientHeaderSchema {
     pub reporting_location: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PatientResultSchema {
     pub review_date: String,
     pub negative: bool,
@@ -139,12 +146,130 @@ pub struct PatientResultSchema {
 
 
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ContaminationSchema {
     pub taxid: Vec<String>,
     pub tags: Vec<String>,
     pub threshold: f64,
     pub min_rpm: f64,
     pub sample_type: Option<String>,
+    pub collapse_variants: bool
+}
+impl ContaminationSchema {
+    pub fn from_config(taxid: Vec<String>, tags: Vec<String>, config: &PrevalenceContaminationConfig) -> Self {
+        Self {
+            taxid,
+            tags,
+            threshold: config.threshold,
+            min_rpm: config.min_rpm,
+            sample_type: config.sample_type.clone(),
+            collapse_variants: config.collapse_variants
+        }
+    }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GpConfig {
+    #[serde(skip_deserializing)]
+    pub sample: String,
+    pub identifiers: CerebroIdentifierSmallSchema,
+    pub contamination: PrevalenceContaminationConfig
+}
+impl GpConfig {
+    pub fn new(sample: String, controls: Option<Vec<String>>, tags: Option<Vec<String>>, contamination: PrevalenceContaminationConfig) -> Self {
+        Self {
+            sample,
+            identifiers: CerebroIdentifierSmallSchema { controls, tags },
+            contamination
+        }
+    }
+    pub fn from_reference_plate(sample: &str, controls: &Vec<String>, contamination: PrevalenceContaminationConfig) -> Self {
+        Self {
+            sample: sample.to_string(),
+            identifiers: CerebroIdentifierSmallSchema { controls: Some(controls.clone()), tags: Some(vec![String::from("DNA"), String::from("RNA")]) },
+            contamination
+        }
+    }
+    pub fn from_json(sample: String, path: &Path) -> Result<Self, ModelError> {
+        let rdr = BufReader::new(File::open(&path)?);
+        let mut config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
+
+        config.sample = sample;
+        config.identifiers.assert_allowed_tags();
+        
+        Ok(config)
+    }
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or(String::new())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CerebroIdentifierSchema {
+    pub sample: String,
+    pub controls: Option<Vec<String>>,
+    pub tags: Option<Vec<String>>
+}
+impl CerebroIdentifierSchema {
+    pub fn new(sample: String, controls: Option<Vec<String>>, tags: Option<Vec<String>>) -> Self {
+        Self {
+            sample,
+            controls, 
+            tags
+        }
+    }
+    pub fn from_gp_config(gp_config: &GpConfig) -> Self {
+        Self {
+            sample: gp_config.sample.clone(),
+            controls: gp_config.identifiers.controls.clone(), 
+            tags: gp_config.identifiers.tags.clone()
+        }
+    }
+    pub fn from_small_schema(sample: &str, schema: &CerebroIdentifierSmallSchema) -> Self {
+        Self {
+            sample: sample.to_string(),
+            controls: schema.controls.clone(), 
+            tags: schema.tags.clone()
+        }
+    }
+    pub fn from_json(path: &Path) -> Result<Self, ModelError> {
+        let rdr = BufReader::new(File::open(&path)?);
+        serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))
+    }
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or(String::new())
+    }
+    pub fn assert_allowed_tags(&self) {
+        assert!(
+            self.tags.as_ref().map_or(true, |tags| tags.iter().all(|tag| tag == "DNA" || tag == "RNA")),
+            "Error: tags must only contain 'DNA' or 'RNA'"
+        );
+    }   
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CerebroIdentifierSmallSchema {
+    pub controls: Option<Vec<String>>,
+    pub tags: Option<Vec<String>>
+}
+impl CerebroIdentifierSmallSchema {
+    pub fn new(controls: Option<Vec<String>>, tags: Option<Vec<String>>) -> Self {
+        Self {
+            controls, 
+            tags
+        }
+    }
+    pub fn from_json(path: &Path) -> Result<Self, ModelError> {
+        let rdr = BufReader::new(File::open(&path)?);
+        serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))
+    }
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or(String::new())
+    }
+    pub fn assert_allowed_tags(&self) {
+        assert!(
+            self.tags.as_ref().map_or(true, |tags| tags.iter().all(|tag| tag == "DNA" || tag == "RNA")),
+            "Error: tags must only contain 'DNA' or 'RNA'"
+        );
+    }   
+}

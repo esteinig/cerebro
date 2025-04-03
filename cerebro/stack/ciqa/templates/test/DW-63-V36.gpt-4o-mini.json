@@ -1,0 +1,627 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Alphatorquevirus homin3'",
+  "candidate_description": "In the context of the patient's clinical presentation, which involves ocular infection or neurological symptoms, the presence of *s__Alphatorquevirus homin3* as a pathogen candidate is particularly noteworthy. This virus, known to potentially infect humans, has been linked to various neurological conditions and, in this case, may act as a causative agent despite its unusual detection in a vitreous fluid sample, where contaminants from the skin or handling could confound interpretations. However, the evidence from metagenomic profiling reveals it is above the threshold indicative of infectious disease. Given the clinical symptoms and ongoing considerations of contamination, *Alphatorquevirus homin3* represents a significant potential pathogen warranting further investigation, especially in the context of atypical infectious agents associated with neurological manifestations.",
+  "pathogen": "'s__Alphatorquevirus homin3'",
+  "pathogen_description": "In the context of the patient's clinical presentation, which includes symptoms indicative of ocular infection or neurological issues, the presence of *s__Alphatorquevirus homin3* as the selected pathogen candidate is especially significant. This virus has been associated with human neurological conditions, suggesting it may play a role in these symptoms despite its atypical detection in vitreous fluid, where potential contamination from skin microbiota is a concern. The metagenomic profiling provides robust evidence with levels above the threshold indicative of infectious potential. Given the clinical symptoms and the need to carefully navigate contamination sources, *Alphatorquevirus homin3* stands out as a pertinent candidate for further evaluation due to its association with neurological manifestations, which aligns with the patient's condition. This taxon was chosen over other candidates due to its viral nature, recognized capacity to infect humans, and the stronger evidence of its involvement in the symptomatic context compared to other potential contaminants.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                Vitreous fluid sample from a patient with ocular infection or neurological symptoms. Unusual bacterial species at high to medium abundance should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Alphatorquevirus homin3'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "In the context of the patient's clinical presentation, which involves ocular infection or neurological symptoms, the presence of *s__Alphatorquevirus homin3* as a pathogen candidate is particularly noteworthy. This virus, known to potentially infect humans, has been linked to various neurological conditions and, in this case, may act as a causative agent despite its unusual detection in a vitreous fluid sample, where contaminants from the skin or handling could confound interpretations. However, the evidence from metagenomic profiling reveals it is above the threshold indicative of infectious disease. Given the clinical symptoms and ongoing considerations of contamination, *Alphatorquevirus homin3* represents a significant potential pathogen warranting further investigation, especially in the context of atypical infectious agents associated with neurological manifestations."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Alphatorquevirus homin3'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In the context of the patient's clinical presentation, which includes symptoms indicative of ocular infection or neurological issues, the presence of *s__Alphatorquevirus homin3* as the selected pathogen candidate is especially significant. This virus has been associated with human neurological conditions, suggesting it may play a role in these symptoms despite its atypical detection in vitreous fluid, where potential contamination from skin microbiota is a concern. The metagenomic profiling provides robust evidence with levels above the threshold indicative of infectious potential. Given the clinical symptoms and the need to carefully navigate contamination sources, *Alphatorquevirus homin3* stands out as a pertinent candidate for further evaluation due to its association with neurological manifestations, which aligns with the patient's condition. This taxon was chosen over other candidates due to its viral nature, recognized capacity to infect humans, and the stronger evidence of its involvement in the symptomatic context compared to other potential contaminants."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [],
+    "target": [
+      {
+        "taxid": "1300581140",
+        "rank": "Species",
+        "name": "Alphatorquevirus homin15",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Alphatorquevirus;s__Alphatorquevirus homin15",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphatorquevirus homin15",
+              "name": "TTV15",
+              "segment": "NAN",
+              "taxid": "1300581140",
+              "reference": "AB028668.1",
+              "reference_length": 3787,
+              "scan_regions": 1,
+              "scan_reads": 2,
+              "scan_alignments": 4,
+              "scan_bases_covered": 73,
+              "scan_coverage": 1.927647214153684,
+              "remap_regions": 1,
+              "remap_reads": 2,
+              "remap_alignments": 4,
+              "remap_bases_covered": 73,
+              "remap_coverage": 1.927647214153684,
+              "remap_depth": 0.05334037496699234,
+              "remap_depth_coverage": 1.927647214153684,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphatorquevirus homin15|segment=NAN|name=TTV15|description=torque teno virus 15|taxid=1300581140"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.09010352850373314,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0001051363302794734
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 26,
+              "rpm": 0.5856729352742654,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.000683386146816577
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 8,
+              "rpm": 0.18020705700746628,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0002102726605589468
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 1,
+              "rpm": 0.022525882125933285,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00002628408256986835
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1497640665",
+        "rank": "Species",
+        "name": "Alphatorquevirus homin3",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Alphatorquevirus;s__Alphatorquevirus homin3",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphatorquevirus homin3",
+              "name": "TTV3",
+              "segment": "NAN",
+              "taxid": "1497640665",
+              "reference": "AY666122.2",
+              "reference_length": 3748,
+              "scan_regions": 1,
+              "scan_reads": 2,
+              "scan_alignments": 4,
+              "scan_bases_covered": 116,
+              "scan_coverage": 3.0949839914621133,
+              "remap_regions": 1,
+              "remap_reads": 2,
+              "remap_alignments": 4,
+              "remap_bases_covered": 116,
+              "remap_coverage": 3.0949839914621133,
+              "remap_depth": 0.07390608324439701,
+              "remap_depth_coverage": 3.0949839914621133,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphatorquevirus homin3|segment=NAN|name=TTV3|description=torque teno virus 3|taxid=1497640665"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.09010352850373314,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0001051363302794734
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 18,
+              "rpm": 0.40546587826679914,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00047311348625763024
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 30,
+              "rpm": 0.6757764637779986,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0007885224770960504
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.09010352850373314,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0001051363302794734
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1133029373",
+        "rank": "Species",
+        "name": "Alphatorquevirus homin6",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Alphatorquevirus;s__Alphatorquevirus homin6",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphatorquevirus homin6",
+              "name": "TTV6",
+              "segment": "NAN",
+              "taxid": "1133029373",
+              "reference": "AF435014.1",
+              "reference_length": 3705,
+              "scan_regions": 1,
+              "scan_reads": 6,
+              "scan_alignments": 11,
+              "scan_bases_covered": 215,
+              "scan_coverage": 5.802968960863698,
+              "remap_regions": 1,
+              "remap_reads": 5,
+              "remap_alignments": 9,
+              "remap_bases_covered": 215,
+              "remap_coverage": 5.802968960863698,
+              "remap_depth": 0.2793522267206478,
+              "remap_depth_coverage": 5.802968960863698,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphatorquevirus homin6|segment=NAN|name=TTV6|description=torque teno virus 6|taxid=1133029373"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 9,
+              "rpm": 0.20273293913339957,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00023655674312881512
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 16,
+              "rpm": 0.36041411401493256,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0004205453211178936
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "529996104",
+        "rank": "Species",
+        "name": "Alphatorquevirus homin20",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Alphatorquevirus;s__Alphatorquevirus homin20",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphatorquevirus homin20",
+              "name": "TTV20",
+              "segment": "NAN",
+              "taxid": "529996104",
+              "reference": "AB060594.1",
+              "reference_length": 3234,
+              "scan_regions": 1,
+              "scan_reads": 1,
+              "scan_alignments": 2,
+              "scan_bases_covered": 95,
+              "scan_coverage": 2.937538651824366,
+              "remap_regions": 1,
+              "remap_reads": 1,
+              "remap_alignments": 2,
+              "remap_bases_covered": 95,
+              "remap_coverage": 2.937538651824366,
+              "remap_depth": 0.05875077303648732,
+              "remap_depth_coverage": 2.937538651824366,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphatorquevirus homin20|segment=NAN|name=TTV20|description=torque teno virus 20|taxid=529996104"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 2,
+              "rpm": 0.04505176425186657,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0000525681651397367
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 16,
+              "rpm": 0.36041411401493256,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0004205453211178936
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "296919142",
+        "rank": "Species",
+        "name": "Alphatorquevirus homin10",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Alphatorquevirus;s__Alphatorquevirus homin10",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphatorquevirus homin10",
+              "name": "TTV10",
+              "segment": "NAN",
+              "taxid": "296919142",
+              "reference": "AB064607.1",
+              "reference_length": 3770,
+              "scan_regions": 1,
+              "scan_reads": 4,
+              "scan_alignments": 8,
+              "scan_bases_covered": 104,
+              "scan_coverage": 2.7586206896551726,
+              "remap_regions": 1,
+              "remap_reads": 4,
+              "remap_alignments": 8,
+              "remap_bases_covered": 104,
+              "remap_coverage": 2.7586206896551726,
+              "remap_depth": 0.1819628647214854,
+              "remap_depth_coverage": 2.7586206896551726,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphatorquevirus homin10|segment=NAN|name=TTV10|description=torque teno virus 10|taxid=296919142"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 0.18020705700746628,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0002102726605589468
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 0.13515529275559973,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0001577044954192101
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 3,
+              "rpm": 0.06757764637779987,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00007885224770960505
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "943171738",
+        "rank": "Species",
+        "name": "Alphatorquevirus homin31",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Alphatorquevirus;s__Alphatorquevirus homin31",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphatorquevirus homin31",
+              "name": null,
+              "segment": "NAN",
+              "taxid": "943171738",
+              "reference": "KJ082064.1",
+              "reference_length": 3649,
+              "scan_regions": 2,
+              "scan_reads": 6,
+              "scan_alignments": 12,
+              "scan_bases_covered": 244,
+              "scan_coverage": 6.686763496848451,
+              "remap_regions": 2,
+              "remap_reads": 6,
+              "remap_alignments": 12,
+              "remap_bases_covered": 244,
+              "remap_coverage": 6.686763496848451,
+              "remap_depth": 0.2740476842970677,
+              "remap_depth_coverage": 6.686763496848451,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphatorquevirus homin31|segment=NAN|name=|description=torque teno virus|taxid=943171738"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 12,
+              "rpm": 0.27031058551119946,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0003154089908384202
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 1,
+              "bases": 336,
+              "bpm": 0.052018531919681,
+              "abundance": 0.00008872565879217554
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 0.18020705700746628,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0002102726605589468
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 38,
+              "rpm": 0.8559835207854648,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0009987951376549972
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 17,
+              "rpm": 0.3829399961408659,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0004468294036877619
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "808726573",
+        "rank": "Species",
+        "name": "Hetorquevirus hominid8",
+        "lineage": "d__Viruses;p__;c__;o__;f__Anelloviridae;g__Hetorquevirus;s__Hetorquevirus hominid8",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Hetorquevirus hominid8",
+              "name": null,
+              "segment": "NAN",
+              "taxid": "808726573",
+              "reference": "MN769236.1",
+              "reference_length": 2987,
+              "scan_regions": 1,
+              "scan_reads": 3,
+              "scan_alignments": 5,
+              "scan_bases_covered": 144,
+              "scan_coverage": 4.820890525610981,
+              "remap_regions": 1,
+              "remap_reads": 3,
+              "remap_alignments": 5,
+              "remap_bases_covered": 144,
+              "remap_coverage": 4.820890525610981,
+              "remap_depth": 0.12554402410445262,
+              "remap_depth_coverage": 4.820890525610981,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Hetorquevirus hominid8|segment=NAN|name=|description=TTV-like mini virus SAfiA-349-9|taxid=808726573"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 5,
+              "rpm": 0.11262941062966644,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00013142041284934175
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 1,
+              "bases": 363,
+              "bpm": 0.05619859252036964,
+              "abundance": 0.00009585539923083253
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 2,
+              "rpm": 0.04505176425186657,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0000525681651397367
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 6,
+              "rpm": 0.13515529275559973,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0001577044954192101
+            },
+            {
+              "id": "DW-63-V36__DNA__S_S30",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 1,
+              "rpm": 0.022525882125933285,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00002628408256986835
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

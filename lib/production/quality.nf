@@ -15,7 +15,7 @@ include {
     QualityControlTables
 } from "../processes/quality"
 
-workflow QualityControl {
+2workflow QualityControl {
     take:
         reads
         databases

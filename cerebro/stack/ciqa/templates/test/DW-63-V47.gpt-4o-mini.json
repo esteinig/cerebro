@@ -1,0 +1,112 @@
+{
+  "diagnosis": "NonInfectious",
+  "candidate": null,
+  "candidate_description": null,
+  "pathogen": null,
+  "pathogen_description": null,
+  "reason_non_infectious": null,
+  "clinical_context": "\n                Vitreous fluid sample from a patient with ocular infection or neurological symptoms. Unusual bacterial species at high to medium abundance should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_non_infectious_flight_check",
+    "diagnose_non_infectious",
+    "diagnose_non_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "diagnose_non_infectious_flight_check",
+      "question": "Consider the below threshold and target evidence and consider whether a previous node associated with threshold checks in this decision tree was called 'infectious'. If a previous node made an infectious call re-consider the candidate taxa from that node as pathogen or contamination. Make a call whether the sample is 'infectious' when the candidate taxa are known human pathogens but are rare or unusual for this presentation; alternatively make a call for 'non-infectious' when no taxa qualify as pathogen candidates.\nInstructions: Answer 'yes' if unusual or rare taxa were called that support an 'infectious' diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "diagnose_non_infectious",
+      "question": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. \nInstructions: Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis.\n",
+      "answer": "yes"
+    },
+    {
+      "node_key": "diagnose_non_infectious",
+      "question": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. \nInstructions: Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "1295317147",
+        "rank": "Species",
+        "name": "Staphylococcus epidermidis",
+        "lineage": "d__Bacteria;p__Bacillota;c__Bacilli;o__Staphylococcales;f__Staphylococcaceae;g__Staphylococcus;s__Staphylococcus epidermidis",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V47__DNA__S_S39",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 248,
+              "rpm": 8.221973662233497,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005345608690235341
+            },
+            {
+              "id": "DW-63-V47__DNA__S_S39",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 592,
+              "rpm": 19.6266468066219,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01276048526056178
+            },
+            {
+              "id": "DW-63-V47__DNA__S_S39",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 151,
+              "rpm": 5.0061210604728155,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.003254785936393292
+            }
+          ]
+        }
+      }
+    ],
+    "target": []
+  }
+}

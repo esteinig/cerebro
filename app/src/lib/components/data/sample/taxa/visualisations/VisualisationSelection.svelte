@@ -1,16 +1,18 @@
 <script lang="ts">
-    export let selectedVisualisation: string;
+	import { DisplayVisualisation } from "$lib/utils/types";
+
+    export let selectedVisualisation: DisplayVisualisation;
     export let numberModels: number = 0;
+
 </script>
 
 
 <div class="flex gap-x-4">
-    {#each ['Table', 'History', 'Heatmap'] as viz}
+    {#each [ DisplayVisualisation.Threshold, DisplayVisualisation.Table, DisplayVisualisation.Run, DisplayVisualisation.History,] as viz}
         <button
             class="chip {selectedVisualisation === viz ? 'variant-filled' : 'variant-soft'}"
             on:click={() => { selectedVisualisation = viz }}
             on:keypress
-            disabled={numberModels <= 1 && viz === "Heatmap"}
         >
             <span>{viz}</span>
         </button>

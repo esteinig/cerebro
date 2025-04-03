@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ProjectCollection, RunConfig, SampleOverviewData, Team, TeamDatabase } from "$lib/utils/types";
-    import { PriorityTaxonType } from "$lib/utils/types";
+    import { FileTag, PriorityTaxonType } from "$lib/utils/types";
     import { SampleType } from "$lib/utils/types";
 	import { popup, Paginator, type PopupSettings, type PaginationSettings, getToastStore } from "@skeletonlabs/skeleton";
     import { baseTags, getDateTimeString } from "$lib/utils/helpers";
@@ -155,7 +155,7 @@
                         <td class="truncate"><span class="ml-1 text-base"><FileTagChip tags={baseTags(sample.tags, true)} join={false}></FileTagChip></span></td>
                         <td class="truncate">
                             <span class="ml-1 text-base">
-                                <FileTagChip tags={baseTags(sample.tags, true, ["ENV", "NTC", "PS", "S", "NS"])}></FileTagChip> 
+                                <FileTagChip tags={baseTags(sample.tags, true, [FileTag.ENV, FileTag.NTC, FileTag.POS, FileTag.PS, FileTag.NS, FileTag.S])}></FileTagChip> 
                             </span>
                         </td>
                         <td class="truncate text-center">

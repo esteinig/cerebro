@@ -1,0 +1,157 @@
+{
+  "diagnosis": "NonInfectious",
+  "candidate": null,
+  "candidate_description": null,
+  "pathogen": null,
+  "pathogen_description": null,
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_non_infectious_flight_check",
+    "diagnose_non_infectious",
+    "diagnose_non_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "diagnose_non_infectious_flight_check",
+      "question": "Consider the below threshold and target evidence and consider whether a previous node associated with threshold checks in this decision tree was called 'infectious'. If a previous node made an infectious call re-consider the candidate taxa from that node as pathogen or contamination. Make a call whether the sample is 'infectious' when the candidate taxa are known human pathogens but are rare or unusual for this presentation; alternatively make a call for 'non-infectious' when no taxa qualify as pathogen candidates.\nInstructions: Answer 'yes' if unusual or rare taxa were called that support an 'infectious' diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "diagnose_non_infectious",
+      "question": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. \nInstructions: Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis.\n",
+      "answer": "yes"
+    },
+    {
+      "node_key": "diagnose_non_infectious",
+      "question": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. \nInstructions: Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "285453852",
+        "rank": "Species",
+        "name": "Streptomyces actuosus_A",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Streptomycetales;f__Streptomycetaceae;g__Streptomyces;s__Streptomyces actuosus_A",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V16__DNA__NS_S2",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 46,
+              "rpm": 1.5204199003133387,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004885592176255172
+            },
+            {
+              "id": "DW-63-V16__DNA__NS_S2",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 72,
+              "rpm": 2.3797876700556606,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007647013841095052
+            },
+            {
+              "id": "DW-63-V16__DNA__NS_S2",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 33,
+              "rpm": 1.0907360154421777,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.003504881343835232
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1749128032",
+        "rank": "Species",
+        "name": "Moraxella_A cinereus",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Pseudomonadales;f__Moraxellaceae;g__Moraxella_A;s__Moraxella_A cinereus",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V16__DNA__NS_S2",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 62,
+              "rpm": 2.049261604770152,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0065849285853874055
+            },
+            {
+              "id": "DW-63-V16__DNA__NS_S2",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 122,
+              "rpm": 4.032417996483203,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.012957440119633285
+            },
+            {
+              "id": "DW-63-V16__DNA__NS_S2",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 67,
+              "rpm": 2.2145246374129064,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.00711597121324123
+            }
+          ]
+        }
+      }
+    ],
+    "target": []
+  }
+}

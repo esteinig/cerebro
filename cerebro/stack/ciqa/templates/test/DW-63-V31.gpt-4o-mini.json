@@ -1,0 +1,144 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Parechovirus ahumpari'",
+  "candidate_description": "In the context of the patient's neuroinflammatory or neurological symptoms, the presence of *s__Parechovirus ahumpari* in the cerebrospinal fluid (CSF) sample is significant, indicating a potential infectious etiology. Parechovirus, particularly *Parechovirus ahumpari*, is known to be associated with neurological manifestations, although it is typically less recognized compared to other viral pathogens. The metagenomic profiling has provided strong evidence supporting the diagnosis of infection, as indicated by the absence of tumor signals and the reliance on clinical symptoms aligned with viral pathogens. While *Parechovirus* infections can occur due to contaminated samples, the specific clinical context and the viral presence suggest a role in the patient's condition, emphasizing the need for further investigation and consideration of targeted antiviral therapy.",
+  "pathogen": "'s__Parechovirus ahumpari'",
+  "pathogen_description": "In the context of the patient's neuroinflammatory or neurological symptoms, the presence of *s__Parechovirus ahumpari* in the cerebrospinal fluid (CSF) sample is significant, indicating a potential infectious etiology. Parechoviruses, particularly *Parechovirus ahumpari*, are associated with neurological manifestations, though they are less commonly recognized than other viral agents in similar clinical presentations. The metagenomic profiling provided compelling evidence of infection, supported by the absence of tumor signals, which strengthens the likelihood that *Parechovirus ahumpari* is a causative agent linked to the patient's symptoms. While contamination from skin microbiota is a consideration, the specific clinical features and viral detection in this sterile sample suggest a genuine role in the patient's condition and warrant further investigation, possibly leading to targeted antiviral therapy. This taxon was chosen over potential bacterial candidates due to its recognized association with human infection and the reliability of metagenomic data indicating a possible viral etiology fitting the clinical context.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Parechovirus ahumpari'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "In the context of the patient's neuroinflammatory or neurological symptoms, the presence of *s__Parechovirus ahumpari* in the cerebrospinal fluid (CSF) sample is significant, indicating a potential infectious etiology. Parechovirus, particularly *Parechovirus ahumpari*, is known to be associated with neurological manifestations, although it is typically less recognized compared to other viral pathogens. The metagenomic profiling has provided strong evidence supporting the diagnosis of infection, as indicated by the absence of tumor signals and the reliance on clinical symptoms aligned with viral pathogens. While *Parechovirus* infections can occur due to contaminated samples, the specific clinical context and the viral presence suggest a role in the patient's condition, emphasizing the need for further investigation and consideration of targeted antiviral therapy."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Parechovirus ahumpari'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In the context of the patient's neuroinflammatory or neurological symptoms, the presence of *s__Parechovirus ahumpari* in the cerebrospinal fluid (CSF) sample is significant, indicating a potential infectious etiology. Parechoviruses, particularly *Parechovirus ahumpari*, are associated with neurological manifestations, though they are less commonly recognized than other viral agents in similar clinical presentations. The metagenomic profiling provided compelling evidence of infection, supported by the absence of tumor signals, which strengthens the likelihood that *Parechovirus ahumpari* is a causative agent linked to the patient's symptoms. While contamination from skin microbiota is a consideration, the specific clinical features and viral detection in this sterile sample suggest a genuine role in the patient's condition and warrant further investigation, possibly leading to targeted antiviral therapy. This taxon was chosen over potential bacterial candidates due to its recognized association with human infection and the reliability of metagenomic data indicating a possible viral etiology fitting the clinical context."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [
+      {
+        "taxid": "38440432",
+        "rank": "Species",
+        "name": "Parechovirus ahumpari",
+        "lineage": "d__Viruses;p__Pisuviricota;c__Pisoniviricetes;o__Picornavirales;f__Picornaviridae;g__Parechovirus;s__Parechovirus ahumpari",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Parechovirus ahumpari",
+              "name": "HPeV-3",
+              "segment": "NAN",
+              "taxid": "38440432",
+              "reference": "AB084913.1",
+              "reference_length": 7321,
+              "scan_regions": 4,
+              "scan_reads": 24,
+              "scan_alignments": 43,
+              "scan_bases_covered": 571,
+              "scan_coverage": 7.799480945226062,
+              "remap_regions": 3,
+              "remap_reads": 19,
+              "remap_alignments": 38,
+              "remap_bases_covered": 431,
+              "remap_coverage": 5.887173883349269,
+              "remap_depth": 0.7198470154350498,
+              "remap_depth_coverage": 5.887173883349269,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Parechovirus ahumpari|segment=NAN|name=HPeV-3|description=human parechovirus 3|taxid=38440432"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V31__RNA__S_S45",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 38,
+              "rpm": 22.799516650247018,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 2.89193302891933
+            },
+            {
+              "id": "DW-63-V31__RNA__S_S45",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 74,
+              "rpm": 44.39905873995471,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 5.6316590563165905
+            },
+            {
+              "id": "DW-63-V31__RNA__S_S45",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 72,
+              "rpm": 43.199084179415394,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 5.47945205479452
+            },
+            {
+              "id": "DW-63-V31__RNA__S_S45",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 21,
+              "rpm": 12.599732885662824,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 1.5981735159817352
+            }
+          ]
+        }
+      }
+    ],
+    "below": [],
+    "target": []
+  }
+}

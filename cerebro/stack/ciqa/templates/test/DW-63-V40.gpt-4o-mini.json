@@ -1,0 +1,246 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Simplexvirus humanalpha1'",
+  "candidate_description": "In the context of the patient's clinical presentation, which includes neuroinflammatory or neurological symptoms from a CSF sample, the detected pathogen candidate, 's__Simplexvirus humanalpha1', represents a significant consideration. This taxon is a member of the herpesvirus family, specifically associated with infections that can lead to neurological manifestations, such as herpes simplex encephalitis. The strength of the metagenomic profiling evidence indicates that the pathogen is present at a level that supports an infectious diagnosis, particularly when integrating findings from both below-threshold and targeted data analyses. Given the patient's symptoms and the fact that herpesviruses can cause severe central nervous system involvement, the presence of 's__Simplexvirus humanalpha1' in this CSF sample raises concern for a potential viral etiology that warrants further clinical investigation and management. While sample contamination from skin microbiota could be a consideration, the clinical picture combined with the metagenomic findings reinforces the need for a thorough evaluation of this pathogen's role in the patient's condition.",
+  "pathogen": "'s__Simplexvirus humanalpha1'",
+  "pathogen_description": "In the context of the patient's neuroinflammatory or neurological symptoms, the detected pathogen candidate, 's__Simplexvirus humanalpha1', is noteworthy due to its association with significant neurological conditions such as herpes simplex encephalitis. Metagenomic profiling provides strong evidence for its presence, supporting an infectious diagnosis based on both targeted and below-threshold data analyses. This virus, a member of the herpesvirus family, is known to have the capacity to cause severe central nervous system complications, thus aligning with the clinical symptoms observed in this patient. Although considerations of potential sample contamination from skin microbiota exist, the clinical context coupled with the metagenomic findings emphasizes the relevance of 's__Simplexvirus humanalpha1' as the most likely pathogen in this CSF sample, warranting further investigation and clinical management. This choice is bolstered by the recognition of its pathogenicity in humans and the potential severity of infections it can cause, distinguishing it from other lower-level contaminants detected in the analysis.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Simplexvirus humanalpha1'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "In the context of the patient's clinical presentation, which includes neuroinflammatory or neurological symptoms from a CSF sample, the detected pathogen candidate, 's__Simplexvirus humanalpha1', represents a significant consideration. This taxon is a member of the herpesvirus family, specifically associated with infections that can lead to neurological manifestations, such as herpes simplex encephalitis. The strength of the metagenomic profiling evidence indicates that the pathogen is present at a level that supports an infectious diagnosis, particularly when integrating findings from both below-threshold and targeted data analyses. Given the patient's symptoms and the fact that herpesviruses can cause severe central nervous system involvement, the presence of 's__Simplexvirus humanalpha1' in this CSF sample raises concern for a potential viral etiology that warrants further clinical investigation and management. While sample contamination from skin microbiota could be a consideration, the clinical picture combined with the metagenomic findings reinforces the need for a thorough evaluation of this pathogen's role in the patient's condition."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Simplexvirus humanalpha1'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In the context of the patient's neuroinflammatory or neurological symptoms, the detected pathogen candidate, 's__Simplexvirus humanalpha1', is noteworthy due to its association with significant neurological conditions such as herpes simplex encephalitis. Metagenomic profiling provides strong evidence for its presence, supporting an infectious diagnosis based on both targeted and below-threshold data analyses. This virus, a member of the herpesvirus family, is known to have the capacity to cause severe central nervous system complications, thus aligning with the clinical symptoms observed in this patient. Although considerations of potential sample contamination from skin microbiota exist, the clinical context coupled with the metagenomic findings emphasizes the relevance of 's__Simplexvirus humanalpha1' as the most likely pathogen in this CSF sample, warranting further investigation and clinical management. This choice is bolstered by the recognition of its pathogenicity in humans and the potential severity of infections it can cause, distinguishing it from other lower-level contaminants detected in the analysis."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "74884438",
+        "rank": "Species",
+        "name": "Simplexvirus humanalpha1",
+        "lineage": "d__Viruses;p__Peploviricota;c__Herviviricetes;o__Herpesvirales;f__Orthoherpesviridae;g__Simplexvirus;s__Simplexvirus humanalpha1",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Simplexvirus humanalpha1",
+              "name": "HuAHV1; HSV1",
+              "segment": "NAN",
+              "taxid": "74884438",
+              "reference": "JN555585.1",
+              "reference_length": 152222,
+              "scan_regions": 18,
+              "scan_reads": 19,
+              "scan_alignments": 38,
+              "scan_bases_covered": 1492,
+              "scan_coverage": 0.9801474162736004,
+              "remap_regions": 18,
+              "remap_reads": 19,
+              "remap_alignments": 38,
+              "remap_bases_covered": 1492,
+              "remap_coverage": 0.9801474162736004,
+              "remap_depth": 0.020378131938878743,
+              "remap_depth_coverage": 0.9801474162736004,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Simplexvirus humanalpha1|segment=NAN|name=HuAHV1; HSV1|description=human alphaherpesvirus 1; herpes simplex virus 1|taxid=74884438"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 38,
+              "rpm": 1.7649941829507507,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0024971972246938634
+            },
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 34,
+              "rpm": 1.579205321587514,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0022343343589366145
+            },
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 36,
+              "rpm": 1.6720997522691323,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.002365765791815239
+            },
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 19,
+              "rpm": 0.8824970914753754,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012485986123469317
+            }
+          ]
+        }
+      }
+    ],
+    "target": [
+      {
+        "taxid": "74884438",
+        "rank": "Species",
+        "name": "Simplexvirus humanalpha1",
+        "lineage": "d__Viruses;p__Peploviricota;c__Herviviricetes;o__Herpesvirales;f__Orthoherpesviridae;g__Simplexvirus;s__Simplexvirus humanalpha1",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Simplexvirus humanalpha1",
+              "name": "HuAHV1; HSV1",
+              "segment": "NAN",
+              "taxid": "74884438",
+              "reference": "JN555585.1",
+              "reference_length": 152222,
+              "scan_regions": 18,
+              "scan_reads": 19,
+              "scan_alignments": 38,
+              "scan_bases_covered": 1492,
+              "scan_coverage": 0.9801474162736004,
+              "remap_regions": 18,
+              "remap_reads": 19,
+              "remap_alignments": 38,
+              "remap_bases_covered": 1492,
+              "remap_coverage": 0.9801474162736004,
+              "remap_depth": 0.020378131938878743,
+              "remap_depth_coverage": 0.9801474162736004,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Simplexvirus humanalpha1|segment=NAN|name=HuAHV1; HSV1|description=human alphaherpesvirus 1; herpes simplex virus 1|taxid=74884438"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 38,
+              "rpm": 1.7649941829507507,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0024971972246938634
+            },
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 34,
+              "rpm": 1.579205321587514,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0022343343589366145
+            },
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 36,
+              "rpm": 1.6720997522691323,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.002365765791815239
+            },
+            {
+              "id": "DW-63-V40__DNA__S_S33",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 19,
+              "rpm": 0.8824970914753754,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012485986123469317
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

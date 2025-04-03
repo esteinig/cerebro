@@ -1,12 +1,13 @@
 use anyhow::Result;
-use fancy_regex::Regex;
 use vircov::vircov::VircovRecord;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::{path::PathBuf, collections::HashMap};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
+use std::collections::hash_map::DefaultHasher;
 
 use crate::modules::assembly::ContigRecord;
-use crate::modules::pathogen::ProfileRecord;
+use crate::modules::pathogen::{AbundanceMode, ProfileRecord, ProfileTool};
 use crate::error::WorkflowError;
 
 
@@ -148,6 +149,21 @@ pub trait LineageOperations: AsRef<str> {
 }
 
 
+/// For a given taxon rank, return the corresponding index in the GTDB-style lineage string
+/// and the prefix (e.g., "d__" for Superkingdom, "s__" for Species, etc.).
+fn rank_index_and_prefix(rank: &TaxRank) -> Option<(usize, &'static str)> {
+    match rank {
+        TaxRank::Superkingdom => Some((0, "d__")),
+        TaxRank::Phylum       => Some((1, "p__")),
+        TaxRank::Class        => Some((2, "c__")),
+        TaxRank::Order        => Some((3, "o__")),
+        TaxRank::Family       => Some((4, "f__")),
+        TaxRank::Genus        => Some((5, "g__")),
+        TaxRank::Species      => Some((6, "s__")),
+        _ => None,
+    }
+}
+
 pub fn lineage_to_gtdb_str(lineage: Vec<String>) -> Result<String, WorkflowError> {
     if lineage.len() >= 7 {
         let base_lineage = format!(
@@ -213,144 +229,124 @@ pub fn aggregate(parent_taxa: &mut HashMap<String, Taxon>, taxa: &Vec<Taxon>) ->
     parent_taxa.to_owned()
 }
 
-pub struct TaxonThresholdConfig {
-    min_rpm: f64,
-    min_rpm_kmer: f64,
-    min_rpm_alignment: f64,
-    min_rpm_remap: f64,
-    min_contigs: u64,
-    min_bases: u64
-}
-impl TaxonThresholdConfig {
-    // pub fn from_args(args: &PipelineTaxaArgs) -> Self {
-    //     Self {
-    //         min_rpm: args.min_rpm,
-    //         min_rpm_kmer: args.min_rpm_kmer,
-    //         min_rpm_alignment: args.min_rpm_alignment,
-    //         min_rpm_remap: args.min_rpm_remap,
-    //         min_contigs: args.min_contigs,
-    //         min_bases: args.min_bases
-    //     }
-    // }
-}
-impl Default for TaxonThresholdConfig {
-    fn default() -> Self {
-        Self {
-            min_rpm: 0.0,
-            min_rpm_kmer: 0.0,
-            min_rpm_alignment: 0.0,
-            min_rpm_remap: 0.0,
-            min_contigs: 0,
-            min_bases: 0
+/// Helper: Remove trailing underscore and block of uppercase letters if present.
+fn get_base_name(name: &str) -> &str {
+    if let Some(pos) = name.rfind('_') {
+        let suffix = &name[pos + 1..];
+        if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_uppercase()) {
+            return &name[..pos];
         }
     }
-}
-
-pub fn taxa_summary(samples: Vec<PathBuf>, output: &PathBuf, sep: char, header: bool, extract: bool, filter_config: Option<PathBuf>, threshold_config: &TaxonThresholdConfig) -> Result<(), WorkflowError> {
-
-    // let mut wtr = csv::WriterBuilder::new()
-    //     .delimiter(sep as u8)
-    //     .has_headers(header)
-    //     .from_path(output)
-    //     .map_err(|err| WorkflowError::CreateTaxaOutputFile(err))?;
-
-    // let filter_config = match filter_config {
-    //     Some(file) => TaxonFilterConfig::from_path(&file)?,
-    //     None => TaxonFilterConfig::default()
-    // };
-
-    // for file in samples {
-    //     let sample = WorkflowSample::read_json(&file).expect(&format!("Failed to parse sample file: {}", file.display()));
-    //     let taxa: Vec<_> = apply_filters(sample.taxa.clone().into_values().collect(), &filter_config);
-    //     let taxa_overview: Vec<_> = taxa.iter().map(|taxon| { TaxonOverview::from(taxon) }).collect();
-    //     let taxa_overview_summary: Vec<_> = taxa_overview.iter().map(|taxon_overview|{
-    //         TaxonSampleOverview::from_taxon_overview(&sample, &taxon_overview, extract).expect("Failed to construct taxon sample overview!") // Fix to error bubbles!
-    //     }).filter(|taxon_sample_overview| taxon_sample_overview.pass(&threshold_config)).collect();
-
-    //     if taxa_overview_summary.is_empty() {
-    //         log::warn!("No taxa for sample {} - sample is excluded from results table!", sample.id);
-    //     }
-
-    //     for record in taxa_overview_summary {
-    //         wtr.serialize(record).map_err(|err| WorkflowError::SerializeTaxaTableRow(err))?;
-    //     }
-    // }
-
-    Ok(())
+    name
 }
 
 
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// // A struct representing a high level overview
-// // of the aggregated taxon evidence
-// pub struct TaxonOverview {
-//     pub taxid: String,
-//     pub name: String,                    // used to later map back the tags
-//     pub domain: Option<String>,
-//     pub genus: Option<String>,
-//     pub evidence: Vec<ProfileRecord>,
-//     pub kmer: bool,
-//     pub alignment: bool,
-//     pub assembly: bool,
-//     pub sample_names: Vec<String>        // the evidence record associated sample names as processed in the pipeline (matching `Cerebro.name`)
-// }
-// impl TaxonOverview {
-//     pub fn from(taxon: &Taxon) -> Self {
+/// Collapses variants of taxa with the same base name (e.g. "Haemophilus influenzae_AC" and
+/// "Haemophilus influenzae_B" become "Haemophilus influenzae"). In the collapsed Taxon,
+/// alignment and assembly records are concatenated and the lineage is updated so that the
+/// component for its rank is replaced with the base name. For profile evidence, for each unique
+/// (id, tool, mode) combination, the numeric fields are summed.
+pub fn collapse_taxa(taxa: Vec<Taxon>) -> Result<Vec<Taxon>, WorkflowError> {
 
-//         let (kmer, alignment, assembly) = (false, false, false);
+    // Group taxa by their base name.
+    let mut groups: HashMap<String, Vec<Taxon>> = HashMap::new();
+    for taxon in taxa {
+        let base = get_base_name(&taxon.name).to_string();
+        groups.entry(base).or_default().push(taxon);
+    }
 
-//         let mut results = Vec::new();
-//         for record in &taxon.evidence.profile {
-//             results.push(record.to_owned())
-//         }
+    let mut collapsed = Vec::new();
 
-//         // Unique record identifiers (sample names)
-//         let mut names = Vec::new();
+    // Process each group.
+    for (base_name, group) in groups {
         
-//         for record in &taxon.evidence.profile {
-//             names.push(record.id.to_owned())
-//         };
+        // If only a single taxon in group, leave it untouched and continue with groups
+        if group.len() == 1 {
+            collapsed.push(group[0].clone());
+            continue;
+        }
 
-//         let names = names.into_iter().unique().collect();
+        // Choose representative: search the group for any Taxon whose name matches the base name.
+        // If not found, use the first taxon in the group.
+        let representative = group
+            .iter()
+            .find(|taxon| taxon.name == base_name)
+            .unwrap_or(&group[0]);
 
-//         Self {
-//             taxid: taxon.taxid.to_owned(),
-//             name: taxon.name.to_owned(),
-//             genus: taxon.level.genus.to_owned(),
-//             domain: taxon.level.domain.to_owned(),
-//             evidence: results,
-//             kmer,
-//             alignment,
-//             assembly,
-//             sample_names: names
-//         }
-//     }
-// }
+        let rank = &representative.rank;
 
-// Utility function to extract the biological sample identifier and library tags [strict]
-fn get_sample_regex_matches(file_name: &String)-> Result<(String, Vec<String>), WorkflowError> {
-    
-    let mut sample_id = String::new();
-    let sample_id_regex = Regex::new("^([^_]+)(?=__)").map_err(WorkflowError::SampleIdRegex)?;
-    for caps in sample_id_regex.captures_iter(&file_name) {
-        let sample_name = caps.map_err(WorkflowError::SampleIdRegexCapture)?.get(0);
+        // Update the lineage: replace the part corresponding to the taxon's rank with the base name.
+        let mut new_lineage = representative.lineage.clone();
+        if let Some((idx, prefix)) = rank_index_and_prefix(rank) {
+            let mut parts: Vec<String> = new_lineage.split(';').map(|s| s.to_string()).collect();
+            if parts.len() > idx {
+                parts[idx] = format!("{}{}", prefix, base_name);
+                new_lineage = parts.join(";");
+            } else {
+                return Err(WorkflowError::LineageStringTooShort(new_lineage));
+            }
+        }
 
-        sample_id = match sample_name {
-            Some(name) => name.as_str().to_string(),
-            None => return Err(WorkflowError::SampleIdRegexCaptureMatch)
+        // Initialize accumulators for evidence.
+        let mut alignment = Vec::new();
+        let mut assembly = Vec::new();
+        let mut profile_map: HashMap<(String, ProfileTool, AbundanceMode), ProfileRecord> = HashMap::new();
+
+        // Accumulate evidence from all taxa in the group.
+        for taxon in &group {
+            // Concatenate alignment and assembly records.
+            alignment.extend(taxon.evidence.alignment.iter().cloned());
+            assembly.extend(taxon.evidence.assembly.iter().cloned());
+
+            // For profile evidence, sum the numeric fields for each (id, tool, mode) key.
+            for record in &taxon.evidence.profile {
+                let key = (record.id.clone(), record.tool.clone(), record.mode.clone());
+                let entry = profile_map.entry(key).or_insert(ProfileRecord {
+                    id: record.id.clone(),
+                    tool: record.tool.clone(),
+                    mode: record.mode.clone(),
+                    reads: 0,
+                    rpm: 0.0,
+                    contigs: 0,
+                    bases: 0,
+                    bpm: 0.0,
+                    abundance: 0.0,
+                });
+                entry.reads += record.reads;
+                entry.rpm += record.rpm;
+                entry.contigs += record.contigs;
+                entry.bases += record.bases;
+                entry.bpm += record.bpm;
+                entry.abundance += record.abundance;
+            }
+        }
+
+        let profile = profile_map.into_values().collect();
+
+        // Create a new taxid for this collapsed taxon in the format: collapsed-{hash of rank and taxon basename} 
+        // this is so the taxids can be found in subsequent requests that use taxids e.g. for prevalence  
+        // contamination or taxon history - which also need to call this function on the taxa!
+
+        let mut hasher = DefaultHasher::new();
+        format!("collapsed-{}-{}", representative.rank, base_name).hash(&mut hasher);
+        
+        let new_taxid = hasher.finish();
+
+        // Build the new, collapsed Taxon.
+        let new_taxon = Taxon {
+            taxid: new_taxid.to_string(), 
+            rank: representative.rank.clone(),
+            name: base_name,
+            lineage: new_lineage,
+            evidence: TaxonEvidence {
+                alignment,
+                assembly,
+                profile,
+            },
         };
-        break; // always use the first capture
+
+        collapsed.push(new_taxon);
     }
 
-    let mut library_tags: Vec<String> = Vec::new();
-    let sample_id_regex = Regex::new("(?<=__)([A-Za-z0-9]+)").map_err(WorkflowError::SampleTagRegex)?;
-    for caps in sample_id_regex.captures_iter(&file_name) {
-        let tags = caps.map_err(WorkflowError::SampleTagRegexCapture)?.get(0);
-        let tag = match tags {
-            Some(name) => name.as_str().to_string(),
-            None => return Err(WorkflowError::SampleTagRegexCaptureMatch)
-        };
-        library_tags.push(tag)
-    }
-    Ok((sample_id, library_tags))
+    Ok(collapsed)
 }

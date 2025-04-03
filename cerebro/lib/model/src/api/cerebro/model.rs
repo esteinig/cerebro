@@ -238,20 +238,44 @@ impl Cerebro {
 
 
 
+/// Helper: Remove trailing underscore and block of uppercase letters if present.
+fn get_base_name(name: &str) -> &str {
+    if let Some(pos) = name.rfind('_') {
+        let suffix = &name[pos + 1..];
+        if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_uppercase()) {
+            return &name[..pos];
+        }
+    }
+    name
+}
+
 /// Returns a sorted vector of all unique taxonomic labels found in the input taxa.
+/// For each label, also the "stripped" version (i.e. with variants removed) is added
+/// this is for the 'collapse_variants' option in the filter and prevalence contamination
+/// so that returned (collapsed) taxa can be searched in the hisotry data request.
 pub fn unique_taxonomic_labels(taxa: &Vec<Taxon>) -> Vec<String> {
     let mut unique_labels = HashSet::new();
     
     for taxon in taxa {
-        // Use the trait method `get_labels` which splits the lineage into its components.
         // Each label is in GTDB format like "p__Bacteria" or "s__Staphylococcus aureus"
         for label in taxon.lineage.get_labels() {
             unique_labels.insert(label.to_string());
+            
+            // If the label has a prefix separated by "__", split it.
+            if let Some((prefix, name)) = label.split_once("__") {
+                let base_name = get_base_name(name);
+                let stripped_label = format!("{}__{}", prefix, base_name);
+                unique_labels.insert(stripped_label);
+            } else {
+                // If no prefix, just add the stripped version of the whole label.
+                unique_labels.insert(get_base_name(label).to_string());
+            }
         }
     }
     
-    // Convert the HashSet into a Vec
-    unique_labels.into_iter().collect()
+    let mut unique_vec: Vec<String> = unique_labels.into_iter().collect();
+    unique_vec.sort();
+    unique_vec
 }
 
 /*
@@ -326,9 +350,9 @@ pub struct SampleConfig {
     pub id: SampleId,                       // identifier of the sample i.e. file base name stripped of tags
     pub tags: Vec<Tag>,
     pub description: Option<String>,
-    pub sample_group: String,
-    pub sample_type: String,
-    pub sample_date: String,
+    pub sample_group: Option<String>,
+    pub sample_type: Option<String>,
+    pub sample_date: Option<String>,
     pub comments: Vec<SampleComment>,
     pub priority: Vec<PriorityTaxon>,        // priority taxa set from the user interface
     pub reports: Vec<ReportEntry>,           // reports generated for this sample - links to a report log in the team database
@@ -354,20 +378,11 @@ impl SampleConfig {
     pub fn from(id: &str, sample_sheet: &SampleSheet) -> Result<Self, ModelError> {
         let (id, tags) = get_sample_regex_matches(id)?;
 
-        let sample_group = match sample_sheet.get_sample_group(&id) {
-            Some(sample_group) => sample_group,
-            None => return Err(ModelError::SampleGroup(id.to_owned()))
-        };
+        let sample_group = sample_sheet.get_sample_group(&id);
 
-        let sample_type = match sample_sheet.get_sample_type(&id) {
-            Some(sample_type) => sample_type,
-            None => return Err(ModelError::SampleGroup(id.to_owned()))
-        };
+        let sample_type = sample_sheet.get_sample_type(&id);
 
-        let sample_date = match sample_sheet.get_sample_type(&id) {
-            Some(sample_type) => sample_type,
-            None => return Err(ModelError::SampleGroup(id.to_owned()))
-        };
+        let sample_date = sample_sheet.get_sample_type(&id);
 
         let ercc_input_mass = sample_sheet.get_ercc_input(&id);
 
@@ -380,9 +395,9 @@ impl Default for SampleConfig {
             id: String::new(),
             tags: Vec::new(),
             description: None,
-            sample_group: String::new(),
-            sample_type: String::new(),
-            sample_date: String::new(),
+            sample_group: None,
+            sample_type: None,
+            sample_date: None,
             comments: Vec::new(),
             priority: Vec::new(),
             reports: Vec::new(),

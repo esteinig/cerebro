@@ -188,6 +188,30 @@ workflow panviral {
 }
 
 
+workflow culture {
+
+    /* Bacterial culture identification (hybrid-) assembly and taxonomic profiling */
+
+    def cultureDB = getCultureIdentificationDatabases();
+
+    if (params.nanopore) {
+
+        CultureIdentificationNanopore(
+            getReads(
+                params.fastqPaired, 
+                params.fastqNanopore, 
+                params.sampleSheet, 
+                params.sampleSheetProduction
+            ),
+            cultureDB.qualityControl,
+        )   
+    }
+
+}
+
+
+
+
 workflow quality {
 
     /* Read quality control and background coverage + depletion  (host, controls, other) */
@@ -243,23 +267,4 @@ workflow quality {
 
 // }
 
-
-
-// workflow culture {
-
-//     /* Bacterial culture identification (hybrid-) assembly and taxonomic profiling */
-
-//     def pathogenDB = getPathogenDetectionDatabases();
-
-//     CultureIdentification(
-//         getReads(
-//             params.fastqPaired, 
-//             params.fastqNanopore, 
-//             params.sampleSheet, 
-//             params.sampleSheetProduction
-//         ),
-//         pathogenDB.qualityControl,
-//     )   
-
-// }
 

@@ -1,0 +1,200 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Betapolyomavirus secuhominis'",
+  "candidate_description": "In the context of the CSF sample from a patient exhibiting neuroinflammatory or neurological symptoms, the detected pathogen candidate, s__Betapolyomavirus secuhominis, is noteworthy due to its potential role in causing viral encephalitis, particularly in immunocompromised individuals or those with underlying neurological conditions. Betapolyomavirus secuhominis, part of the Polyomaviridae family, is generally considered an opportunistic pathogen, with rare cases documented in the literature associating it with central nervous system infections. The metagenomic profiling has provided supportive evidence for its presence, underscoring its relevance in this clinical scenario while also considering the need to rule out potential contamination from skin microbiome sources during sample handling. Given the absence of tumor signals in the analysis and the clinical significance of identifying an infectious agent, this finding warrants further investigation to determine the causative association between the detected pathogen and the patient's neurological symptoms.",
+  "pathogen": "'s__Betapolyomavirus secuhominis'",
+  "pathogen_description": "In the context of the CSF sample from a patient exhibiting neuroinflammatory or neurological symptoms, the pathogen candidate selected, s__Betapolyomavirus secuhominis, is significant due to its potential association with viral encephalitis, particularly in immunocompromised hosts or those with underlying neurological conditions. This taxon belongs to the Polyomaviridae family, which is generally considered opportunistic, with a limited number of documented cases linking it to central nervous system infections. The metagenomic profiling provided supportive evidence for its detection, reinforcing its relevance to the patient's clinical presentation while also necessitating a cautious interpretation of potential contamination from the skin microbiome during sample collection. Furthermore, with the absence of tumor-related signals in the sample, the presence of this pathogen is particularly compelling, justifying its selection as the most likely infectious agent contributing to the patient's neurological symptoms over other candidates.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Betapolyomavirus secuhominis'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "In the context of the CSF sample from a patient exhibiting neuroinflammatory or neurological symptoms, the detected pathogen candidate, s__Betapolyomavirus secuhominis, is noteworthy due to its potential role in causing viral encephalitis, particularly in immunocompromised individuals or those with underlying neurological conditions. Betapolyomavirus secuhominis, part of the Polyomaviridae family, is generally considered an opportunistic pathogen, with rare cases documented in the literature associating it with central nervous system infections. The metagenomic profiling has provided supportive evidence for its presence, underscoring its relevance in this clinical scenario while also considering the need to rule out potential contamination from skin microbiome sources during sample handling. Given the absence of tumor signals in the analysis and the clinical significance of identifying an infectious agent, this finding warrants further investigation to determine the causative association between the detected pathogen and the patient's neurological symptoms."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Betapolyomavirus secuhominis'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In the context of the CSF sample from a patient exhibiting neuroinflammatory or neurological symptoms, the pathogen candidate selected, s__Betapolyomavirus secuhominis, is significant due to its potential association with viral encephalitis, particularly in immunocompromised hosts or those with underlying neurological conditions. This taxon belongs to the Polyomaviridae family, which is generally considered opportunistic, with a limited number of documented cases linking it to central nervous system infections. The metagenomic profiling provided supportive evidence for its detection, reinforcing its relevance to the patient's clinical presentation while also necessitating a cautious interpretation of potential contamination from the skin microbiome during sample collection. Furthermore, with the absence of tumor-related signals in the sample, the presence of this pathogen is particularly compelling, justifying its selection as the most likely infectious agent contributing to the patient's neurological symptoms over other candidates."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [
+      {
+        "taxid": "1917897452",
+        "rank": "Species",
+        "name": "Betapolyomavirus secuhominis",
+        "lineage": "d__Viruses;p__Cossaviricota;c__Papovaviricetes;o__Sepolyvirales;f__Polyomaviridae;g__Betapolyomavirus;s__Betapolyomavirus secuhominis",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Betapolyomavirus secuhominis",
+              "name": "JC virus; JCV; JCPyV",
+              "segment": "NAN",
+              "taxid": "1917897452",
+              "reference": "J02226.1",
+              "reference_length": 5130,
+              "scan_regions": 15,
+              "scan_reads": 159,
+              "scan_alignments": 308,
+              "scan_bases_covered": 3926,
+              "scan_coverage": 76.53021442495127,
+              "remap_regions": 15,
+              "remap_reads": 159,
+              "remap_alignments": 308,
+              "remap_bases_covered": 3926,
+              "remap_coverage": 76.53021442495127,
+              "remap_depth": 6.312085769980507,
+              "remap_depth_coverage": 76.47173489278752,
+              "consensus_length": 5127,
+              "consensus_missing": 1938,
+              "consensus_completeness": 62.20011702750146,
+              "consensus_alignments_mapq": 284,
+              "consensus_coverage_mapq": 64.17007996879266,
+              "reference_description": "bin=Betapolyomavirus secuhominis|segment=NAN|name=JC virus; JCV; JCPyV|description=JC polyomavirus|taxid=1917897452"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 308,
+              "rpm": 68.44049010501615,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.2845791370230066
+            },
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Blast",
+              "mode": "Bases",
+              "reads": 0,
+              "rpm": 0.0,
+              "contigs": 7,
+              "bases": 2475,
+              "bpm": 3.7798503371695222,
+              "abundance": 0.02386415309157934
+            },
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 398,
+              "rpm": 88.43933461622218,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.3677353783608981
+            },
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 380,
+              "rpm": 84.43956571398097,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.3511041300933198
+            },
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 173,
+              "rpm": 38.44222333820713,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.15984477501616928
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "194837348",
+        "rank": "Species",
+        "name": "Limnobacter sp002954425",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Burkholderiales;f__Burkholderiaceae;g__Limnobacter;s__Limnobacter sp002954425",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 204,
+              "rpm": 45.330714225400314,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.18848748036588747
+            },
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 290,
+              "rpm": 64.44072120277495,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.26794788875542824
+            },
+            {
+              "id": "DW-63-V18__DNA__S_S16",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 132,
+              "rpm": 29.331638616435495,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.12196248729557424
+            }
+          ]
+        }
+      }
+    ],
+    "below": [],
+    "target": []
+  }
+}

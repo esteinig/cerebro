@@ -1,0 +1,388 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Alphapolyomavirus quintihominis'",
+  "candidate_description": "The detected taxon, *s__Alphapolyomavirus quintihominis*, is a candidate pathogen in the context of the patient's neurological symptoms, potentially indicating a viral infection contributing to neuroinflammation. While traditionally not associated with common neurological infections, this polyomavirus has been implicated in rare cases of central nervous system pathology, such as progressive multifocal leukoencephalopathy (PML) in immunocompromised individuals. Metagenomic profiling provides supportive evidence for this pathogen as a potential infectious agent, particularly in an unusual case like this, where contamination from skin microbiome or other environmental sources must be considered. The prominent presence of this taxon amidst the clinical picture may warrant further investigation given its rare association with neurological conditions, despite the absence of broad clinical consensus regarding its pathogenicity in the general patient population.",
+  "pathogen": "'s__Alphapolyomavirus quintihominis'",
+  "pathogen_description": "The detected taxon, *s__Alphapolyomavirus quintihominis*, is a candidate pathogen in the context of the patient's neurological symptoms, potentially indicating a viral infection contributing to neuroinflammation. While traditionally not associated with common neurological infections, this polyomavirus has been implicated in rare cases of central nervous system pathology, such as progressive multifocal leukoencephalopathy (PML) in immunocompromised individuals. Metagenomic profiling provides supportive evidence for this pathogen as a potential infectious agent, particularly in an unusual case like this, where contamination from skin microbiome or other environmental sources must be considered. The prominent presence of this taxon amidst the clinical picture may warrant further investigation given its rare association with neurological conditions, despite the absence of broad clinical consensus regarding its pathogenicity in the general patient population. It was selected over other candidates due to its direct relevance to overlying neurological symptoms, despite its unusual nature as a potential pathogen in this scenario.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Alphapolyomavirus quintihominis'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "The detected taxon, *s__Alphapolyomavirus quintihominis*, is a candidate pathogen in the context of the patient's neurological symptoms, potentially indicating a viral infection contributing to neuroinflammation. While traditionally not associated with common neurological infections, this polyomavirus has been implicated in rare cases of central nervous system pathology, such as progressive multifocal leukoencephalopathy (PML) in immunocompromised individuals. Metagenomic profiling provides supportive evidence for this pathogen as a potential infectious agent, particularly in an unusual case like this, where contamination from skin microbiome or other environmental sources must be considered. The prominent presence of this taxon amidst the clinical picture may warrant further investigation given its rare association with neurological conditions, despite the absence of broad clinical consensus regarding its pathogenicity in the general patient population."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Alphapolyomavirus quintihominis'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "The detected taxon, *s__Alphapolyomavirus quintihominis*, is a candidate pathogen in the context of the patient's neurological symptoms, potentially indicating a viral infection contributing to neuroinflammation. While traditionally not associated with common neurological infections, this polyomavirus has been implicated in rare cases of central nervous system pathology, such as progressive multifocal leukoencephalopathy (PML) in immunocompromised individuals. Metagenomic profiling provides supportive evidence for this pathogen as a potential infectious agent, particularly in an unusual case like this, where contamination from skin microbiome or other environmental sources must be considered. The prominent presence of this taxon amidst the clinical picture may warrant further investigation given its rare association with neurological conditions, despite the absence of broad clinical consensus regarding its pathogenicity in the general patient population. It was selected over other candidates due to its direct relevance to overlying neurological symptoms, despite its unusual nature as a potential pathogen in this scenario."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "1009724045",
+        "rank": "Species",
+        "name": "Cloacibacterium normanense",
+        "lineage": "d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Flavobacteriales;f__Weeksellaceae;g__Cloacibacterium;s__Cloacibacterium normanense",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 24,
+              "rpm": 3.3517811644422943,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01332800213248034
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 46,
+              "rpm": 6.4242472318477315,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.02554533742058732
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 11,
+              "rpm": 1.5362330337027184,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.006108667644053489
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "435871618",
+        "rank": "Species",
+        "name": "Staphylococcus capitis",
+        "lineage": "d__Bacteria;p__Bacillota;c__Bacilli;o__Staphylococcales;f__Staphylococcaceae;g__Staphylococcus;s__Staphylococcus capitis",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 12,
+              "rpm": 1.6758905822211472,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.006664001066240171
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 22,
+              "rpm": 3.0724660674054367,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01221733528810698
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 0.8379452911105736,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0033320005331200853
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "847667985",
+        "rank": "Species",
+        "name": "Corynebacterium sp027886475",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Mycobacteriales;f__Mycobacteriaceae;g__Corynebacterium;s__Corynebacterium sp027886475",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1172603881474314,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004442667377493447
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 10,
+              "rpm": 1.396575485184289,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005553334221866809
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 5,
+              "rpm": 0.6982877425921447,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0027766671109334044
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "25876286",
+        "rank": "Species",
+        "name": "Streptococcus suis_AA",
+        "lineage": "d__Bacteria;p__Bacillota;c__Bacilli;o__Lactobacillales;f__Streptococcaceae;g__Streptococcus;s__Streptococcus suis_AA",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 0.8379452911105736,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0033320005331200853
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 42,
+              "rpm": 5.865617037774015,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0233240037318406
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 7,
+              "rpm": 0.9776028396290024,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.003887333955306766
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "2082575184",
+        "rank": "Species",
+        "name": "Cloacibacterium caeni_A",
+        "lineage": "d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Flavobacteriales;f__Weeksellaceae;g__Cloacibacterium;s__Cloacibacterium caeni_A",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 24,
+              "rpm": 3.3517811644422943,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01332800213248034
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 64,
+              "rpm": 8.938083105179452,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.035541339019947576
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 21,
+              "rpm": 2.9328085188870077,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0116620018659203
+            }
+          ]
+        }
+      }
+    ],
+    "target": [
+      {
+        "taxid": "757736030",
+        "rank": "Species",
+        "name": "Alphapolyomavirus quintihominis",
+        "lineage": "d__Viruses;p__Cossaviricota;c__Papovaviricetes;o__Sepolyvirales;f__Polyomaviridae;g__Alphapolyomavirus;s__Alphapolyomavirus quintihominis",
+        "evidence": {
+          "alignment": [
+            {
+              "bin": "Alphapolyomavirus quintihominis",
+              "name": "MCPyV",
+              "segment": "NAN",
+              "taxid": "757736030",
+              "reference": "HM011556.1",
+              "reference_length": 5387,
+              "scan_regions": 1,
+              "scan_reads": 3,
+              "scan_alignments": 6,
+              "scan_bases_covered": 68,
+              "scan_coverage": 1.26229812511602,
+              "remap_regions": 1,
+              "remap_reads": 3,
+              "remap_alignments": 6,
+              "remap_bases_covered": 68,
+              "remap_coverage": 1.26229812511602,
+              "remap_depth": 0.0757378875069612,
+              "remap_depth_coverage": 1.26229812511602,
+              "consensus_length": null,
+              "consensus_missing": null,
+              "consensus_completeness": null,
+              "consensus_alignments_mapq": null,
+              "consensus_coverage_mapq": null,
+              "reference_description": "bin=Alphapolyomavirus quintihominis|segment=NAN|name=MCPyV|description=Merkel cell polyomavirus|taxid=757736030"
+            }
+          ],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Vircov",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 0.8379452911105736,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0033320005331200853
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 0.8379452911105736,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0033320005331200853
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 6,
+              "rpm": 0.8379452911105736,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0033320005331200853
+            },
+            {
+              "id": "DW-63-V56__DNA__S_S46",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 3,
+              "rpm": 0.4189726455552868,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0016660002665600426
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

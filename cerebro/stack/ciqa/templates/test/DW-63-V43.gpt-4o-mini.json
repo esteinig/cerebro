@@ -1,0 +1,889 @@
+{
+  "diagnosis": "Infectious",
+  "candidate": "'s__Moraxella_A cinereus','s__Moraxella_A osloensis','s__Acinetobacter bereziniae','s__Anaerococcus hydrogenalis','s__Gordonia jacobaea','s__Streptomyces actuosus_A','s__Lawsonella clevelandensis_A'",
+  "candidate_description": "The following pathogen candidates were identified from the metagenomic profiling of the CSF sample of the patient presenting with neuroinflammatory or neurological symptoms: *s__Moraxella_A cinereus*, *s__Moraxella_A osloensis*, *s__Acinetobacter bereziniae*, *s__Anaerococcus hydrogenalis*, *s__Gordonia jacobaea*, *s__Streptomyces actuosus_A*, and *s__Lawsonella clevelandensis_A*. Each of these taxa can be associated with opportunistic infections or rare cases of meningitis; however, their presence in this CSF sample is likely influenced by potential contamination from skin microbiota or the sampling environment, especially given the low-level detection in above-threshold metagenomic evidence. While the evidence from below-threshold data supports an infectious diagnosis, the overall microbial profile indicates diversity typically associated with either contamination or non-pathogenic behavior in the context of neurological symptoms. Notably, species such as *Moraxella* and *Acinetobacter* are skin commensals and can be involved in infections but are less commonly implicated in spontaneous meningitis. The isolation of these taxa suggests careful consideration of contamination alongside any clinical correlation to infection, and further testing would be warranted to differentiate their role in this case.",
+  "pathogen": "'s__Moraxella_A osloensis'",
+  "pathogen_description": "In the context of the patient's clinical presentation of neuroinflammatory or neurological symptoms, *s__Moraxella_A osloensis* has been identified as the most likely pathogen candidate from the CSF sample, despite the potential influence of skin microbiota contamination. The metagenomic profiling revealed low-level detection of this taxon, which, while typically considered a skin commensal, can occasionally be implicated in opportunistic infections. The strength of the profiling evidence supports the possibility of infection, particularly considering that *Moraxella* species are not commonly associated with contamination in sterile neurological samples, making this candidate notable. Furthermore, *Moraxella osloensis* has a documented history of causing rare but significant human infections, which distinguishes it from other identified taxa that are more frequently regarded as contaminants. This specific selection reflects a balance between clinical relevance, metagenomic evidence, and consideration of potential contamination sources.",
+  "reason_non_infectious": null,
+  "clinical_context": "\n                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.\n            ",
+  "diagnostic_history_shorthand": [
+    "start",
+    "check_above_threshold",
+    "check_below_threshold",
+    "check_target_threshold",
+    "integrate_below_target_evidence",
+    "diagnose_infectious",
+    "describe_infectious",
+    "select_infectious",
+    "describe_select_infectious",
+    "describe_select_infectious"
+  ],
+  "diagnostic_history_annotated": [
+    {
+      "node_key": "start",
+      "question": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?\nInstructions: Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_above_threshold",
+      "question": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.\nInstructions: Answer 'yes' if the above-threshold data supports infection, 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "check_below_threshold",
+      "question": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.\nInstructions: Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "check_target_threshold",
+      "question": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.\nInstructions: Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "false"
+    },
+    {
+      "node_key": "integrate_below_target_evidence",
+      "question": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.\nInstructions: Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not.\n",
+      "answer": "true"
+    },
+    {
+      "node_key": "diagnose_infectious",
+      "question": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..\nInstructions: Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'.\n",
+      "answer": "'s__Moraxella_A cinereus','s__Moraxella_A osloensis','s__Acinetobacter bereziniae','s__Anaerococcus hydrogenalis','s__Gordonia jacobaea','s__Streptomyces actuosus_A','s__Lawsonella clevelandensis_A'"
+    },
+    {
+      "node_key": "describe_infectious",
+      "question": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type.\n",
+      "answer": "The following pathogen candidates were identified from the metagenomic profiling of the CSF sample of the patient presenting with neuroinflammatory or neurological symptoms: *s__Moraxella_A cinereus*, *s__Moraxella_A osloensis*, *s__Acinetobacter bereziniae*, *s__Anaerococcus hydrogenalis*, *s__Gordonia jacobaea*, *s__Streptomyces actuosus_A*, and *s__Lawsonella clevelandensis_A*. Each of these taxa can be associated with opportunistic infections or rare cases of meningitis; however, their presence in this CSF sample is likely influenced by potential contamination from skin microbiota or the sampling environment, especially given the low-level detection in above-threshold metagenomic evidence. While the evidence from below-threshold data supports an infectious diagnosis, the overall microbial profile indicates diversity typically associated with either contamination or non-pathogenic behavior in the context of neurological symptoms. Notably, species such as *Moraxella* and *Acinetobacter* are skin commensals and can be involved in infections but are less commonly implicated in spontaneous meningitis. The isolation of these taxa suggests careful consideration of contamination alongside any clinical correlation to infection, and further testing would be warranted to differentiate their role in this case."
+    },
+    {
+      "node_key": "select_infectious",
+      "question": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.\nInstructions: Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'\n",
+      "answer": "'s__Moraxella_A osloensis'"
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "In the context of the patient's clinical presentation of neuroinflammatory or neurological symptoms, *s__Moraxella_A osloensis* has been identified as the most likely pathogen candidate from the CSF sample, despite the potential influence of skin microbiota contamination. The metagenomic profiling revealed low-level detection of this taxon, which, while typically considered a skin commensal, can occasionally be implicated in opportunistic infections. The strength of the profiling evidence supports the possibility of infection, particularly considering that *Moraxella* species are not commonly associated with contamination in sterile neurological samples, making this candidate notable. Furthermore, *Moraxella osloensis* has a documented history of causing rare but significant human infections, which distinguishes it from other identified taxa that are more frequently regarded as contaminants. This specific selection reflects a balance between clinical relevance, metagenomic evidence, and consideration of potential contamination sources."
+    },
+    {
+      "node_key": "describe_select_infectious",
+      "question": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.\nInstructions: Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample.\n",
+      "answer": "Final node reached"
+    }
+  ],
+  "taxa": {
+    "above": [],
+    "below": [
+      {
+        "taxid": "285453852",
+        "rank": "Species",
+        "name": "Streptomyces actuosus_A",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Streptomycetales;f__Streptomycetaceae;g__Streptomyces;s__Streptomyces actuosus_A",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 16,
+              "rpm": 2.2155791773222178,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0024349488204194808
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 14,
+              "rpm": 1.9386317801569404,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0021305802178670456
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1749128032",
+        "rank": "Species",
+        "name": "Moraxella_A cinereus",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Pseudomonadales;f__Moraxellaceae;g__Moraxella_A;s__Moraxella_A cinereus",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 36,
+              "rpm": 4.985053148974989,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005478634845943832
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 48,
+              "rpm": 6.646737531966654,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007304846461258443
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 17,
+              "rpm": 2.3540528759048565,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0025871331216956984
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "764797840",
+        "rank": "Species",
+        "name": "Gordonia jacobaea",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Mycobacteriales;f__Mycobacteriaceae;g__Gordonia;s__Gordonia jacobaea",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 12,
+              "rpm": 1.6616843829916634,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0018262116153146108
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1807639112",
+        "rank": "Species",
+        "name": "JAFKGK01 sp017307165",
+        "lineage": "d__Bacteria;p__Cyanobacteriota;c__Vampirovibrionia;o__Obscuribacterales;f__Obscuribacteraceae;g__JAFKGK01;s__JAFKGK01 sp017307165",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 10,
+              "rpm": 1.3847369858263865,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0015218430127621756
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 18,
+              "rpm": 2.4925265744874947,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.002739317422971916
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 5,
+              "rpm": 0.6923684929131931,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0007609215063810878
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "506954033",
+        "rank": "Species",
+        "name": "Cutibacterium modestum",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Propionibacteriales;f__Propionibacteriaceae;g__Cutibacterium;s__Cutibacterium modestum",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 94,
+              "rpm": 13.01652766676803,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01430532431996445
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 110,
+              "rpm": 15.232106844090248,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01674027314038393
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 47,
+              "rpm": 6.508263833384015,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007152662159982225
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1147324497",
+        "rank": "Species",
+        "name": "Streptococcus thermophilus",
+        "lineage": "d__Bacteria;p__Bacillota;c__Bacilli;o__Lactobacillales;f__Streptococcaceae;g__Streptococcus;s__Streptococcus thermophilus",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 10,
+              "rpm": 1.3847369858263865,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0015218430127621756
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 22,
+              "rpm": 3.0464213688180495,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.003348054628076786
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 5,
+              "rpm": 0.6923684929131931,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0007609215063810878
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1060793158",
+        "rank": "Species",
+        "name": "Alistipes sp017631275",
+        "lineage": "d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Rikenellaceae;g__Alistipes;s__Alistipes sp017631275",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "816830995",
+        "rank": "Species",
+        "name": "Varibaculum massiliense",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Actinomycetales;f__Actinomycetaceae;g__Varibaculum;s__Varibaculum massiliense",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 5,
+              "rpm": 0.6923684929131931,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0007609215063810878
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1561493882",
+        "rank": "Species",
+        "name": "Anaerococcus hydrogenalis",
+        "lineage": "d__Bacteria;p__Bacillota_A;c__Clostridia;o__Tissierellales;f__Peptoniphilaceae;g__Anaerococcus;s__Anaerococcus hydrogenalis",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 10,
+              "rpm": 1.3847369858263865,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0015218430127621756
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1556502021",
+        "rank": "Species",
+        "name": "Corynebacterium sp022346005",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Mycobacteriales;f__Mycobacteriaceae;g__Corynebacterium;s__Corynebacterium sp022346005",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 6,
+              "rpm": 0.8308421914958317,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0009131058076573054
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 10,
+              "rpm": 1.3847369858263865,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0015218430127621756
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "21346177",
+        "rank": "Species",
+        "name": "Acidovorax sp001424425",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Burkholderiales;f__Burkholderiaceae;g__Acidovorax;s__Acidovorax sp001424425",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 14,
+              "rpm": 1.9386317801569404,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0021305802178670456
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1132231887",
+        "rank": "Species",
+        "name": "Lawsonella clevelandensis_A",
+        "lineage": "d__Bacteria;p__Actinomycetota;c__Actinomycetes;o__Mycobacteriales;f__Mycobacteriaceae;g__Lawsonella;s__Lawsonella clevelandensis_A",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 46,
+              "rpm": 6.3697901348013755,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007000477858706007
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 48,
+              "rpm": 6.646737531966654,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007304846461258443
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 23,
+              "rpm": 3.1848950674006877,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0035002389293530035
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "360001829",
+        "rank": "Species",
+        "name": "Lactobacillus iners",
+        "lineage": "d__Bacteria;p__Bacillota;c__Bacilli;o__Lactobacillales;f__Lactobacillaceae;g__Lactobacillus;s__Lactobacillus iners",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1579127442",
+        "rank": "Species",
+        "name": "Moraxella_A osloensis",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Pseudomonadales;f__Moraxellaceae;g__Moraxella_A;s__Moraxella_A osloensis",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 48,
+              "rpm": 6.646737531966654,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007304846461258443
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 78,
+              "rpm": 10.800948489445812,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.01187037549954497
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 31,
+              "rpm": 4.292684656061796,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.004717713339562744
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1079436059",
+        "rank": "Species",
+        "name": "Cloacibacterium sp002337005",
+        "lineage": "d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Flavobacteriales;f__Weeksellaceae;g__Cloacibacterium;s__Cloacibacterium sp002337005",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1920231628",
+        "rank": "Species",
+        "name": "Acinetobacter bereziniae",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Pseudomonadales;f__Moraxellaceae;g__Acinetobacter;s__Acinetobacter bereziniae",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 16,
+              "rpm": 2.2155791773222178,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0024349488204194808
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 46,
+              "rpm": 6.3697901348013755,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007000477858706007
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 10,
+              "rpm": 1.3847369858263865,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0015218430127621756
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "2007833733",
+        "rank": "Species",
+        "name": "Agrobacterium oryzihabitans",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Alphaproteobacteria;o__Rhizobiales;f__Rhizobiaceae;g__Agrobacterium;s__Agrobacterium oryzihabitans",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 8,
+              "rpm": 1.1077895886611089,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0012174744102097404
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 14,
+              "rpm": 1.9386317801569404,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0021305802178670456
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 4,
+              "rpm": 0.5538947943305544,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.0006087372051048702
+            }
+          ]
+        }
+      },
+      {
+        "taxid": "1322807760",
+        "rank": "Species",
+        "name": "Moraxella_A sp902506215",
+        "lineage": "d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Pseudomonadales;f__Moraxellaceae;g__Moraxella_A;s__Moraxella_A sp902506215",
+        "evidence": {
+          "alignment": [],
+          "assembly": [],
+          "profile": [
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Metabuli",
+              "mode": "Sequence",
+              "reads": 46,
+              "rpm": 6.3697901348013755,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.007000477858706007
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Bracken",
+              "mode": "Profile",
+              "reads": 64,
+              "rpm": 8.862316709288871,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.009739795281677925
+            },
+            {
+              "id": "DW-63-V43__DNA__NS_S35",
+              "tool": "Ganon2",
+              "mode": "Sequence",
+              "reads": 37,
+              "rpm": 5.1235268475576285,
+              "contigs": 0,
+              "bases": 0,
+              "bpm": 0.0,
+              "abundance": 0.005630819147220049
+            }
+          ]
+        }
+      }
+    ],
+    "target": []
+  }
+}

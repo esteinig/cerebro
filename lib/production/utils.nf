@@ -64,6 +64,17 @@ def getQualityControlDatabases() {
     ]
 }
 
+
+/* Pathogen Detection */
+
+def getCultureIdentificationDatabases() {
+    
+    return [
+        qualityControl: getQualityControlDatabases(),
+        gtdbDatabase: getCultureIdentificationGtdbDatabase(),
+    ]
+}
+
 /* Pathogen metagenome assembly profiling databases */
 
 def getMetagenomeAssemblyDatabases() {
@@ -71,7 +82,7 @@ def getMetagenomeAssemblyDatabases() {
     def magParams = params.pathogenDetection.metagenomeAssembly;
 
     return [
-        contigProfile:              magParams.contigProfile   ?  getPathogenAssemblyContigProfileDatabase(magParams)       :  Channel.empty(),
+        contigProfile: magParams.contigProfile   ?  getPathogenAssemblyContigProfileDatabase(magParams)       :  Channel.empty(),
     ]
 }
 

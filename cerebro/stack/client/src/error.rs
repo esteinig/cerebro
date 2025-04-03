@@ -1,6 +1,8 @@
 
 use cerebro_pipeline::error::WorkflowError;
+use plotters::prelude::DrawingAreaErrorKind;
 use reqwest::StatusCode;
+use statrs::distribution::StudentsTError;
 use thiserror::Error;
 use cerebro_model::api::cerebro::model::ModelError;
 
@@ -71,4 +73,9 @@ pub enum HttpClientError {
 
     #[error("you must provide a staged file (--stage-json) or global options for team, db and project authentication (cerebro-client --team --db --project)")]
     MissingUploadParameters,
+
+    #[error(transparent)]
+    PlottersError(#[from] DrawingAreaErrorKind<plotters_bitmap::BitMapBackendError>), 
+    #[error(transparent)]
+    StudentsError(#[from] StudentsTError),
 }
