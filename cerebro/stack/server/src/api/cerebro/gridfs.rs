@@ -14,7 +14,7 @@ use mongodb::gridfs::GridFsBucket;
 /// * `filename` - A string slice for the filename to be stored in GridFS.
 ///
 /// # Returns
-/// * On success, returns the GridFS file’s ObjectId.
+/// * On success, returns the filename
 ///
 /// **Note:** In v3 you open an upload stream, write the data to it, and then close the stream
 /// to finalize the upload.

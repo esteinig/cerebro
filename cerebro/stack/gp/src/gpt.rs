@@ -57,6 +57,76 @@ impl Question {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum GptStrategy {
+    OneShotResponse,
+    DecisionTreeChat,
+    DecisionTreeResponse,
+}
+
+pub struct ThresholdCandidates {
+    pub above_threshold: Option<Vec<Taxon>>,
+    pub below_threshold: Option<Vec<Taxon>>,
+    pub target_list: Option<Vec<Taxon>>
+}
+
+impl ThresholdCandidates {
+    pub fn from_above_threshold(above_threshold: Vec<Taxon>) -> Self {
+        Self { above_threshold: Some(above_threshold), below_threshold: None, target_list: None }
+    }
+    pub fn from_below_threshold(below_threshold: Vec<Taxon>) -> Self {
+        Self { above_threshold: None, below_threshold: Some(below_threshold), target_list: None }
+    }
+    pub fn from_target_list(target_list: Vec<Taxon>) -> Self {
+        Self { above_threshold: None, below_threshold: None, target_list: Some(target_list) }
+    }
+    /// Returns a formatted string summary of candidate taxa for each threshold.
+    /// - If a candidate group is `None`, it is omitted.
+    /// - If a candidate group is `Some` but empty, "no taxa called" is shown.
+    /// - Otherwise, the header is printed along with the list of taxon names.
+    pub fn to_str(&self) -> String {
+        let mut output = String::new();
+
+        // Process above threshold candidates
+        if let Some(ref above) = self.above_threshold {
+            output.push_str("Above threshold candidate taxa: ");
+            if above.is_empty() {
+                output.push_str("no taxa called");
+            } else {
+                // Join the names of the taxa with commas.
+                let taxa: Vec<String> = above.iter().map(|taxon| format!("{taxon}")).collect();
+                output.push_str(&taxa.join("\n"));
+            }
+            output.push('\n');
+        }
+
+        // Process below threshold candidates
+        if let Some(ref below) = self.below_threshold {
+            output.push_str("Below threshold candidate taxa: ");
+            if below.is_empty() {
+                output.push_str("no taxa called");
+            } else {
+                let taxa: Vec<String> = below.iter().map(|taxon| format!("{taxon}")).collect();
+                output.push_str(&taxa.join("\n"));
+            }
+        }
+
+        // Process target list candidate taxa
+        if let Some(ref target) = self.target_list {
+            output.push_str("Target threshold candidate taxa: ");
+            if target.is_empty() {
+                output.push_str("no taxa called");
+            } else {
+                let taxa: Vec<String> = target.iter().map(|taxon| format!("{taxon}")).collect();
+                output.push_str(&taxa.join("\n"));
+            }
+        }
+
+        output
+    }
+}
+
+
 pub enum DataBackground {
     CerebroFilter
 }
@@ -324,6 +394,7 @@ pub struct DiagnosticAgent {
     pub state: AgentState,
     pub knowledge_graph: Graph<String, String>,
     pub model: String,
+    pub diagnostic_memory: bool
 }
 
 // "output_evaluation": {
@@ -337,14 +408,14 @@ pub struct DiagnosticAgent {
 // },
 
 impl DiagnosticAgent {
-    pub async fn new(cerebro_client: CerebroClient, model: String) -> Result<Self> {
+    pub async fn new(cerebro_client: CerebroClient, model: String, diagnostic_memory: bool) -> Result<Self> {
         
         let decision_tree_json = r#"
         {
             "start": {
                 "question": {
-                    "prompt": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample?",
-                    "instructions": "Answer 'yes' if the above-threshold data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted."
+                    "prompt": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample? Copy number variation (CNV) along large segments of chromosomes are indicated in the scatter plot analysis and data extraction. Large variation (a braodly scattered) usually indicates low human genome coverage.",
+                    "instructions": "Answer 'yes' if the data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted."
                 },
                 "check": "aneuploidy_query",
                 "true_node": "diagnose_tumor",
@@ -352,8 +423,8 @@ impl DiagnosticAgent {
             },
             "check_above_threshold": {
                 "question": {
-                    "prompt": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'.",
-                    "instructions": "Answer 'yes' if the above-threshold data supports infection, 'no' if it does not."
+                    "prompt": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. Consider the presence of contaminant taxa at above threshold levels particularly from sample sites or lab environment. If pathogens known to commonly infect humans are detected you should select 'infectious'.",
+                    "instructions": "Answer 'yes' if the above-threshold data supports infection, 'no' if it does not or if no taxa were called."
                 },
                 "check": "above_threshold_query",
                 "true_node": "diagnose_infectious",
@@ -361,24 +432,24 @@ impl DiagnosticAgent {
             },
             "check_below_threshold": {
                 "question": {
-                    "prompt": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination.",
-                    "instructions": "Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not."
+                    "prompt": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target taxon has reasonable evidence you should select 'infectious'. This section often contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination. If a taxon has both a pathogen and contaminant role -- e.g. a pathogen that is a commensal in sample or sample adjacent sites of the human body, deriving for example from skin or lab environment sequenced in the metagenomics assay -- deprioritize the taxon as a pathogen candidate especially if itoccurss at low abundance in the sample and among the microbial profile called in this section.",
+                    "instructions": "Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not or if no taxa were called."
                 },
                 "check": "below_threshold_query",
                 "next": "check_target_threshold"
             },
             "check_target_threshold": {
                 "question": {
-                    "prompt": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sampel type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'.",
-                    "instructions": "Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not."
+                    "prompt": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'. Other taxa from prokaryotic and eukaryotic domains should be considered with caution and only selected with reasonably strong evidence from the taxon calling in relation to clinical context of the patient from whom this sample derives.",
+                    "instructions": "Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not or if no taxa were called."
                 },
                 "check": "target_threshold_query",
                 "next": "integrate_below_target_evidence"
             },
             "integrate_below_target_evidence": {
                 "question": {
-                        "prompt": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each as a pathogen candidate even if they are not usually associated with the disease presentation or sample type and a rare or unusual pathogens. If there are more than a few taxa called, consider the overall microbial diversity and consider contamination from the environment or sampling site as an explanation. If you detect multiple low-level taxa and singular stand-out taxa, consider the stand-outs in poarticular in the context of the medical and microbiological background of the taxon.",
-                        "instructions": "Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not."
+                        "prompt": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each whether they are a candidate for contamination or classification artifact ('non-infectious'), or whether they are a candidate for a pathogen infectious'. Consider taxa even if they are rare human pathogens. If known viral human pathogens are called prioritize for 'infectious'",
+                        "instructions": "Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not or if no taxa were called."
                 },
                 "check": "llm_eval",
                 "true_node": "diagnose_infectious",
@@ -395,14 +466,14 @@ impl DiagnosticAgent {
             "describe_infectious": {
                 "question": {
                         "prompt": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.",
-                        "instructions": "Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type."
+                        "instructions": "Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Keep sentences minimal with all sufficient information."
                 },
                 "check": "llm_eval",
                 "next": "select_infectious"
             },
             "select_infectious": {
                 "question": {
-                        "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.",
+                        "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength and weaknesses of the evidence (from metagenomics assay) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.",
                         "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'"
                 },
                 "check": "llm_eval",
@@ -418,8 +489,8 @@ impl DiagnosticAgent {
             },
             "diagnose_non_infectious_flight_check": {
                 "question": {
-                        "prompt": "Consider the below threshold and target evidence and consider whether a previous node associated with threshold checks in this decision tree was called 'infectious'. If a previous node made an infectious call re-consider the candidate taxa from that node as pathogen or contamination. Make a call whether the sample is 'infectious' when the candidate taxa are known human pathogens but are rare or unusual for this presentation; alternatively make a call for 'non-infectious' when no taxa qualify as pathogen candidates.",
-                        "instructions": "Answer 'yes' if unusual or rare taxa were called that support an 'infectious' diagnosis; 'no' if it does not."
+                        "prompt": "Consider the below threshold and target evidence and consider whether changing to an 'infectious' call especially if the taxon is human infection associated but rare or unusual; alternatively make a call for 'non-infectious' when no taxa qualify as pathogen candidates or no taxa were called.",
+                        "instructions": "Answer 'yes' if unusual or rare taxa were called that support an 'infectious' diagnosis; 'no' if it does not or if no taxa were called."
                 },
                 "check": "flight_check_non_infectious",
                 "true_node": "diagnose_infectious_review",
@@ -516,7 +587,8 @@ impl DiagnosticAgent {
             llm_client,
             state,
             knowledge_graph,
-            model
+            model,
+            diagnostic_memory
         })
     }
     fn model_supports_system_message(&self) -> bool {
@@ -537,6 +609,8 @@ impl DiagnosticAgent {
                 ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
             ]
         };
+
+        log::info!("{:#?}", messages);
 
         let request = CreateChatCompletionRequestArgs::default()
             .model(&self.model)
@@ -560,6 +634,9 @@ impl DiagnosticAgent {
                 ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
             ]
         };
+
+        log::info!("{:#?}", messages);
+
         let request = CreateChatCompletionRequestArgs::default()
             .model(&self.model)
             .messages(messages)
@@ -583,6 +660,8 @@ impl DiagnosticAgent {
                 ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
             ]
         };
+
+        log::info!("{:#?}", messages);
 
         let request = CreateChatCompletionRequestArgs::default()
             .model(&self.model)
@@ -623,7 +702,7 @@ impl DiagnosticAgent {
         Ok(())
     }
     /// Gets the current state memory into a JSON string.
-    fn get_agent_state_memory(&self) -> String {
+    fn _get_agent_state_memory(&self) -> String {
         serde_json::to_string_pretty(&self.state.memory).unwrap_or_else(|_| "{}".into())
     }
     /// Gets the current diagnostic history into a JSON string.
@@ -631,18 +710,28 @@ impl DiagnosticAgent {
         serde_json::to_string_pretty(&self.state.history).unwrap_or_else(|_| "{}".into())
     }
     /// Gets the current threshold considerations
-    fn get_threshold_considerations(&self) -> String {
+    fn _get_threshold_considerations(&self) -> String {
         let atc = self.state.memory.get("data__AboveThresholdQuery__Considerations").map_or("[]", |x| x.deref());
         let btc = self.state.memory.get("data__BelowThresholdQuery__Considerations").map_or("[]", |x| x.deref());
         let ttc = self.state.memory.get("data__TargetThresholdQuery__Considerations").map_or("[]", |x| x.deref());
         format!("Above threshold filter configuration: {atc} === Below threshold filter configuration: {btc} === Target threshold filter contamination {ttc}")
     }
-    /// Gets the current threshold candidates
-    fn get_threshold_candidates(&self) -> String {
-        let atc = self.state.memory.get("data__AboveThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
-        let btc = self.state.memory.get("data__BelowThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
-        let ttc = self.state.memory.get("data__TargetThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
-        format!("Above threshold candidate taxa: {atc} === Below threshold candidate taxa: {btc} === Target threshold candidate taxa {ttc}")
+    /// Gets the current threshold candidate taxa by deserializing JSON strings to Vec<Taxon>
+    fn get_threshold_candidates(&self) -> ThresholdCandidates {
+
+        // Retrieve JSON strings from memory, defaulting to "[]" if not found.
+        let atc_json = self.state.memory.get("data__AboveThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
+        let btc_json = self.state.memory.get("data__BelowThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
+        let ttc_json = self.state.memory.get("data__TargetThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
+        
+        ThresholdCandidates { 
+            above_threshold: serde_json::from_str(atc_json).ok(), 
+            below_threshold: serde_json::from_str(btc_json).ok(), 
+            target_list: serde_json::from_str(ttc_json).ok() 
+        }
+    }
+    fn threshold_candidates_to_str(&self, full_context: &mut String, threshold_candidates: &ThresholdCandidates) {
+        full_context.push_str(&threshold_candidates.to_str());
     }
     /// Runs the diagnostic pathway and returns a DiagnosticResult as JSON.
     pub async fn run(&mut self, gp_config: &mut GpConfig, clinical_context: &str) -> Result<DiagnosticResult> {
@@ -675,7 +764,10 @@ impl DiagnosticAgent {
                         let threshold_candidate_taxa = self.get_threshold_candidates();
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nThreshold candidate taxa: {}", clinical_context, diagnostic_memory, threshold_candidate_taxa);
+                        let mut full_context = format!("Clinical Context: {}\n\n{}", clinical_context,  if self.diagnostic_memory { format!("Diagnostic memory: {}\n\n", diagnostic_memory) } else { String::new() });
+
+                        // Combine data context with the query
+                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
 
                         // Fetch JSON output from the LLM with the full context.
                         let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
@@ -697,7 +789,10 @@ impl DiagnosticAgent {
                         let threshold_candidate_taxa = self.get_threshold_candidates();
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nThreshold candidate taxa: {}", clinical_context, diagnostic_memory, threshold_candidate_taxa);
+                        let mut full_context = format!("Clinical Context: {}\n\n{}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}\n\n", diagnostic_memory) } else { String::new() });
+
+                        // Combine data context with the query
+                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_candidates = self.evaluate_llm(question, &full_context).await?;
@@ -721,7 +816,7 @@ impl DiagnosticAgent {
                         let pathogen_candidates = self.state.memory.get("pathogen_candidates");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nPathogen candidate taxa: {:?}", clinical_context, diagnostic_memory, pathogen_candidates);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_description = self.evaluate_llm(question, &full_context).await?;
@@ -746,7 +841,7 @@ impl DiagnosticAgent {
                         let pathogen_candidate_description = self.state.memory.get("pathogen_candidate_description");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nThreshold candidate taxa: {:?}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}", clinical_context, diagnostic_memory, threshold_candidate_taxa, pathogen_candidates, pathogen_candidate_description);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_selection = self.evaluate_llm(question, &full_context).await?;
@@ -769,7 +864,7 @@ impl DiagnosticAgent {
                         let pathogen_selection = self.state.memory.get("pathogen_selection");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nSelected pathogen candidate: {:?}", clinical_context, diagnostic_memory, pathogen_selection);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nSelected pathogen candidate: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_selection);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_description = self.evaluate_llm(question, &full_context).await?;
@@ -788,7 +883,10 @@ impl DiagnosticAgent {
                         let threshold_candidate_taxa = self.get_threshold_candidates();
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nThreshold candidate taxa: {}", clinical_context, diagnostic_memory, threshold_candidate_taxa);
+                        let mut full_context = format!("Clinical Context: {}\n\n{}\n\n", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() });
+
+                        // Combine data context with the query
+                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
 
                         // Fetch JSON output from the LLM with the full context.
                         let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
@@ -810,7 +908,10 @@ impl DiagnosticAgent {
                         let threshold_candidate_taxa = self.get_threshold_candidates();
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nThreshold candidate taxa: {}", clinical_context, diagnostic_memory, threshold_candidate_taxa);
+                        let mut full_context = format!("Clinical Context: {}\n\n{}\n\n", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() });
+                        
+                        // Combine data context with the query
+                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_candidates = self.evaluate_llm(question, &full_context).await?;
@@ -833,7 +934,7 @@ impl DiagnosticAgent {
                         let pathogen_candidates = self.state.memory.get("pathogen_candidates");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nPathogen candidate taxa: {:?}", clinical_context, diagnostic_memory, pathogen_candidates, );
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_description = self.evaluate_llm(question, &full_context).await?;
@@ -858,7 +959,7 @@ impl DiagnosticAgent {
                         let pathogen_candidate_description = self.state.memory.get("pathogen_candidate_description");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nThreshold candidate taxa: {:?}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}", clinical_context, diagnostic_memory, threshold_candidate_taxa, pathogen_candidates, pathogen_candidate_description);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_selection = self.evaluate_llm(question, &full_context).await?;
@@ -881,7 +982,7 @@ impl DiagnosticAgent {
                         let pathogen_selection = self.state.memory.get("pathogen_selection");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\nDiagnostic memory: {}\n\nSelected pathogen candidate: {:?}", clinical_context, diagnostic_memory, pathogen_selection);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nSelected pathogen candidate: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_selection);
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_description = self.evaluate_llm(question, &full_context).await?;
@@ -894,10 +995,10 @@ impl DiagnosticAgent {
                         
                     } else {
                         // Otherwise full diagnostic decision LLM evaluation returning yes/no.
-                        let decision = self.evaluate_diagnostic_llm(question, clinical_context).await?;
+                        let answer = self.evaluate_llm(question, clinical_context).await?;
 
-                        self.state.log("llm_decision", if decision { "yes" } else { "no" });
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(if decision { "yes" } else { "no" }));
+                        self.state.log("llm_decision", &answer);
+                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&answer));
                         
                         if let Some(next_node) = &node.next {
                             node_key = next_node.to_string();
@@ -907,12 +1008,10 @@ impl DiagnosticAgent {
                                 log::info!("Final node reached: {}.", node_key);
                                 break;
                             }
-                            node_key = if decision {
-                                node.true_node.clone()
-                            } else {
-                                node.false_node.clone()
+
+                            if let Some(next_node) = &node.next {
+                                node_key = next_node.to_string();
                             }
-                            .expect("Next node key expected");
                         }
                     }
                 },
@@ -921,7 +1020,7 @@ impl DiagnosticAgent {
                     let question = node.question.as_ref().expect("LLM eval requires a question");
 
                     // Candidate taxa
-                    let candidate_taxa = self.get_threshold_candidates();
+                    let threshold_candidate_taxa = self.get_threshold_candidates();
 
                     // Get JSON-structured memory injection.
                     let above_threshold_answer = self.state.get_history(&"check_above_threshold").and_then(|d| d.answer.clone()).unwrap_or(String::from("no"));
@@ -929,10 +1028,13 @@ impl DiagnosticAgent {
                     let target_threshold_answer = self.state.get_history(&"check_target_threshold").and_then(|d| d.answer.clone()).unwrap_or(String::from("no"));
 
                     // Combine clinical context with the injected memory.
-                    let full_context = format!(
-                        "Clinical Context: {}\n\nAbove threshold answer for infectious sample: {:?}\n\nBelow threshold answer for infectious sample: {:?}\n\nTarget list answer for infectious sample: {:?}\n\nCandidate taxa: {}", 
-                        clinical_context, above_threshold_answer, below_threshold_answer, target_threshold_answer, candidate_taxa
+                    let mut full_context = format!(
+                        "Clinical Context: {}\n\nAbove threshold answer for infectious sample: {:?}\n\nBelow threshold answer for infectious sample: {:?}\n\nTarget list answer for infectious sample: {:?}", 
+                        clinical_context, above_threshold_answer, below_threshold_answer, target_threshold_answer
                     );
+                    
+                    // Combine data context with the query
+                    self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
 
                     // Fetch JSON output from the LLM with the full context.
                     let diagnostic_result = self.evaluate_diagnostic_llm(question, &full_context).await?;
@@ -963,15 +1065,6 @@ impl DiagnosticAgent {
                         &mut gp_config.contamination
                     )?;
 
-                    let considerations = "[]";
-
-                    // log::info!("{:#?}", above_threshold_taxa);
-
-                    self.state.log(
-                        "data__AboveThresholdQuery__Considerations", 
-                        considerations
-                    );
-
                     self.state.log(
                         "data__AboveThresholdQuery__CandidateTaxa", 
                         &serde_json::to_string_pretty(&above_threshold_taxa).unwrap_or("{}".to_string())
@@ -982,7 +1075,10 @@ impl DiagnosticAgent {
                     );
                     
                     // Combine data context with the query
-                    let full_context = format!("Above threshold taxa: {:#?}\n\nConsiderations: {}", above_threshold_taxa, considerations);
+                    let mut full_context = String::new();
+                    
+                    // Combine data context with the query
+                    self.threshold_candidates_to_str(&mut full_context, &ThresholdCandidates::from_above_threshold(above_threshold_taxa));
 
                     let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
 
@@ -1011,14 +1107,6 @@ impl DiagnosticAgent {
                         &mut gp_config.contamination
                     )?;
 
-                    let considerations = "[]";
-
-                    // log::info!("{:#?}", below_threshold_taxa);
-
-                    self.state.log(
-                        "data__BelowThresholdQuery__Considerations", 
-                        considerations
-                    );
                     self.state.log(
                         "data__BelowThresholdQuery__CandidateTaxa", 
                         &serde_json::to_string_pretty(&below_threshold_taxa).unwrap_or("{}".to_string())
@@ -1030,7 +1118,10 @@ impl DiagnosticAgent {
 
 
                     // Combine data context with the query
-                    let full_context = format!("Below threshold taxa: {:#?}\n\n\n\nConsiderations: {}", below_threshold_taxa, considerations);
+                    let mut full_context = String::new();
+                    
+                    // Combine data context with the query
+                    self.threshold_candidates_to_str(&mut full_context, &ThresholdCandidates::from_below_threshold(below_threshold_taxa));
 
                     let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
 
@@ -1052,32 +1143,26 @@ impl DiagnosticAgent {
                 }
                 Some(CheckType::TargetThresholdQuery) => {
 
-                    let (no_threshold_taxa, no_threshold_contam) = self.cerebro_client.get_taxa(
+                    let (target_threshold_taxa, target_threshold_contam) = self.cerebro_client.get_taxa(
                         &CerebroIdentifierSchema::from_gp_config(gp_config), 
                         &TaxonFilterConfig::gp_target_threshold(), 
                         &mut gp_config.contamination
                     )?;
-
-                    log::info!("{:#?}", no_threshold_taxa);
-
-                    let considerations = "[]";
-                    
-                    self.state.log(
-                        "data__TargetThresholdQuery__Considerations", 
-                        considerations
-                    );
-
+            
                     self.state.log(
                         "data__TargetThresholdQuery__CandidateTaxa", 
-                        &serde_json::to_string_pretty(&no_threshold_taxa).unwrap_or("{}".to_string())
+                        &serde_json::to_string_pretty(&target_threshold_taxa).unwrap_or("{}".to_string())
                     );
                     self.state.log(
                         "data__TargetThresholdQuery__ContamTaxa", 
-                        &serde_json::to_string_pretty(&no_threshold_contam).unwrap_or("{}".to_string())
+                        &serde_json::to_string_pretty(&target_threshold_contam).unwrap_or("{}".to_string())
                     );
 
                     // Combine data context with the query
-                    let full_context = format!("Target threshold and target taxa: {:#?}\n\nConsiderations: {}", no_threshold_taxa, considerations);
+                    let mut full_context = String::new();
+
+                    // Combine data context with the query
+                    self.threshold_candidates_to_str(&mut full_context, &ThresholdCandidates::from_target_list(target_threshold_taxa));
 
                     let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
 

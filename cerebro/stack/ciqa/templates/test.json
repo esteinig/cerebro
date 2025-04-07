@@ -2169,7 +2169,7 @@
         "sample_id": "DW-63-V57",
         "sample_type": "CSF",
         "result": "negative",
-        "note": "qPCR negative on testing this sample and deemed negative result, questions about whether orthogonal tests were conducted on same sample",
+        "note": "Negative on internal qPCR, deemed negative result, questions about whether orthogonal tests were conducted on same sample",
         "orthogonal": [
             {
                 "method": "culture",
@@ -2201,9 +2201,9 @@
                 "tests": [
                     {
                         "test": ["g__Cryptococcus"],
-                        "result": "positive",
+                        "result": "negative",
                         "taxa": [],
-                        "note": null
+                        "note": "Test was positive on previous LP sample (not this one)"
                     }
                 ]
             }

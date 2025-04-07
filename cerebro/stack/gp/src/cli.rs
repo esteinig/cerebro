@@ -31,7 +31,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         
             let mut agent = DiagnosticAgent::new(
                 api_client, 
-                args.model.clone()
+                args.model.clone(),
+                args.diagnostic_memory
             ).await?;
 
             // Optionally, print the knowledge graph

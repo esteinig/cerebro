@@ -172,6 +172,13 @@ pub struct SampleReview {
     pub note: Option<String>
 }
 
+// How to handle missing orthogonal tests for a reference sample when the 
+// review call is positive
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, clap::ValueEnum)]
+pub enum MissingOrthogonal {
+    Indeterminate,
+    ResultOnly        // not implemented yet, evaluate a positive against the overall reference result, not orthogonal testing
+}
 
 // --- Diagnostic outcome types ---
 
@@ -235,13 +242,13 @@ pub struct ReferencePlate {
     pub review: Option<Vec<SampleReview>>,
     pub negative_controls: Vec<String>,
     pub samples: Vec<String>,
-    pub missing_orthogonal: DiagnosticOutcome
+    pub missing_orthogonal: MissingOrthogonal
 }
 
 impl ReferencePlate {
 
     /// Create a new PlateReference by reading the reference from a JSON file and the optional review from a TSV file.
-    pub fn new(reference_path: &Path, review_path: Option<&Path>, missing_orthogonal: DiagnosticOutcome) -> Result<Self, CiqaError> {
+    pub fn new(reference_path: &Path, review_path: Option<&Path>, missing_orthogonal: MissingOrthogonal) -> Result<Self, CiqaError> {
 
         // Read the JSON file to get the vector of SampleReference.
         let reference_data = std::fs::read_to_string(reference_path)?;
@@ -394,7 +401,7 @@ impl ReferencePlate {
 
 
 /// Compare a single SampleReference and SampleReview and return a diagnostic outcome.
-fn compare_sample_review(reference: &SampleReference, review: &SampleReview, missing_orthogonal: DiagnosticOutcome) -> DiagnosticOutcome {
+fn compare_sample_review(reference: &SampleReference, review: &SampleReview, missing_orthogonal: MissingOrthogonal) -> DiagnosticOutcome {
 
     // Independent of review result, if the reference result is missing assign indeterminate outcome
     if let None = reference.result {
@@ -409,7 +416,14 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
 
                 // Positive review but no orthogonal tests conducted against which to assess <====== how should we handle these cases?
                 if reference.orthogonal.is_empty() {
-                    return missing_orthogonal
+                    return match missing_orthogonal {
+                        MissingOrthogonal::Indeterminate => DiagnosticOutcome::Indeterminate,
+                        MissingOrthogonal::ResultOnly => match reference.result {
+                            Some(TestResult::Negative) => DiagnosticOutcome::FalsePositive,
+                            Some(TestResult::Positive) => DiagnosticOutcome::TruePositive,  // in the absence of orthogonal tests any pathogen in review will be a true positive
+                            None => DiagnosticOutcome::Indeterminate,
+                        }
+                    }
                 }
                 
                 // Look for any positive orthogonal test in the SampleReference that has a matching test string.

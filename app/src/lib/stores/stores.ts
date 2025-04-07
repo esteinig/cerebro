@@ -159,7 +159,7 @@ export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
     max_bases: null,
     min_bpm: 0.0, 
     min_reads: 0, 
-    min_rpm: 0.5, 
+    min_rpm: 1, 
     max_rpm: null,
     min_abundance: 0,
     ntc_ratio: 3,
@@ -170,7 +170,7 @@ export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
             min_alignment_tools: null,
             min_alignment_rpm: null,
             min_kmer_tools: 2,
-            min_kmer_rpm: 3,
+            min_kmer_rpm: 3.0,
             min_assembly_tools: null,
         },
         {

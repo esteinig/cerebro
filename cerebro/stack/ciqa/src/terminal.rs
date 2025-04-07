@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
-use crate::plate::{DiagnosticOutcome, SampleType};
+use crate::plate::{DiagnosticOutcome, MissingOrthogonal, SampleType};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
@@ -136,6 +136,9 @@ pub struct DiagnoseArgs {
     /// OpenAI model for diagnostic queries
     #[clap(long, short = 'm', default_value="gpt-4o-mini")]
     pub model: String,
+    /// Add memory of the diagostic decision tree to key decision points
+    #[clap(long, short = 'd')]
+    pub diagnostic_memory: bool,
 }
 
 
@@ -155,7 +158,7 @@ pub struct ReviewArgs {
     pub set_none: Option<Vec<String>>,
     /// Handle references with missing orthogonal data and a positive review call
     #[clap(long, short = 't', default_value="indeterminate")]
-    pub missing_orthogonal: DiagnosticOutcome,
+    pub missing_orthogonal: MissingOrthogonal,
 }
 
 #[derive(Debug, Args)]

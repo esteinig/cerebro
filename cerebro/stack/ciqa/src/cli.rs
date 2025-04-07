@@ -5,7 +5,7 @@ use cerebro_gp::gpt::{ClinicalContext, DataBackground, DiagnosticAgent};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, GpConfig};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, plate::{plot_plate, DiagnosticOutcome, FromSampleType, ReferencePlate}, terminal::{App, Commands}, utils::init_logger};
+use cerebro_ciqa::{config::EvaluationConfig, plate::{plot_plate, DiagnosticOutcome, FromSampleType, MissingOrthogonal, ReferencePlate}, terminal::{App, Commands}, utils::init_logger};
 use cerebro_client::client::CerebroClient;
 
 #[tokio::main]
@@ -101,7 +101,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             let plate = ReferencePlate::new(
                 &args.reference, 
                 None,
-                DiagnosticOutcome::Indeterminate
+                MissingOrthogonal::Indeterminate
             )?;
 
 
@@ -109,7 +109,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 
                 let mut agent = DiagnosticAgent::new(
                     api_client.clone(), 
-                    args.model.clone()
+                    args.model.clone(),
+                    args.diagnostic_memory
                 ).await?;
     
                 

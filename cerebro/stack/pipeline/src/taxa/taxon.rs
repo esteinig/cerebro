@@ -45,6 +45,128 @@ impl Taxon {
     }
 }
 
+impl std::fmt::Display for Taxon {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
+        let elaborate = false;
+        
+        if elaborate {
+            // Header with basic taxon information in Markdown format.
+            writeln!(f, "## Taxon: {} (TaxID: {})", self.name, self.taxid)?;
+            writeln!(f, "**Rank:** {}", self.rank)?;
+            writeln!(f, "**Lineage:** {}", self.lineage)?;
+            writeln!(f)?;
+
+            // --- Profile Evidence Summary ---
+            writeln!(f, "### Profile Evidence")?;
+            if self.evidence.profile.is_empty() {
+                writeln!(f, "_No profile evidence available._")?;
+            } else {
+                // Markdown table header for profile evidence.
+                writeln!(f, "| Tool    | Mode    | Reads | RPM   | Abundance |")?;
+                writeln!(f, "|---------|---------|-------|-------|-----------|")?;
+                // For each profile record, display key metrics.
+                for record in &self.evidence.profile {
+                    writeln!(
+                        f,
+                        "| {} | {} | {} | {:.2} | {:.2} |",
+                        record.tool.to_string(),
+                        record.mode.to_string(),
+                        record.reads,
+                        record.rpm,
+                        record.abundance
+                    )?;
+                }
+            }
+            writeln!(f)?;
+
+            // --- Alignment Evidence Summary ---
+            writeln!(f, "### Alignment Evidence")?;
+            if self.evidence.alignment.is_empty() {
+                writeln!(f, "_No alignment evidence available._")?;
+            } else {
+                // For alignment evidence, we focus on counts and (if available) aggregated RPM.
+                // (Replace the placeholder aggregation with real field extraction as needed.)
+                let alignment_count = self.evidence.alignment.len();
+                let summed_alignment_rpm: f64 = self.evidence.alignment.iter().map(|_rec| {
+                    // Assume each VircovRecord has an 'rpm' field.
+                    // For demonstration, we use a placeholder value of 0.0.
+                    0.0
+                }).sum();
+                writeln!(f, "- **Total Alignment Records:** {}", alignment_count)?;
+                writeln!(f, "- **Summed RPM:** {:.2}", summed_alignment_rpm)?;
+            }
+            writeln!(f)?;
+
+            // --- Assembly Evidence Summary ---
+            writeln!(f, "### Assembly Evidence")?;
+            if self.evidence.assembly.is_empty() {
+                writeln!(f, "_No assembly evidence available._")?;
+            } else {
+                // For assembly evidence, we assume you wish to report total contigs, bases, and an RPM metric.
+                // Replace the following placeholder aggregations with actual data extraction.
+                let total_contigs: u64 = self.evidence.assembly.iter().map(|_rec| {
+                    // Assume each ContigRecord has a field 'contigs'
+                    0
+                }).sum();
+                let total_bases: u64 = self.evidence.assembly.iter().map(|_rec| {
+                    // Assume each ContigRecord has a field 'bases'
+                    0
+                }).sum();
+                let summed_assembly_rpm: f64 = self.evidence.assembly.iter().map(|_rec| {
+                    // Assume each ContigRecord has an RPM metric.
+                    0.0
+                }).sum();
+
+                // Markdown table for assembly evidence.
+                writeln!(f, "| Metric         | Value   |")?;
+                writeln!(f, "|----------------|---------|")?;
+                writeln!(f, "| Total Contigs  | {} |", total_contigs)?;
+                writeln!(f, "| Total Bases    | {} |", total_bases)?;
+                writeln!(f, "| Summed RPM     | {:.2} |", summed_assembly_rpm)?;
+            }
+            writeln!(f)?;
+
+        } else {
+
+            if let Some(species) = self.lineage.get_species() {
+                writeln!(f, "Species: '{species}'")?;
+            }
+
+
+            // --- Profile Evidence Summary ---
+            writeln!(f, "### Taxonomic profiling evidence")?;
+            if self.evidence.profile.is_empty() {
+                writeln!(f, "_No evidence available._")?;
+            } else {
+                // For each profile record, display key metrics.
+                for record in &self.evidence.profile {
+                    if record.contigs > 0 {
+                        writeln!(
+                            f,
+                            "Assembly: {} contigs {} bases|",
+                            record.contigs,
+                            record.bases
+                        )?;
+                    } else {
+                        writeln!(
+                            f,
+                            "{}: {:.2} RPM |",
+                            record.tool.to_string(),
+                            record.rpm
+                        )?;
+                    }
+                    
+                }
+            }
+            writeln!(f)?;
+
+        }
+        
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonEvidence {
     pub alignment: Vec<VircovRecord>,
@@ -151,7 +273,7 @@ pub trait LineageOperations: AsRef<str> {
 
 /// For a given taxon rank, return the corresponding index in the GTDB-style lineage string
 /// and the prefix (e.g., "d__" for Superkingdom, "s__" for Species, etc.).
-fn rank_index_and_prefix(rank: &TaxRank) -> Option<(usize, &'static str)> {
+pub fn rank_index_and_prefix(rank: &TaxRank) -> Option<(usize, &'static str)> {
     match rank {
         TaxRank::Superkingdom => Some((0, "d__")),
         TaxRank::Phylum       => Some((1, "p__")),

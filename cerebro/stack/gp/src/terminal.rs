@@ -130,6 +130,9 @@ pub struct DiagnoseArgs {
     /// Clinical context model for diagnostic queries
     #[clap(long, default_value="csf")]
     pub clinical_context: ClinicalContext,
+    /// Add memory of the diagostic decision tree to key decision points
+    #[clap(long, short = 'd')]
+    pub diagnostic_memory: bool,
 }
 
 

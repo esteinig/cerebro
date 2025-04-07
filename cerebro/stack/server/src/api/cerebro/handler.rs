@@ -585,6 +585,8 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
 
     let filter_config = filter_config.into_inner();
 
+
+
     // Build MongoDB pipeline
     let pipeline = get_matched_id_taxa_cerebro_pipeline(ids, date_range, run_ids);
     
@@ -638,6 +640,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                         tag_map.insert(tt.name, tt.sample_tags);
                     }          
                          
+
                     // Applying the rank/evidence filters from the provided filter configuration
                     let taxa: Vec<Taxon> = apply_filters(
                         aggregated_taxa.into_values().collect(), 

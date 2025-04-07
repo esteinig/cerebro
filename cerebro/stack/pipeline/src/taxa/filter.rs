@@ -36,6 +36,13 @@ pub struct TaxonFilterConfig {
     pub collapse_variants: bool,                    // Collapse species variants by name (GTDB, e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) - sums evidence and adjusts taxon name
 }
 
+impl TaxonFilterConfig {
+    pub fn target_set(&self) -> Option<HashSet<&str>> {
+        // Build a HashSet of target names for efficient lookup.
+        if let Some(targets) = &self.targets { Some(HashSet::from_iter(targets.into_iter().map(|t| t.as_str()))) } else { None }
+    }
+}
+
 impl Default for TaxonFilterConfig {
     fn default() -> Self {
         Self {
@@ -69,7 +76,7 @@ impl TaxonFilterConfig {
             max_bases: None,
             min_bpm: 0.0,
             min_reads: 0,
-            min_rpm: 0.5,
+            min_rpm: 5.0,
             max_rpm: None,
             min_abundance: 0.0,
             ntc_ratio: Some(3.0),
@@ -92,7 +99,7 @@ impl TaxonFilterConfig {
             max_bases: None,
             min_bpm: 0.0,
             min_reads: 0,
-            min_rpm: 10.0,
+            min_rpm: 5.0,
             max_rpm: None,
             min_abundance: 0.0,
             ntc_ratio: Some(3.0),
@@ -112,11 +119,11 @@ impl TaxonFilterConfig {
             tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 200,
-            max_bases: None,
+            max_bases: Some(1000),
             min_bpm: 0.0,
             min_reads: 0,
-            min_rpm: 0.5,
-            max_rpm: None,
+            min_rpm: 1.0,
+            max_rpm: Some(15.0),
             min_abundance: 0.0,
             ntc_ratio: Some(3.0),
             lineage: Some(vec![
@@ -247,9 +254,9 @@ impl LineageFilterConfig {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: None,
-            min_alignment_rpm: Some(10.0),
+            min_alignment_rpm: Some(5.0),
             min_kmer_tools: Some(1),
-            min_kmer_rpm: Some(10.0),
+            min_kmer_rpm: Some(5.0),
             min_assembly_tools: None
         }
     }
@@ -260,7 +267,7 @@ impl LineageFilterConfig {
             min_alignment_tools: None,
             min_alignment_rpm: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
+            min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: None
         }
     }
@@ -271,7 +278,7 @@ impl LineageFilterConfig {
             min_alignment_tools: None,
             min_alignment_rpm: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
+            min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: Some(1)
         }
     }
@@ -281,9 +288,9 @@ impl LineageFilterConfig {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: Some(1),
-            min_alignment_rpm: Some(10.0),
+            min_alignment_rpm: Some(5.0),
             min_kmer_tools: Some(1),
-            min_kmer_rpm: Some(10.0),
+            min_kmer_rpm: Some(5.0),
             min_assembly_tools: None
         }
     }
@@ -294,7 +301,7 @@ impl LineageFilterConfig {
             min_alignment_tools: None,
             min_alignment_rpm: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
+            min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: None
         }
     }
@@ -305,7 +312,7 @@ impl LineageFilterConfig {
             min_alignment_tools: None,
             min_alignment_rpm: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
+            min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: Some(1)
         }
     }
@@ -327,8 +334,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
-            min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(0.5),
+            min_kmer_tools: Some(2),
+            min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }
     }
@@ -339,7 +346,7 @@ impl LineageFilterConfig {
             min_alignment_tools: None,
             min_alignment_rpm: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(3.0) ,
+            min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: Some(1)
         }
     }
@@ -400,6 +407,8 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
+
+
     // Filter by domain
     if !filter_config.domains.is_empty() {
         taxa = taxa
@@ -415,18 +424,14 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
 
     // Collapse taxon variant names
     if filter_config.collapse_variants {
-        taxa = collapse_taxa(taxa).expect("FAILED TO COLLAPSE TAXA");
+        taxa = collapse_taxa(taxa).expect("FAILED TO COLLAPSE TAXA"); // TODO
     }
 
     // Apply target filter if specified - this is really slow at the moment because of the String checks?
-    if let Some(subset) = &filter_config.targets {
-        if !subset.is_empty() {
-            taxa = taxa.into_iter()
-                    .filter(|taxon| {
-                        subset.iter().any(|term| taxon.lineage.contains(term))
-                    })
-                    .collect();
-        }
+    if let Some(target_set) = &filter_config.target_set() {
+        taxa = taxa.into_iter()
+            .filter(|taxon| target_set.contains(taxon.name.as_str()))
+            .collect();
     }
 
     // Filter by detection tools, modes, and thresholds
@@ -436,6 +441,7 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     if let Some(lineage_filters) = &filter_config.lineage {
         taxa = apply_lineage_filters(taxa, lineage_filters, sample_tags);
     }
+
 
     taxa
 }
