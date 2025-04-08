@@ -1450,6 +1450,8 @@ export type LineageFilterConfig = {
     tags: string[],
     min_alignment_tools: number | null,
     min_alignment_rpm: number | null,
+    min_alignment_regions: number | null,
+    min_alignment_regions_coverage: number | null,
     min_kmer_tools: number | null,
     min_kmer_rpm: number | null,
     min_assembly_tools: number | null,

@@ -173,29 +173,34 @@ pub struct GpConfig {
     #[serde(skip_deserializing)]
     pub sample: String,
     pub identifiers: CerebroIdentifierSmallSchema,
-    pub contamination: PrevalenceContaminationConfig
+    pub contamination: PrevalenceContaminationConfig,
+    pub ignore_taxstr: Option<Vec<String>>
 }
 impl GpConfig {
-    pub fn new(sample: String, controls: Option<Vec<String>>, tags: Option<Vec<String>>, contamination: PrevalenceContaminationConfig) -> Self {
+    pub fn new(sample: String, controls: Option<Vec<String>>, tags: Option<Vec<String>>, ignore_taxstr: Option<Vec<String>>, contamination: PrevalenceContaminationConfig) -> Self {
         Self {
             sample,
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
-            contamination
+            contamination,
+            ignore_taxstr
         }
     }
-    pub fn from_reference_plate(sample: &str, controls: &Vec<String>, contamination: PrevalenceContaminationConfig) -> Self {
+    pub fn from_reference_plate(sample: &str, controls: &Vec<String>, tags: &Vec<String>, ignore_taxstr: Option<Vec<String>>, contamination: PrevalenceContaminationConfig) -> Self {
         Self {
             sample: sample.to_string(),
-            identifiers: CerebroIdentifierSmallSchema { controls: Some(controls.clone()), tags: Some(vec![String::from("DNA"), String::from("RNA")]) },
-            contamination
+            identifiers: CerebroIdentifierSmallSchema { controls: Some(controls.clone()), tags: Some(tags.clone()) },
+            contamination,
+            ignore_taxstr
         }
     }
-    pub fn from_json(sample: String, path: &Path) -> Result<Self, ModelError> {
+    pub fn from_json(sample: String, path: &Path, ignore_taxstr: Option<Vec<String>>) -> Result<Self, ModelError> {
         let rdr = BufReader::new(File::open(&path)?);
         let mut config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
 
         config.sample = sample;
         config.identifiers.assert_allowed_tags();
+        
+        config.ignore_taxstr = ignore_taxstr;
         
         Ok(config)
     }

@@ -46,7 +46,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             api_client.get_taxa(
                 &request_schema, 
                 &eval_config.filter, 
-                &mut eval_config.prevalence
+                &mut eval_config.prevalence,
+                args.contam_history
             )?;
         },
         Commands::Plate( args ) => {
@@ -56,9 +57,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::Review( args ) => {
 
             let mut plate_reference = ReferencePlate::new(
-                &args.reference, 
+                &args.plate, 
                 args.review.as_deref(),
-                args.missing_orthogonal.clone()
+                args.missing_orthogonal.clone(),
+                args.diagnostic_agent
             )?;
 
             if let Some(sample_id) = &args.set_none {
@@ -99,52 +101,86 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
 
             let plate = ReferencePlate::new(
-                &args.reference, 
+                &args.plate, 
                 None,
-                MissingOrthogonal::Indeterminate
+                MissingOrthogonal::Indeterminate,
+                false
             )?;
 
 
             for sample_id in &plate.samples {
                 
-                let mut agent = DiagnosticAgent::new(
-                    api_client.clone(), 
-                    args.model.clone(),
-                    args.diagnostic_memory
-                ).await?;
-    
-                
-                // Prime the LLM with the background explanation
-                agent.prime_llm(
-                    &DataBackground::CerebroFilter.get_default()
-                ).await?;
-
-                let sample_reference = match plate.get_sample_reference(&sample_id) {
-                    Some(sample_reference) => sample_reference,
-                    None => { 
-                        log::warn!("Failed to find plate reference for sample: {sample_id}");
-                        continue;
-                    }
-                };
-
-                log::info!("Starting generative practitioner diagnostic for '{sample_id}'");
-                
-                let mut gp_config = GpConfig::from_reference_plate(
-                    sample_id, 
-                    &plate.negative_controls, 
-                    PrevalenceContaminationConfig::gp_default()
+                let json_file = &args.outdir.join(
+                    format!("{sample_id}.{}.json", args.model)
                 );
 
-                let diagnostic_result = agent.run(
-                    &mut gp_config, 
-                    &ClinicalContext::from_sample_type(sample_reference.sample_type).text()
-                ).await?;
+                if args.force || !json_file.exists() {
 
-                diagnostic_result.to_json(
-                    &args.outdir.join(
-                        format!("{sample_id}.{}.json", args.model)
-                    )
-                )?;
+                    let mut agent = DiagnosticAgent::new(
+                        api_client.clone(), 
+                        args.model.clone(),
+                        args.diagnostic_memory,
+                        args.contam_history
+                    ).await?;
+        
+                    
+                    // Prime the LLM with the background explanation
+                    agent.prime_llm(
+                        &DataBackground::CerebroFilter.get_default()
+                    ).await?;
+    
+                    let sample_reference = match plate.get_sample_reference(&sample_id) {
+                        Some(sample_reference) => sample_reference,
+                        None => { 
+                            log::warn!("Failed to find plate reference for sample: {sample_id}");
+                            continue;
+                        }
+                    };
+    
+                    log::info!("Starting generative practitioner diagnostic for '{sample_id}'");
+    
+                    let tags = match sample_reference.note {
+                        Some(ref note) => {
+                            if note.contains("ignore_rna") {
+                                vec![String::from("DNA")]
+                            } else if note.contains("ignore_dna") {
+                                vec![String::from("RNA")]
+                            } else {
+                                vec![String::from("DNA"), String::from("RNA")]
+                            }
+                        },
+                        None => vec![String::from("DNA"), String::from("RNA")]
+                    };
+    
+                    let ignore_taxstr = match sample_reference.note {
+                        Some(ref note) => {
+                            if note.contains("ignore_taxstr") {
+                                Some(note.replace("ignore_taxstr:", "").split(",").map(|s| s.trim().to_string()).collect::<Vec<_>>())
+                            } else {
+                                None
+                            }
+                        },
+                        None => None
+                    };
+                    
+                    let mut gp_config = GpConfig::from_reference_plate(
+                        sample_id, 
+                        &plate.negative_controls, 
+                        &tags,
+                        ignore_taxstr,
+                        PrevalenceContaminationConfig::gp_default()
+                    );
+    
+                    let diagnostic_result = agent.run(
+                        &mut gp_config, 
+                        &ClinicalContext::from_sample_type(sample_reference.sample_type).text()
+                    ).await?;
+    
+                    diagnostic_result.to_json(&json_file)?;
+                } else {
+                    log::info!("File '{}' exists and force not enabled - skipping file", json_file.display())
+                }
+
                             
             }
                         

@@ -91,7 +91,7 @@ impl ThresholdCandidates {
         if let Some(ref above) = self.above_threshold {
             output.push_str("Above threshold candidate taxa: ");
             if above.is_empty() {
-                output.push_str("no taxa called");
+                output.push_str("no taxa called\n\n");
             } else {
                 // Join the names of the taxa with commas.
                 let taxa: Vec<String> = above.iter().map(|taxon| format!("{taxon}")).collect();
@@ -104,7 +104,7 @@ impl ThresholdCandidates {
         if let Some(ref below) = self.below_threshold {
             output.push_str("Below threshold candidate taxa: ");
             if below.is_empty() {
-                output.push_str("no taxa called");
+                output.push_str("no taxa called\n\n");
             } else {
                 let taxa: Vec<String> = below.iter().map(|taxon| format!("{taxon}")).collect();
                 output.push_str(&taxa.join("\n"));
@@ -115,7 +115,7 @@ impl ThresholdCandidates {
         if let Some(ref target) = self.target_list {
             output.push_str("Target threshold candidate taxa: ");
             if target.is_empty() {
-                output.push_str("no taxa called");
+                output.push_str("no taxa called\n\n");
             } else {
                 let taxa: Vec<String> = target.iter().map(|taxon| format!("{taxon}")).collect();
                 output.push_str(&taxa.join("\n"));
@@ -198,7 +198,6 @@ pub struct TreeNode {
     check: Option<CheckType>,
     true_node: Option<String>,
     false_node: Option<String>,
-    command: Option<String>,
     next: Option<String>,
     final_node: Option<bool>,
 }
@@ -227,26 +226,6 @@ pub struct EvaluationDetails {
     pub contamination_reason: String,
     pub pathogen_reason: String,
     pub positive_infection: Option<bool>,
-}
-impl EvaluationDetails {
-    fn not_available() -> Self {
-        EvaluationDetails {
-            taxa_contamination: vec![],
-            taxa_pathogens: vec![],
-            contamination_reason: "Not available".into(),
-            pathogen_reason: "Not available".into(),
-            positive_infection: None,
-        }
-    }
-    fn parsing_failed() -> Self {
-        Self {
-            taxa_contamination: vec![],
-            taxa_pathogens: vec![],
-            contamination_reason: "Parsing failed".into(),
-            pathogen_reason: "Parsing failed".into(),
-            positive_infection: None,
-        }
-    }
 }
 
 
@@ -298,6 +277,11 @@ impl DiagnosticResult {
         let mut writer = BufWriter::new(File::create(path)?);
         write!(writer, "{agent_state}")?;
         Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, GptError> {
+        let data = std::fs::read_to_string(path)?;
+        let result = serde_json::from_str::<DiagnosticResult>(&data)?;
+        Ok(result)
     }
 }
 
@@ -394,7 +378,8 @@ pub struct DiagnosticAgent {
     pub state: AgentState,
     pub knowledge_graph: Graph<String, String>,
     pub model: String,
-    pub diagnostic_memory: bool
+    pub diagnostic_memory: bool,
+    pub contam_history: bool
 }
 
 // "output_evaluation": {
@@ -408,7 +393,7 @@ pub struct DiagnosticAgent {
 // },
 
 impl DiagnosticAgent {
-    pub async fn new(cerebro_client: CerebroClient, model: String, diagnostic_memory: bool) -> Result<Self> {
+    pub async fn new(cerebro_client: CerebroClient, model: String, diagnostic_memory: bool, contam_history: bool) -> Result<Self> {
         
         let decision_tree_json = r#"
         {
@@ -473,7 +458,7 @@ impl DiagnosticAgent {
             },
             "select_infectious": {
                 "question": {
-                        "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength and weaknesses of the evidence (from metagenomics assay) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contaminantion.",
+                        "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contamination.",
                         "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'"
                 },
                 "check": "llm_eval",
@@ -525,7 +510,7 @@ impl DiagnosticAgent {
             },
             "select_infectious_review": {
                 "question": {
-                        "prompt": "You have selected one or more taxa as pathogen candidates with review. Take into consideration the strength of the evidence (from metagenomics data) if multiple pathogen candidates were chosen. When encountering multiple bacterial pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data. If a virus is present that is infectious in humans and is a reasonable candidate given the clinical patient and sample notes, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contamination.",
+                        "prompt": "You have selected one or more taxa as pathogen candidates with review. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contamination.",
                         "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'"
                 },
                 "check": "llm_eval",
@@ -588,37 +573,12 @@ impl DiagnosticAgent {
             state,
             knowledge_graph,
             model,
-            diagnostic_memory
+            diagnostic_memory,
+            contam_history
         })
     }
     fn model_supports_system_message(&self) -> bool {
         Vec::from(["gpt-4o".to_string(), "gpt-4o-mini".to_string()]).contains(&self.model)
-    }
-    /// Sends the evaluation prompt and expects a valid JSON response.
-    async fn evaluate_json(&self, question: &Question, context: &str) -> Result<String> {
-        
-        let prompt_text = question.to_prompt();
-
-        let messages = if self.model_supports_system_message() {
-            vec![
-                ChatCompletionRequestMessage::System("You are a diagnostic assistant. Return only valid JSON in your response.".into()),
-                ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
-            ]
-        } else {
-            vec![
-                ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
-            ]
-        };
-
-        log::info!("{:#?}", messages);
-
-        let request = CreateChatCompletionRequestArgs::default()
-            .model(&self.model)
-            .messages(messages)
-            .build()?;
-        let response = self.llm_client.chat().create(request).await?;
-        let reply = response.choices[0].message.content.clone().unwrap_or_default();
-        Ok(reply)
     }
     // Evaluate an LLM prompt using async-openai.
     async fn evaluate_diagnostic_llm(&self, question: &Question, context: &str) -> Result<bool> {
@@ -670,16 +630,6 @@ impl DiagnosticAgent {
         let response = self.llm_client.chat().create(request).await?;
         let reply = &response.choices[0].message.content;
         Ok(reply.as_ref().unwrap_or(&format!("Unknown response from LLM")).to_string())
-    }
-
-
-    async fn run_shell_command(&self, command: &str) -> Result<String> {
-        let output = Command::new("bash")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .await?;
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     /// Primes the LLM with the background explanation.
@@ -836,12 +786,12 @@ impl DiagnosticAgent {
                         // Get JSON-structured memory injection.
                         let diagnostic_memory = self.get_history();
 
-                        let threshold_candidate_taxa = self.get_threshold_candidates();
+                        let threshhold_candidates = self.get_threshold_candidates();
                         let pathogen_candidates = self.state.memory.get("pathogen_candidates");
                         let pathogen_candidate_description = self.state.memory.get("pathogen_candidate_description");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}\n\nThreshold candidates: {}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description, threshhold_candidates.to_str());
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_selection = self.evaluate_llm(question, &full_context).await?;
@@ -954,12 +904,12 @@ impl DiagnosticAgent {
                         // Get JSON-structured memory injection.
                         let diagnostic_memory = self.get_history();
 
-                        let threshold_candidate_taxa = self.get_threshold_candidates();
+                        let threshhold_candidates = self.get_threshold_candidates();
                         let pathogen_candidates = self.state.memory.get("pathogen_candidates");
                         let pathogen_candidate_description = self.state.memory.get("pathogen_candidate_description");
 
                         // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description);
+                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}\n\nThreshold candidate taxa: {}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description, threshhold_candidates.to_str());
 
                         // Fetch JSON output from the LLM with the full context.
                         let pathogen_selection = self.evaluate_llm(question, &full_context).await?;
@@ -1061,8 +1011,9 @@ impl DiagnosticAgent {
 
                     let (above_threshold_taxa, above_threshold_contam) = self.cerebro_client.get_taxa( 
                         &CerebroIdentifierSchema::from_gp_config(gp_config), 
-                        &TaxonFilterConfig::gp_above_threshold(), 
-                        &mut gp_config.contamination
+                        &TaxonFilterConfig::gp_above_threshold(gp_config.ignore_taxstr.clone()), 
+                        &mut gp_config.contamination,
+                        self.contam_history
                     )?;
 
                     self.state.log(
@@ -1103,8 +1054,9 @@ impl DiagnosticAgent {
                     
                     let (below_threshold_taxa, below_threshold_contam) = self.cerebro_client.get_taxa(
                         &CerebroIdentifierSchema::from_gp_config(gp_config), 
-                        &TaxonFilterConfig::gp_below_threshold(), 
-                        &mut gp_config.contamination
+                        &TaxonFilterConfig::gp_below_threshold(gp_config.ignore_taxstr.clone()), 
+                        &mut gp_config.contamination,
+                        false
                     )?;
 
                     self.state.log(
@@ -1145,8 +1097,9 @@ impl DiagnosticAgent {
 
                     let (target_threshold_taxa, target_threshold_contam) = self.cerebro_client.get_taxa(
                         &CerebroIdentifierSchema::from_gp_config(gp_config), 
-                        &TaxonFilterConfig::gp_target_threshold(), 
-                        &mut gp_config.contamination
+                        &TaxonFilterConfig::gp_target_threshold(gp_config.ignore_taxstr.clone()), 
+                        &mut gp_config.contamination,
+                        false
                     )?;
             
                     self.state.log(

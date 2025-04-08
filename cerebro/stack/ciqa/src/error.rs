@@ -23,6 +23,8 @@ pub enum CiqaError {
     NifflerError(#[from] niffler::Error),
     #[error(transparent)]
     CsvError(#[from] csv::Error),
+    #[error(transparent)]
+    GptError(#[from] cerebro_gp::error::GptError),
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for CiqaError

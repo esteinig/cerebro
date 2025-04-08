@@ -32,7 +32,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             let mut agent = DiagnosticAgent::new(
                 api_client, 
                 args.model.clone(),
-                args.diagnostic_memory
+                args.diagnostic_memory,
+                args.contam_history
             ).await?;
 
             // Optionally, print the knowledge graph
@@ -42,14 +43,18 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                 // Parse generative practicioner configuration
                 let mut gp_config = match &args.json {
-                    Some(path) => GpConfig::from_json(
-                        args.sample.clone(), 
-                        path
-                    )?,
+                    Some(path) => {
+                        GpConfig::from_json(
+                            args.sample.clone(), 
+                            path,
+                            args.ignore_taxstr.clone()
+                        )?
+                    },
                     None => GpConfig::new(
                         args.sample.clone(), 
                         args.controls.clone(), 
                         args.tags.clone(),
+                        args.ignore_taxstr.clone(),
                         PrevalenceContaminationConfig::gp_default()
                     )
                 };

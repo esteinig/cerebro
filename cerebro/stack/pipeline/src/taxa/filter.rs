@@ -34,12 +34,26 @@ pub struct TaxonFilterConfig {
     pub lineage: Option<Vec<LineageFilterConfig>>,  // Lineage filter configuration if specified
     pub targets: Option<Vec<String>>,               // Subset taxa to these lineage components
     pub collapse_variants: bool,                    // Collapse species variants by name (GTDB, e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) - sums evidence and adjusts taxon name
+    pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches 
 }
 
 impl TaxonFilterConfig {
     pub fn target_set(&self) -> Option<HashSet<&str>> {
         // Build a HashSet of target names for efficient lookup.
         if let Some(targets) = &self.targets { Some(HashSet::from_iter(targets.into_iter().map(|t| t.as_str()))) } else { None }
+    }
+    /// Checks if the given taxon passes *all* defined lineage filter configurations.
+    /// (Here we focus on the alignment evidence part; you might extend this to other criteria.)
+    pub fn passes_filters(&self, taxon: &Taxon) -> bool {
+        if let Some(lineage_filters) = &self.lineage {
+            for filter in lineage_filters {
+                if !filter.passes_alignment_filters(taxon) {
+                    return false;
+                }
+                // (Additional criteria can be added here.)
+            }
+        }
+        true
     }
 }
 
@@ -61,6 +75,7 @@ impl Default for TaxonFilterConfig {
             lineage: None,
             targets: None,
             collapse_variants: false,
+            ignore_taxstr: None
         }
     }
 }
@@ -87,15 +102,16 @@ impl TaxonFilterConfig {
             ]),
             targets: None,
             collapse_variants: false,
+            ignore_taxstr: None
         }
     }
-    pub fn gp_above_threshold() -> Self {
+    pub fn gp_above_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
             tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
             modes: vec![AbundanceMode::Mixed],
-            min_bases: 1000,
+            min_bases: 500,
             max_bases: None,
             min_bpm: 0.0,
             min_reads: 0,
@@ -110,16 +126,17 @@ impl TaxonFilterConfig {
             ]),
             targets: None,
             collapse_variants: false,
+            ignore_taxstr: taxstr
         }
     }
-    pub fn gp_below_threshold() -> Self {
+    pub fn gp_below_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
             tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 200,
-            max_bases: Some(1000),
+            max_bases: Some(500),
             min_bpm: 0.0,
             min_reads: 0,
             min_rpm: 1.0,
@@ -133,9 +150,10 @@ impl TaxonFilterConfig {
             ]),
             targets: None,
             collapse_variants: false,
+            ignore_taxstr: taxstr
         }
     }
-    pub fn gp_target_threshold() -> Self {
+    pub fn gp_target_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: vec![],
@@ -154,6 +172,7 @@ impl TaxonFilterConfig {
             ]),
             targets: Some(TargetList::gp_vertebrate_viruses().to_vec()),
             collapse_variants: false,
+            ignore_taxstr: taxstr
         }
     }
 }
@@ -244,17 +263,46 @@ pub struct LineageFilterConfig {
     pub tags: Vec<String>,
     pub min_alignment_tools: Option<usize>,
     pub min_alignment_rpm: Option<f64>,
+    pub min_alignment_regions: Option<u64>,
+    pub min_alignment_regions_coverage: Option<f64>,
     pub min_kmer_tools: Option<usize>,
     pub min_kmer_rpm: Option<f64>,
     pub min_assembly_tools: Option<usize>,
 }
 impl LineageFilterConfig {
+     /// Checks whether the given taxon meets the alignment evidence criteria.
+     pub fn passes_alignment_filters(&self, taxon: &Taxon) -> bool {
+        // (1) If a minimum number of alignment tools is specified and is greater than 0,
+        // then there must be at least one alignment record.
+        if let Some(min_tools) = self.min_alignment_tools {
+            if min_tools > 0 && taxon.evidence.alignment.is_empty() {
+                return false;
+            }
+        }
+
+        // (2) If a requirement is defined for the minimum number of alignment regions,
+        // check that at least one alignment record in the taxon meets both the regions
+        // and (optionally) the coverage threshold.
+        if let Some(min_regions) = self.min_alignment_regions {
+            // Use the specified coverage, or 0.0 if not provided.
+            let min_cov = self.min_alignment_regions_coverage.unwrap_or(0.0);
+            let valid_alignment = taxon.evidence.alignment.iter().any(|record| {
+                record.scan_regions >= min_regions && record.scan_coverage >= min_cov
+            });
+            if !valid_alignment {
+                return false;
+            }
+        }
+        true
+    }
     pub fn validation_viruses() -> Self {
         Self {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
-            min_alignment_tools: None,
+            min_alignment_tools: Some(1),
             min_alignment_rpm: Some(5.0),
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(1),
             min_kmer_rpm: Some(5.0),
             min_assembly_tools: None
@@ -266,6 +314,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: None
@@ -277,6 +327,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: Some(1)
@@ -289,6 +341,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: Some(1),
             min_alignment_rpm: Some(5.0),
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(1),
             min_kmer_rpm: Some(5.0),
             min_assembly_tools: None
@@ -300,6 +354,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: None
@@ -311,6 +367,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: Some(1)
@@ -323,6 +381,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: Some(1),
             min_alignment_rpm: Some(1.0),
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
             min_kmer_rpm: Some(1.0),
             min_assembly_tools: None
@@ -334,6 +394,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
             min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
@@ -345,6 +407,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string()],
             min_alignment_tools: None,
             min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0) ,
             min_assembly_tools: Some(1)
@@ -358,6 +422,8 @@ impl LineageFilterConfig {
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: Some(1),
             min_alignment_rpm: Some(0.0),
+            min_alignment_regions: Some(2),
+            min_alignment_regions_coverage: Some(20.0),
             min_kmer_tools: Some(1),
             min_kmer_rpm: Some(0.0),
             min_assembly_tools: None
@@ -431,6 +497,20 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     if let Some(target_set) = &filter_config.target_set() {
         taxa = taxa.into_iter()
             .filter(|taxon| target_set.contains(taxon.name.as_str()))
+            .collect();
+    }
+
+    // Apply taxstr filter to remove matches in name
+    if let Some(taxstr) = &filter_config.ignore_taxstr {
+        taxa = taxa.into_iter()
+            .filter(|taxon| {
+                for s in taxstr {
+                    if taxon.name.contains(s) {
+                        return false
+                    }
+                }
+                true
+            })
             .collect();
     }
 
@@ -636,13 +716,24 @@ pub fn apply_lineage_filters(
             let mut passes_all = true;
             for lf in lineage_filters {
                 if lf.lineages.iter().any(|l| lineage_str.contains(l)) {
+
                     // Alignment filter for Vircov records
                     if let Some(min_alignment_tools) = lf.min_alignment_tools {
                         let min_alignment_rpm = lf.min_alignment_rpm.unwrap_or(0.0);
+                        
+                        let valid_alignment_count = taxon.evidence.alignment.iter().filter(|record| {
+                            if record.scan_coverage < lf.min_alignment_regions_coverage.unwrap_or(0.0) {
+                                record.scan_regions >= lf.min_alignment_regions.unwrap_or(0)
+                            } else {
+                                true
+                            }
+                        }).count();
+
                         let alignment_count = filtered_profile.iter().filter(|record| {
                             record.tool == ProfileTool::Vircov && record.rpm >= min_alignment_rpm
                         }).count();
-                        if alignment_count < min_alignment_tools {
+                        
+                        if alignment_count < min_alignment_tools || valid_alignment_count < 1 {
                             passes_all = false;
                             break;
                         }

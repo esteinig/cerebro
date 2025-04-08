@@ -119,6 +119,9 @@ pub struct EvaluateArgs {
     /// JSON file of request schema
     #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
     pub json: Option<PathBuf>,
+    /// Check for contamination history outliers to be removed from prevalence filter
+    #[clap(long, short = 'h')]
+    pub contam_history: bool,
 }
 
 #[derive(Debug, Args)]
@@ -128,8 +131,8 @@ pub struct PlateArgs {
 #[derive(Debug, Args)]
 pub struct DiagnoseArgs {
     /// Reference plate file (.json)
-    #[clap(long, short = 'r')]
-    pub reference: PathBuf,
+    #[clap(long, short = 'p')]
+    pub plate: PathBuf,
     /// Output directory for diagnostic results (.json)
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
@@ -139,17 +142,26 @@ pub struct DiagnoseArgs {
     /// Add memory of the diagostic decision tree to key decision points
     #[clap(long, short = 'd')]
     pub diagnostic_memory: bool,
+    /// Check for contamination history outliers to be removed from prevalence filter
+    #[clap(long, short = 'h')]
+    pub contam_history: bool,
+    /// Force overwrite output, otherwise skip if exists
+    #[clap(long, short = 'f')]
+    pub force: bool,
 }
 
 
 #[derive(Debug, Args)]
 pub struct ReviewArgs {
     /// Reference plate file (.json)
+    #[clap(long, short = 'p')]
+    pub plate: PathBuf,
+    /// Plate review file (.tsv) or meta-gpt agent output directory with diagnostic result files if `--diagnostic_agent` flag enabled
     #[clap(long, short = 'r')]
-    pub reference: PathBuf,
-    /// Plate review file (.tsv)
-    #[clap(long, short = 't')]
     pub review: Option<PathBuf>,
+    /// Enable diagnostic meta-gpt agent output review
+    #[clap(long, short = 'd')]
+    pub diagnostic_agent: bool,
     /// Evaluate reference samples by sample type
     #[clap(long, short = 's')]
     pub sample_type: Option<SampleType>,
@@ -157,7 +169,7 @@ pub struct ReviewArgs {
     #[clap(long, short = 'n', num_args=1..)]
     pub set_none: Option<Vec<String>>,
     /// Handle references with missing orthogonal data and a positive review call
-    #[clap(long, short = 't', default_value="indeterminate")]
+    #[clap(long, short = 'm', default_value="indeterminate")]
     pub missing_orthogonal: MissingOrthogonal,
 }
 

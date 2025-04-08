@@ -431,7 +431,7 @@ fn main() -> anyhow::Result<()> {
             let filter_config = TaxonFilterConfig::validation();
             let mut contam_config = PrevalenceContaminationConfig::validation();
 
-            client.get_taxa(&schema, &filter_config, &mut contam_config)?;
+            client.get_taxa(&schema, &filter_config, &mut contam_config, true)?;
 
         },
         // Query sample models for quality control summary

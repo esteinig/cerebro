@@ -133,6 +133,12 @@ pub struct DiagnoseArgs {
     /// Add memory of the diagostic decision tree to key decision points
     #[clap(long, short = 'd')]
     pub diagnostic_memory: bool,
+    /// Check for contamination history outliers to be removed from prevalence filter
+    #[clap(long, short = 'h')]
+    pub contam_history: bool,
+    /// Ignore these taxstr as filter for threshold values
+    #[clap(long, short = 'i', num_args=1..)]
+    pub ignore_taxstr: Option<Vec<String>>,
 }
 
 

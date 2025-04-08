@@ -37,6 +37,7 @@ use cerebro_model::api::watchers::response::RegisterWatcherResponse;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
+use cerebro_pipeline::taxa::taxon::LineageOperations;
 use cerebro_pipeline::taxa::taxon::Taxon;
 use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
@@ -60,6 +61,8 @@ use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 
 use crate::error::HttpClientError;
+use crate::regression;
+use crate::regression::RpmAnalysisResult;
 use crate::regression::RpmAnalyzer;
 use crate::regression::RpmConfigBuilder;
 use std::fmt;
@@ -1212,7 +1215,7 @@ impl CerebroClient {
 
         Ok(None)
     }
-    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool) -> Result<(), HttpClientError> {
+    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
 
         self.log_team_warning();
         self.log_db_warning();
@@ -1247,27 +1250,26 @@ impl CerebroClient {
             // Run the regression and outlier detection.
             let result = analyzer.run();
 
-            println!("Regression result:");
-            println!("Intercept (log₁₀ scale): {:.4}", result.intercept);
-            println!("Slope: {:.4} ({})", result.slope, result.relationship);
-            println!("Residual standard error: {:.4}", result.residual_standard_error);
+            // println!("Regression result:");
+            // println!("Intercept (log₁₀ scale): {:.4}", result.intercept);
+            // println!("Slope: {:.4} ({})", result.slope, result.relationship);
+            // println!("Residual standard error: {:.4}", result.residual_standard_error);
 
-            if !result.outliers.is_empty() {
-                println!("Outliers detected:");
-                for outlier in &result.outliers {
-                    println!("Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}", 
-                        outlier.sample_id, outlier.raw_host, outlier.raw_taxon);
-                }
-            } else {
-                println!("No outliers detected.");
-            }
+            // if !result.outliers.is_empty() {
+            //     println!("Outliers detected:");
+            //     for outlier in &result.outliers {
+            //         println!("Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}", 
+            //             outlier.sample_id, outlier.raw_host, outlier.raw_taxon);
+            //     }
+            // } else {
+            //     println!("No outliers detected.");
+            // }
 
-            // Create a PNG plot of the regression.
-            analyzer.plot_regression(&result, "rpm_regression.png")?;
-            println!("Plot saved as rpm_regression.png");
+            Ok(Some(result))
+
+        } else {
+            Ok(None)
         }
-
-        Ok(())
     }
     fn split_taxa(&self, map: HashMap<String, (Vec<Taxon>, Vec<Taxon>)>) -> (Vec<Taxon>, Vec<Taxon>) {
         let mut sample_taxa: Vec<Taxon> = Vec::new();
@@ -1284,7 +1286,8 @@ impl CerebroClient {
         &self,
         schema: &CerebroIdentifierSchema,
         filter_config: &TaxonFilterConfig,
-        contam_config: &mut PrevalenceContaminationConfig
+        contam_config: &mut PrevalenceContaminationConfig,
+        contam_history: bool
     ) -> Result<(Vec<Taxon>, Vec<Taxon>), HttpClientError> {
 
         self.log_team_warning();
@@ -1372,14 +1375,32 @@ impl CerebroClient {
                         .cloned()
                         .collect();
 
-                    let sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                    let mut sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
                         .iter()
                         .filter(|tax| !contam_taxids.contains(&tax.taxid))
                         .cloned()
                         .collect();
 
-                    tag_data.insert(tag.to_string(), (sample_control_taxa, contam_taxa));
+                    if contam_history {
+                        'contam: for contam_taxon in &contam_taxa {
+                            let reg = self.get_taxon_history(
+                                format!("s__{}", contam_taxon.name), 
+                                format!("s__Homo sapiens"), 
+                                true
+                            )?;
+                            if let Some(reg) = reg {
+                                for outlier in reg.outliers {
+                                    if outlier.sample_id == schema.sample {
+                                        sample_control_taxa.push(contam_taxon.to_owned());
+                                        continue 'contam;
+                                    }
+                                }
+                            }
+                        }    
+                    }
 
+                    tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), contam_taxa.clone()));
+                    
                 }   
             }
         }   

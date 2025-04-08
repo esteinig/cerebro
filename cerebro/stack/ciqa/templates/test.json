@@ -426,7 +426,7 @@
         "sample_id": "DW-63-V12",
         "sample_type": "CSF",
         "result": "positive",
-        "note": null,
+        "note": "ignore_rna: rna is from positive control switch up sample",
         "orthogonal": [
             {
                 "method": "spike",
@@ -1460,7 +1460,7 @@
         "sample_id": "DW-63-V36",
         "sample_type": "EYE",
         "result": "negative",
-        "note": null,
+        "note": "ignore_taxstr: Alphatorquevirus",
         "orthogonal": [
             {
                 "method": "culture",
@@ -1670,7 +1670,7 @@
         "sample_id": "DW-63-V39",
         "sample_type": "CSF",
         "result": "positive",
-        "note": null,
+        "note": "ignore_rna: rna is from positive control switch up sample",
         "orthogonal": [
             {
                 "method": "spike",
@@ -2868,7 +2868,7 @@
         "sample_id": "DW-63-V72",
         "sample_type": "CSF",
         "result": "positive",
-        "note": null,
+        "note": "ignore_taxstr: Lentivirus humimdef1",
         "orthogonal": [
             {
                 "method": "culture",

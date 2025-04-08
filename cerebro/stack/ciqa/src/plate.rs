@@ -1,7 +1,8 @@
 
 use std::{collections::{HashMap, HashSet}, path::Path};
 
-use cerebro_gp::gpt::ClinicalContext;
+use cerebro_gp::gpt::{ClinicalContext, Diagnosis, DiagnosticResult};
+use itertools::Itertools;
 use plotters::{coord::Shift, prelude::*};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
@@ -171,6 +172,68 @@ pub struct SampleReview {
     pub pathogen: Option<String>,
     pub note: Option<String>
 }
+impl SampleReview {
+    pub fn from_gpt(path: &Path) -> Result<Self, CiqaError> {
+        
+        let diagnostic_result = DiagnosticResult::from_json(path)?;
+        
+        let test_result =  if diagnostic_result.diagnosis == Diagnosis::Infectious || diagnostic_result.diagnosis == Diagnosis::InfectiousReview {
+            Some(TestResult::Positive)
+        } else if diagnostic_result.diagnosis == Diagnosis::NonInfectious || diagnostic_result.diagnosis == Diagnosis::NonInfectiousReview {
+            Some(TestResult::Negative)
+        } else {
+            None // Diagnosis::Tumor
+        };
+
+       let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .expect("Failed to extract file stem");
+    
+        let mut parts = stem.split('.');
+        let sample_id = parts.next().unwrap_or("FAILED_SAMPLE_ID_EXTRACT");
+        let gpt_model = parts.next().unwrap_or("FAILED_GPT_MODEL_EXTRACT");
+
+        let pathogen_str = match diagnostic_result.pathogen {
+            Some(pathogen_str) => {
+                Some(format!("s__{}", pathogen_str.replace("'", "").replace("_", " ").trim_start_matches("s  ")))
+            },
+            None => None
+        };
+        
+        Ok(Self {
+            sample_id: sample_id.to_string(),
+            result: test_result,
+            pathogen: pathogen_str,
+            note: Some(format!("MetaGPT model: {gpt_model}"))
+        })
+    }
+}
+
+
+// Ensure CiqaError implements From<std::io::Error> or change the error handling accordingly.
+pub fn read_all_sample_reviews(directory: &Path) -> Result<Vec<SampleReview>, CiqaError> {
+    let mut sample_reviews = Vec::new();
+
+    // Iterate over the entries in the provided directory
+    for entry in std::fs::read_dir(directory)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        // Only process files that end with .json
+        if path.is_file() {
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                if ext.eq_ignore_ascii_case("json") {
+                    // Use SampleReview::from_gpt to convert the JSON file into a SampleReview instance.
+                    let review = SampleReview::from_gpt(&path)?;
+                    sample_reviews.push(review);
+                }
+            }
+        }
+    }
+
+    Ok(sample_reviews)
+}
 
 // How to handle missing orthogonal tests for a reference sample when the 
 // review call is positive
@@ -248,7 +311,7 @@ pub struct ReferencePlate {
 impl ReferencePlate {
 
     /// Create a new PlateReference by reading the reference from a JSON file and the optional review from a TSV file.
-    pub fn new(reference_path: &Path, review_path: Option<&Path>, missing_orthogonal: MissingOrthogonal) -> Result<Self, CiqaError> {
+    pub fn new(reference_path: &Path, review_path: Option<&Path>, missing_orthogonal: MissingOrthogonal, diagnostic_agent: bool) -> Result<Self, CiqaError> {
 
         // Read the JSON file to get the vector of SampleReference.
         let reference_data = std::fs::read_to_string(reference_path)?;
@@ -256,9 +319,20 @@ impl ReferencePlate {
         let negative_controls = Self::get_negative_controls(&reference);
         let samples = Self::get_samples(&reference);
 
+        let review = if let Some(path) = review_path { 
+            if diagnostic_agent {
+                Some(read_all_sample_reviews(path)?)
+            } else {
+                Some(read_tsv(path, false, true)?) 
+            }
+        } else { 
+            None 
+        };
+
+
         Ok(ReferencePlate { 
             reference, 
-            review: if let Some(path) = review_path { Some(read_tsv(path, false, true)?) } else { None }, 
+            review, 
             negative_controls,
             samples,
             missing_orthogonal
@@ -432,6 +506,16 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
                         if test.result == TestResult::Positive {
                             if test.taxa.iter().any(|t| t == pathogen) {
                                 return DiagnosticOutcome::TruePositive;
+                            } else {
+                                // No exact match to pathogen species if the reference is genus dereference the pathogen species to pathogen genus for evaluation
+                                for taxon in &test.taxa {
+                                    if taxon.starts_with("g__") {
+                                        let pathogen_genus = format!("g__{}", pathogen.replace("s__", "").split_whitespace().collect::<Vec<&str>>().first().unwrap_or(&""));
+                                        if taxon == &pathogen_genus {
+                                            return DiagnosticOutcome::TruePositive
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
