@@ -1359,7 +1359,7 @@
         "sample_id": "DW-63-V33",
         "sample_type": "POS",
         "result": null,
-        "note": "Positive Control Mixture",
+        "note": "ignore_taxstr: Simplexvirus pteropodidalpha2, Aspergillus flavus, Sarcocystis neurona, Neospora caninum",
         "orthogonal": []
     },
     {
@@ -2033,7 +2033,7 @@
         "sample_id": "DW-63-V55",
         "sample_type": "CSF",
         "result": "positive",
-        "note": "TEB contamination in this sample",
+        "note": "ignore_taxstr: Simplexvirus pteropodidalpha2, Aspergillus flavus, Sarcocystis neurona, Neospora caninum",
         "orthogonal": [
             {
                 "method": "spike",
@@ -2043,7 +2043,7 @@
                         "test": ["s__Orthoflavivirus murrayense"],
                         "result": "positive",
                         "taxa": ["s__Orthoflavivirus murrayense"],
-                        "note": null
+                        "note": "TE Buffer contamination event as in positive control mixtures V33, V70, V88 likely with Aspergillus flavus with contaminated reference genomes: Simplexvirus pteropodialpha2, Sarcocystis neurona, Neospora caninum"
                     }
                 ]
             }
@@ -2431,7 +2431,7 @@
     },
     {
         "sample_id": "DW-63-V64",
-        "sample_type": "CSF",
+        "sample_type": "EYE",
         "result": "positive",
         "note": null,
         "orthogonal": [
@@ -3092,7 +3092,7 @@
         "sample_id": "DW-63-V79",
         "sample_type": "POS",
         "result": null,
-        "note": "Positive Control Mixture",
+        "note": "ignore_taxstr: Simplexvirus pteropodidalpha2, Aspergillus flavus, Sarcocystis neurona, Neospora caninum",
         "orthogonal": []
     },
     {
@@ -3262,7 +3262,7 @@
         "sample_id": "DW-63-V88",
         "sample_type": "POS",
         "result": null,
-        "note": "Positive Control Mixture",
+        "note": "ignore_taxstr: Simplexvirus pteropodidalpha2, Aspergillus flavus, Sarcocystis neurona, Neospora caninum",
         "orthogonal": []
     },
     {

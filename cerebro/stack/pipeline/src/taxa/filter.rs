@@ -115,7 +115,7 @@ impl TaxonFilterConfig {
             max_bases: None,
             min_bpm: 0.0,
             min_reads: 0,
-            min_rpm: 5.0,
+            min_rpm: 10.0,
             max_rpm: None,
             min_abundance: 0.0,
             ntc_ratio: Some(3.0),
@@ -300,11 +300,11 @@ impl LineageFilterConfig {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: Some(1),
-            min_alignment_rpm: Some(5.0),
+            min_alignment_rpm: Some(10.0),
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(1),
-            min_kmer_rpm: Some(5.0),
+            min_kmer_rpm: Some(10.0),
             min_assembly_tools: None
         }
     }
@@ -317,7 +317,7 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(5.0) ,
+            min_kmer_rpm: Some(10.0) ,
             min_assembly_tools: None
         }
     }
@@ -330,7 +330,7 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(5.0) ,
+            min_kmer_rpm: Some(10.0) ,
             min_assembly_tools: Some(1)
         }
     }
@@ -340,11 +340,11 @@ impl LineageFilterConfig {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
             min_alignment_tools: Some(1),
-            min_alignment_rpm: Some(5.0),
+            min_alignment_rpm: Some(10.0),
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(1),
-            min_kmer_rpm: Some(5.0),
+            min_kmer_rpm: Some(10.0),
             min_assembly_tools: None
         }
     }
@@ -357,7 +357,7 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(5.0) ,
+            min_kmer_rpm: Some(10.0) ,
             min_assembly_tools: None
         }
     }
@@ -370,7 +370,7 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(5.0) ,
+            min_kmer_rpm: Some(10.0) ,
             min_assembly_tools: Some(1)
         }
     }

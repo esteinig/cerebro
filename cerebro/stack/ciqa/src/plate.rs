@@ -2,7 +2,6 @@
 use std::{collections::{HashMap, HashSet}, path::Path};
 
 use cerebro_gp::gpt::{ClinicalContext, Diagnosis, DiagnosticResult};
-use itertools::Itertools;
 use plotters::{coord::Shift, prelude::*};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
@@ -196,10 +195,35 @@ impl SampleReview {
 
         let pathogen_str = match diagnostic_result.pathogen {
             Some(pathogen_str) => {
-                Some(format!("s__{}", pathogen_str.replace("'", "").replace("_", " ").trim_start_matches("s  ")))
+
+                // First, perform the basic replacements and trimming.
+                let pathogen = pathogen_str
+                    .replace("'", "")
+                    .replace("_", " ")
+                    .trim_start_matches("s  ")
+                    .to_string();
+
+                log::info!("{sample_id}: {pathogen}");
+
+                let parts: Vec<&str> = pathogen.split_whitespace().collect();
+
+                // Check if there is at least one element to 
+                // drop the last item (species variant in GTDB).
+                let mut species = if parts.len() > 2 {
+                    parts[..parts.len()-1].join(" ")
+                } else {
+                    pathogen.to_string()
+                };
+
+                species = format!("s__{}", species);
+
+                log::info!("{sample_id}: {species}");
+    
+                Some(species)
             },
             None => None
         };
+        
         
         Ok(Self {
             sample_id: sample_id.to_string(),
@@ -253,6 +277,8 @@ pub enum DiagnosticOutcome {
     FalseNegative,
     Indeterminate,
     NotConsidered,
+    Control,
+    Unknown
 }
 impl std::fmt::Display for DiagnosticOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -263,6 +289,8 @@ impl std::fmt::Display for DiagnosticOutcome {
             DiagnosticOutcome::FalseNegative => "False Negative",
             DiagnosticOutcome::Indeterminate => "Indeterminate",
             DiagnosticOutcome::NotConsidered => "Not Considered",
+            DiagnosticOutcome::Control => "Control",
+            DiagnosticOutcome::Unknown => "Unknown",
         };
         write!(f, "{}", s)
     }
@@ -275,7 +303,10 @@ impl DiagnosticOutcome {
             Self::TruePositive | Self::TrueNegative => format!("{}", self).green(),
             Self::FalsePositive | Self::FalseNegative => format!("{}", self).red(),
             Self::Indeterminate => format!("{}", self).yellow(),
-            Self::NotConsidered => format!("{}", self).white()
+            Self::Control => format!("{}", self).blue(),
+            Self::NotConsidered => format!("{}", self).white(),
+            Self::Unknown => format!("{}", self).purple(),
+
         }
     }
 }
@@ -351,10 +382,17 @@ impl ReferencePlate {
             .map(|r| r.sample_id.clone())
             .collect()
     }
+    pub fn get_positive_controls(reference: &Vec<SampleReference>) -> Vec<String> {
+        reference
+            .into_iter()
+            .filter(|r| r.sample_type == SampleType::Pos)
+            .map(|r| r.sample_id.clone())
+            .collect()
+    }
     pub fn get_samples(reference: &Vec<SampleReference>) -> Vec<String> {
         reference
             .into_iter()
-            .filter(|r| r.sample_type == SampleType::Eye || r.sample_type == SampleType::Csf)
+            .filter(|r| !([SampleType::Ntc, SampleType::Env, SampleType::Pos].contains(&r.sample_type)))
             .map(|r| r.sample_id.clone())
             .collect()
     }
@@ -383,14 +421,15 @@ impl ReferencePlate {
 
             Ok(self.reference.iter().map(|reference| {
                 
-                if reference.sample_id == "DW-63-V64" {
-                    log::info!("DW-63-V64")
-                }
-
                 let (outcome, review) = if let Some(review) = review_map.get(reference.sample_id.as_str()) {
                     (compare_sample_review(reference, review, self.missing_orthogonal.clone()), Some(*review))
                 } else {
-                    (DiagnosticOutcome::Indeterminate, None)
+
+                    if [SampleType::Ntc, SampleType::Env, SampleType::Pos].contains(&reference.sample_type) {
+                        (DiagnosticOutcome::Control, None)
+                    } else {
+                        (DiagnosticOutcome::Indeterminate, None)
+                    }
                 };
                 DiagnosticReview {
                     sample_id: reference.sample_id.clone(),
@@ -414,7 +453,13 @@ impl ReferencePlate {
 
         // Filter out DiagnosticOutcome::Indeterminate
         let filtered: Vec<DiagnosticReview> = diagnostic_review.into_iter()
-            .filter(|d| !(d.outcome == DiagnosticOutcome::Indeterminate || d.outcome == DiagnosticOutcome::NotConsidered))
+            .filter(|d| !([
+                    DiagnosticOutcome::Indeterminate, 
+                    DiagnosticOutcome::NotConsidered, 
+                    DiagnosticOutcome::Control, 
+                    DiagnosticOutcome::Unknown
+                ].contains(&d.outcome))
+            )
             .collect();
 
         let tp = filtered.iter().filter(|d| matches!(d.outcome, DiagnosticOutcome::TruePositive)).count();
@@ -504,13 +549,21 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
                 for ortho in &reference.orthogonal {
                     for test in &ortho.tests {
                         if test.result == TestResult::Positive {
+
                             if test.taxa.iter().any(|t| t == pathogen) {
                                 return DiagnosticOutcome::TruePositive;
                             } else {
                                 // No exact match to pathogen species if the reference is genus dereference the pathogen species to pathogen genus for evaluation
                                 for taxon in &test.taxa {
                                     if taxon.starts_with("g__") {
-                                        let pathogen_genus = format!("g__{}", pathogen.replace("s__", "").split_whitespace().collect::<Vec<&str>>().first().unwrap_or(&""));
+                                        let pathogen_genus = format!(
+                                            "g__{}", 
+                                            pathogen.replace("s__", "")
+                                                .split_whitespace()
+                                                .collect::<Vec<&str>>()
+                                                .first()
+                                                .unwrap_or(&"")
+                                            );
                                         if taxon == &pathogen_genus {
                                             return DiagnosticOutcome::TruePositive
                                         }
@@ -535,6 +588,6 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
                 None => DiagnosticOutcome::Indeterminate,
             }
         }
-        None => DiagnosticOutcome::Indeterminate,
+        None => DiagnosticOutcome::Unknown,
     }
 }
