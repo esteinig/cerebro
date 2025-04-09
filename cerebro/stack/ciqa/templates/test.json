@@ -1884,12 +1884,12 @@
         "orthogonal": [
             {
                 "method": "pcr",
-                "detail": "VIDRL in-house PCR for HTLV-1",
+                "detail": "VIDRL in-house PCR positive for HTLV-1",
                 "tests": [
                     {
                         "test": ["g__Deltaretrovirus"],
                         "result": "positive",
-                        "taxa": ["s__Primate T-lymphotropic virus 1"],
+                        "taxa": ["s__Deltaretrovirus priTlym1"],
                         "note": "High CT value (CT = 38)"
                     }
                 ]

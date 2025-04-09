@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use plotters::prelude::DrawingBackend;
 use thiserror::Error;
 
@@ -25,6 +27,12 @@ pub enum CiqaError {
     CsvError(#[from] csv::Error),
     #[error(transparent)]
     GptError(#[from] cerebro_gp::error::GptError),
+    #[error("Failed to extract sample identifier from filename (format: sample_id.model.json)")]
+    SampleIdentifierNotFound,
+    #[error("Failed to extract model name from filename (format: sample_id.model.json)")]
+    ModelNameNotFound,
+    #[error("Failed to extract file stem ({0})")]
+    FileStemNotFound(PathBuf)
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for CiqaError

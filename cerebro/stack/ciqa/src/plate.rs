@@ -175,23 +175,25 @@ impl SampleReview {
     pub fn from_gpt(path: &Path) -> Result<Self, CiqaError> {
         
         let diagnostic_result = DiagnosticResult::from_json(path)?;
+
+        let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or(CiqaError::FileStemNotFound(path.to_path_buf()))?;
+
+        let mut stem_parts = stem.split('.');
+
+        let sample_id = stem_parts.next().ok_or(CiqaError::SampleIdentifierNotFound)?;
+        let gpt_model = stem_parts.next().ok_or(CiqaError::ModelNameNotFound)?;
         
         let test_result =  if diagnostic_result.diagnosis == Diagnosis::Infectious || diagnostic_result.diagnosis == Diagnosis::InfectiousReview {
             Some(TestResult::Positive)
         } else if diagnostic_result.diagnosis == Diagnosis::NonInfectious || diagnostic_result.diagnosis == Diagnosis::NonInfectiousReview {
             Some(TestResult::Negative)
         } else {
+            log::warn!("Diagnosis from MetaGPT is: {:?} ({})", diagnostic_result, sample_id);
             None // Diagnosis::Tumor
         };
-
-       let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .expect("Failed to extract file stem");
-    
-        let mut parts = stem.split('.');
-        let sample_id = parts.next().unwrap_or("FAILED_SAMPLE_ID_EXTRACT");
-        let gpt_model = parts.next().unwrap_or("FAILED_GPT_MODEL_EXTRACT");
 
         let pathogen_str = match diagnostic_result.pathogen {
             Some(pathogen_str) => {
@@ -203,23 +205,16 @@ impl SampleReview {
                     .trim_start_matches("s  ")
                     .to_string();
 
-                log::info!("{sample_id}: {pathogen}");
+                let pathogen_parts: Vec<&str> = pathogen.split_whitespace().collect();
 
-                let parts: Vec<&str> = pathogen.split_whitespace().collect();
-
-                // Check if there is at least one element to 
-                // drop the last item (species variant in GTDB).
-                let mut species = if parts.len() > 2 {
-                    parts[..parts.len()-1].join(" ")
+                // Check if there is at least one element to drop the last item (species variant in GTDB).
+                let species = if pathogen_parts.len() > 2 {
+                    pathogen_parts[..pathogen_parts.len()-1].join(" ")
                 } else {
                     pathogen.to_string()
                 };
-
-                species = format!("s__{}", species);
-
-                log::info!("{sample_id}: {species}");
     
-                Some(species)
+                Some(format!("s__{}", species))
             },
             None => None
         };

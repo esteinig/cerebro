@@ -443,7 +443,7 @@ impl DiagnosticAgent {
             "diagnose_infectious": {
                 "question": {
                         "prompt": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..",
-                        "instructions": "Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'."
+                        "instructions": "Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'."
                 },
                 "check": "llm_eval",
                 "next": "describe_infectious"
@@ -459,7 +459,7 @@ impl DiagnosticAgent {
             "select_infectious": {
                 "question": {
                         "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates.",
-                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'"
+                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'"
                 },
                 "check": "llm_eval",
                 "next": "describe_select_infectious"
@@ -495,7 +495,7 @@ impl DiagnosticAgent {
             "diagnose_infectious_review": {
                 "question": {
                     "prompt": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type (CSF or vitreous fluid). Make sure to differentiate between the most likely pathogen candidates with supporting evidence and contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided.",
-                    "instructions": "Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'."
+                    "instructions": "Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'."
                 },
                 "check": "llm_eval",
                 "next": "describe_infectious_review"
@@ -511,7 +511,7 @@ impl DiagnosticAgent {
             "select_infectious_review": {
                 "question": {
                         "prompt": "You have selected one or more taxa as pathogen candidates with review. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contamination.",
-                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{species name}'"
+                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'"
                 },
                 "check": "llm_eval",
                 "next": "describe_select_infectious_review"

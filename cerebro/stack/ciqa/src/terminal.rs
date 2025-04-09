@@ -120,7 +120,7 @@ pub struct EvaluateArgs {
     #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
     pub json: Option<PathBuf>,
     /// Check for contamination history outliers to be removed from prevalence filter
-    #[clap(long, short = 'h')]
+    #[clap(long)]
     pub contam_history: bool,
 }
 
@@ -143,7 +143,7 @@ pub struct DiagnoseArgs {
     #[clap(long, short = 'd')]
     pub diagnostic_memory: bool,
     /// Check for contamination history outliers to be removed from prevalence filter
-    #[clap(long, short = 'h')]
+    #[clap(long)]
     pub contam_history: bool,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
