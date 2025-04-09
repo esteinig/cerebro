@@ -148,6 +148,9 @@ pub struct DiagnoseArgs {
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,
+    /// Parallel agent evaluation on multiple threads
+    #[clap(long, short = 't', default_value="1")]
+    pub threads: usize,
 }
 
 

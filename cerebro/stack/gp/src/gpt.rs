@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, GpConfig};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::Taxon;
 use petgraph::graph::{Graph, NodeIndex};
@@ -382,16 +382,6 @@ pub struct DiagnosticAgent {
     pub contam_history: bool
 }
 
-// "output_evaluation": {
-//     "question": {
-//         "prompt": "Based on the evidence synthesis from metagenomics make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, patient clinical history, neuroinflammatory or ocular disease and sample type (CSF). If selection is not clear from the evidence synthesis, you should select 'non-infectious'. Detection of a pathogen in any of the three categories should be considered (the three categories represent the same data filtered at different thresholds) based on strength of evidence.",
-//         "instructions": "Answer 'yes' for infectious diagnosis, 'no' for non-infectious diagnosis."
-//     },
-//     "check": "llm_diagnostic_eval",
-//     "true_node": "diagnose_infectious",
-//     "false_node": "diagnose_non_infectious"
-// },
-
 impl DiagnosticAgent {
     pub async fn new(cerebro_client: CerebroClient, model: String, diagnostic_memory: bool, contam_history: bool) -> Result<Self> {
         
@@ -595,8 +585,6 @@ impl DiagnosticAgent {
             ]
         };
 
-        log::info!("{:#?}", messages);
-
         let request = CreateChatCompletionRequestArgs::default()
             .model(&self.model)
             .messages(messages)
@@ -620,8 +608,6 @@ impl DiagnosticAgent {
                 ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
             ]
         };
-
-        log::info!("{:#?}", messages);
 
         let request = CreateChatCompletionRequestArgs::default()
             .model(&self.model)
@@ -684,7 +670,7 @@ impl DiagnosticAgent {
         full_context.push_str(&threshold_candidates.to_str());
     }
     /// Runs the diagnostic pathway and returns a DiagnosticResult as JSON.
-    pub async fn run(&mut self, gp_config: &mut GpConfig, clinical_context: &str) -> Result<DiagnosticResult> {
+    pub async fn run(&mut self, gp_config: &mut MetaGpConfig, clinical_context: &str) -> Result<DiagnosticResult> {
 
         // Create the identifier query for this sample:
         self.state.log("identifier_schema", &gp_config.identifiers.to_json());

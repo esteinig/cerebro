@@ -1,5 +1,5 @@
 
-use cerebro_model::api::cerebro::schema::GpConfig;
+use cerebro_model::api::cerebro::schema::MetaGpConfig;
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
 use cerebro_gp::{gpt::{DataBackground, DiagnosticAgent}, terminal::{App, Commands}, utils::init_logger};
@@ -44,13 +44,13 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 // Parse generative practicioner configuration
                 let mut gp_config = match &args.json {
                     Some(path) => {
-                        GpConfig::from_json(
+                        MetaGpConfig::from_json(
                             args.sample.clone(), 
                             path,
                             args.ignore_taxstr.clone()
                         )?
                     },
-                    None => GpConfig::new(
+                    None => MetaGpConfig::new(
                         args.sample.clone(), 
                         args.controls.clone(), 
                         args.tags.clone(),

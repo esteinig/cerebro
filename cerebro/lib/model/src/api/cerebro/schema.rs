@@ -169,14 +169,14 @@ impl ContaminationSchema {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GpConfig {
+pub struct MetaGpConfig {
     #[serde(skip_deserializing)]
     pub sample: String,
     pub identifiers: CerebroIdentifierSmallSchema,
     pub contamination: PrevalenceContaminationConfig,
     pub ignore_taxstr: Option<Vec<String>>
 }
-impl GpConfig {
+impl MetaGpConfig {
     pub fn new(sample: String, controls: Option<Vec<String>>, tags: Option<Vec<String>>, ignore_taxstr: Option<Vec<String>>, contamination: PrevalenceContaminationConfig) -> Self {
         Self {
             sample,
@@ -223,7 +223,7 @@ impl CerebroIdentifierSchema {
             tags
         }
     }
-    pub fn from_gp_config(gp_config: &GpConfig) -> Self {
+    pub fn from_gp_config(gp_config: &MetaGpConfig) -> Self {
         Self {
             sample: gp_config.sample.clone(),
             controls: gp_config.identifiers.controls.clone(), 

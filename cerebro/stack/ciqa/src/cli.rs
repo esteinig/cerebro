@@ -2,11 +2,14 @@
 use std::fs::create_dir_all;
 
 use cerebro_gp::gpt::{ClinicalContext, DataBackground, DiagnosticAgent};
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, GpConfig};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, plate::{plot_plate, DiagnosticOutcome, FromSampleType, MissingOrthogonal, ReferencePlate}, terminal::{App, Commands}, utils::init_logger};
+use cerebro_ciqa::{config::EvaluationConfig, plate::{plot_plate, FromSampleType, MissingOrthogonal, ReferencePlate}, terminal::{App, Commands}, utils::init_logger};
 use cerebro_client::client::CerebroClient;
+use rayon::prelude::*;
+use rayon::ThreadPoolBuilder;
+use tokio::runtime::Runtime;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
@@ -107,82 +110,93 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 false
             )?;
 
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(args.threads)
+                .build()
+                .expect("Failed to create the Rayon thread pool");
 
-            for sample_id in &plate.samples {
-                
-                let json_file = &args.outdir.join(
-                    format!("{sample_id}.{}.json", args.model)
-                );
+            pool.install(|| {
+                plate.samples.par_iter().for_each(|sample_id| {
+                    // Create a new runtime in each thread
+                    let rt = Runtime::new().expect("Failed to create Tokio runtime");
 
-                if args.force || !json_file.exists() {
+                    // Run the async operations inside the synchronous Rayon thread
+                    let result: Result<(), anyhow::Error> = rt.block_on(async {
 
-                    let mut agent = DiagnosticAgent::new(
-                        api_client.clone(), 
-                        args.model.clone(),
-                        args.diagnostic_memory,
-                        args.contam_history
-                    ).await?;
-        
-                    
-                    // Prime the LLM with the background explanation
-                    agent.prime_llm(
-                        &DataBackground::CerebroFilter.get_default()
-                    ).await?;
-    
-                    let sample_reference = match plate.get_sample_reference(&sample_id) {
-                        Some(sample_reference) => sample_reference,
-                        None => { 
-                            log::warn!("Failed to find plate reference for sample: {sample_id}");
-                            continue;
+                        let json_file = args.outdir.join(format!("{sample_id}.{}.json", args.model));
+
+                        if args.force || !json_file.exists() {
+                            let mut agent = DiagnosticAgent::new(
+                                api_client.clone(), 
+                                args.model.clone(),
+                                args.diagnostic_memory,
+                                args.contam_history
+                            ).await?;
+
+                            // Prime the LLM with the background explanation
+                            agent.prime_llm(&DataBackground::CerebroFilter.get_default()).await?;
+
+                            let sample_reference = match plate.get_sample_reference(&sample_id) {
+                                Some(sample_reference) => sample_reference,
+                                None => { 
+                                    log::warn!("Failed to find plate reference for sample: {sample_id}");
+                                    return Ok(());
+                                }
+                            };
+
+                            log::info!("Starting generative practitioner diagnostic for '{sample_id}'");
+
+                            let tags = match sample_reference.note {
+                                Some(ref note) => {
+                                    if note.contains("ignore_rna") {
+                                        vec![String::from("DNA")]
+                                    } else if note.contains("ignore_dna") {
+                                        vec![String::from("RNA")]
+                                    } else {
+                                        vec![String::from("DNA"), String::from("RNA")]
+                                    }
+                                },
+                                None => vec![String::from("DNA"), String::from("RNA")]
+                            };
+
+                            let ignore_taxstr = match sample_reference.note {
+                                Some(ref note) => {
+                                    if note.contains("ignore_taxstr") {
+                                        Some(note.replace("ignore_taxstr:", "")
+                                            .split(',')
+                                            .map(|s| s.trim().to_string())
+                                            .collect::<Vec<_>>())
+                                    } else {
+                                        None
+                                    }
+                                },
+                                None => None
+                            };
+
+                            let mut meta_gp_config = MetaGpConfig::from_reference_plate(
+                                sample_id, 
+                                &plate.negative_controls, 
+                                &tags,
+                                ignore_taxstr,
+                                PrevalenceContaminationConfig::gp_default()
+                            );
+
+                            let diagnostic_result = agent.run(
+                                &mut meta_gp_config, 
+                                &ClinicalContext::from_sample_type(sample_reference.sample_type).text()
+                            ).await?;
+
+                            diagnostic_result.to_json(&json_file)?;
+                        } else {
+                            log::info!("File '{}' exists and force not enabled - skipping file", json_file.display());
                         }
-                    };
-    
-                    log::info!("Starting generative practitioner diagnostic for '{sample_id}'");
-    
-                    let tags = match sample_reference.note {
-                        Some(ref note) => {
-                            if note.contains("ignore_rna") {
-                                vec![String::from("DNA")]
-                            } else if note.contains("ignore_dna") {
-                                vec![String::from("RNA")]
-                            } else {
-                                vec![String::from("DNA"), String::from("RNA")]
-                            }
-                        },
-                        None => vec![String::from("DNA"), String::from("RNA")]
-                    };
-    
-                    let ignore_taxstr = match sample_reference.note {
-                        Some(ref note) => {
-                            if note.contains("ignore_taxstr") {
-                                Some(note.replace("ignore_taxstr:", "").split(",").map(|s| s.trim().to_string()).collect::<Vec<_>>())
-                            } else {
-                                None
-                            }
-                        },
-                        None => None
-                    };
-                    
-                    let mut gp_config = GpConfig::from_reference_plate(
-                        sample_id, 
-                        &plate.negative_controls, 
-                        &tags,
-                        ignore_taxstr,
-                        PrevalenceContaminationConfig::gp_default()
-                    );
-    
-                    let diagnostic_result = agent.run(
-                        &mut gp_config, 
-                        &ClinicalContext::from_sample_type(sample_reference.sample_type).text()
-                    ).await?;
-    
-                    diagnostic_result.to_json(&json_file)?;
-                } else {
-                    log::info!("File '{}' exists and force not enabled - skipping file", json_file.display())
-                }
-
-                            
-            }
+                        Ok(())
+                    });
+                    if let Err(e) = result {
+                        log::error!("Error processing sample {}: {:?}", sample_id, e);
+                    }
+                });
+            });
                         
         } 
     }
