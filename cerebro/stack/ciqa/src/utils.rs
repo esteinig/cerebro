@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::Builder;
 use env_logger::fmt::Color;
@@ -28,6 +28,67 @@ impl CompressionExt for niffler::compression::Format {
         }
     }
 }
+
+
+/// Enum to specify the type of file component to retrieve
+pub enum FileComponent {
+    /// The full file name including the extension
+    FileName,
+    /// The file name without the extension
+    FileStem,
+}
+
+/// Extracts the specified file component from a `PathBuf` and returns it as a `String`.
+///
+/// # Arguments
+///
+/// * `path` - A `PathBuf` representing the file path.
+/// * `component` - A `FileComponent` specifying whether to get the file name or the file stem.
+///
+/// # Returns
+///
+/// * `Result<String, DatabaseError>` - A `Result` containing the specified file component as a `String`
+///   if successful, or a `DatabaseError` if an error occurs.
+///
+/// # Examples
+///
+/// ```
+/// use std::path::PathBuf;
+/// use ciqa::utils::{get_file_component, FileComponent};
+///
+/// let path = PathBuf::from("/some/path/to/file.txt");
+/// match get_file_component(path, FileComponent::FileName) {
+///     Ok(file_name) => println!("File name: {}", file_name),
+///     Err(e) => eprintln!("Error: {}", e),
+/// }
+/// ```
+///
+/// ```
+/// use std::path::PathBuf;
+/// use ciqa::utils::{get_file_component, FileComponent};
+///
+/// let path = PathBuf::from("/some/path/to/file.txt");
+/// match get_file_component(path, FileComponent::FileStem) {
+///     Ok(file_stem) => println!("File stem: {}", file_stem),
+///     Err(e) => eprintln!("Error: {}", e),
+/// }
+/// ```
+pub fn get_file_component(path: &PathBuf, component: FileComponent) -> Result<String, CiqaError> {
+    match component {
+        FileComponent::FileName => {
+            path.file_name()
+                .ok_or(CiqaError::FileNameConversionError(path.to_path_buf()))
+                .and_then(|os_str| os_str.to_str().map(String::from).ok_or(CiqaError::FileNameConversionError(path.to_path_buf())))
+        }
+        FileComponent::FileStem => {
+            path.file_stem()
+                .ok_or(CiqaError::FileNameConversionError(path.to_path_buf()))
+                .and_then(|os_str| os_str.to_str().map(String::from).ok_or(CiqaError::FileNameConversionError(path.to_path_buf())))
+        }
+    }
+}
+
+
 
 pub trait StringUtils {
     fn substring(&self, start: usize, len: usize) -> Self;

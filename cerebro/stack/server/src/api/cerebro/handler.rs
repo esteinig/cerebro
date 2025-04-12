@@ -1,6 +1,6 @@
-use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, TaxonHistoryResponse, TaxonHistoryResult};
+use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, SampleSummaryResponse, SampleSummary, TaxonHistoryResponse, TaxonHistoryResult};
 use futures::StreamExt;
-use mongodb::bson::from_document;
+use mongodb::bson::{from_document, Document};
 use mongodb::gridfs::GridFsBucket;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -31,7 +31,7 @@ use cerebro_model::api::cerebro::model::{
     RunConfig
 };
 use cerebro_model::api::cerebro::schema::{
-    CerebroIdentifierSchema, ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleSummaryQcSchema, SampleTypeSchema, TaxaSummarySchema
+    CerebroIdentifierSchema, ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleSummarySchema, SampleTypeSchema, TaxaSummarySchema
 };
 
 use mongodb::options::{UpdateManyModel, WriteModel};
@@ -585,9 +585,6 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
 
     let filter_config = filter_config.into_inner();
 
-
-
-    // Build MongoDB pipeline
     let pipeline = get_matched_id_taxa_cerebro_pipeline(ids, date_range, run_ids);
     
     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
@@ -958,17 +955,14 @@ async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<Str
 
 #[derive(Deserialize)]
 struct CerebroSampleIdQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId,
-    // Aggregation pipelines to get specific overviews
+    // Specify workflow to limit the sample identifier query
     workflow: Option<WorkflowId>
 }
 
 #[get("/cerebro/samples/{id}")]
-async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleIdQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleIdQuery>,  auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
@@ -997,108 +991,75 @@ async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, que
 }
 
 
-#[derive(Deserialize)]
-struct CerebroSampleSummaryQcQuery {
-    // Required for access authorization in user guard middleware
-    db: DatabaseId,
-    project: ProjectId,
+#[derive(Deserialize, Serialize)]
+struct CerebroSampleSummaryQuery {
     // Aggregation pipelines to get specific overviews
     workflow: Option<WorkflowId>,
-    // Return data as comma-separated string
+    // Return data in comma-separated table format (string)
     csv: Option<bool>,
     // Include ERCC biomass estimates if ERCC input mass is provided (picogram)
     ercc: Option<f64>
 }
 
-
-#[derive(Deserialize)]
-struct SummaryAggregateResult {
-    id: String,
-    quality: QualityControl,
-    run: RunConfig,
-    sample: SampleConfig,
-    workflow: WorkflowConfig
-}
-
 #[post("/cerebro/samples/summary/qc")]
-async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json<SampleSummaryQcSchema>, query: web::Query<CerebroSampleSummaryQcQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json<SampleSummarySchema>, query: web::Query<CerebroSampleSummaryQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
 
     let pipeline = get_matched_samples_cerebro_notaxa_pipeline(&samples.sample_ids, &samples.cerebro_ids, &query.workflow);
 
-    if pipeline.is_empty(){
-        return HttpResponse::BadRequest().json(serde_json::json!({
-            "status": "fail", "message": "Must specify one of sample or model identifiers", "data": serde_json::json!({"summary": [], "csv": ""})
-        }))
-    };
+    if pipeline.is_empty() {
+        return HttpResponse::BadRequest().json(
+            SampleSummaryResponse::server_error("Must specify one of sample or model identifiers".to_string())
+        );
+    }
 
-    match project_collection
-        .aggregate(pipeline)
-        .await
-    {
+    match project_collection.aggregate(pipeline).await {
         Ok(cursor) => {
-            let matched_cerebro = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
-            match matched_cerebro.is_empty() {
-                false => {
+            let matched_docs: Vec<Document> = match cursor.try_collect().await {
+                Ok(docs) => docs,
+                Err(e) => {
+                    return HttpResponse::InternalServerError().json(
+                        SampleSummaryResponse::server_error(e.to_string())
+                    );
+                }
+            };
 
-                    let mut matched_cerebro_data: Vec<SummaryAggregateResult> = matched_cerebro.iter().map(|doc| mongodb::bson::from_bson(doc.into()).map_err(|_| {
-                        HttpResponse::InternalServerError().json(serde_json::json!({
-                            "status": "error", "message": "Failed to transform retrieved samples to retrieve quality control summary"
-                        }))
-                    }).unwrap()).collect();
-
-                    let summaries: Vec<ReadQualityControl> = match matched_cerebro_data.iter_mut().map(|result| -> Result<ReadQualityControl, HttpResponse> {
-
-                        match result.quality.reads.with_model(
-                                &result.id, 
-                                qc_config_from_model(
-                                    Some(result.sample.clone()), 
-                                    Some(result.run.clone()),
-                                    Some(result.workflow.clone()), 
-                                )
-                            ){
-                                Ok(summary) => Ok(summary),
-                                Err(_) => Err(HttpResponse::InternalServerError().json(serde_json::json!({
-                                    "status": "error", "message": "Failed to transform retrieved sample data into quality control summaries"
-                                })))
-                        }
-                    }).collect() {
-                        Ok(summaries) => summaries,
-                        Err(err_response) => return err_response
-                    };
-
-
-                    match query.csv {
-                        Some(csv) => {
-                            if csv {
-                                let csv_string = as_csv_string(summaries).unwrap();
-
-                                HttpResponse::Ok().json(serde_json::json!({
-                                    "status": "succes", "message": "Retrieved sample summaries for requested samples", "data": serde_json::json!({"summary": [], "csv": csv_string})
-                                }))
-                            } else {
-                                HttpResponse::Ok().json(serde_json::json!({
-                                    "status": "succes", "message": "Retrieved sample summaries for requested samples", "data": serde_json::json!({"summary": summaries, "csv": ""})
-                                }))
-                            }
-                        },
-                        None => HttpResponse::Ok().json(serde_json::json!({
-                            "status": "succes", "message": "Retrieved sample summaries for requested samples", "data": serde_json::json!({"summary": summaries, "csv": ""})
-                        }))
-                    }
-                } ,
-                true => HttpResponse::Ok().json(serde_json::json!({
-                    "status": "fail", "message": "No data found for requested samples", "data": serde_json::json!({"summary": [], "csv": ""})
-                })),
+            if matched_docs.is_empty() {
+                return HttpResponse::Ok().json(SampleSummaryResponse::not_found());
             }
+
+            let mut matched_data: Vec<SampleSummary> = Vec::new();
+            for doc in matched_docs {
+                let result: SampleSummary = match mongodb::bson::from_bson(doc.into()) {
+                    Ok(res) => res,
+                    Err(e) => {
+                        return HttpResponse::InternalServerError().json(
+                            SampleSummaryResponse::server_error(e.to_string())
+                        );
+                    }
+                };
+                matched_data.push(result);
+            }
+
+            // Optionally convert the summaries to CSV table (string) if requested.
+            let csv_output = if let Some(true) = query.csv {
+                match as_csv_string(&matched_data) {
+                    Ok(s) => s,
+                    Err(response) => return response
+                }
+            } else {
+                "".to_string()
+            };
+
+            HttpResponse::Ok().json(SampleSummaryResponse::success(matched_data, csv_output))
         },
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "status": "error", "message": "Error retrieving sample summaries for requested samples", "data": serde_json::json!({"summary": [], "csv": ""})
-        })),
+        Err(e) => HttpResponse::InternalServerError().json(
+            SampleSummaryResponse::server_error(e.to_string())
+        ),
     }
 }
 
@@ -1391,7 +1352,7 @@ async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<App
 
 #[derive(Deserialize)]
 struct CerebroSampleQuery {
-    // Required for access authorization  in middleware
+    // Required for access authorization in middleware
     db: DatabaseId,
     project: ProjectId,
 }

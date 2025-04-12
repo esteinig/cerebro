@@ -5,8 +5,10 @@ use cerebro_gp::gpt::{ClinicalContext, DataBackground, DiagnosticAgent};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, plate::{plot_plate, FromSampleType, MissingOrthogonal, ReferencePlate}, terminal::{App, Commands}, utils::init_logger};
+use cerebro_ciqa::{config::EvaluationConfig, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_stripplot, read_all_sample_reviews, DiagnosticStatsVecExt, FromSampleType, MissingOrthogonal, Palette, ReferencePlate}, terminal::{App, Commands}, utils::{get_file_component, init_logger, FileComponent}};
 use cerebro_client::client::CerebroClient;
+use plotters::prelude::SVGBackend;
+use plotters_bitmap::BitMapBackend;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use tokio::runtime::Runtime;
@@ -46,43 +48,112 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 (!eval_config.tags.is_empty()).then(|| eval_config.tags.clone()),
             );
 
-            api_client.get_taxa(
+            let (taxa, contam_taxa) = api_client.get_taxa(
                 &request_schema, 
                 &eval_config.filter, 
                 &mut eval_config.prevalence,
                 args.contam_history
             )?;
-        },
-        Commands::Plate( args ) => {
+            
+            for taxon in contam_taxa {
+                log::info!("Prevalence contamination taxon: {:#?}", taxon);
+            }
 
+            for taxon in taxa {
+                log::info!("Detected taxon: {:#?}", taxon);
+            }
+
+        },
+        Commands::PlotPlate( args ) => {
             plot_plate()?
+        },
+        Commands::PlotReview( args ) => {
+            
+            let data = load_diagnostic_stats_from_files(
+                args.stats.clone()
+            )?;
+
+
+            let ext = args.output
+                .extension()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_lowercase();
+
+            let palette = Palette::hiroshige();
+
+            if ext == "svg" {
+                plot_stripplot(
+                    SVGBackend::new(&args.output, (args.width, args.height)),
+                    &data, 
+                    args.mode, 
+                    args.ref1, 
+                    args.ref2,
+                    palette.colors.get(4),
+                    palette.colors.get(5)
+                )?;
+            } else {
+                plot_stripplot(
+                    BitMapBackend::new(&args.output, (args.width, args.height)),
+                    &data, 
+                    args.mode, 
+                    args.ref1, 
+                    args.ref2,
+                    palette.colors.get(4),
+                    palette.colors.get(5)
+                )?;
+            };
+
         },
         Commands::Review( args ) => {
 
-            let mut plate_reference = ReferencePlate::new(
-                &args.plate, 
-                args.review.as_deref(),
-                args.missing_orthogonal.clone(),
-                args.diagnostic_agent
+            let mut review_data = Vec::new();
+            let mut reference_plates = Vec::new();
+
+            for review_path in &args.review {
+                
+                let review_name = get_file_component(
+                    review_path, 
+                    FileComponent::FileStem
+                )?;
+                log::info!("Review: {}", review_name);
+
+                let mut reference_plate = ReferencePlate::new(
+                    &args.plate, 
+                    Some(&review_path),
+                    args.missing_orthogonal.clone(),
+                    args.diagnostic_agent
+                )?;
+
+                let stats = get_diagnostic_stats(
+                    args,
+                    &mut reference_plate, 
+                    &review_name
+                )?;
+
+                let stats_percent = stats.percent();
+                log::info!("{stats_percent:#?}");
+
+                review_data.push(stats_percent);
+                reference_plates.push(reference_plate);
+            }
+            
+            log::info!("Consensus (majority vote) review tagged 'consensus'");
+
+            let mut consensus_plate = aggregate_reference_plates(reference_plates);
+
+            let stats = get_diagnostic_stats(
+                args,
+                &mut consensus_plate, 
+                &"consensus"
             )?;
 
-            if let Some(sample_id) = &args.set_none {
-                plate_reference.set_none(sample_id)?;
-            }
+            let stats_percent = stats.percent();
+            log::info!("{stats_percent:#?}");
 
-            if let Some(sample_type) = &args.sample_type {
-                plate_reference.subset_sample_type(sample_type.clone())?;
-            }
+            review_data.push(stats_percent);
+            review_data.to_json(&args.output)?;
 
-            let diagnostic_review = plate_reference.compute_diagnostic_review()?;
-
-            for dr in &diagnostic_review {
-                log::info!("{} => {}", dr.sample_id, dr.outcome.colored())
-            }
-
-            let stats = plate_reference.compute_statistics(diagnostic_review);
-
-            log::info!("{:#?}", stats);
         },
         Commands::Diagnose( args ) => {
 

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
-use crate::plate::{DiagnosticOutcome, MissingOrthogonal, SampleType};
+use crate::plate::{DiagnosticOutcome, MissingOrthogonal, SampleType, StatsMode};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
@@ -89,8 +89,10 @@ pub struct App {
 pub enum Commands {
     /// Evaluate a set of samples with a reference template
     Evaluate(EvaluateArgs),
-    /// Plot the plate layout and data association
-    Plate(PlateArgs),
+    /// Plot the reference plate layout
+    PlotPlate(PlotPlateArgs),
+    /// Plot the reference plate review results
+    PlotReview(PlotReviewArgs),
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
     /// Diagnose samples on the reference plate using the generative practitioner
@@ -125,7 +127,35 @@ pub struct EvaluateArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct PlateArgs {
+pub struct PlotPlateArgs {
+    /// File paths for 
+    #[clap(long, short = 's')]
+    pub sample: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PlotReviewArgs {
+    /// Review stats (.json) for a category - file stem is the category name
+    #[clap(long, short = 's', num_args=1..)]
+    pub stats: Vec<PathBuf>,
+    /// Diagnostic statistics selection
+    #[clap(long, short = 'm', default_value="sens-spec")]
+    pub mode: StatsMode,
+    /// Output plot file (.svg)
+    #[clap(long, short = 'o', default_value="review_stats.svg")]
+    pub output: PathBuf,
+    /// Reference line 1 (sensitivity/ppv)
+    #[clap(long)]
+    pub ref1: Option<f64>,
+    /// Reference line 1 (specificty/npv)
+    #[clap(long)]
+    pub ref2: Option<f64>,
+    /// Plot width (px)
+    #[clap(long, default_value="800")]
+    pub width: u32,
+    /// Plot height (px)
+    #[clap(long, default_value="600")]
+    pub height: u32,
 }
 
 #[derive(Debug, Args)]
@@ -156,12 +186,17 @@ pub struct DiagnoseArgs {
 
 #[derive(Debug, Args)]
 pub struct ReviewArgs {
-    /// Reference plate file (.json)
+    /// Reference plate schema (.json)
     #[clap(long, short = 'p')]
     pub plate: PathBuf,
-    /// Plate review file (.tsv) or meta-gpt agent output directory with diagnostic result files if `--diagnostic_agent` flag enabled
-    #[clap(long, short = 'r')]
-    pub review: Option<PathBuf>,
+    /// Plate review files (.tsv) or `meta-gpt` output directories with diagnostic result files if `--diagnostic_agent` flag enabled
+    #[clap(long, short = 'r', num_args=1..)]
+    pub review: Vec<PathBuf>,
+    /// Output data (.json) from the reviews 
+    /// 
+    /// Stores an array of `DiagnosticStats` JSON schemas with attribute `name` assigned the review directory name
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
     /// Enable diagnostic meta-gpt agent output review
     #[clap(long, short = 'd')]
     pub diagnostic_agent: bool,

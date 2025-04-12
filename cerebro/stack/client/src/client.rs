@@ -1,16 +1,22 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::create_dir_all;
+use std::fs::File;
+use std::io::BufWriter;
 use std::time::Duration;
+use std::io::Write;
 use anyhow::Result;
 use cerebro_model::api::cerebro::response::CerebroIdentifierResponse;
 use cerebro_model::api::cerebro::response::CerebroIdentifierSummary;
 use cerebro_model::api::cerebro::response::ContaminationTaxaResponse;
 use cerebro_model::api::cerebro::response::FilteredTaxaResponse;
+use cerebro_model::api::cerebro::response::SampleSummary;
+use cerebro_model::api::cerebro::response::SampleSummaryResponse;
 use cerebro_model::api::cerebro::response::TaxonHistoryResponse;
 use cerebro_model::api::cerebro::response::TaxonHistoryResult;
 use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
 use cerebro_model::api::cerebro::schema::ContaminationSchema;
+use cerebro_model::api::cerebro::schema::SampleSummarySchema;
 use cerebro_model::api::files::model::FileTag;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::model::SeaweedFileId;
@@ -79,6 +85,7 @@ pub enum Route {
     DataUserSelfTeams,
     DataCerebroInsertModel,
     DataCerebroIdentifiers,
+    DataCerebroQualityControl,
     DataCerebroTaxaSummary,
     DataCerebroTaxaHistory,
     DataCerebroTaxaFiltered,
@@ -113,6 +120,7 @@ impl Route {
             Route::DataUserSelfTeams => "users/self/teams",
             Route::DataCerebroInsertModel => "cerebro",
             Route::DataCerebroIdentifiers => "cerebro/ids",
+            Route::DataCerebroQualityControl => "cerebro/samples/summary/qc",
             Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
             Route::DataCerebroTaxaHistory => "cerebro/taxa/history",
             Route::DataCerebroTaxaContamination => "cerebro/taxa/contamination",
@@ -229,19 +237,19 @@ impl CerebroClient {
     pub fn log_team_warning(&self) {
         if let None = self.team {
             log::warn!("No team configured for authentication - you may need this for data access");
-            log::warn!("Use team name or identifier with global argument '--team' or environment variable '$CEREBRO_USER_TEAM'")
+            log::warn!("Use team name or unique identifier with global argument '--team' or with environment variable '$CEREBRO_USER_TEAM'")
         }
     }
     pub fn log_db_warning(&self) {
         if let None = self.db {
             log::warn!("No database configured for authentication - you may need this for data access");
-            log::warn!("Use database name or identifier with global argument '--db' or environment variable '$CEREBRO_USER_DB'")
+            log::warn!("Use database name or unique identifier with global argument '--db' or with environment variable '$CEREBRO_USER_DB'")
         }
     }
     pub fn log_project_warning(&self) {
         if let None = self.project {
             log::warn!("No database project configured for authentication - you may need this for data access");
-            log::warn!("Use project name or identifier with global argument '--project' or environment variable '$CEREBRO_USER_PROJECT'")
+            log::warn!("Use project name or unique identifier with global argument '--project' or with environment variable '$CEREBRO_USER_PROJECT'")
         }
     }
     pub fn set_data_auth(&mut self, team: &str, database: &str, project: &str) {
@@ -404,6 +412,9 @@ impl CerebroClient {
         Ok(())
     }
     fn send_request_with_team(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+
+        self.log_team_warning();
+
         let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
 
         let response = request
@@ -413,6 +424,10 @@ impl CerebroClient {
         Ok(response)
     }
     fn send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+
         let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
         let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
 
@@ -424,6 +439,11 @@ impl CerebroClient {
         Ok(response)
     }
     fn send_request_with_team_db_project(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
         let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
         let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
         let project = self.project.as_deref().ok_or(HttpClientError::RequireProjectNotConfigured)?;
@@ -1215,7 +1235,32 @@ impl CerebroClient {
 
         Ok(None)
     }
-    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
+    pub fn get_quality_control(&self, schema: &SampleSummarySchema, csv: Option<PathBuf>) -> Result<Vec<SampleSummary>, HttpClientError> {
+
+        let url = self.build_request_url(
+            format!("{}", self.routes.url(Route::DataCerebroQualityControl)), 
+            &[("csv", if let Some(_) = csv { true.to_string() } else { false.to_string() })]
+        );
+
+        let response = self.send_request_with_team_db_project(
+            self.client.post(url).json(schema)
+        )?;
+
+        let sample_summary_response = self.handle_response::<SampleSummaryResponse>(
+            response,
+            None,
+            "Sample summary (quality control) retrieval failed",
+        )?;
+
+        if let Some(path) = csv {
+            let mut writer = BufWriter::new(File::create(path)?);
+            write!(&mut writer, "{}", sample_summary_response.data.csv)?;
+            writer.flush()?;
+        }
+
+        Ok(sample_summary_response.data.summary)
+    }
+    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool, print_regression: bool) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
 
         self.log_team_warning();
         self.log_db_warning();
@@ -1250,20 +1295,23 @@ impl CerebroClient {
             // Run the regression and outlier detection.
             let result = analyzer.run();
 
-            // println!("Regression result:");
-            // println!("Intercept (log₁₀ scale): {:.4}", result.intercept);
-            // println!("Slope: {:.4} ({})", result.slope, result.relationship);
-            // println!("Residual standard error: {:.4}", result.residual_standard_error);
+            if print_regression {
+                log::info!("Regression result:");
+                log::info!("Intercept (log₁₀ scale): {:.4}", result.intercept);
+                log::info!("Slope: {:.4} ({})", result.slope, result.relationship);
+                log::info!("Residual standard error: {:.4}", result.residual_standard_error);
 
-            // if !result.outliers.is_empty() {
-            //     println!("Outliers detected:");
-            //     for outlier in &result.outliers {
-            //         println!("Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}", 
-            //             outlier.sample_id, outlier.raw_host, outlier.raw_taxon);
-            //     }
-            // } else {
-            //     println!("No outliers detected.");
-            // }
+                if !result.outliers.is_empty() {
+                    log::info!("Outliers detected:");
+                    for outlier in &result.outliers {
+                        log::info!("Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}", 
+                            outlier.sample_id, outlier.raw_host, outlier.raw_taxon);
+                    }
+                } else {
+                    log::info!("No outliers detected.");
+                }
+            }
+            
 
             Ok(Some(result))
 
@@ -1386,7 +1434,8 @@ impl CerebroClient {
                             let reg = self.get_taxon_history(
                                 format!("s__{}", contam_taxon.name), 
                                 format!("s__Homo sapiens"), 
-                                true
+                                true,
+                                false
                             )?;
                             if let Some(reg) = reg {
                                 for outlier in reg.outliers {

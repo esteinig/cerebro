@@ -19,7 +19,7 @@ pub enum CiqaError {
     CerebroClientError(#[from] cerebro_client::error::HttpClientError),
     #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
-    #[error("Plotters error: {0}")]
+    #[error("plotters crate error: {0}")]
     PlottersError(#[from] Box<dyn std::error::Error + Send + Sync>), 
     #[error(transparent)]
     NifflerError(#[from] niffler::Error),
@@ -27,12 +27,16 @@ pub enum CiqaError {
     CsvError(#[from] csv::Error),
     #[error(transparent)]
     GptError(#[from] cerebro_gp::error::GptError),
-    #[error("Failed to extract sample identifier from filename (format: sample_id.model.json)")]
+    #[error("failed to extract sample identifier from filename (format: sample_id.model.json)")]
     SampleIdentifierNotFound,
-    #[error("Failed to extract model name from filename (format: sample_id.model.json)")]
+    #[error("failed to extract model name from filename (format: sample_id.model.json)")]
     ModelNameNotFound,
-    #[error("Failed to extract file stem ({0})")]
-    FileStemNotFound(PathBuf)
+    #[error("failed to extract file stem ({0})")]
+    FileStemNotFound(PathBuf),
+    #[error("failed to convert OsString to String: {0}")]
+    FileNameConversionError(PathBuf),
+    #[error("error during strip-plot creation: {0}")]
+    StripPlotError(String),
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for CiqaError

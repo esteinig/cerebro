@@ -4,7 +4,14 @@ testing/
 templates/report/report.pdf
 cerebro/stack/report-wasm/tests/
 cerebro/stack/ciqa/templates/test*/
+cerebro/stack/ciqa/templates/adbdb5*.json
+cerebro/stack/ciqa/templates/bug_board.json
+cerebro/stack/ciqa/templates/*.png
+cerebro/stack/ciqa/templates/*.svg
 cerebro/stack/gp/templates/test*/
+cerebro/stack/gp/templates/adbdb5*.json
+cerebro/stack/gp/templates/bug_board.json
+
 # Triggered dev builds
 trigger
 

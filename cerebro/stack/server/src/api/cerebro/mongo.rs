@@ -302,7 +302,6 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 },
                 "priority": { 
                     "$addToSet": "$sample.priority" // this should have only the common priority taxa for this sample due to adding to set - it does however not discriminate based on workflow 
-                    
                 },
             }
         }),
@@ -504,7 +503,8 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                 "quality": "$quality",
                 "run": "$run",
                 "sample": "$sample",
-                "workflow": "$workflow"
+                "workflow": "$workflow",
+                "control_taxa": { "$ifNull": [ "$control_taxa", null ] }
             }
         }
     ]

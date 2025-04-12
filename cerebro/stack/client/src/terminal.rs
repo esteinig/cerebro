@@ -285,27 +285,12 @@ pub struct UploadModelArgs {
 
 #[derive(Debug, Args)]
 pub struct QualityArgs {
-    /// Team name for model query
-    #[clap(long, short = 't')]
-    pub team_name: String,
-    /// Project name for model query
-    #[clap(long, short = 'p')]
-    pub project_name: String,
-    /// Output summary (.csv)
+    /// Output summary table (.csv)
     #[clap(long, short = 'o')]
-    pub output: PathBuf,
-    /// Database name for model query
-    #[clap(long, short = 'd')]
-    pub db_name: Option<String>,
-    /// Cerebro database model identifiers to filter results
-    #[clap(long, short = 'r', num_args(0..))]
-    pub cerebro_ids: Option<Vec<String>>,
-    /// Sample identifiers to filter results
-    #[clap(long, short = 's', num_args(0..))]
-    pub sample_ids: Option<Vec<String>>,
-    /// ERCC control input mass for biomass calculations (picogram)
-    #[clap(long, short = 'e')]
-    pub ercc_pg: Option<f64>,
+    pub output: Option<PathBuf>,
+    /// Sample identifiers to limit query
+    #[clap(long, short = 's', num_args(1..))]
+    pub sample_ids: Option<Vec<String>>
 }
 
 #[derive(Debug, Args)]

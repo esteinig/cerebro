@@ -1,5 +1,5 @@
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema};
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -434,24 +434,32 @@ fn main() -> anyhow::Result<()> {
             client.get_taxa(&schema, &filter_config, &mut contam_config, true)?;
 
         },
-        // Query sample models for quality control summary
+        // Query sample models for taxon history and taxon vs host regression analysis
         Commands::GetTaxonHistory( args ) => {
 
-            client.get_taxon_history(args.taxon_label.clone(), args.host_label.clone(), args.regression)?;
+            client.get_taxon_history(
+                args.taxon_label.clone(), 
+                args.host_label.clone(), 
+                args.regression, 
+                true
+            )?;
 
         },
-        // Query sample models for quality control summary
+        // Query sample summaries for quality control data and run/sample/workflow configs
         Commands::GetQuality( args ) => {
 
-            // client.qc_summary(
-            //     &args.team_name, 
-            //     &args.project_name, 
-            //     args.db_name.as_ref(),
-            //     args.cerebro_ids.clone(),
-            //     args.sample_ids.clone(),
-            //     args.ercc_pg.clone(),
-            //     &args.output
-            // )?;
+            let schema = SampleSummarySchema::new(
+                args.sample_ids.clone()
+            );
+
+            let sample_summaries = client.get_quality_control(
+                &schema,
+                args.output.clone()
+            )?;
+
+            for sample_summary in sample_summaries {
+                log::info!("{sample_summary:#?}")
+            }
 
         },
         // Modify (create-delete-update) a project

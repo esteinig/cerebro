@@ -1,4 +1,5 @@
 use actix_web::{web::Data, HttpResponse};
+use cerebro_model::api::cerebro::response::SampleSummaryResponse;
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::teams::model::{Team, TeamAdminCollection};
 use cerebro_model::api::utils::AdminCollection;
@@ -42,7 +43,7 @@ pub fn get_teams_db_stage_collection(data: &Data<AppState>, team: Team, collecti
 }
 
 
-pub fn as_csv_string<T>(data: Vec<T>) -> Result<String, HttpResponse> 
+pub fn as_csv_string<T>(data: &Vec<T>) -> Result<String, HttpResponse> 
     where T: Serialize
 {
 
@@ -51,13 +52,30 @@ pub fn as_csv_string<T>(data: Vec<T>) -> Result<String, HttpResponse>
             .from_writer(Vec::new());
 
         for d in data {
-            csv_writer.serialize(d).unwrap()
+            csv_writer.serialize(d).map_err(|err| {
+                return HttpResponse::InternalServerError().json(
+                    SampleSummaryResponse::server_error(err.to_string())
+                )
+            })?
         }
-        csv_writer.flush().unwrap();
-        
-        let csv_string = csv_writer.into_inner().unwrap().to_vec();
 
-        let csv_result = String::from_utf8(csv_string).unwrap();
+        csv_writer.flush().map_err(|err| {
+            return HttpResponse::InternalServerError().json(
+                SampleSummaryResponse::server_error(err.to_string())
+            )
+        })?;
+        
+        let csv_string = csv_writer.into_inner().map_err(|err| {
+            return HttpResponse::InternalServerError().json(
+                SampleSummaryResponse::server_error(err.to_string())
+            )
+        })?.to_vec();
+
+        let csv_result = String::from_utf8(csv_string).map_err(|err| {
+            return HttpResponse::InternalServerError().json(
+                SampleSummaryResponse::server_error(err.to_string())
+            )
+        })?;
 
         Ok(csv_result)
 }

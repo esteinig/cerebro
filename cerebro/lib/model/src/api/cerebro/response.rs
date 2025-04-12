@@ -1,7 +1,7 @@
-use cerebro_pipeline::taxa::taxon::Taxon;
+use cerebro_pipeline::{modules::quality::QualityControl, taxa::taxon::Taxon};
 use serde::{Deserialize, Serialize};
 
-use super::model::CerebroId;
+use super::model::{CerebroId, RunConfig, SampleConfig, WorkflowConfig};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CerebroIdentifierSummary {
@@ -161,6 +161,61 @@ impl TaxonHistoryResponse {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
             data: vec![]
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SampleSummary {
+    pub id: String,
+    pub quality: QualityControl,
+    pub run: RunConfig,
+    pub sample: SampleConfig,
+    pub workflow: WorkflowConfig,
+    pub control_taxa: Option<Vec<Taxon>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SampleSummaryData {
+    pub summary: Vec<SampleSummary>,
+    pub csv: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SampleSummaryResponse {
+    pub status: String,
+    pub message: String,
+    pub data: SampleSummaryData,
+}
+
+impl SampleSummaryResponse {
+    pub fn success(summary: Vec<SampleSummary>, csv: String) -> Self {
+        Self {
+            status: "success".to_string(),
+            message: "Retrieved sample summaries for requested samples".to_string(),
+            data: SampleSummaryData { summary, csv },
+        }
+    }
+
+    pub fn not_found() -> Self {
+        Self {
+            status: "fail".to_string(),
+            message: "No data found for requested samples".to_string(),
+            data: SampleSummaryData {
+                summary: vec![],
+                csv: "".to_string(),
+            },
+        }
+    }
+
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: "error".to_string(),
+            message: format!("Error in database query: {}", error_message),
+            data: SampleSummaryData {
+                summary: vec![],
+                csv: "".to_string(),
+            },
         }
     }
 }

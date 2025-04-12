@@ -1,12 +1,11 @@
 use std::fs::File;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
 use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig};
 
-use crate::api::files::model::FileTag;
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
     PriorityTaxonId, 
@@ -54,9 +53,17 @@ pub struct SampleDeleteSchema {
 
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SampleSummaryQcSchema {
+pub struct SampleSummarySchema {
     pub sample_ids: Vec<String>,
     pub cerebro_ids: Vec<String>,
+}
+impl SampleSummarySchema {
+    pub fn new(sample_ids: Option<Vec<String>>) -> Self {
+        Self {
+            sample_ids: if let Some(sample_ids) = sample_ids { sample_ids } else { vec![] },
+            cerebro_ids: vec![]
+        }
+    }
 }
 
 
