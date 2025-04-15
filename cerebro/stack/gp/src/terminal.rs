@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
-use crate::gpt::ClinicalContext;
+use crate::gpt::{ClinicalContext, GptModel};
 
 /// Cerebro: metagenomic generative practitioner (GPT)
 #[derive(Debug, Parser)]
@@ -116,8 +116,8 @@ pub struct DiagnoseArgs {
     #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
     pub json: Option<PathBuf>,
     /// OpenAI model for diagnostic queries
-    #[clap(long, short = 'm', default_value="gpt-4o-mini")]
-    pub model: String,
+    #[clap(long, short = 'm', default_value="3o-mini")]
+    pub model: GptModel,
     /// Dry run printing only decision tree and validating inputs
     #[clap(long, short = 'd')]
     pub dry_run: bool,

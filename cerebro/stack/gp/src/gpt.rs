@@ -1,21 +1,23 @@
 // main.rs
 
+use anthropic_api::messages::{MessageContent, MessageRole};
 use anyhow::Result;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::Taxon;
-use petgraph::graph::{Graph, NodeIndex};
+use petgraph::graph::Graph;
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use tokio::process::Command;
+use std::path::Path;
 use async_openai::{config::OpenAIConfig, types::*};
 use colored::Colorize;
+use anthropic_api::{messages::*, Credentials};
+
 use crate::error::GptError;
 
 
@@ -23,7 +25,7 @@ use crate::error::GptError;
 // === Refined Question Types ===
 //
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Question {
     Simple(String),
@@ -178,7 +180,7 @@ impl ClinicalContext {
 // === Decision Tree Definitions ===
 //
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckType {
     LlmEval,
@@ -192,7 +194,7 @@ pub enum CheckType {
     FlightCheckNonInfectious
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TreeNode {
     question: Option<Question>,
     check: Option<CheckType>,
@@ -202,7 +204,37 @@ pub struct TreeNode {
     final_node: Option<bool>,
 }
 
-pub type DecisionTree = HashMap<String, TreeNode>;
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TreeEdge {
+    action: TreeAction
+}
+impl TreeEdge {
+    pub fn default_next() -> Self {
+        Self {
+            action: TreeAction::Next
+        }
+    }
+    pub fn default_true() -> Self {
+        Self {
+            action: TreeAction::True
+        }
+    }
+    pub fn default_false() -> Self {
+        Self {
+            action: TreeAction::False
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TreeAction {
+    Next,
+    True,
+    False
+}
+
+
 
 //
 // === Diagnostic History Structures ===
@@ -371,21 +403,95 @@ impl ThresholdTaxa {
     }
 }
 
-pub struct DiagnosticAgent {
-    pub tree: DecisionTree,
-    pub cerebro_client: CerebroClient,
-    pub llm_client: async_openai::Client<OpenAIConfig>,
-    pub state: AgentState,
-    pub knowledge_graph: Graph<String, String>,
-    pub model: String,
-    pub diagnostic_memory: bool,
-    pub contam_history: bool
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, clap::ValueEnum)]
+pub enum GptModel {
+    #[serde(rename="o3-mini")]
+    O3Mini,
+    #[serde(rename="o1-mini")]
+    O1Mini,
+    #[serde(rename="gpt-4o-mini")]
+    Gpt4oMini,
+    #[serde(rename="gpt-4o")]
+    Gpt4o,
+    #[serde(rename="claude-3-7-sonnet-20250219")]
+    Claude37Sonnet,
+    #[serde(rename="claude-3-5-haiku-20241022")]
+    Claude35Haiku,
+    #[serde(rename="claude-3-5-sonnet-20241022")]
+    Claude35Sonnet,
+    #[serde(rename="claude-3-haiku-20240307")]
+    Claude3Haiku,
+    #[serde(rename="claude-3-sonnet-20240229")]
+    Claude3Sonnet,
+    #[serde(rename="claude-3-opus-20240229")]
+    Claude3Opus
+}
+impl GptModel {
+    pub fn is_openai(&self) -> bool {
+        [GptModel::O3Mini, GptModel::O1Mini, GptModel::Gpt4o, GptModel::Gpt4oMini].contains(self)
+    }
+    pub fn is_anthropic(&self) -> bool {
+        [GptModel::Claude37Sonnet, GptModel::Claude35Haiku, GptModel::Claude35Sonnet, GptModel::Claude3Haiku, GptModel::Claude3Opus, GptModel::Claude3Sonnet].contains(self)
+    }
+    pub fn has_system_message(&self) -> bool {
+        [GptModel::Gpt4o, GptModel::Gpt4oMini].contains(self)
+    }
+    pub fn anthropic_credentials(&self) -> Credentials {
+        Credentials::from_env()
+    }
+
+    pub fn anthropic_max_tokens(&self) -> u64 {
+        match self {
+            Self::Claude37Sonnet => 64000,
+            Self::Claude35Sonnet => 8192,
+            Self::Claude3Sonnet => 4096,
+            Self::Claude35Haiku => 8192,
+            Self::Claude3Haiku => 4096,
+            Self::Claude3Opus => 4096,
+            _ => 1024
+        }
+    }
 }
 
-impl DiagnosticAgent {
-    pub async fn new(cerebro_client: CerebroClient, model: String, diagnostic_memory: bool, contam_history: bool) -> Result<Self> {
-        
-        let decision_tree_json = r#"
+impl From<&GptModel> for String {
+    fn from(model: &GptModel) -> Self {
+        serde_plain::to_string(model).expect("GptModel serialization failed")
+    }
+}
+
+pub type TreeNodes = HashMap<String, TreeNode>;
+
+pub trait TreeNodeReader {
+    fn from_str(s: &str) -> Result<TreeNodes, serde_json::Error>;
+}
+
+impl TreeNodeReader for TreeNodes {
+    fn from_str(s: &str) -> Result<TreeNodes, serde_json::Error> {
+        serde_json::from_str::<TreeNodes>(s)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DecisionTree {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub nodes: TreeNodes
+}
+impl DecisionTree {
+    pub fn new(name: &str, version: &str, description: &str, nodes: &str) -> Result<Self, GptError> {
+        Ok(
+            Self {
+                name: name.to_string(),
+                version: version.to_string(),
+                description: description.to_string(),
+                nodes: TreeNodes::from_str(nodes)?
+            }
+        )
+    }
+    pub fn new_tiered() -> Result<Self, GptError> {
+
+        let nodes = r#"
         {
             "start": {
                 "question": {
@@ -433,7 +539,7 @@ impl DiagnosticAgent {
             "diagnose_infectious": {
                 "question": {
                         "prompt": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..",
-                        "instructions": "Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'."
+                        "instructions": "Select the most likely pathogen candidates from the data. You must return each pathogen candidate species name from the data in <candidate></candidate> tags."
                 },
                 "check": "llm_eval",
                 "next": "describe_infectious"
@@ -449,7 +555,7 @@ impl DiagnosticAgent {
             "select_infectious": {
                 "question": {
                         "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates.",
-                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'"
+                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. You must return the selected pathogen species name from the data in <candidate></candidate> tags."
                 },
                 "check": "llm_eval",
                 "next": "describe_select_infectious"
@@ -485,7 +591,7 @@ impl DiagnosticAgent {
             "diagnose_infectious_review": {
                 "question": {
                     "prompt": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type (CSF or vitreous fluid). Make sure to differentiate between the most likely pathogen candidates with supporting evidence and contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided.",
-                    "instructions": "Select the most likely pathogen candidates from the data. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'."
+                    "instructions": "Select the most likely pathogen candidates from the data. You must return each pathogen candidate species name from the data in <candidate></candidate> tags."
                 },
                 "check": "llm_eval",
                 "next": "describe_infectious_review"
@@ -501,7 +607,7 @@ impl DiagnosticAgent {
             "select_infectious_review": {
                 "question": {
                         "prompt": "You have selected one or more taxa as pathogen candidates with review. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contamination.",
-                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. DO NOT RETURN EXPLANATIONS, YOU MUST RETURN ONLY THE NAME OF THE CANDIDATE PATHOGENS IN GTDB FORMAT AS A STRING: 's__{Genus species}'"
+                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. You must return the selected pathogen species name from the data in <candidate></candidate> tags."
                 },
                 "check": "llm_eval",
                 "next": "describe_select_infectious_review"
@@ -517,125 +623,266 @@ impl DiagnosticAgent {
         }
         "#;
 
-        let tree: DecisionTree = serde_json::from_str(decision_tree_json)?;
+        Ok(
+            Self {
+                name: "tiered".to_string(),
+                version: "0.1.0".to_string(),
+                description: "Tiered decision making process using tiered filter sections of the metagenomic taxonomic profiling data as primary determination of infectious or non-infectious samples".to_string(),
+                nodes: TreeNodes::from_str(nodes)?
+            }
+        )
+    }
+}
+
+
+pub struct DiagnosticAgent {
+    pub tree: DecisionTree,
+    pub cerebro_client: CerebroClient,
+    pub llm_client: async_openai::Client<OpenAIConfig>,
+    pub state: AgentState,
+    pub graph: Graph<TreeNode, TreeEdge>,
+    pub model: GptModel,
+    pub diagnostic_memory: bool,
+    pub contam_history: bool,
+}
+
+impl DiagnosticAgent {
+    pub async fn new(cerebro_client: CerebroClient, model: GptModel, diagnostic_memory: bool, contam_history: bool) -> Result<Self, GptError> {
         
-        let llm_client = async_openai::Client::new();
-        let state = AgentState::new();
+        let tree = DecisionTree::new_tiered()?;
+        
+        Ok(DiagnosticAgent {
+            tree: tree.clone(),
+            cerebro_client,
+            llm_client: async_openai::Client::new(),
+            state: AgentState::new(),
+            graph: Self::graph(&tree)?,
+            model,
+            diagnostic_memory,
+            contam_history
+        })
+    }
+    pub fn graph(tree: &DecisionTree) -> Result<petgraph::Graph<TreeNode, TreeEdge>, GptError> {
 
         // Build a simple knowledge graph from the decision tree.
-        let mut knowledge_graph = Graph::<String, String>::new();
+        let mut graph = Graph::<TreeNode, TreeEdge>::new();
         let mut node_indices = HashMap::new();
 
         // Create a node in the graph for each decision tree node.
-        for (key, _node) in &tree {
-            let idx = knowledge_graph.add_node(key.clone());
+        for (key, node) in &tree.nodes {
+            let idx = graph.add_node(node.clone());
             node_indices.insert(key.clone(), idx);
         }
         // Add edges for transitions.
-        for (key, node) in &tree {
+        for (key, node) in &tree.nodes  {
             if let Some(ref true_node) = node.true_node {
                 if let (Some(&from), Some(&to)) =
                     (node_indices.get(key), node_indices.get(true_node))
                 {
-                    knowledge_graph.add_edge(from, to, "true".to_string());
+                    graph.add_edge(from, to, TreeEdge::default_true());
                 }
             }
             if let Some(ref false_node) = node.false_node {
                 if let (Some(&from), Some(&to)) =
                     (node_indices.get(key), node_indices.get(false_node))
                 {
-                    knowledge_graph.add_edge(from, to, "false".to_string());
+                    graph.add_edge(from, to, TreeEdge::default_false());
                 }
             }
             if let Some(ref next) = node.next {
                 if let (Some(&from), Some(&to)) =
                     (node_indices.get(key), node_indices.get(next))
                 {
-                    knowledge_graph.add_edge(from, to, "next".to_string());
+                    graph.add_edge(from, to, TreeEdge::default_next());
                 }
             }
         }
 
-        Ok(DiagnosticAgent {
-            tree,
-            cerebro_client,
-            llm_client,
-            state,
-            knowledge_graph,
-            model,
-            diagnostic_memory,
-            contam_history
-        })
+        Ok(graph)
     }
-    fn model_supports_system_message(&self) -> bool {
-        Vec::from(["gpt-4o".to_string(), "gpt-4o-mini".to_string()]).contains(&self.model)
-    }
-    // Evaluate an LLM prompt using async-openai.
-    async fn evaluate_diagnostic_llm(&self, question: &Question, context: &str) -> Result<bool> {
+     // Evaluate an LLM prompt for yes/no diagnostic questions.
+     pub async fn evaluate_diagnostic_llm(&self, question: &Question, context: &str) -> Result<bool> {
         let prompt_text = question.to_prompt();
 
-        let messages = if self.model_supports_system_message() {
-            vec![
-                ChatCompletionRequestMessage::System("You are a diagnostic assistant. Answer 'yes' or 'no' only.".into()),
-                ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
-            ]
-        } else {
-            vec![
-                ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
-            ]
-        };
+        if self.model.is_anthropic() {
+            let messages = vec![
+                Message {
+                    role: MessageRole::User,
+                    content: MessageContent::Text("You are a diagnostic assistant. Answer 'yes' or 'no' only.".into()),
+                },
+                Message {
+                    role: MessageRole::User,
+                    content: MessageContent::Text(
+                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
+                    ),
+                },
+            ];
 
-        let request = CreateChatCompletionRequestArgs::default()
-            .model(&self.model)
-            .messages(messages)
-            .build()?;
-        let response = self.llm_client.chat().create(request).await?;
-        let reply = &response.choices[0].message.content;
-        Ok(reply.as_ref().map(|s| s.to_lowercase().contains("yes")).unwrap_or(false))
+            let response = MessagesBuilder::builder(
+                    &String::from(&self.model),
+                    messages,
+                    self.model.anthropic_max_tokens(),
+                )
+                .credentials(
+                    self.model.anthropic_credentials()
+                )
+                .create()
+                .await?;
+
+            let reply = if let Some(ResponseContentBlock::Text { text }) = response.content.first() {
+                text.trim()
+            } else {
+                ""
+            };
+
+            Ok(reply.to_lowercase().contains("yes"))
+        } else {
+            let messages = if self.model.has_system_message() {
+                vec![
+                    ChatCompletionRequestMessage::System(
+                        "You are a diagnostic assistant. Answer 'yes' or 'no' only.".into()
+                    ),
+                    ChatCompletionRequestMessage::User(
+                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
+                    ),
+                ]
+            } else {
+                vec![
+                    ChatCompletionRequestMessage::User(
+                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
+                    ),
+                ]
+            };
+
+            let request = CreateChatCompletionRequestArgs::default()
+                .model(&self.model)
+                .messages(messages)
+                .build()?;
+
+            let response = self.llm_client.chat().create(request).await?;
+            let reply = &response.choices[0].message.content;
+            Ok(reply.as_ref().map(|s| s.to_lowercase().contains("yes")).unwrap_or(false))
+        }
     }
 
-    // Evaluate an LLM prompt using async-openai.
-    async fn evaluate_llm(&self, question: &Question, context: &str) -> Result<String> {
+    // Evaluate an LLM prompt for generating a free-text answer.
+    pub async fn evaluate_llm(&self, question: &Question, context: &str) -> Result<String> {
+
         let prompt_text = question.to_prompt();
-        
-        let messages = if self.model_supports_system_message() {
-            vec![
-                ChatCompletionRequestMessage::System("You are a diagnostic assistant.".into()),
-                ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
-            ]
-        } else {
-            vec![
-                ChatCompletionRequestMessage::User(format!("{}\n\nCase Context:\n{}", prompt_text, context).into()),
-            ]
-        };
 
-        let request = CreateChatCompletionRequestArgs::default()
-            .model(&self.model)
-            .messages(messages)
-            .build()?;
-        let response = self.llm_client.chat().create(request).await?;
-        let reply = &response.choices[0].message.content;
-        Ok(reply.as_ref().unwrap_or(&format!("Unknown response from LLM")).to_string())
+        if self.model.is_anthropic() {
+            let messages = vec![
+                Message {
+                    role: MessageRole::User,
+                    content: MessageContent::Text("You are a diagnostic assistant.".into()),
+                },
+                Message {
+                    role: MessageRole::User,
+                    content: MessageContent::Text(format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}")),
+                },
+            ];
+
+            let response = MessagesBuilder::builder(
+                &String::from(&self.model), 
+                messages, 
+                self.model.anthropic_max_tokens()
+            )
+                .credentials(
+                    self.model.anthropic_credentials()
+                )
+                .create()
+                .await?;
+
+            let reply = if let Some(ResponseContentBlock::Text { text }) = response.content.first() {
+                text.trim().to_string()
+            } else {
+                "Unknown response from Anthropic API".to_string()
+            };
+
+            Ok(reply)
+        } else {
+            let messages = if self.model.has_system_message() {
+                vec![
+                    ChatCompletionRequestMessage::System("You are a diagnostic assistant.".into()),
+                    ChatCompletionRequestMessage::User(
+                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
+                    ),
+                ]
+            } else {
+                vec![
+                    ChatCompletionRequestMessage::User(
+                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
+                    ),
+                ]
+            };
+
+            let request = CreateChatCompletionRequestArgs::default()
+                .model(&self.model)
+                .messages(messages)
+                .build()?;
+            
+            let response = self.llm_client.chat().create(request).await?;
+            let reply = &response.choices[0].message.content;
+
+            Ok(reply.as_ref().unwrap_or(&"Unknown response from LLM".to_string()).to_string())
+        }
     }
 
-    /// Primes the LLM with the background explanation.
+    // Prime (initialize) the LLM with background context.
     pub async fn prime_llm(&self, background: &str) -> Result<()> {
-        let messages = if self.model_supports_system_message() {
-            vec![
-                ChatCompletionRequestMessage::System(background.into()),
-                ChatCompletionRequestMessage::User("Please acknowledge that you have received the background context.".into()),
-            ]
+        if self.model.is_anthropic() {
+
+            let messages = vec![
+                Message {
+                    role: MessageRole::User,
+                    content: MessageContent::Text(background.into()),
+                },
+                Message {
+                    role: MessageRole::User,
+                    content: MessageContent::Text("Please acknowledge that you have received the background context.".into()),
+                },
+            ];
+
+            let response = MessagesBuilder::builder(
+                &String::from(&self.model), 
+                messages, 
+                self.model.anthropic_max_tokens()
+            )
+                .credentials(
+                    self.model.anthropic_credentials()
+                )
+                .create()
+                .await?;
+
+            let reply = if let Some(ResponseContentBlock::Text { text }) = response.content.first() {
+                text.trim().to_string()
+            } else {
+                "Unknown response from Anthropic API".to_string()
+            };
+
+            log::info!("Prime LLM with background:\n\n{}\n\n", background);
+            log::info!("Response: \n\n{}\n\n", reply);
+
+            Ok(())
         } else {
-            vec![
-                ChatCompletionRequestMessage::User("Please acknowledge that you have received the background context.".into()),
-            ]
-        };
-        let request = CreateChatCompletionRequestArgs::default()
-            .model(&self.model)
-            .messages(messages)
-            .build()?;
-        let _ = self.llm_client.chat().create(request).await?;
-        Ok(())
+            let messages = if self.model.has_system_message() {
+                vec![
+                    ChatCompletionRequestMessage::System(background.into()),
+                    ChatCompletionRequestMessage::User("Please acknowledge that you have received the background context.".into()),
+                ]
+            } else {
+                vec![
+                    ChatCompletionRequestMessage::User("Please acknowledge that you have received the background context.".into()),
+                ]
+            };
+
+            let request = CreateChatCompletionRequestArgs::default()
+                .model(&self.model)
+                .messages(messages)
+                .build()?;
+            let _ = self.llm_client.chat().create(request).await?;
+            Ok(())
+        }
     }
     /// Gets the current state memory into a JSON string.
     fn _get_agent_state_memory(&self) -> String {
@@ -678,7 +925,7 @@ impl DiagnosticAgent {
         let mut node_key = "start".to_string();
 
         // Loop through the decision tree.
-        while let Some(node) = self.tree.get(&node_key) {
+        while let Some(node) = self.tree.nodes.get(&node_key) {
             log::info!("Processing node: {}", node_key);
 
             self.state.log("current_node", &node_key);
@@ -1161,47 +1408,7 @@ impl DiagnosticAgent {
                     }
                 },
                 Some(CheckType::TaxaHistoryQuery) => {
-
-                    // let above_threshold_contam_taxa: Vec<Taxon> = serde_json::from_str(self.state.memory.get("data__AboveThresholdQuery__ContamTaxa").map_or("[]", |r| r.deref()))?;
-
-                    // let taxa_history_data = self.cerebro_client.get_taxa_history(above_threshold_contam_taxa)?;
-
-                    // let considerations = "[Historical occurrence of taxa in above threshold calls (sum of RPM from k-mer and alignment profiling) for DNA libraries as a function of human host background RPM - 
-                    // positive linear regression of log-transformed data indicates problems with human sequence contamination in reference databases, negative values indicate normal expected 
-                    // behaviour with increasing host biomass background to have reduced taxon calls; outliers from the regression 95% CI interval indicate real taxon calls and may negate the 
-                    // identification of this taxon as a contaminant based on the prevalence contamination filter and occurrence across the majority of samples assessed in that filter]";
-
-                    // self.state.log(
-                    //     "data__TaxaHistoryData__Considerations", 
-                    //     considerations
-                    // );
-
-                    // self.state.log(
-                    //     "data__TaxaHistoryData__Data",
-                    //     taxa_history_data.unwrap_or("No data available") 
-                    // );
-
-                    // // Combine data context with the query
-                    // let full_context = format!("Taxa history data: {:#?}\n\nConsiderations: {}", taxa_history_data, considerations);
-
-                    // let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
-
-                    // // Fetch bool output from the LLM with the full context.
-                    // let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-
-                    // self.state.add_history(&node_key, node.question.as_ref().map(|q| q.to_prompt()), Some(&diagnostic_response.to_string()));
-                    
-                    
-                    // if let Some(next_node) = &node.next {
-                    //     node_key = next_node.to_string();
-                    // } else {
-                    //     node_key = if diagnostic_response {
-                    //         node.true_node.clone()
-                    //     } else {
-                    //         node.false_node.clone()
-                    //     }
-                    //     .expect("Next node key expected");
-                    // }
+                    unimplemented!("Not implemented as distinct node action yet")
                 }
                 None => {},
             }
@@ -1278,19 +1485,6 @@ impl DiagnosticAgent {
         Ok(diagnostic_result)
     }
 
-    pub fn print_knowledge_graph(&self) {
-        println!("Knowledge Graph:");
-        for node in self.knowledge_graph.node_indices() {
-            let label = &self.knowledge_graph[node];
-            println!("Node {}: {}", node.index(), label);
-        }
-        for edge in self.knowledge_graph.edge_references() {
-            let source = &self.knowledge_graph[edge.source()];
-            let target = &self.knowledge_graph[edge.target()];
-            println!("Edge: {} --({})--> {}", source, edge.weight(), target);
-        }
-    }
-
     pub fn print_decision_tree(&self, tree: &DecisionTree, root: &str) {
 
         // Recursive helper function
@@ -1304,7 +1498,7 @@ impl DiagnosticAgent {
 
             // Collect children from the node: we assume true_node, false_node, and next.
             let mut children: Vec<(&str, &String)> = Vec::new();
-            if let Some(node) = tree.get(node_key) {
+            if let Some(node) = tree.nodes.get(node_key) {
                 if let Some(child) = &node.true_node {
                     children.push(("true", child));
                 }
@@ -1330,7 +1524,7 @@ impl DiagnosticAgent {
                 println!("{}{}{}", new_prefix, if is_last_child { "└── " } else { "├── " }, line);
 
                 // Then recurse on this child if it exists in the tree.
-                if tree.contains_key(child_key) {
+                if tree.nodes.contains_key(child_key) {
                     // Adjust prefix for further children.
                     let next_prefix = if is_last_child { format!("{}    ", new_prefix) } else { format!("{}│   ", new_prefix) };
                     recurse(tree, child_key, &next_prefix, true);

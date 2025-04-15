@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use cerebro_gp::gpt::GptModel;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use crate::plate::{DiagnosticOutcome, MissingOrthogonal, SampleType, StatsMode};
@@ -97,6 +98,8 @@ pub enum Commands {
     Review(ReviewArgs),
     /// Diagnose samples on the reference plate using the generative practitioner
     Diagnose(DiagnoseArgs),
+    /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
+    DebugPathogen(DebugPathogenArgs),
 }
 
 #[derive(Debug, Args)]
@@ -134,6 +137,16 @@ pub struct PlotPlateArgs {
 }
 
 #[derive(Debug, Args)]
+pub struct DebugPathogenArgs {
+    /// Diagnostic agent output files (.json)
+    #[clap(long, short = 'g', num_args=1..)]
+    pub gpt: Vec<PathBuf>,
+    /// Summary of pathogen calls output (.tsv)
+    #[clap(long, short = 'o')]
+    pub output: PathBuf
+}
+
+#[derive(Debug, Args)]
 pub struct PlotReviewArgs {
     /// Review stats (.json) for a category - file stem is the category name
     #[clap(long, short = 's', num_args=1..)]
@@ -144,6 +157,9 @@ pub struct PlotReviewArgs {
     /// Output plot file (.svg)
     #[clap(long, short = 'o', default_value="review_stats.svg")]
     pub output: PathBuf,
+    /// Plot 95% CI interval as grey box behind points (assuming normal distribution)
+    #[clap(long, short = 'c')]
+    pub ci: bool,
     /// Reference line 1 (sensitivity/ppv)
     #[clap(long)]
     pub ref1: Option<f64>,
@@ -167,8 +183,8 @@ pub struct DiagnoseArgs {
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
     /// OpenAI model for diagnostic queries
-    #[clap(long, short = 'm', default_value="gpt-4o-mini")]
-    pub model: String,
+    #[clap(long, short = 'm', default_value="3o-mini")]
+    pub model: GptModel,
     /// Add memory of the diagostic decision tree to key decision points
     #[clap(long, short = 'd')]
     pub diagnostic_memory: bool,

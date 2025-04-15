@@ -1,16 +1,17 @@
 
 use std::fs::create_dir_all;
 
-use cerebro_gp::gpt::{ClinicalContext, DataBackground, DiagnosticAgent};
+use cerebro_gp::gpt::{ClinicalContext, DataBackground, DiagnosticAgent, DiagnosticResult};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_stripplot, read_all_sample_reviews, DiagnosticStatsVecExt, FromSampleType, MissingOrthogonal, Palette, ReferencePlate}, terminal::{App, Commands}, utils::{get_file_component, init_logger, FileComponent}};
+use cerebro_ciqa::{config::EvaluationConfig, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_stripplot, DiagnosticData, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate}, terminal::{App, Commands}, utils::{get_file_component, init_logger, write_tsv, FileComponent}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
+use serde::Serialize;
 use tokio::runtime::Runtime;
 
 #[tokio::main]
@@ -81,6 +82,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .to_lowercase();
 
             let palette = Palette::hiroshige();
+            let highlight = Palette::cassatt2();
 
             if ext == "svg" {
                 plot_stripplot(
@@ -89,8 +91,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.mode, 
                     args.ref1, 
                     args.ref2,
-                    palette.colors.get(4),
-                    palette.colors.get(5)
+                    palette.colors.get(3),
+                    palette.colors.get(6),
+                    highlight.colors.get(7),
+                    args.ci
                 )?;
             } else {
                 plot_stripplot(
@@ -99,8 +103,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.mode, 
                     args.ref1, 
                     args.ref2,
-                    palette.colors.get(4),
-                    palette.colors.get(5)
+                    palette.colors.get(3),
+                    palette.colors.get(6),
+                    highlight.colors.get(7),
+                    args.ci
                 )?;
             };
 
@@ -142,17 +148,19 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             let mut consensus_plate = aggregate_reference_plates(reference_plates);
 
-            let stats = get_diagnostic_stats(
+            let consensus_stats = get_diagnostic_stats(
                 args,
                 &mut consensus_plate, 
                 &"consensus"
             )?;
 
-            let stats_percent = stats.percent();
-            log::info!("{stats_percent:#?}");
+            let consensus_stats_percent = consensus_stats.percent();
+            log::info!("{consensus_stats_percent:#?}");
 
-            review_data.push(stats_percent);
-            review_data.to_json(&args.output)?;
+            review_data.push(consensus_stats_percent);
+
+            // Consensus is excluded from summary stats
+            DiagnosticData::from(review_data).to_json(&args.output)?
 
         },
         Commands::Diagnose( args ) => {
@@ -172,7 +180,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             log::info!("Checking status of Cerebro API at {}",  &api_client.url);
             api_client.ping_servers()?;
-
 
             let plate = ReferencePlate::new(
                 &args.plate, 
@@ -194,7 +201,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     // Run the async operations inside the synchronous Rayon thread
                     let result: Result<(), anyhow::Error> = rt.block_on(async {
 
-                        let json_file = args.outdir.join(format!("{sample_id}.{}.json", args.model));
+                        let json_file = args.outdir.join(format!("{sample_id}.{}.json", String::from(&args.model)));
 
                         if args.force || !json_file.exists() {
                             let mut agent = DiagnosticAgent::new(
@@ -269,7 +276,35 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 });
             });
                         
-        } 
+        },
+        Commands::DebugPathogen( args ) => {
+
+            #[derive(Serialize)]
+            struct PathogenRecord {
+                filename: String,
+                pathogen: String
+            }
+
+            let mut records = Vec::new();
+            for path in &args.gpt {
+                
+                let filename = get_file_component(
+                    path, 
+                    FileComponent::FileStem
+                )?;
+                log::info!("Diagnostric result: {}", filename);
+
+                let result = DiagnosticResult::from_json(path)?;
+                
+                records.push(PathogenRecord {
+                    filename, 
+                    pathogen: result.pathogen.unwrap_or("".to_string())
+                });
+
+            }            
+            write_tsv(&records, &args.output, false)?;
+            
+        }
     }
 
     Ok(())

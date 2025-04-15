@@ -1,8 +1,8 @@
 
-use std::{collections::{HashMap, HashSet}, fs::File, io::{BufRead, BufReader, BufWriter}, ops::Deref, path::{Path, PathBuf}};
-
+use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
+use statrs::distribution::{ContinuousCDF, StudentsT};
 use cerebro_gp::gpt::{ClinicalContext, Diagnosis, DiagnosticResult};
-use plotters::{coord::Shift, prelude::*, style::{full_palette::GREY, text_anchor::{HPos, Pos, VPos}}};
+use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
 use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, FileComponent}};
@@ -199,20 +199,36 @@ impl SampleReview {
                 // First, perform the basic replacements and trimming.
                 let pathogen = pathogen_str
                     .replace("'", "")
+                    .replace("{", "")
+                    .replace("}", "")
+                    .replace("\"", "")
                     .replace("_", " ")
                     .trim_start_matches("s  ")
                     .to_string();
-
-                let pathogen_parts: Vec<&str> = pathogen.split_whitespace().collect();
-
-                // Check if there is at least one element to drop the last item (species variant in GTDB).
-                let species = if pathogen_parts.len() > 2 {
-                    pathogen_parts[..pathogen_parts.len()-1].join(" ")
+                
+                if pathogen_str.is_empty() || pathogen.is_empty() {
+                    None
+                } else if pathogen_str.to_lowercase().starts_with("none")  || 
+                    pathogen_str == "s__'No candidate'" || 
+                    pathogen_str.to_lowercase().starts_with("no pathogen") || 
+                    pathogen_str.to_lowercase().starts_with("there are no clear pathogenic candidates") || 
+                    pathogen_str.to_lowercase().starts_with("no significant pathogen detected") || 
+                    pathogen_str.to_lowercase().starts_with("[]")
+                {  // Claude 3.5 Haiku is being ridiculously verbose despite instructions
+                    None
                 } else {
-                    pathogen.to_string()
-                };
-    
-                Some(format!("s__{}", species))
+
+                    let pathogen_parts: Vec<&str> = pathogen.split_whitespace().collect();
+
+                    // Check if there is at least one element to drop the last item (species variant in GTDB).
+                    let species = if pathogen_parts.len() > 2 {
+                        pathogen_parts[..pathogen_parts.len()-1].join(" ")
+                    } else {
+                        pathogen.to_string()
+                    };
+        
+                    Some(format!("s__{}", species)) 
+                }
             },
             None => None
         };
@@ -313,7 +329,7 @@ pub struct DiagnosticReview {
 }
 
 /// Structure to hold computed diagnostic statistics.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DiagnosticStats {
     pub name: String,
     pub sensitivity: f64,
@@ -332,6 +348,129 @@ impl DiagnosticStats {
             npv: self.npv*100.0,
             total: self.total
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DiagnosticSummary {
+    pub mean_sensitivity: f64,
+    pub mean_specificity: f64,
+    pub ci_sensitivity: Vec<f64>,
+    pub ci_specificity: Vec<f64>,
+    pub mean_ppv: f64,
+    pub mean_npv: f64,
+    pub ci_ppv: Vec<f64>,
+    pub ci_npv: Vec<f64>
+}
+impl Default for DiagnosticSummary {
+    fn default() -> Self {
+        Self {
+            mean_sensitivity: 0.0,
+            mean_specificity: 0.0,
+            ci_sensitivity: vec![0.0, 0.0],
+            ci_specificity: vec![0.0, 0.0],
+            mean_ppv: 0.0,
+            mean_npv: 0.0,
+            ci_ppv: vec![0.0, 0.0],
+            ci_npv: vec![0.0, 0.0],
+        }
+    }
+}
+impl DiagnosticSummary {
+    pub fn from_stats(data: Vec<DiagnosticStats>) -> Self {
+
+        // Filter out any stats with name "consensus".
+        let filtered: Vec<DiagnosticStats> = data
+            .into_iter()
+            .filter(|s| s.name != "consensus")
+            .collect();
+        
+        // If no items remain, return zeros.
+        if filtered.is_empty() {
+            return DiagnosticSummary::default()
+        }
+    
+        // Extract each metric into its own vector.
+        let sensitivities: Vec<f64> = filtered.iter().map(|s| s.sensitivity).collect();
+        let specificities: Vec<f64> = filtered.iter().map(|s| s.specificity).collect();
+        let ppvs: Vec<f64> = filtered.iter().map(|s| s.ppv).collect();
+        let npvs: Vec<f64> = filtered.iter().map(|s| s.npv).collect();
+    
+        // Compute mean and 95% CI for each metric.
+        let (mean_sensitivity, ci_sensitivity) = compute_mean_and_ci(&sensitivities);
+        let (mean_specificity, ci_specificity) = compute_mean_and_ci(&specificities);
+        let (mean_ppv, ci_ppv) = compute_mean_and_ci(&ppvs);
+        let (mean_npv, ci_npv) = compute_mean_and_ci(&npvs);
+    
+        DiagnosticSummary {
+            mean_sensitivity,
+            ci_sensitivity,
+            mean_specificity,
+            ci_specificity,
+            mean_ppv,
+            mean_npv,
+            ci_ppv,
+            ci_npv,
+        }
+    }
+}
+
+
+/// Helper function to compute the mean and 95% confidence interval (CI) for a slice of f64 values.
+/// The CI is computed using the t-distribution.
+fn compute_mean_and_ci(values: &[f64]) -> (f64, Vec<f64>) {
+    let n = values.len();
+    if n == 0 {
+        return (0.0, vec![0.0, 0.0]);
+    }
+    
+    let mean: f64 = values.iter().sum::<f64>() / (n as f64);
+    
+    // If there is only one element, return a degenerate CI (both limits equal the mean).
+    if n == 1 {
+        return (mean, vec![mean, mean]);
+    }
+    
+    // Compute sample variance (using n-1 for an unbiased estimate).
+    let variance: f64 = values.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / ((n - 1) as f64);
+    let std_dev = variance.sqrt();
+    let std_err = std_dev / (n as f64).sqrt();
+    
+    // Initialize a Student's t-distribution with n-1 degrees of freedom.
+    let t_dist = StudentsT::new(0.0, 1.0, n as f64 - 1.0)
+        .expect("Failed to create Student's t-distribution");
+    
+    // For a 95% CI, get the 97.5th percentile.
+    let t_val = t_dist.inverse_cdf(0.975);
+    
+    let margin = t_val * std_err;
+    let lower = mean - margin;
+    let upper = mean + margin;
+    
+    (mean, vec![lower, upper])
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DiagnosticData {
+    pub summary: DiagnosticSummary,
+    pub stats: Vec<DiagnosticStats>
+}
+impl DiagnosticData {
+    pub fn from(data: Vec<DiagnosticStats>) -> Self {
+        Self {
+            stats: data.clone(),
+            summary: DiagnosticSummary::from_stats(data),
+        }
+    }
+    pub fn to_json(&self, path: &Path) -> Result<(), CiqaError> {
+        let writer = BufWriter::new(
+            File::create(path)?
+        );
+        serde_json::to_writer_pretty(writer, self)?;
+        Ok(())
+    }
+    pub fn summary(&mut self) {
+
     }
 }
 
@@ -379,14 +518,23 @@ impl RgbColor for RGBColor {
     }
 }
 
+pub enum PaletteName {
+    Monet,
+    Manet,
+    Morgenstern,
+    Hiroshige,
+    Cassatt2
+}
+
 pub struct Palette {
+    pub name: PaletteName,
     pub colors: Vec<RGBColor>,
 }
 
 impl Palette {
     /// Constructs a Palette from a vector of hex color strings.
     /// Panics if any of the hex strings is invalid.
-    pub fn from_hex(hex: Vec<String>) -> Self {
+    pub fn from_hex(name: PaletteName, hex: Vec<String>) -> Self {
         let colors = hex
             .into_iter()
             .map(|hex_str| {
@@ -395,9 +543,8 @@ impl Palette {
                     .unwrap_or_else(|err| panic!("Error parsing color '{}': {}", hex_str, err))
             })
             .collect();
-        Palette { colors }
+        Palette { colors, name }
     }
-    
     /// Returns a Palette with a set of default Monet palette colors.
     pub fn monet() -> Self {
         let monet_hex = vec![
@@ -411,7 +558,7 @@ impl Palette {
             "#7d87b2".to_owned(),
             "#c2cae3".to_owned(),
         ];
-        Palette::from_hex(monet_hex)
+        Palette::from_hex(PaletteName::Monet, monet_hex)
     }
     /// Returns a Palette with a set of default Manet palette colors.
     pub fn manet() -> Self {
@@ -428,7 +575,7 @@ impl Palette {
             "#43429b".to_string(),
             "#5e65be".to_string(),
         ];
-        Palette::from_hex(manet_hex)
+        Palette::from_hex(PaletteName::Manet, manet_hex)
     }
     /// Returns a Palette with a set of default Hiroshige palette colors.
     pub fn hiroshige() -> Self {
@@ -444,7 +591,7 @@ impl Palette {
             "#376795".to_string(),
             "#1e466e".to_string(),
         ];
-        Palette::from_hex(hiroshige_hex)
+        Palette::from_hex(PaletteName::Hiroshige, hiroshige_hex)
     }
 
     /// Returns a Palette with a set of default Cassatt2 palette colors.
@@ -461,7 +608,21 @@ impl Palette {
             "#2c4b27".to_string(),
             "#0e2810".to_string(),
         ];
-        Palette::from_hex(cassatt2_hex)
+        Palette::from_hex(PaletteName::Cassatt2, cassatt2_hex)
+    }
+    /// Returns a Palette with a set of default Cassatt2 palette colors.
+    pub fn morgenstern() -> Self {
+        let morgenstern_hex = vec![
+            "#98768e".to_string(),
+            "#b08ba5".to_string(),
+            "#c7a2b6".to_string(),
+            "#dfbbc8".to_string(),
+            "#ffc680".to_string(),
+            "#ffb178".to_string(),
+            "#db8872".to_string(),
+            "#a56457".to_string(),
+        ];
+        Palette::from_hex(PaletteName::Morgenstern, morgenstern_hex)
     }
 }
 
@@ -849,19 +1010,18 @@ pub enum StatsMode {
 }
 
 /// Loads multiple JSON files (each file containing a `Vec<DiagnosticStats>`).
-/// The key of the HashMap is taken from each file's stem (the filename without extension).
-/// E.g. if a file is named "LungCancer.json", the key is "LungCancer".
+/// The key of the HashMap is taken from each file's stem (the filename without extension)..
 pub fn load_diagnostic_stats_from_files(
     paths: Vec<PathBuf>,
-) -> Result<HashMap<String, Vec<DiagnosticStats>>, CiqaError> {
+) -> Result<HashMap<String, DiagnosticData>, CiqaError> {
     let mut data_map = HashMap::new();
 
     for path in paths {
         let file_stem = get_file_component(&path, FileComponent::FileStem)?;
         let reader = BufReader::new(File::open(&path)?);
 
-        let stats_vec: Vec<DiagnosticStats> = serde_json::from_reader(reader)?;
-        data_map.insert(file_stem, stats_vec);
+        let data: DiagnosticData = serde_json::from_reader(reader)?;
+        data_map.insert(file_stem, data);
     }
 
     Ok(data_map)
@@ -872,12 +1032,14 @@ pub fn load_diagnostic_stats_from_files(
 /// Plot a horizontal strip-plot
 pub fn plot_stripplot<B: DrawingBackend>(
     backend: B,
-    data: &HashMap<String, Vec<DiagnosticStats>>,
+    data: &HashMap<String, DiagnosticData>,
     mode: StatsMode,
     ref1: Option<f64>,
     ref2: Option<f64>,
     col1: Option<&RGBColor>,
-    col2: Option<&RGBColor>
+    col2: Option<&RGBColor>,
+    col3: Option<&RGBColor>,
+    ci: bool
 ) -> Result<(), CiqaError> {
 
     // Convert the categories to a sorted list to have consistent ordering
@@ -946,10 +1108,11 @@ pub fn plot_stripplot<B: DrawingBackend>(
         None => RGBColor(120, 120, 120)
     };
 
-    let color_3 = *Palette::cassatt2()
-        .colors
-        .get(5)
-        .unwrap_or(&RGBColor(70, 70, 70));
+
+    let color_3 = match col3 {
+        Some(color) => color.to_owned(),
+        None => RGBColor(70, 70, 70)
+    };
 
     if let Some(ref1) = ref1 {
         chart.draw_series(DashedLineSeries::new(
@@ -980,6 +1143,47 @@ pub fn plot_stripplot<B: DrawingBackend>(
         .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
     }
 
+
+    if ci {
+        // === Draw the 95% CI Boxes behind the points ===
+
+        let ci_box_style = ShapeStyle {
+            color: RGBAColor(211, 211, 211, 0.3),
+            stroke_width: 0,
+            filled: true
+        };
+
+        for (idx, cat_name) in categories.iter().enumerate() {
+            if let Some(diag_data) = data.get(cat_name) {
+                let summary = &diag_data.summary;
+                // Select the correct pair of CI intervals based on the mode.
+                let (ci_m1, ci_m2) = match mode {
+                    StatsMode::SensSpec => (summary.ci_sensitivity.clone(), summary.ci_specificity.clone()),
+                    StatsMode::PpvNpv   => (summary.ci_ppv.clone(), summary.ci_npv.clone()),
+                };
+
+                // We span a vertical band from y = idx + 0.2 to idx + 0.4.
+                chart.draw_series(std::iter::once(
+                    Rectangle::new(
+                        [(ci_m1[0], idx as f64 + 0.2), (ci_m1[1], idx as f64 + 0.4)],
+                        ci_box_style.clone(),
+                    ),
+                ))
+                .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+
+                // We span a vertical band from y = idx + 0.6 to idx + 0.8.
+                chart.draw_series(std::iter::once(
+                    Rectangle::new(
+                        [(ci_m2[0], idx as f64 + 0.6), (ci_m2[1], idx as f64 + 0.8)],
+                        ci_box_style.clone(),
+                    ),
+                ))
+                .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+            }
+        }
+    }
+    
+
     // We'll use a small random jitter so multiple points don't overlap exactly
     let mut rng = rand::rng();
 
@@ -989,8 +1193,9 @@ pub fn plot_stripplot<B: DrawingBackend>(
     let mut consensus_shapes = Vec::new();
 
     for (idx, cat_name) in categories.iter().enumerate() {
+
         let stats_vec = match data.get(cat_name) {
-            Some(v) => v,
+            Some(v) => v.stats.clone(),
             None => continue,
         };
 
