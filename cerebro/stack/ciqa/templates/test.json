@@ -271,7 +271,7 @@
     {
         "sample_id": "DW-63-V07",
         "sample_type": "EYE",
-        "result": "negative",
+        "result": "positive",
         "note": "Called negative but suspected Streptococcus agalactiae including from blood cultures from same hospital submission, 16S PCR confirmation after detection from metagenomics data",
         "orthogonal": [
             {
@@ -1444,7 +1444,7 @@
         "orthogonal": [
             {
                 "method": "unknown",
-                "detail": "",
+                "detail": "Re-tested with CT = 36.3/36.2",
                 "tests": [
                     {
                         "test": ["s__Roseolovirus humanbeta6a", "s__Roseolovirus humanbeta6b"],
@@ -1833,9 +1833,9 @@
                 "detail": "",
                 "tests": [
                     {
-                        "test": ["s__Aspergillus niger"],
+                        "test": ["g__Aspergillus"],
                         "result": "positive",
-                        "taxa": ["s__Aspergillus niger"],
+                        "taxa": ["g__Aspergillus"],
                         "note": null
                     }
                 ]
@@ -1884,13 +1884,13 @@
         "orthogonal": [
             {
                 "method": "pcr",
-                "detail": "VIDRL in-house PCR positive for HTLV-1",
+                "detail": "VIDRL in-house PCR positive for HTLV-1; re-tested with CT = 37.7/35.78 ",
                 "tests": [
                     {
                         "test": ["g__Deltaretrovirus"],
                         "result": "positive",
                         "taxa": ["s__Deltaretrovirus priTlym1"],
-                        "note": "High CT value (CT = 38)"
+                        "note": "High CT value (CT = 38) "
                     }
                 ]
             }
@@ -2026,7 +2026,7 @@
         "sample_id": "DW-63-V54",
         "sample_type": "EYE",
         "result": "negative",
-        "note": "No data",
+        "note": "no_data",
         "orthogonal": []
     },
     {
@@ -2043,7 +2043,7 @@
                         "test": ["s__Orthoflavivirus murrayense"],
                         "result": "positive",
                         "taxa": ["s__Orthoflavivirus murrayense"],
-                        "note": "TE Buffer contamination event as in positive control mixtures V33, V70, V88 likely with Aspergillus flavus with contaminated reference genomes: Simplexvirus pteropodialpha2, Sarcocystis neurona, Neospora caninum"
+                        "note": "TE Buffer contamination event as in positive control mixtures likely with Aspergillus flavus with contaminated reference genomes: Simplexvirus pteropodialpha2, Sarcocystis neurona, Neospora caninum"
                     }
                 ]
             }
@@ -2432,8 +2432,8 @@
     {
         "sample_id": "DW-63-V64",
         "sample_type": "EYE",
-        "result": "positive",
-        "note": null,
+        "result": "negative",
+        "note": "Orthogonal testing suggests S. aureus but not detected on VIDRL in-house qPCR",
         "orthogonal": [
             {
                 "method": "culture",
@@ -2442,7 +2442,7 @@
                     {
                         "test": ["d__Bacteria"],
                         "result": "positive",
-                        "taxa": ["s__Staphylococcus aureus"],
+                        "taxa": [],
                         "note": null
                     }
                 ]
@@ -2453,7 +2453,7 @@
         "sample_id": "DW-63-V65",
         "sample_type": "EYE",
         "result": "negative",
-        "note": "No data",
+        "note": "no_data",
         "orthogonal": []
     },
     {
@@ -2650,7 +2650,7 @@
         "sample_id": "DW-63-V68",
         "sample_type": "CSF",
         "result": "positive",
-        "note": "No data",
+        "note": null,
         "orthogonal": [
             {
                 "method": "pcr",
@@ -2742,7 +2742,7 @@
         "sample_id": "DW-63-V69",
         "sample_type": "CSF",
         "result": "negative",
-        "note": "No data",
+        "note": null,
         "orthogonal": [
             {
                 "method": "culture",
@@ -3020,7 +3020,7 @@
                         "test": ["s__Lentivirus humimdef1", "s__Lentivirus humimdef2"],
                         "result": "positive",
                         "taxa": ["s__Lentivirus humimdef1", "s__Lentivirus humimdef2"],
-                        "note": null
+                        "note": "44 copies / ul, near lower limit of detection for this test"
                     }
                 ]
             }
@@ -3099,7 +3099,7 @@
         "sample_id": "DW-63-V80",
         "sample_type": "EYE",
         "result": "negative",
-        "note": "No data",
+        "note": "no_data",
         "orthogonal": []
     },
     {
@@ -3255,7 +3255,7 @@
         "sample_id": "DW-63-V87",
         "sample_type": "EYE",
         "result": "negative",
-        "note": "No data",
+        "note": "no_data",
         "orthogonal": []
     },
     {
@@ -3289,7 +3289,7 @@
         "sample_id": "DW-63-V90",
         "sample_type": "EYE",
         "result": "positive",
-        "note": "No data",
+        "note": null,
         "orthogonal": [
             {
                 "method": "unknown",
@@ -3309,7 +3309,7 @@
         "sample_id": "DW-63-V91",
         "sample_type": "EYE",
         "result": "negative",
-        "note": "No data",
+        "note": "no_data",
         "orthogonal": []
     },
     {
@@ -3336,7 +3336,7 @@
         "sample_id": "DW-63-V93",
         "sample_type": "CSF",
         "result": "negative",
-        "note": "No data",
+        "note": null,
         "orthogonal": []
     },
     {
@@ -3363,7 +3363,7 @@
         "sample_id": "DW-63-V95",
         "sample_type": "CSF",
         "result": "negative",
-        "note": "No data",
+        "note": null,
         "orthogonal": []
     },
     {

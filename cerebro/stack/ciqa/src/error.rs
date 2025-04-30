@@ -37,6 +37,8 @@ pub enum CiqaError {
     FileNameConversionError(PathBuf),
     #[error("error during strip-plot creation: {0}")]
     StripPlotError(String),
+    #[error("no columns found for plate plot")]
+    NoColumnsFound,
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for CiqaError

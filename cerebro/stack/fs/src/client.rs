@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::{BufWriter, Write}, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 use cerebro_model::api::{files::model::FileType, stage::model::{FileId, StagedSample}};
 use chrono::Utc;
 use anyhow::Result;

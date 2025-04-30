@@ -1,11 +1,11 @@
 
-use std::fs::create_dir_all;
+use std::{fs::create_dir_all, path::PathBuf};
 
 use cerebro_gp::gpt::{ClinicalContext, DataBackground, DiagnosticAgent, DiagnosticResult};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_stripplot, DiagnosticData, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate}, terminal::{App, Commands}, utils::{get_file_component, init_logger, write_tsv, FileComponent}};
+use cerebro_ciqa::{config::EvaluationConfig, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_diagnostic_matrix, plot_plate, plot_stripplot, CellShape, DiagnosticData, DiagnosticReview, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate}, terminal::{App, Commands}, utils::{get_file_component, init_logger, write_tsv, FileComponent}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -93,7 +93,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.ref2,
                     palette.colors.get(3),
                     palette.colors.get(6),
-                    highlight.colors.get(7),
+                    highlight.colors.get(3),
                     args.ci
                 )?;
             } else {
@@ -105,7 +105,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.ref2,
                     palette.colors.get(3),
                     palette.colors.get(6),
-                    highlight.colors.get(7),
+                    highlight.colors.get(3),
                     args.ci
                 )?;
             };
@@ -138,14 +138,14 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 )?;
 
                 let stats_percent = stats.percent();
-                log::info!("{stats_percent:#?}");
+                log::info!("{stats_percent}");
 
                 review_data.push(stats_percent);
                 reference_plates.push(reference_plate);
             }
-            
-            log::info!("Consensus (majority vote) review tagged 'consensus'");
 
+            log::info!("Consensus (majority vote) review tagged 'consensus'");
+            
             let mut consensus_plate = aggregate_reference_plates(reference_plates);
 
             let consensus_stats = get_diagnostic_stats(
@@ -155,12 +155,24 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             )?;
 
             let consensus_stats_percent = consensus_stats.percent();
-            log::info!("{consensus_stats_percent:#?}");
+            log::info!("{consensus_stats_percent}");
 
             review_data.push(consensus_stats_percent);
 
-            // Consensus is excluded from summary stats
-            DiagnosticData::from(review_data).to_json(&args.output)?
+            let data = DiagnosticData::from(review_data);
+
+            data.to_json(&args.output)?;
+
+            if let Some(plot_path) = &args.plot {
+                data.plot_summary(
+                    plot_path, 
+                    args.title.as_deref(), 
+                    args.width, 
+                    args.height, 
+                    args.reference.clone()
+                )?;
+            }
+
 
         },
         Commands::Diagnose( args ) => {
@@ -303,7 +315,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             }            
             write_tsv(&records, &args.output, false)?;
-            
+
         }
     }
 

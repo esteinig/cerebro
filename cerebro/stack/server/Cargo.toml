@@ -60,3 +60,7 @@ governor = "0.5.1"
 toml = "0.7.6"
 clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
 anstyle = "1.0.1"
+
+[features]
+default = []
+local = []

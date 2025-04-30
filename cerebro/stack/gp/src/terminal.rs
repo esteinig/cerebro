@@ -3,6 +3,19 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use crate::gpt::{ClinicalContext, GptModel};
 
+
+#[cfg(feature = "local")]
+use crate::llama::LlamaArgs;
+
+#[cfg(feature = "local")]
+use crate::quantized::QuantizedArgs;
+
+#[cfg(feature = "local")]
+use crate::qwen::QwenArgs;
+
+#[cfg(feature = "local")]
+use crate::text::TextGeneratorArgs;
+
 /// Cerebro: metagenomic generative practitioner (GPT)
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -89,6 +102,22 @@ pub struct App {
 pub enum Commands {
     /// Diagnose a sample given the evidence and decision tree
     Diagnose(DiagnoseArgs),
+    
+    #[cfg(feature = "local")]
+    /// Run local text generation wrapper
+    Generate(TextGeneratorArgs),
+
+    #[cfg(feature = "local")]
+    /// Run local text generation with Llama
+    Llama(LlamaArgs),
+
+    #[cfg(feature = "local")]
+    /// Run local text generation with quantized models
+    Quantized(QuantizedArgs),
+
+    #[cfg(feature = "local")]
+    /// Run local text generation with quantized models
+    Qwen(QwenArgs),
 }
 
 #[derive(Debug, Args)]
@@ -140,7 +169,6 @@ pub struct DiagnoseArgs {
     #[clap(long, short = 'i', num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,
 }
-
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {

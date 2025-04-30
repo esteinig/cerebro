@@ -44,3 +44,8 @@ rpassword = "7.2.0"
 actix-web-httpauth = "0.8.0"
 fancy-regex = "0.11.0"
 actix-web = "4"
+
+
+[features]
+default = []
+local = []

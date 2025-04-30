@@ -53,3 +53,7 @@ tar = "0.4.40"
 rayon = "1.10.0"
 blake3 = "1.5.1"
 dialoguer = "0.11.0"
+
+[features]
+default = []
+local = []

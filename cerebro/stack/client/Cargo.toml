@@ -57,3 +57,7 @@ plotters = "0.3.7"
 plotters-bitmap = "0.3.7"
 linregress = "0.5.4"
 statrs = "0.18.0"
+
+[features]
+default = []
+local = []

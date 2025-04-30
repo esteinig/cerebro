@@ -1,5 +1,6 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
+use regex::Regex;
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use cerebro_gp::gpt::{ClinicalContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
@@ -175,9 +176,9 @@ impl SampleReview {
         let diagnostic_result = DiagnosticResult::from_json(path)?;
 
         let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or(CiqaError::FileStemNotFound(path.to_path_buf()))?;
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or(CiqaError::FileStemNotFound(path.to_path_buf()))?;
 
         let mut stem_parts = stem.split('.');
 
@@ -197,37 +198,24 @@ impl SampleReview {
             Some(pathogen_str) => {
 
                 // First, perform the basic replacements and trimming.
-                let pathogen = pathogen_str
-                    .replace("'", "")
-                    .replace("{", "")
-                    .replace("}", "")
-                    .replace("\"", "")
-                    .replace("_", " ")
-                    .trim_start_matches("s  ")
-                    .to_string();
-                
-                if pathogen_str.is_empty() || pathogen.is_empty() {
-                    None
-                } else if pathogen_str.to_lowercase().starts_with("none")  || 
-                    pathogen_str == "s__'No candidate'" || 
-                    pathogen_str.to_lowercase().starts_with("no pathogen") || 
-                    pathogen_str.to_lowercase().starts_with("there are no clear pathogenic candidates") || 
-                    pathogen_str.to_lowercase().starts_with("no significant pathogen detected") || 
-                    pathogen_str.to_lowercase().starts_with("[]")
-                {  // Claude 3.5 Haiku is being ridiculously verbose despite instructions
-                    None
-                } else {
+                let pathogens = extract_candidates(&pathogen_str);
 
-                    let pathogen_parts: Vec<&str> = pathogen.split_whitespace().collect();
+                match pathogens.first() {
+                    None => None,
+                    Some(pathogen) => {
 
-                    // Check if there is at least one element to drop the last item (species variant in GTDB).
-                    let species = if pathogen_parts.len() > 2 {
-                        pathogen_parts[..pathogen_parts.len()-1].join(" ")
-                    } else {
-                        pathogen.to_string()
-                    };
-        
-                    Some(format!("s__{}", species)) 
+                        let pathogen_parts: Vec<&str> = pathogen.split_whitespace().collect();
+
+                        // Remove genus or species variants 
+                        let species = if pathogen_parts.len() > 2 {
+                            pathogen_parts[..pathogen_parts.len()-1].join(" ")
+                        } else {
+                            pathogen.to_string()
+                        };
+
+            
+                        Some(format!("s__{}", species)) 
+                    }
                 }
             },
             None => None
@@ -243,6 +231,38 @@ impl SampleReview {
     }
 }
 
+/// Removes trailing variant tags from each token in the input string.
+///
+/// Variant tags are defined as an underscore followed by one or more uppercase
+/// letters at the end of a token. The tokens are assumed to be separated by whitespace.
+///
+/// Example:
+/// "s__Streptococcus halitosis_A" becomes "s__Streptococcus halitosis"
+/// "s__Streptococcus_B halitosis_A" becomes "s__Streptococcus halitosis"
+/// "s__Streptococcus_B halitosis" becomes "s__Streptococcus halitosis"
+fn strip_variant_tags(input: &str) -> String {
+    // This regex matches an underscore followed by one or more uppercase letters at the end of the token.
+    let re = Regex::new(r"(_[A-Z]+)$").expect("Failed to compile variant regex");
+    input.split_whitespace()
+         // For each token, remove the variant tag if it appears at the end.
+         .map(|token| re.replace(token, "").to_string())
+         .collect::<Vec<String>>()
+         .join(" ")
+}
+
+fn extract_candidates(input: &str) -> Vec<String> {
+    // The regex looks for "<candidate>" followed by any characters (non-greedy) 
+    // until the next "<candidate>".
+    let re = Regex::new(r"<candidate>(.*?)</candidate>").expect("Invalid regex: <candidate>(.*?)</candidate>");
+    re.captures_iter(input)
+        .filter_map(|cap| {
+            // cap[1] holds the part captured by (.*?)
+            cap.get(1).map(|m| {
+                strip_variant_tags(m.as_str())
+            })
+        })
+        .collect()
+}
 
 // Ensure CiqaError implements From<std::io::Error> or change the error handling accordingly.
 pub fn read_all_sample_reviews(directory: &Path) -> Result<Vec<SampleReview>, CiqaError> {
@@ -320,7 +340,23 @@ impl DiagnosticOutcome {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl DiagnosticOutcome {
+    fn index(&self) -> usize {
+        match self {
+            Self::TruePositive   => 0,
+            Self::FalsePositive  => 1,
+            Self::TrueNegative   => 2,
+            Self::FalseNegative  => 3,
+            Self::Indeterminate  => 4,
+            Self::NotConsidered  => 5,
+            Self::Control        => 6,
+            Self::Unknown        => 7,
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DiagnosticReview {
     pub sample_id: String,
     pub outcome: DiagnosticOutcome,
@@ -336,7 +372,9 @@ pub struct DiagnosticStats {
     pub specificity: f64,
     pub ppv: f64,
     pub npv: f64,
-    pub total: usize
+    pub total: usize,
+    pub data: Vec<DiagnosticReview>,
+    pub data_filtered: Vec<DiagnosticReview>
 }
 impl DiagnosticStats {
     pub fn percent(&self) -> Self {
@@ -346,8 +384,25 @@ impl DiagnosticStats {
             specificity: self.specificity*100.0,
             ppv: self.ppv*100.0,
             npv: self.npv*100.0,
-            total: self.total
+            total: self.total,
+            data: self.data.clone(),
+            data_filtered: self.data_filtered.clone()
         }
+    }
+}
+
+impl std::fmt::Display for DiagnosticStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Name: {}  Sensitivity: {:.2}%  Specificity: {:.2}%  PPV: {:.2}%  NPV: {:.2}%  Total: {}",
+            self.name,
+            self.sensitivity,
+            self.specificity,
+            self.ppv,
+            self.npv,
+            self.total
+        )
     }
 }
 
@@ -469,8 +524,53 @@ impl DiagnosticData {
         serde_json::to_writer_pretty(writer, self)?;
         Ok(())
     }
-    pub fn summary(&mut self) {
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, CiqaError> {
+        let data: String = std::fs::read_to_string(path)?;
+        let diagnostic_data = serde_json::from_str::<DiagnosticData>(&data)?;
+        Ok(diagnostic_data)
+    }
+    pub fn get_reference_from_json<P: AsRef<Path>>(path: P) -> Result<Option<Vec<DiagnosticReview>>, CiqaError> {
+        let reference_data = Self::from_json(path)?;
 
+        let reference_review: Vec<Vec<DiagnosticReview>> = reference_data.stats
+            .iter()
+            .filter_map(|d| {
+                if d.name == String::from("consensus") { None } else { Some(d.data.clone()) }
+            }).collect();
+        
+        Ok(reference_review.first().cloned())
+    }
+    pub fn plot_summary(&self, output: &Path, title: Option<&str>, width: u32, height: u32, reference: Option<PathBuf>) -> Result<(), CiqaError> {
+
+        let data_columns = self.stats
+            .iter()
+            .filter_map(|d| {
+                if d.name == String::from("consensus") { None } else { Some(d.data.clone()) }
+            }).collect();
+        
+        let consensus_column = self.stats
+            .iter()
+            .find_map(|d| {
+                if d.name == String::from("consensus") { Some(d.data.clone()) } else { None }
+            });
+        
+        let reference_column = match reference {
+            Some(ref_path) => Self::get_reference_from_json(&ref_path)?,
+            None => None
+        };
+        
+
+        plot_diagnostic_matrix(
+            &data_columns, 
+            reference_column, 
+            consensus_column, 
+            output, 
+            &Palette::diagnostic_review(), 
+            CellShape::Circle, 
+            width, 
+            height,
+            title
+        )
     }
 }
 
@@ -523,7 +623,10 @@ pub enum PaletteName {
     Manet,
     Morgenstern,
     Hiroshige,
-    Cassatt2
+    Cassatt2,
+    Paquin,
+    DiagnosticReview,
+    Custom(String)
 }
 
 pub struct Palette {
@@ -624,6 +727,47 @@ impl Palette {
         ];
         Palette::from_hex(PaletteName::Morgenstern, morgenstern_hex)
     }
+    /// Returns a Palette with the "Paquin" palette colors.
+    pub fn paquin() -> Self {
+        let paquin_hex = vec![
+            "#831818".to_owned(),
+            "#c62320".to_owned(),
+            "#f05b43".to_owned(),
+            "#f78462".to_owned(),
+            "#feac81".to_owned(),
+            "#f7dea3".to_owned(),
+            "#ced1af".to_owned(),
+            "#98ab76".to_owned(),
+            "#748f46".to_owned(),
+            "#47632a".to_owned(),
+            "#275024".to_owned(),
+        ];
+        Palette::from_hex(PaletteName::Paquin, paquin_hex)
+    }
+    /// Returns a Palette with a set of default colors for the diagnostic review plot
+    pub fn diagnostic_review() -> Self {
+
+        //  TruePositive   => 0,
+        //  FalsePositive  => 1,
+        //  TrueNegative   => 2,
+        //  FalseNegative  => 3,
+        //  Indeterminate  => 4,
+        //  NotConsidered  => 5,
+        //  Control        => 6,
+        //  Unknown        => 7,
+
+        let review_hex = vec![
+            "#748f46".to_string(),
+            "#f05b43".to_string(),
+            "#98ab76".to_string(),
+            "#f78462".to_string(),
+            "#f7dea3".to_string(),
+            "#d3d3d3".to_string(),
+            "#aadce0".to_string(),
+            "#d3d3d3".to_string(),
+        ];
+        Palette::from_hex(PaletteName::DiagnosticReview, review_hex)
+    }
 }
 
 pub fn get_diagnostic_stats(args: &ReviewArgs, reference_plate: &mut ReferencePlate, review_name: &str) -> Result<DiagnosticStats, CiqaError> {
@@ -639,7 +783,13 @@ pub fn get_diagnostic_stats(args: &ReviewArgs, reference_plate: &mut ReferencePl
     let diagnostic_review = reference_plate.compute_diagnostic_review()?;
 
     for dr in &diagnostic_review {
-        log::info!("{} => {}", dr.sample_id, dr.outcome.colored())
+        log::info!("{} => {:<14}{}", dr.sample_id, dr.outcome.colored(), match dr.review { 
+            Some(ref review) => match &review.pathogen {
+                Some(taxstr) => format!(" => {}", taxstr), 
+                None => "".to_string()
+            }
+            None => "".to_string() 
+        })
     }
 
     let stats = reference_plate.compute_statistics(
@@ -774,7 +924,7 @@ impl ReferencePlate {
     pub fn compute_statistics(&self, name: &str, diagnostic_review: Vec<DiagnosticReview>) -> DiagnosticStats {
 
         // Filter out DiagnosticOutcome::Indeterminate
-        let filtered: Vec<DiagnosticReview> = diagnostic_review.into_iter()
+        let filtered: Vec<DiagnosticReview> = diagnostic_review.iter()
             .filter(|d| !([
                     DiagnosticOutcome::Indeterminate, 
                     DiagnosticOutcome::NotConsidered, 
@@ -782,6 +932,7 @@ impl ReferencePlate {
                     DiagnosticOutcome::Unknown
                 ].contains(&d.outcome))
             )
+            .cloned()
             .collect();
 
         let tp = filtered.iter().filter(|d| matches!(d.outcome, DiagnosticOutcome::TruePositive)).count();
@@ -821,7 +972,9 @@ impl ReferencePlate {
             specificity,
             ppv,
             npv,
-            total
+            total, 
+            data: diagnostic_review,
+            data_filtered: filtered
         }
     }
     
@@ -931,9 +1084,21 @@ pub fn aggregate_reference_plates(plates: Vec<ReferencePlate>) -> ReferencePlate
 /// Compare a single SampleReference and SampleReview and return a diagnostic outcome.
 fn compare_sample_review(reference: &SampleReference, review: &SampleReview, missing_orthogonal: MissingOrthogonal) -> DiagnosticOutcome {
 
-    // Independent of review result, if the reference result is missing assign indeterminate outcome
+    // Independent of review result, if the reference result is missing assign not considered outcome
     if let None = reference.result {
-        return DiagnosticOutcome::NotConsidered
+        if [SampleType::Ntc, SampleType::Env, SampleType::Pos].contains(&reference.sample_type) {
+            return DiagnosticOutcome::Control
+        } else {
+            return DiagnosticOutcome::NotConsidered
+        }
+    }
+
+    // Independent of review result, if the reference note contains "no_data"
+    if reference.note.clone().is_some_and(|x| x.contains("no_data")) {
+        match missing_orthogonal {
+            MissingOrthogonal::Indeterminate => return DiagnosticOutcome::Indeterminate,
+            MissingOrthogonal::ResultOnly => {}  // continue in the result only mode
+        }
     }
 
     match review.result {
@@ -1346,3 +1511,215 @@ pub fn plot_stripplot<B: DrawingBackend>(
 
     Ok(())
 }
+
+
+pub enum CellShape {
+    Circle,
+    Square { border_width: u32 },
+}
+
+pub fn plot_diagnostic_matrix(
+    data: &Vec<Vec<DiagnosticReview>>,
+    reference: Option<Vec<DiagnosticReview>>,
+    consensus: Option<Vec<DiagnosticReview>>,
+    output: &Path,
+    palette: &Palette,
+    shape: CellShape,
+    width_px: u32,
+    height_px: u32,
+    title: Option<&str>,
+) -> Result<(), CiqaError> {
+
+    // 1Determine sample labels and perform sanity checks
+    let sample_labels = if let Some(ref col) = reference {
+        col.iter().map(|r| r.sample_id.clone()).collect::<Vec<_>>()
+    } else if !data.is_empty() {
+        data[0].iter().map(|r| r.sample_id.clone()).collect::<Vec<_>>()
+    } else if let Some(ref cons) = consensus {
+        cons.iter().map(|r| r.sample_id.clone()).collect::<Vec<_>>()
+    } else {
+        return Err(CiqaError::NoColumnsFound);
+    };
+    let nrows = sample_labels.len();
+    let n_data = data.len();
+
+    for col in data {
+        assert_eq!(col.len(), nrows, "Data column length mismatch");
+        assert_eq!(
+            col.iter().map(|r| &r.sample_id).collect::<Vec<_>>(),
+            sample_labels.iter().collect::<Vec<_>>(),
+            "Sample IDs must align"
+        );
+    }
+    if let Some(ref col) = reference {
+        assert_eq!(col.len(), nrows, "Reference length mismatch");
+    }
+    if let Some(ref cons) = consensus {
+        assert_eq!(cons.len(), nrows, "Consensus length mismatch");
+    }
+
+    // Create full SVG drawing area and clear to white
+    let root = SVGBackend::new(output, (width_px, height_px)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+
+    if let Some(text) = title {
+        root.draw_text(
+            text,
+            &("monospace", 12).into_font().into_text_style(&root).pos(Pos::new(HPos::Center, VPos::Top)),
+            ( (width_px as i32) / 2, 20 ),
+        )?;
+    }
+
+
+    // Apply outer margins exactly once via `margin`
+    let plot_area = root.margin(0, 20, 0, 0);
+
+    // Split that inner area into a 2×2 grid of panels
+    let panels = plot_area.split_evenly((2, 4));
+
+    // Prepare style lookup
+    let get_style = |o: &DiagnosticOutcome| palette.colors[o.index()].filled();
+
+    let total_cols = (if reference.is_some() { 1 } else { 0 }) + n_data + (if consensus.is_some() { 1 } else { 0 });
+
+    // Break the sample labels into chunks of up to 24
+    let chunk_size = 12;
+
+    // Helper to turn (f64, f64) → (i32, i32)
+    let to_px = |(x, y): (f64, f64)| (x as i32, y as i32);
+
+    // Draw each chunk inside its panel
+    for (panel, (chunk_idx, chunk)) in panels.iter().zip(sample_labels.chunks(chunk_size).enumerate()) {
+  
+        log::info!("Drawing panel for {} samples (total columns: {}, index: {})", chunk.len(), total_cols, chunk_idx);
+
+        let panel_area = panel.margin(40, 0, 40, 0);
+
+        let (pw, ph) = panel_area.dim_in_pixel();
+
+        let panel_w = pw as f64;
+        let panel_h = ph as f64;
+
+        let nrows_chunk = chunk.len();
+
+        // Square cell size that fits all columns & rows
+        let cell = (panel_w / total_cols as f64).min(panel_h / nrows_chunk as f64);
+        
+        let base = chunk_idx * chunk_size;
+        let nrows_chunk = chunk.len();
+
+        // We'll advance this as we draw columns
+        // small offset for labels within plot area
+        let mut x_off = 5.0;
+
+        // Data columns
+        for col in data {
+            for row in 0..nrows_chunk {
+                let rev = &col[base + row];
+                let y0 = row as f64 * cell;
+                let style = get_style(&rev.outcome);
+                match shape {
+                    CellShape::Circle => {
+                        let cx = (x_off + cell/2.0) as i32;
+                        let cy = (y0    + cell/2.0) as i32;
+                        panel_area.draw(&Circle::new((cx, cy), (cell/2.0) as i32, style.clone()))?;
+                    }
+                    CellShape::Square { border_width } => {
+                        panel_area.draw(&Rectangle::new(
+                            [ to_px((x_off,       y0)),
+                              to_px((x_off + cell, y0 + cell)) ],
+                            style.clone(),
+                        ))?;
+                        panel_area.draw(&Rectangle::new(
+                            [ to_px((x_off,       y0)),
+                              to_px((x_off + cell, y0 + cell)) ],
+                            WHITE.stroke_width(border_width),
+                        ))?;
+                    }
+                }
+            }
+            x_off += cell + 1.0;
+        }
+
+        // Consensus column
+        if let Some(ref col) = consensus {
+            
+            x_off += cell + 1.0;
+
+            for row in 0..nrows_chunk {
+                let rev = &col[base + row];
+                let y0 = row as f64 * cell;
+                let style = get_style(&rev.outcome);
+                match shape {
+                    CellShape::Circle => {
+                        let cx = (x_off + cell/2.0) as i32;
+                        let cy = (y0    + cell/2.0) as i32;
+                        panel_area.draw(&Circle::new((cx, cy), (cell/2.0) as i32, style.clone()))?;
+                    }
+                    CellShape::Square { border_width } => {
+                        panel_area.draw(&Rectangle::new(
+                            [ to_px((x_off,       y0)),
+                              to_px((x_off + cell, y0 + cell)) ],
+                            style.clone(),
+                        ))?;
+                        panel_area.draw(&Rectangle::new(
+                            [ to_px((x_off,       y0)),
+                              to_px((x_off + cell, y0 + cell)) ],
+                            WHITE.stroke_width(border_width),
+                        ))?;
+                    }
+                }
+            }
+        }
+
+        // Reference column
+        if let Some(ref col) = reference {
+
+            x_off += cell + 1.0;
+
+            for row in 0..nrows_chunk {
+                let rev = &col[base + row];
+
+                let y0 = row as f64 * cell;
+                let style = get_style(&rev.outcome);
+                match shape {
+                    CellShape::Circle => {
+                        let cx = (x_off + cell/2.0) as i32;
+                        let cy = (y0    + cell/2.0) as i32;
+                        panel_area.draw(&Circle::new((cx, cy), (cell/2.0) as i32, style.clone()))?;
+                    }
+                    CellShape::Square { border_width } => {
+                        panel_area.draw(&Rectangle::new(
+                            [ to_px((x_off,       y0)),
+                              to_px((x_off + cell, y0 + cell)) ],
+                            style.clone(),
+                        ))?;
+                        panel_area.draw(&Rectangle::new(
+                            [ to_px((x_off,       y0)),
+                              to_px((x_off + cell, y0 + cell)) ],
+                            WHITE.stroke_width(border_width),
+                        ))?;
+                    }
+                }
+            }
+        }
+
+        // Sample‐ID labels on the left edge of the panel
+        for (row, label) in chunk.iter().enumerate() {
+            let y0 = row as f64 * cell + cell / 1.6;
+            panel_area.draw_text(
+                label,
+                &("monospace", 8)
+                    .into_font()
+                    .into_text_style(&panel_area)
+                    .pos(Pos::new(HPos::Right, VPos::Center)),
+                (0, y0 as i32),
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+

@@ -1,0 +1,36 @@
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04
+
+ARG CUDA_COMPUTE_CAP=86
+
+ENV CUDA_COMPUTE_CAP=${CUDA_COMPUTE_CAP}
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      curl \
+      ca-certificates \
+      git \
+      pkg-config \
+      libfontconfig1-dev \
+      cmake && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable && \
+    rustup default stable && \
+    rustup component add rustfmt clippy
+
+# WORKDIR /app
+
+# COPY Cargo.toml ./
+# COPY cerebro/ ./cerebro/
+
+# RUN cargo fetch
+
+# RUN cargo build \
+#     --release \
+#     --manifest-path cerebro/stack/gp/Cargo.toml \
+#     --features local

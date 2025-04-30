@@ -53,3 +53,7 @@ uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "
 actix-web-httpauth = "0.8.0"
 reqwest = { version = "0.12.2", features = ["json"] }
 tokio = { version = "1.39.3", features = ["full"] }
+
+[features]
+default = []
+local = []

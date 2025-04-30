@@ -1,26 +1,16 @@
-// An implementation of LLaMA https://github.com/facebookresearch/llama
-//
-// This is based on nanoGPT in a similar way to:
-// https://github.com/Lightning-AI/lit-llama/blob/main/lit_llama/model.py
-//
-// The tokenizer config can be retrieved from:
-// https://huggingface.co/hf-internal-testing/llama-tokenizer/raw/main/tokenizer.json
-
-// #[cfg(feature = "accelerate")]
-// extern crate accelerate_src;
-
-// #[cfg(feature = "mkl")]
-// extern crate intel_mkl_src;
+// Example from https://github.com/huggingface/candle/tree/main/candle-examples/examples/llama
 
 use anyhow::{bail, Error as E, Result};
-use clap::{Parser, ValueEnum};
+use clap::{Args, ValueEnum};
 
-use candle::{DType, Tensor};
+use candle_core::{DType, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use hf_hub::{api::sync::Api, Repo, RepoType};
 use std::io::Write;
-
+use tokenizers::Tokenizer;
+use tracing_chrome::ChromeLayerBuilder;
+use tracing_subscriber::prelude::*;
 use candle_transformers::models::llama as model;
 use model::{Llama, LlamaConfig};
 
@@ -28,7 +18,7 @@ const EOS_TOKEN: &str = "</s>";
 const DEFAULT_PROMPT: &str = "My favorite theorem is ";
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, ValueEnum)]
-enum Which {
+pub enum Which {
     V1,
     V2,
     V3,
@@ -57,77 +47,72 @@ enum Which {
     SmolLM2_135MInstruct,
 }
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
+#[derive(Debug, Args, Clone)]
+pub struct LlamaArgs {
     /// Run on CPU rather than on GPU.
     #[arg(long)]
-    cpu: bool,
+    pub cpu: bool,
 
     /// The temperature used to generate samples.
     #[arg(long, default_value_t = 0.8)]
-    temperature: f64,
+    pub temperature: f64,
 
     /// Nucleus sampling probability cutoff.
     #[arg(long)]
-    top_p: Option<f64>,
+    pub top_p: Option<f64>,
 
     /// Only sample among the top K samples.
     #[arg(long)]
-    top_k: Option<usize>,
+    pub top_k: Option<usize>,
 
     /// The seed to use when generating random samples.
     #[arg(long, default_value_t = 299792458)]
-    seed: u64,
+    pub seed: u64,
 
     /// The length of the sample to generate (in tokens).
     #[arg(short = 'n', long, default_value_t = 10000)]
-    sample_len: usize,
+    pub sample_len: usize,
 
     /// Disable the key-value cache.
     #[arg(long)]
-    no_kv_cache: bool,
+    pub no_kv_cache: bool,
 
     /// The initial prompt.
     #[arg(long)]
-    prompt: Option<String>,
+    pub prompt: Option<String>,
 
     /// Use different dtype than f16
     #[arg(long)]
-    dtype: Option<String>,
+    pub dtype: Option<String>,
 
     /// Enable tracing (generates a trace-timestamp.json file).
     #[arg(long)]
-    tracing: bool,
+    pub tracing: bool,
 
     #[arg(long)]
-    model_id: Option<String>,
+    pub model_id: Option<String>,
 
     #[arg(long)]
-    revision: Option<String>,
+    pub revision: Option<String>,
 
     /// The model size to use.
     #[arg(long, default_value = "v3")]
-    which: Which,
+    pub which: Which,
 
     #[arg(long)]
-    use_flash_attn: bool,
+    pub use_flash_attn: bool,
 
     /// Penalty to be applied for repeating tokens, 1. means no penalty.
     #[arg(long, default_value_t = 1.1)]
-    repeat_penalty: f32,
+    pub repeat_penalty: f32,
 
     /// The context size to consider for the repeat penalty.
     #[arg(long, default_value_t = 128)]
-    repeat_last_n: usize,
+    pub repeat_last_n: usize,
 }
 
-fn main() -> Result<()> {
-    use tokenizers::Tokenizer;
-    use tracing_chrome::ChromeLayerBuilder;
-    use tracing_subscriber::prelude::*;
+pub fn run_llama(args: LlamaArgs) -> Result<()> {
 
-    let args = Args::parse();
     let _guard = if args.tracing {
         let (chrome_layer, guard) = ChromeLayerBuilder::new().build();
         tracing_subscriber::registry().with(chrome_layer).init();

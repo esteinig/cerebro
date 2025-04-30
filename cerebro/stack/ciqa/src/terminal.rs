@@ -225,6 +225,21 @@ pub struct ReviewArgs {
     /// Handle references with missing orthogonal data and a positive review call
     #[clap(long, short = 'm', default_value="indeterminate")]
     pub missing_orthogonal: MissingOrthogonal,
+    /// Reference plate review (.json) for plot
+    #[clap(long)]
+    pub reference: Option<PathBuf>,
+    /// Set plot width
+    #[clap(long)]
+    pub plot: Option<PathBuf>,
+    /// Set plot width
+    #[clap(long, default_value="950")]
+    pub width: u32,
+    /// Set plot height
+    #[clap(long, default_value="600")]
+    pub height: u32,
+    /// Set plot title
+    #[clap(long)]
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Args)]

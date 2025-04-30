@@ -6,17 +6,23 @@ use cerebro_client::client::CerebroClient;
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::Taxon;
-use petgraph::graph::Graph;
-use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use async_openai::{config::OpenAIConfig, types::*};
 use colored::Colorize;
 use anthropic_api::{messages::*, Credentials};
+
+use petgraph::graph::Graph;
+use petgraph::visit::EdgeRef;
+use petgraph::graph::NodeIndex;
+use petgraph::Direction;
+use petgraph::visit::IntoNodeReferences;
+use plotters::prelude::*;
 
 use crate::error::GptError;
 
@@ -25,7 +31,7 @@ use crate::error::GptError;
 // === Refined Question Types ===
 //
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, Hash, PartialEq)]
 #[serde(untagged)]
 pub enum Question {
     Simple(String),
@@ -34,6 +40,41 @@ pub enum Question {
         context_description: Option<String>,
         instructions: Option<String>,
     },
+}
+impl Question {
+    /// Emit in the standard:
+    /// [Context]
+    /// ...
+    /// 
+    /// [Task]
+    /// ...
+    ///
+    /// [Output Format]
+    /// ...
+    pub fn to_standard_prompt(&self) -> String {
+        let (prompt, ctx, instr) = match self {
+            Question::Simple(p) => (p.clone(), None, None),
+            Question::Detailed { prompt, context_description, instructions } => {
+                (prompt.clone(), context_description.clone(), instructions.clone())
+            }
+        };
+
+        let mut out = String::new();
+        if let Some(ctx) = ctx {
+            out.push_str("[Context]\n");
+            out.push_str(&ctx);
+            out.push_str("\n\n");
+        }
+        out.push_str("[Task]\n");
+        out.push_str(&prompt);
+        out.push_str("\n\n");
+        if let Some(instr) = instr {
+            out.push_str("[Output Format]\n");
+            out.push_str(&instr);
+            out.push_str("\n");
+        }
+        out
+    }
 }
 
 impl Question {
@@ -180,7 +221,7 @@ impl ClinicalContext {
 // === Decision Tree Definitions ===
 //
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, Hash, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckType {
     LlmEval,
@@ -194,7 +235,7 @@ pub enum CheckType {
     FlightCheckNonInfectious
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, Hash, PartialEq)]
 pub struct TreeNode {
     question: Option<Question>,
     check: Option<CheckType>,
@@ -202,7 +243,175 @@ pub struct TreeNode {
     false_node: Option<String>,
     next: Option<String>,
     final_node: Option<bool>,
+    label: Option<String>
 }
+
+
+impl Default for TreeNode {
+    fn default() -> Self {
+        Self {
+            question: None,
+            check: None,
+            true_node: None,
+            false_node: None,
+            next: None,
+            final_node: None,
+            label: None,
+        }
+    }
+}
+
+impl TreeNode {
+
+    /// Wrap the standard prompt in Qwen’s tokens
+    pub fn to_qwen_prompt(&self) -> String {
+        let system = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.";
+        let user_block = self
+            .question
+            .as_ref()
+            .expect("no question")
+            .to_standard_prompt();
+        format!(
+            "<|im_start|>system\n{}\n<|im_end|>\n\
+             <|im_start|>user\n{}\n<|im_end|>\n\
+             <|im_start|>assistant\n",
+            system, user_block
+        )
+    }
+
+    /// Wrap the standard prompt in Llama's tokens
+    pub fn to_llama_prompt(&self) -> String {
+        let system_msg = "You are a helpful assistant.";
+        let user_block = self
+            .question
+            .as_ref()
+            .expect("no question")
+            .to_standard_prompt();
+        format!(
+            "<|begin_of_text|>\
+            <|start_header_id|>system<|end_header_id|>\n\
+            {}\n\
+            <|eot_id|>\
+            <|start_header_id|>user<|end_header_id|>\n\
+            {}\n\
+            <|eot_id|>\
+            <|start_header_id|>assistant<|end_header_id|>",
+            system_msg, user_block
+        )
+    }
+
+    /// Set a simple prompt
+    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+        let p = prompt.into();
+        self.question = Some(Question::Simple(p));
+        self
+    }
+
+    /// Upgrade or set a Detailed question prompt
+    pub fn with_detailed_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+        let prompt = prompt.into();
+        match self.question.take() {
+            Some(Question::Detailed { context_description, instructions, .. }) => {
+                self.question = Some(Question::Detailed { prompt, context_description, instructions })
+            }
+            _ => self.question = Some(Question::Detailed {
+                prompt,
+                context_description: None,
+                instructions: None,
+            }),
+        }
+        self
+    }
+
+    /// Add or replace the “Context:” block (use placeholders here)
+    pub fn with_context<S: Into<String>>(mut self, ctx: S) -> Self {
+        let ctx = ctx.into();
+        match self.question.take() {
+            Some(Question::Detailed { prompt, instructions, .. }) => {
+                self.question = Some(Question::Detailed {
+                    prompt,
+                    context_description: Some(ctx),
+                    instructions,
+                })
+            }
+            Some(Question::Simple(p)) => {
+                self.question = Some(Question::Detailed {
+                    prompt: p,
+                    context_description: Some(ctx),
+                    instructions: None,
+                })
+            }
+            None => {
+                self.question = Some(Question::Detailed {
+                    prompt: String::new(),
+                    context_description: Some(ctx),
+                    instructions: None,
+                })
+            }
+        }
+        self
+    }
+
+    /// Add or replace the “Instructions:” block
+    pub fn with_instructions<S: Into<String>>(mut self, instr: S) -> Self {
+        let instr = instr.into();
+        match self.question.take() {
+            Some(Question::Detailed { prompt, context_description, .. }) => {
+                self.question = Some(Question::Detailed {
+                    prompt,
+                    context_description,
+                    instructions: Some(instr),
+                })
+            }
+            Some(Question::Simple(p)) => {
+                self.question = Some(Question::Detailed {
+                    prompt: p,
+                    context_description: None,
+                    instructions: Some(instr),
+                })
+            }
+            None => {
+                self.question = Some(Question::Detailed {
+                    prompt: String::new(),
+                    context_description: None,
+                    instructions: Some(instr),
+                })
+            }
+        }
+        self
+    }
+
+    pub fn with_check(mut self, c: CheckType) -> Self {
+        self.check = Some(c);
+        self
+    }
+
+    pub fn true_node<S: Into<String>>(mut self, tgt: S) -> Self {
+        self.true_node = Some(tgt.into());
+        self
+    }
+
+    pub fn false_node<S: Into<String>>(mut self, tgt: S) -> Self {
+        self.false_node = Some(tgt.into());
+        self
+    }
+
+    pub fn next<S: Into<String>>(mut self, nxt: S) -> Self {
+        self.next = Some(nxt.into());
+        self
+    }
+
+    pub fn final_node(mut self, is_final: bool) -> Self {
+        self.final_node = Some(is_final);
+        self
+    }
+
+    pub fn label<S: Into<String>>(mut self, lbl: S) -> Self {
+        self.label = Some(lbl.into());
+        self
+    }
+}
+
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TreeEdge {
@@ -405,6 +614,8 @@ impl ThresholdTaxa {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, clap::ValueEnum)]
 pub enum GptModel {
+    #[serde(rename="o4-mini")]
+    O4Mini,
     #[serde(rename="o3-mini")]
     O3Mini,
     #[serde(rename="o1-mini")]
@@ -529,7 +740,7 @@ impl DecisionTree {
             },
             "integrate_below_target_evidence": {
                 "question": {
-                        "prompt": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each whether they are a candidate for contamination or classification artifact ('non-infectious'), or whether they are a candidate for a pathogen infectious'. Consider taxa even if they are rare human pathogens. If known viral human pathogens are called prioritize for 'infectious'",
+                        "prompt": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each whether they are a candidate for contamination or classification artifact ('non-infectious'), or whether they are a candidate for a pathogen ('infectious'). Consider taxa even if they are rare human pathogens. If known viral human pathogens are called prioritize for 'infectious'",
                         "instructions": "Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not or if no taxa were called."
                 },
                 "check": "llm_eval",
@@ -635,6 +846,7 @@ impl DecisionTree {
 }
 
 
+
 pub struct DiagnosticAgent {
     pub tree: DecisionTree,
     pub cerebro_client: CerebroClient,
@@ -670,7 +882,9 @@ impl DiagnosticAgent {
 
         // Create a node in the graph for each decision tree node.
         for (key, node) in &tree.nodes {
-            let idx = graph.add_node(node.clone());
+            let mut labeled_node = node.clone();
+            labeled_node.label = Some(key.to_string());
+            let idx = graph.add_node(labeled_node.clone());
             node_indices.insert(key.clone(), idx);
         }
         // Add edges for transitions.
@@ -1538,4 +1752,158 @@ impl DiagnosticAgent {
         // Start recursion from the root.
         recurse(tree, root, "", true);
     }
+}
+
+
+/// Draws a consensus decision tree (as a petgraph) using a hierarchical layout,
+/// scaling node and edge opacities according to frequencies computed from a
+/// collection of trees. If no additional trees are supplied, nodes and edges in the
+/// consensus tree default to full opacity (alpha = 1).
+///
+/// # Arguments
+/// - `consensus_tree`: A petgraph representing the consensus decision tree.
+/// - `trees`: A slice of petgraph decision trees used to count node/edge frequencies.
+/// - `filename`: The output image file (e.g. "consensus.png").
+/// - `plot_width` and `plot_height`: Dimensions (in pixels) of the drawing area.
+pub fn draw_consensus_tree(
+    consensus_tree: &Graph<TreeNode, TreeEdge>,
+    trees: &[Graph<TreeNode, TreeEdge>],
+    filename: &str,
+    plot_width: u32,
+    plot_height: u32,
+) -> Result<(), GptError>
+{
+    let mut node_freq: HashMap<TreeNode, u32> = HashMap::new();
+    let mut edge_freq: HashMap<(TreeNode, TreeNode), u32> = HashMap::new();
+
+    if trees.is_empty() {
+        // Use the consensus tree's own nodes and edges with default frequency 1.
+        for node_ref in consensus_tree.node_references() {
+            node_freq.insert(node_ref.1.clone(), 1);
+        }
+        for edge in consensus_tree.edge_references() {
+            let src = consensus_tree[edge.source()].clone();
+            let tgt = consensus_tree[edge.target()].clone();
+            edge_freq.insert((src, tgt), 1);
+        }
+    } else {
+        // Count frequencies across all supplied trees.
+        for tree in trees {
+            for node_ref in tree.node_references() {
+                *node_freq.entry(node_ref.1.clone()).or_insert(0) += 1;
+            }
+            for edge in tree.edge_references() {
+                let src = tree[edge.source()].clone();
+                let tgt = tree[edge.target()].clone();
+                *edge_freq.entry((src, tgt)).or_insert(0) += 1;
+            }
+        }
+    }
+    let max_node_freq = node_freq.values().cloned().max().unwrap_or(1);
+    let max_edge_freq = edge_freq.values().cloned().max().unwrap_or(1);
+
+    let output = PathBuf::from(filename);
+    let drawing_area = SVGBackend::new(
+        &output, 
+        (plot_width, plot_height)
+    ).into_drawing_area();
+    drawing_area.fill(&WHITE)?;
+
+
+    fn layout_tree<N, E>(
+        graph: &Graph<N, E>,
+        node: NodeIndex,
+        depth: u32,
+        spacing_x: f64,
+        spacing_y: f64,
+        x_offset: &mut f64,
+        layout: &mut HashMap<NodeIndex, (f64, f64)>,
+    ) {
+        // Gather children (nodes with outgoing edges).
+        let children: Vec<NodeIndex> = graph
+            .neighbors_directed(node, Direction::Outgoing)
+            .collect();
+
+        if children.is_empty() {
+            // Leaf: assign current x position and increment the offset.
+            layout.insert(node, (*x_offset, depth as f64 * spacing_y));
+            *x_offset += spacing_x;
+        } else {
+            // Recursively determine positions for children.
+            for child in &children {
+                layout_tree(graph, *child, depth + 1, spacing_x, spacing_y, x_offset, layout);
+            }
+            // Position internal node at the horizontal midpoint of its children.
+            let child_xs: Vec<f64> = children.iter().map(|c| layout[c].0).collect();
+            let min_x = child_xs.first().cloned().unwrap_or(0.0);
+            let max_x = child_xs.last().cloned().unwrap_or(0.0);
+            let x = (min_x + max_x) / 2.0;
+            layout.insert(node, (x, depth as f64 * spacing_y));
+        }
+    }
+
+    let spacing_x = 80.0;
+    let spacing_y = 100.0;
+    let mut layout: HashMap<NodeIndex, (f64, f64)> = HashMap::new();
+    let mut x_offset = 20.0; // Starting horizontal offset
+
+    // Identify the root: a node with no incoming edges.
+    let root = consensus_tree
+        .node_indices()
+        .find(|&n| consensus_tree.neighbors_directed(n, Direction::Incoming).next().is_none())
+        .ok_or(GptError::TreeRootMissing)?;
+
+    // Compute the tree layout recursively.
+    layout_tree(consensus_tree, root, 0, spacing_x, spacing_y, &mut x_offset, &mut layout);
+
+    // Center the tree horizontally within the plot.
+    let (min_x, max_x, _) = layout.values().fold(
+        (f64::INFINITY, f64::NEG_INFINITY, 0.0),
+        |(min, max, _), &(x, y)| (min.min(x), max.max(x), y),
+    );
+    let tree_width = max_x - min_x;
+    let shift_x = (plot_width as f64 - tree_width) / 2.0 - min_x;
+
+    for pos in layout.values_mut() {
+        pos.0 += shift_x;
+    }
+
+    for edge in consensus_tree.edge_references() {
+        let src = edge.source();
+        let tgt = edge.target();
+
+        if let (Some(&(x1, y1)), Some(&(x2, y2))) = (layout.get(&src), layout.get(&tgt)) {
+            let src_label = consensus_tree[src].clone();
+            let tgt_label = consensus_tree[tgt].clone();
+            let freq = edge_freq.get(&(src_label, tgt_label)).cloned().unwrap_or(1);
+            let alpha = (freq as f64) / (max_edge_freq as f64);
+            let edge_color = RGBAColor(50, 50, 200, alpha);
+            drawing_area.draw(&PathElement::new(
+                vec![(x1 as i32, y1 as i32), (x2 as i32, y2 as i32)],
+                ShapeStyle {
+                    color: edge_color,
+                    filled: false,
+                    stroke_width: 2,
+                },
+            ))?;
+        }
+    }
+
+    for node in consensus_tree.node_indices() {
+        if let Some(&(x, y)) = layout.get(&node) {
+            let freq = node_freq.get(&consensus_tree[node]).cloned().unwrap_or(1);
+            let alpha = (freq as f64) / (max_node_freq as f64);
+            let node_color = RGBAColor(200, 50, 50, alpha);
+            drawing_area.draw(&Circle::new((x as i32, y as i32), 10, ShapeStyle::from(&node_color).filled()))?;
+            drawing_area.draw(&Text::new(
+                format!("{}", match &consensus_tree[node].label { Some(label) => label.as_str(), None => "no_label" }),
+                (x as i32 + 12, y as i32),
+                ("sans-serif", 12).into_font().color(&BLACK),
+            ))?;
+        }
+    }
+
+    drawing_area.present()?;
+
+    Ok(())
 }

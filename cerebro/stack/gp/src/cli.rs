@@ -2,8 +2,17 @@
 use cerebro_model::api::cerebro::schema::MetaGpConfig;
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_gp::{gpt::{DataBackground, DiagnosticAgent}, terminal::{App, Commands}, utils::init_logger};
+use cerebro_gp::{gpt::{draw_consensus_tree, DataBackground, DiagnosticAgent}, terminal::{App, Commands}, utils::init_logger};
 use cerebro_client::client::CerebroClient;
+
+#[cfg(feature = "local")]
+use cerebro_gp::llama::run_llama;
+#[cfg(feature = "local")]
+use cerebro_gp::quantized::run_quantized;
+#[cfg(feature = "local")]
+use cerebro_gp::qwen::run_qwen;
+#[cfg(feature = "local")]
+use cerebro_gp::text::TextGenerator;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
@@ -38,6 +47,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             // Optionally, print the knowledge graph
             agent.print_decision_tree(&agent.tree, "start");
+
+            draw_consensus_tree(&DiagnosticAgent::graph(&agent.tree)?, &vec![], "tree.svg", 1000, 1000)?;
 
             if !args.dry_run {
 
@@ -81,6 +92,43 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             
 
         },
+        #[cfg(feature = "local")]
+        Commands::Generate( args ) => {
+            
+            let generator = TextGenerator::new(
+                args.model, 
+                &args.model_dir, 
+                args.force_download
+            );
+
+            generator.run(
+                &args.prompt,
+                args.raw_prompt,
+                args.sample_len,
+                args.split_prompt,
+                args.clean,
+                args.temperature,
+                args.seed,
+                args.top_k,
+                args.top_p,
+                args.repeat_penalty,
+                args.repeat_last_n,
+                args.log_info
+            )?;
+
+        }
+        #[cfg(feature = "local")]
+        Commands::Llama( args ) => {
+            run_llama(args.clone())?
+        },
+        #[cfg(feature = "local")]
+        Commands::Quantized( args ) => {
+            run_quantized(args.clone())?
+        },
+        #[cfg(feature = "local")]
+        Commands::Qwen( args ) => {
+            run_qwen(args.clone())?
+        }
     }
 
     Ok(())
