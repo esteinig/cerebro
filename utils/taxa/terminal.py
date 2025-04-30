@@ -348,7 +348,7 @@ def plot_targets(
         None, help="List of species labels to plot, comma-separated"
     ),
     exclude_species: str = typer.Option(
-        None, help="List of species to exclud, comma-separated"
+        None, help="List of species to exclude, comma-separated"
     )
 ):
     """

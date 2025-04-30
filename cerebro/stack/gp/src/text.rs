@@ -16,7 +16,7 @@ use candle_transformers::generation::{LogitsProcessor, Sampling};
 
 use crate::error::GptError;
 
-// Define a trait that abstracts over your two weight types
+// Define a trait that abstracts over model weight types
 pub trait InferenceModel {
     /// run a single forward pass at a given position
     fn forward(&mut self, input: &Tensor, position: usize) -> Result<Tensor, GptError>;
@@ -104,7 +104,7 @@ impl TextGenerator {
             .tokenizer()
             .encode(prompt, true)?;
 
-        let tokens = tokens.get_ids();
+        let mut tokens = tokens.get_ids().to_vec();
         let to_sample = sample_len.saturating_sub(1);
 
 
@@ -115,35 +115,22 @@ impl TextGenerator {
             top_p
         );
 
-        match self.model {
+        let mut model: Box<dyn InferenceModel>  = match self.model {
             GeneratorModel::DeepseekR1Llama8bQ4KM => {
 
-                let tokens = if tokens.len() + to_sample > llama::MAX_SEQ_LEN - 10 {
+                tokens = if tokens.len() + to_sample > llama::MAX_SEQ_LEN - 10 {
                     let to_remove = tokens.len() + to_sample + 10 - llama::MAX_SEQ_LEN;
                     tokens[tokens.len().saturating_sub(to_remove)..].to_vec()
                 } else {
                     tokens.to_vec()
                 };
 
-                let mut model = llama::ModelWeights::from_gguf(
+                let model = llama::ModelWeights::from_gguf(
                     gguf, 
                     &mut file, 
                     &device
                 )?;
-
-                self.generate(
-                    &mut model,
-                    &device,
-                    &tokens,
-                    &mut tos,
-                    &mut logits_processor,
-                    sample_len,
-                    repeat_penalty,
-                    repeat_last_n,
-                    split_prompt,
-                    log_info,
-                    clean
-                )?;
+                Box::new(model)
             }
             GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
@@ -152,30 +139,34 @@ impl TextGenerator {
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
                 | GeneratorModel::DeepseekR1Qwen14bF16 
+                | GeneratorModel::DeepseekR1Qwen32bQ2KL
+                | GeneratorModel::DeepseekR1Qwen32bQ4KM
+                | GeneratorModel::DeepseekR1Qwen32bQ80
+                | GeneratorModel::DeepseekR1Qwen32bF16 
              => {
 
-                let mut model = qwen2::ModelWeights::from_gguf(
+                let model = qwen2::ModelWeights::from_gguf(
                     gguf, 
                     &mut file, 
                     &device
                 )?;
-
-                self.generate(
-                    &mut model,
-                    &device,
-                    tokens,
-                    &mut tos,
-                    &mut logits_processor,
-                    to_sample,
-                    repeat_penalty,
-                    repeat_last_n,
-                    split_prompt,
-                    log_info,
-                    clean
-                )?;
+                Box::new(model)
             }
         };
 
+        self.generate(
+            &mut *model,
+            &device,
+            &tokens,
+            &mut tos,
+            &mut logits_processor,
+            sample_len,
+            repeat_penalty,
+            repeat_last_n,
+            split_prompt,
+            log_info,
+            clean
+        )?;
 
         Ok(())
         
@@ -399,6 +390,15 @@ pub enum GeneratorModel {
     DeepseekR1Qwen14bQ80,
     #[value(name = "deepseekr1-qwen14b-f16")]
     DeepseekR1Qwen14bF16,
+
+    #[value(name = "deepseekr1-qwen32b-q2-kl")]
+    DeepseekR1Qwen32bQ2KL,
+    #[value(name = "deepseekr1-qwen32b-q4-km")]
+    DeepseekR1Qwen32bQ4KM,
+    #[value(name = "deepseekr1-qwen32b-q8-0")]
+    DeepseekR1Qwen32bQ80,
+    #[value(name = "deepseekr1-qwen32b-f16")]
+    DeepseekR1Qwen32bF16,
 }
 
 impl GeneratorModel {
@@ -453,6 +453,11 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen14bQ80
                 | GeneratorModel::DeepseekR1Qwen14bF16
                 => "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+            GeneratorModel::DeepseekR1Qwen32bQ2KL
+                | GeneratorModel::DeepseekR1Qwen32bQ4KM
+                | GeneratorModel::DeepseekR1Qwen32bQ80
+                | GeneratorModel::DeepseekR1Qwen32bF16
+                => "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
         }
     }
     pub fn model_repository(&self) -> &'static str {
@@ -468,6 +473,11 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen14bQ80
                 | GeneratorModel::DeepseekR1Qwen14bF16
                 => "unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF",
+            GeneratorModel::DeepseekR1Qwen32bQ2KL
+                | GeneratorModel::DeepseekR1Qwen32bQ4KM
+                | GeneratorModel::DeepseekR1Qwen32bQ80
+                | GeneratorModel::DeepseekR1Qwen32bF16
+                => "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
         }
     }
     pub fn model_config(&self) -> &'static str {
@@ -480,6 +490,10 @@ impl GeneratorModel {
             GeneratorModel::DeepseekR1Qwen14bQ4KM => "DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
             GeneratorModel::DeepseekR1Qwen14bQ80 => "DeepSeek-R1-Distill-Qwen-14B-Q8_0.gguf",
             GeneratorModel::DeepseekR1Qwen14bF16 => "DeepSeek-R1-Distill-Qwen-14B-F16.gguf",
+            GeneratorModel::DeepseekR1Qwen32bQ2KL => "DeepSeek-R1-Distill-Qwen-32B-Q2_K_L.gguf",
+            GeneratorModel::DeepseekR1Qwen32bQ4KM => "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
+            GeneratorModel::DeepseekR1Qwen32bQ80 => "DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf",
+            GeneratorModel::DeepseekR1Qwen32bF16 => "DeepSeek-R1-Distill-Qwen-32B-F16.gguf",
         }
     }
     pub fn model_revision(&self) -> &'static str {
@@ -496,6 +510,10 @@ impl GeneratorModel {
             GeneratorModel::DeepseekR1Qwen14bQ4KM => "deepseekr1-qwen14b-q4-km",
             GeneratorModel::DeepseekR1Qwen14bQ80 => "deepseekr1-qwen14b-q8-0",
             GeneratorModel::DeepseekR1Qwen14bF16 => "deepseekr1-qwen14b-f16",
+            GeneratorModel::DeepseekR1Qwen32bQ2KL => "deepseekr1-qwen32b-q2-kl",
+            GeneratorModel::DeepseekR1Qwen32bQ4KM => "deepseekr1-qwen32b-q4-km",
+            GeneratorModel::DeepseekR1Qwen32bQ80 => "deepseekr1-qwen32b-q8-0",
+            GeneratorModel::DeepseekR1Qwen32bF16 => "deepseekr1-qwen32b-f16",
         }
     }
     pub fn model_file(&self) -> PathBuf {
@@ -526,7 +544,11 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen14bQ2KL
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen14bF16  => "<｜end▁of▁sentence｜>"
+                | GeneratorModel::DeepseekR1Qwen14bF16
+                | GeneratorModel::DeepseekR1Qwen32bQ2KL
+                | GeneratorModel::DeepseekR1Qwen32bQ4KM
+                | GeneratorModel::DeepseekR1Qwen32bQ80
+                | GeneratorModel::DeepseekR1Qwen32bF16  => "<｜end▁of▁sentence｜>"
         };
         let eos = *tos.tokenizer()
             .get_vocab(true)
@@ -545,7 +567,11 @@ impl GeneratorModel {
             | GeneratorModel::DeepseekR1Qwen14bQ2KL
             | GeneratorModel::DeepseekR1Qwen14bQ4KM
             | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen14bF16 => true,
+            | GeneratorModel::DeepseekR1Qwen14bF16
+            | GeneratorModel::DeepseekR1Qwen32bQ2KL
+            | GeneratorModel::DeepseekR1Qwen32bQ4KM
+            | GeneratorModel::DeepseekR1Qwen32bQ80
+            | GeneratorModel::DeepseekR1Qwen32bF16 => true,
         }
     }
     pub fn is_deepseek_llama(&self) -> bool {
@@ -557,7 +583,11 @@ impl GeneratorModel {
             | GeneratorModel::DeepseekR1Qwen14bQ2KL
             | GeneratorModel::DeepseekR1Qwen14bQ4KM
             | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen14bF16 => false
+            | GeneratorModel::DeepseekR1Qwen14bF16 
+            | GeneratorModel::DeepseekR1Qwen32bQ2KL
+            | GeneratorModel::DeepseekR1Qwen32bQ4KM
+            | GeneratorModel::DeepseekR1Qwen32bQ80
+            | GeneratorModel::DeepseekR1Qwen32bF16 => false
         }
     }
 

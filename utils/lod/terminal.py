@@ -238,3 +238,133 @@ def get_dilution_data(alignment_df: pandas.DataFrame, reference_df: pandas.DataF
     return dilution_data_plot, dilution_data_full
 
 
+@app.command()
+def plot_lod2(
+    species: Path = typer.Argument(
+        ..., help="Pathogen detection table for species"
+    ),
+    output: str = typer.Option(
+        "taxa_detection.png", help="Plot taxon detection output"
+    ),
+    log_scale: bool = typer.Option(False, help="Log scale for plot"),
+    ids: str = typer.Option(None, help="Sample identifier start strings to subset dataset"),
+    plot_species: str = typer.Option(
+        None, help="List of species names to plot, comma-separated"
+    ),
+    plot_labels: str = typer.Option(
+        None, help="List of species labels to plot, comma-separated"
+    ),
+    exclude_species: str = typer.Option(
+        None, help="List of species to exclude, comma-separated"
+    )
+):
+    """
+    Simple taxa detection plot across classifiers
+    """
+
+    classifiers = ["kraken", "bracken", "metabuli", "ganon", "vircov"]
+
+    species = pandas.read_csv(species, sep="\t", header=0)
+
+    # Remove the sample identifier from the sequencing library
+    species["id"] = species["id"].str.replace(r"(_[^_]*)$", "", regex=True)
+    
+    if ids:
+        ids = tuple([s.strip() for s in ids.split(",")])
+        species = species[species["id"].str.startswith(ids)]
+
+    if plot_species:
+        plot_species = [s.strip() for s in plot_species.split(",")]
+    else:
+        plot_species = [
+            'Aspergillus niger', 
+            'Cryptococcus neoformans', 
+            "Haemophilus influenzae", 
+            "Mycobacterium tuberculosis", 
+            "Streptococcus pneumoniae",
+            "Toxoplasma gondii",
+            'Simplexvirus humanalpha1', 
+            'Orthoflavivirus murrayense',
+        ]
+
+    if plot_labels:
+        plot_labels = [s.strip() for s in plot_labels.split(",")]
+    else:
+        plot_labels = [
+            'ANIG', 
+            'CNEO', 
+            "HINF", 
+            "MTB", 
+            "SPNEUMO",
+            "TOXO",
+            'HSV-1', 
+            'MVEV',
+        ]
+
+    if len(plot_labels) != len(plot_species):
+        raise ValueError("Label and species designations are not of equal length")
+
+    if exclude_species:
+        exclude_species = [s.strip() for s in exclude_species.split(",")]
+
+        new_plot_species = []
+        exclude_indices = []
+        for i, sp in enumerate(plot_species):
+            if sp not in exclude_species:
+                new_plot_species.append(sp)
+            else:
+                exclude_indices.append(i)
+        
+        plot_species = new_plot_species.copy()
+        plot_labels = [l for i, l in enumerate(plot_labels) if i not in exclude_indices]
+
+    print(plot_species, plot_labels)
+
+    fig, axes = plt.subplots(
+        nrows=len(classifiers), 
+        ncols=2, 
+        figsize=(6 * 2, 20)
+    )
+
+    print(species)
+
+    for ni, nucleic_acid in enumerate(("DNA", "RNA")):
+        
+        species_nucleic_acid = species[species["id"].str.contains(nucleic_acid)]
+        species_data = species_nucleic_acid[species_nucleic_acid["name"].isin(plot_species)]
+
+        for i, classifier in enumerate(classifiers):
+            ax = axes[i][ni]
+
+            if log_scale:
+                species_data[f"{classifier}_rpm"] = np.log10(species_data[f"{classifier}_rpm"])
+
+            sns.barplot(
+                x="name", y=f"{classifier}_rpm", hue=None,
+                data=species_data, hue_order=None,
+                ax=ax, palette=YESTERDAY_MEDIUM,
+                order=plot_species  # Add this to ensure all species are shown
+            )
+
+            sns.stripplot(
+                x="name", y=f"{classifier}_rpm", hue=None,
+                data=species_data, hue_order=None,
+                ax=ax, palette=YESTERDAY_MEDIUM, dodge=True,
+                edgecolor="black", linewidth=2, legend=None,
+                order=plot_species  # Add this to ensure all species are shown
+            )
+
+            ax.set_title(f"\n{classifier.capitalize()}")
+            ax.set_xlabel("\n")
+            ax.set_ylabel(f"{classifier.capitalize()} RPM\n")
+            ax.set_ylim(0)
+
+            ax.set_xticklabels(plot_labels, rotation=45, ha="right")
+
+            legend = ax.get_legend()
+            if legend:
+                legend.set_title(None)
+
+    fig.suptitle(f"Target species (LOD)\n", fontsize=18)
+    fig.tight_layout()
+    fig.savefig(output, dpi=300, transparent=False)
