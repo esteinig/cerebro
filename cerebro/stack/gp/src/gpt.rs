@@ -122,7 +122,7 @@ impl ThresholdCandidates {
             if above.is_empty() {
                 output.push_str("No taxa detected.");
             } else {
-                output.push_str("Taxa:\n\n");
+                output.push_str("Primary threshold taxa:\n\n");
                 // Join the names of the taxa with commas.
                 let taxa: Vec<String> = above.iter().map(|taxon| taxon.species_data(evidence)).collect();
                 output.push_str(&taxa.join("\n\n"));
@@ -135,7 +135,7 @@ impl ThresholdCandidates {
             if below.is_empty() {
                 output.push_str("No taxa detected.");
             } else {
-                output.push_str("Taxa:\n\n");
+                output.push_str("Secondary threhsold taxa:\n\n");
                 let taxa: Vec<String> = below.iter().map(|taxon| taxon.species_data(evidence)).collect();
                 output.push_str(&taxa.join("\n\n"));
             }
@@ -146,7 +146,7 @@ impl ThresholdCandidates {
             if target.is_empty() {
                 output.push_str("No taxa detected.");
             } else {
-                output.push_str("Taxa:\n\n");
+                output.push_str("Target threshold taxa:\n\n");
                 let taxa: Vec<String> = target.iter().map(|taxon| taxon.species_data(evidence)).collect();
                 output.push_str(&taxa.join("\n\n"));
             }
@@ -157,7 +157,7 @@ impl ThresholdCandidates {
             if integrate.is_empty() {
                 output.push_str("No taxa detected.");
             } else {
-                output.push_str("Taxa:\n\n");
+                output.push_str("Secondary and target threshold taxa:\n\n");
                 let taxa: Vec<String> = integrate.iter().map(|taxon| taxon.species_data(evidence)).collect();
                 output.push_str(&taxa.join("\n\n"));
             }
