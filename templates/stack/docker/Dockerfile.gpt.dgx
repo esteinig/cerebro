@@ -47,7 +47,7 @@ RUN curl https://sh.rustup.rs -sSf \
 # fetch and build
 COPY --chown=$APP_USER:$APP_USER Cargo.toml ./
 # run from repository base need to put the cerebro src folder inside cerebro for relative path resolution of stack embeddings
-COPY --chown=$APP_USER:$APP_USER cerebro/ ./cerebro/cerebro
+COPY --chown=$APP_USER:$APP_USER cerebro/ ./cerebro
 
 RUN cargo fetch
 RUN cargo build \
