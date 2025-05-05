@@ -195,8 +195,8 @@ pub struct DiagnoseLocalArgs {
     #[arg(long, short='t', default_value_t = 0.8)]
     pub temperature: f64,
     /// GPU device index to run on.
-    #[arg(long, short='g', default_value_t=0)]
-    pub gpu: usize,
+    #[arg(long, short='g', default_value_t=1)]
+    pub num_gpu: usize,
     /// Include clinical notes from plate reference into prompt context (if available)
     #[clap(long, short = 'c')]
     pub clinical_notes: bool,

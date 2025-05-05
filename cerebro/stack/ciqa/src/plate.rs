@@ -198,26 +198,18 @@ impl SampleReview {
         let pathogen_str = match diagnostic_result.pathogen {
             Some(pathogen_str) => {
 
-                // First, perform the basic replacements and trimming.
-                let pathogens = extract_candidates(&pathogen_str);
+                    let pathogen_parts: Vec<&str> = pathogen_str.split_whitespace().collect();
 
-                match pathogens.first() {
-                    None => None,
-                    Some(pathogen) => {
+                    // Remove genus or species variants where genus + species
+                    // name is longer than two items 
+                    let species = if pathogen_parts.len() > 2 {
+                        pathogen_parts[..pathogen_parts.len()-1].join(" ")
+                    } else {
+                        pathogen_str.to_string()
+                    };
 
-                        let pathogen_parts: Vec<&str> = pathogen.split_whitespace().collect();
-
-                        // Remove genus or species variants 
-                        let species = if pathogen_parts.len() > 2 {
-                            pathogen_parts[..pathogen_parts.len()-1].join(" ")
-                        } else {
-                            pathogen.to_string()
-                        };
-
-            
-                        Some(format!("s__{}", species)) 
-                    }
-                }
+        
+                    Some(format!("s__{}", species)) 
             },
             None => None
         };
@@ -232,38 +224,6 @@ impl SampleReview {
     }
 }
 
-/// Removes trailing variant tags from each token in the input string.
-///
-/// Variant tags are defined as an underscore followed by one or more uppercase
-/// letters at the end of a token. The tokens are assumed to be separated by whitespace.
-///
-/// Example:
-/// "s__Streptococcus halitosis_A" becomes "s__Streptococcus halitosis"
-/// "s__Streptococcus_B halitosis_A" becomes "s__Streptococcus halitosis"
-/// "s__Streptococcus_B halitosis" becomes "s__Streptococcus halitosis"
-fn strip_variant_tags(input: &str) -> String {
-    // This regex matches an underscore followed by one or more uppercase letters at the end of the token.
-    let re = Regex::new(r"(_[A-Z]+)$").expect("Failed to compile variant regex");
-    input.split_whitespace()
-         // For each token, remove the variant tag if it appears at the end.
-         .map(|token| re.replace(token, "").to_string())
-         .collect::<Vec<String>>()
-         .join(" ")
-}
-
-fn extract_candidates(input: &str) -> Vec<String> {
-    // The regex looks for "<candidate>" followed by any characters (non-greedy) 
-    // until the next "<candidate>".
-    let re = Regex::new(r"<candidate>(.*?)</candidate>").expect("Invalid regex: <candidate>(.*?)</candidate>");
-    re.captures_iter(input)
-        .filter_map(|cap| {
-            // cap[1] holds the part captured by (.*?)
-            cap.get(1).map(|m| {
-                strip_variant_tags(m.as_str())
-            })
-        })
-        .collect()
-}
 
 // Ensure CiqaError implements From<std::io::Error> or change the error handling accordingly.
 pub fn read_all_sample_reviews(directory: &Path) -> Result<Vec<SampleReview>, CiqaError> {

@@ -135,7 +135,7 @@ impl ThresholdCandidates {
             if below.is_empty() {
                 output.push_str("No taxa detected.");
             } else {
-                output.push_str("Secondary threhsold taxa:\n\n");
+                output.push_str("Secondary threshold taxa:\n\n");
                 let taxa: Vec<String> = below.iter().map(|taxon| taxon.species_data(evidence)).collect();
                 output.push_str(&taxa.join("\n\n"));
             }
@@ -197,15 +197,12 @@ pub enum SampleContext {
 
 impl SampleContext {
     pub fn text(&self) -> String {
-        match self {
-            SampleContext::Csf => String::from("
-                CSF sample.
-            "),
-            SampleContext::Eye => String::from("
-                Vitreous fluid sample.
-            "),
+        let sample_type = match self {
+            SampleContext::Csf => String::from("Cerebrospinal fluid (CSF) sample."),
+            SampleContext::Eye => String::from("Vitreous fluid sample."),
             SampleContext::None => String::new()
-        }
+        };
+        format!("Sample type: {}", sample_type)
     }
     pub fn with_clinical_notes(&self, notes: &str) -> String {
         format!("{}\nClinical notes: {}", self.text(), notes)
@@ -899,7 +896,7 @@ pub struct DiagnosticAgent {
 }
 
 impl DiagnosticAgent {
-    pub async fn new(client: Option<CerebroClient>) -> Result<Self, GptError> {
+    pub fn new(client: Option<CerebroClient>) -> Result<Self, GptError> {
         
         let tree = DecisionTree::tiered()?;
         
@@ -911,7 +908,7 @@ impl DiagnosticAgent {
         })
     }
 
-    pub async fn prefetch(&self, output: &Path, config: &MetaGpConfig) -> Result<(), GptError> {
+    pub fn prefetch(&self, output: &Path, config: &MetaGpConfig) -> Result<(), GptError> {
         
         log::info!("Fetching primary threshold data for sample '{}'", config.sample);
 
@@ -955,7 +952,7 @@ impl DiagnosticAgent {
 
     }
 
-    pub async fn run_local(
+    pub fn run_local(
         &mut self, 
         text_generator: &mut TextGenerator, 
         sample_context: SampleContext, 
@@ -1430,28 +1427,6 @@ impl DiagnosticAgent {
         };
         Ok(node_label)
     }
-     /// Extract all `<candidate>…</candidate>` values.
-     fn extract_candidates(answer: &str) -> Vec<String> {
-        let mut candidates = Vec::new();
-        let mut rest = answer;
-
-        while let Some(start_idx) = rest.find("<candidate>") {
-            // skip past the opening tag
-            let after_open = &rest[start_idx + "<candidate>".len()..];
-            // find the closing tag in the remainder
-            if let Some(end_idx) = after_open.find("</candidate>") {
-                // grab the text in between
-                let value = &after_open[..end_idx];
-                candidates.push(value.to_string());
-                // move `rest` forward past this closing tag
-                rest = &after_open[end_idx + "</candidate>".len()..];
-            } else {
-                break; // no matching close, bail out
-            }
-        }
-
-        candidates
-    }
 
     /// Extract the first `<pathogen>…</pathogen>` value, warning if more than one.
     fn extract_pathogen(answer: &str) -> Option<String> {
@@ -1572,6 +1547,39 @@ impl DiagnosticAgent {
         input
             .chars()
             .filter(|c| c.is_ascii_digit())
+            .collect()
+    }
+
+    /// Removes trailing variant tags (an underscore + uppercase letters) from each
+    /// whitespace-separated token in the input.
+    ///
+    /// Example:
+    /// "Staphylococcus aureus_A"     → "Staphylococcus aureus"
+    /// "Escherichia coli_B"          → "Escherichia coli"
+    /// "Bacillus subtilis"           → "Bacillus subtilis"  (unchanged)
+    fn strip_variant_tags(input: &str) -> String {
+        // match "_" followed by one or more uppercase A–Z at end of string
+        let re = regex::Regex::new(r"_[A-Z]+$").expect("Invalid regex");
+        input
+            .split_whitespace()
+            .map(|token| {
+                // if it ends in "_XXX", strip that off; otherwise leave it alone
+                re.replace(token, "").into_owned()
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+    fn extract_candidates(input: &str) -> Vec<String> {
+        // The regex looks for "<candidate>" followed by any characters (non-greedy) 
+        // until the next "<candidate>".
+        let re = regex::Regex::new(r"<candidate>(.*?)</candidate>").expect("Invalid regex: <candidate>(.*?)</candidate>");
+        re.captures_iter(input)
+            .filter_map(|cap| {
+                // cap[1] holds the part captured by (.*?)
+                cap.get(1).map(|m| {
+                    Self::strip_variant_tags(m.as_str())
+                })
+            })
             .collect()
     }
     pub fn graph(tree: &DecisionTree) -> Result<petgraph::Graph<TreeNode, TreeEdge>, GptError> {

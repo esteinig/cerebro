@@ -49,10 +49,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             log::info!("{:#?}", gp_config);
 
-            DiagnosticAgent::new(Some(api_client))
-                .await?
-                .prefetch(&args.output, &gp_config)
-                .await?
+            DiagnosticAgent::new(Some(api_client))?
+                .prefetch(&args.output, &gp_config)?
         }
         #[cfg(feature = "local")]
         Commands::DiagnoseLocal( args ) => {
@@ -79,7 +77,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             };
 
                         
-            let mut agent = DiagnosticAgent::new(api_client).await?;
+            let mut agent = DiagnosticAgent::new(api_client)?;
 
 
             let mut generator = TextGenerator::new(
@@ -109,7 +107,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.assay_context.clone(),
                 &gp_config, 
                 prefetch
-            ).await?;
+            )?;
 
             result.to_json(&args.diagnostic_log)?;
 

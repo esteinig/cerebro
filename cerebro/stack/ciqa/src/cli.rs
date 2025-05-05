@@ -1,5 +1,5 @@
 
-use std::{fs::create_dir_all, path::PathBuf};
+use std::{fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use cerebro_gp::{error::GptError, gpt::{AssayContext, SampleContext, DiagnosticAgent, DiagnosticResult, PrefetchData}, text::{GeneratorConfig, TextGenerator}};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrevalenceOutliers};
@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
     let cli = App::parse();
 
-    match &cli.command {
+    match cli.command {
         Commands::PlotPlate( args ) => {
             plot_plate()?
         },
@@ -119,10 +119,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                     log::info!("{:#?}", gp_config);
 
-                    DiagnosticAgent::new(Some(api_client.clone()))
-                        .await?
-                        .prefetch(&data_file, &gp_config)
-                        .await?;
+                    DiagnosticAgent::new(Some(api_client.clone()))?
+                        .prefetch(&data_file, &gp_config)?;
                     
                     gp_config.to_json(&config_file)?;
 
@@ -152,7 +150,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 )?;
 
                 let stats = get_diagnostic_stats(
-                    args,
+                    &args,
                     &mut reference_plate, 
                     &review_name
                 )?;
@@ -169,7 +167,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             let mut consensus_plate = aggregate_reference_plates(reference_plates);
 
             let consensus_stats = get_diagnostic_stats(
-                args,
+                &args,
                 &mut consensus_plate, 
                 &"consensus"
             )?;
@@ -195,79 +193,115 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         },
         Commands::DiagnoseLocal( args ) => {
 
-            create_dir_all(&args.outdir)?;
-
+            std::fs::create_dir_all(&args.outdir)?;
             let plate = ReferencePlate::new(
-                &args.plate, 
+                &args.plate,
                 None,
                 MissingOrthogonal::Indeterminate,
-                false
+                false,
             )?;
+            
+            // 2) How many GPUs (default to 1 if not set)
+            let num_gpus = args.num_gpu;
+            
+            // 3) Collect samples and compute batch size
+            let samples: Vec<_> = plate.samples.clone();
+            let batch_size = (samples.len() + num_gpus - 1) / num_gpus;
+            
+            // 4) Share args + plate between threads
+            let args = Arc::new(args);
+            let plate = Arc::new(plate);
+            
+            // 5) Spawn one thread per GPU
+            let mut handles = Vec::with_capacity(num_gpus);
+            
+            for gpu_id in 0..num_gpus {
 
-            for sample_id in &plate.samples {
+                let args   = Arc::clone(&args);
+                let plate  = Arc::clone(&plate);
 
-                let data_file = args.prefetch.join(format!("{sample_id}.prefetch.json"));
+                let start  = gpu_id * batch_size;
+                let end    = (start + batch_size).min(samples.len());
+                let batch_samples = samples[start..end].to_vec();
+                
+                handles.push(std::thread::spawn(move || -> Result<(), GptError> {
+                    for sample_id in batch_samples {
+                        
+                        // rebuild paths
+                        let data_file   = args.prefetch.join(format!("{sample_id}.prefetch.json"));
+                        let result_file = args.outdir.join(format!("{sample_id}.result.json"));
+                        let state_file  = args.outdir.join(format!("{sample_id}.state.json"));
+                        
+                        if !data_file.exists() {
+                            log::info!("no prefetch for {}, skipping", sample_id);
+                            continue;
+                        }
+                        
+                        // load prefetch
+                        let prefetch_data = PrefetchData::from_json(&data_file)?;
+                        log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
-                let result_file = args.outdir.join(format!("{sample_id}.result.json"));
-                let state_file = args.outdir.join(format!("{sample_id}.state.json"));
-
-                if data_file.exists() {
-                    let prefetch_data = PrefetchData::from_json(data_file)?;
-
-                    log::info!("{:#?}", prefetch_data.config);
-
-                    let mut agent = DiagnosticAgent::new(None).await?;
-
-                    let mut text_generator = TextGenerator::new(
-                        GeneratorConfig::with_default(
-                            args.model.clone(),
-                            args.model_dir.clone(),
-                            args.sample_len,
-                            args.temperature,
-                            args.gpu
-                        )
-                    )?;
-                    
-                    let sample_reference = plate.get_sample_reference(sample_id);
-
-                    let sample_context = match sample_reference {
-                        Some(ref sample) => {
-                            if sample.sample_type == SampleType::Csf {
-                                SampleContext::Csf
-                            } else if sample.sample_type == SampleType::Eye {
-                                SampleContext::Eye
-                            } else {
-                                SampleContext::None
+                        // instantiate agent + text generator on this GPU
+                        let mut agent = DiagnosticAgent::new(None)?;
+                        let mut text_generator = TextGenerator::new(
+                            GeneratorConfig::with_default(
+                                args.model.clone(),
+                                args.model_dir.clone(),
+                                args.sample_len,
+                                args.temperature,
+                                gpu_id,
+                            )
+                        )?;
+                        
+                        // sample context logic
+                        let sample_ref = plate.get_sample_reference(&sample_id);
+                        let sample_context = sample_ref
+                            .as_ref()
+                            .map(|s| match s.sample_type {
+                                SampleType::Csf => SampleContext::Csf,
+                                SampleType::Eye => SampleContext::Eye,
+                                _               => SampleContext::None,
+                            })
+                            .unwrap_or(SampleContext::None);
+                        let clinical_notes = sample_ref.and_then(|s| s.clinical.clone());
+                        
+                        // run agent
+                        let result = agent.run_local(
+                            &mut text_generator,
+                            if args.sample_context.unwrap_or(false) { sample_context } else { SampleContext::None },
+                            if args.clinical_notes { clinical_notes } else { None },
+                            args.assay_context.clone(),
+                            &prefetch_data.config.clone(),
+                            Some(prefetch_data),
+                        )?;
+                        
+                        // write out
+                        result.to_json(&result_file)?;
+                        agent.state.to_json(&state_file)?;
+                        log::info!("finished {}", sample_id);
+                    }
+                    Ok(())
+                }));
+            }
+            
+            // 6) Wait for all GPUs to finish
+            for handle in handles {
+                match handle.join() {
+                    // Thread ran to completion, giving you a `Result<(), GptError>`
+                    Ok(inner) => {
+                        match inner {
+                            Ok(()) => {}
+                            Err(gpt_err) => {
+                                log::error!("GPT error in thread: {}", gpt_err.to_string());
                             }
-                        },
-                        None => SampleContext::None
-                    };
-
-                    let clinical_notes = match sample_reference {
-                        None => None,
-                        Some(ref sample) => sample.clinical.clone()
-                    };
-
-                    let result = agent.run_local(
-                        &mut text_generator, 
-                        match args.sample_context { 
-                            Some(include) => if include { sample_context } else { SampleContext::None },
-                            None => SampleContext::None
-                        }, 
-                        if args.clinical_notes { clinical_notes } else { None }, 
-                        args.assay_context.clone(), 
-                        &prefetch_data.config.clone(), 
-                        Some(prefetch_data)
-                    ).await?;
-
-                    result.to_json(&result_file)?;
-                    log::info!("{:#?}", result);
-                    agent.state.to_json(&state_file)?;
-
-                } else {
-                    log::info!("Data file '{}' does not exists skipping sample '{}'", data_file.display(), sample_id);
+                        }
+                    }
+                    // Thread actually panicked:
+                    Err(panic_payload) => {
+                        log::error!("Worker thread panicked: {:?}", panic_payload);
+                    }
                 }
-            }                        
+            }                  
         },
 
         Commands::DebugPathogen( args ) => {

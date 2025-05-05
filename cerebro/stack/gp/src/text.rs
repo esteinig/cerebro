@@ -70,9 +70,8 @@ impl TextGenerator {
     pub fn new(config: GeneratorConfig) -> Result<Self, GptError> {
 
         match config.model {
-                // Mixed precision GEMM kernels for quantized Llama
             GeneratorModel::DeepseekR1Llama8bQ4KM => {
-                log::info!("Activate reduced precision GEMM kernels");
+                log::info!("Activate reduced precision GEMM kernels for quantized Llama.");
                 candle_core::cuda::set_gemm_reduced_precision_f16(true);
                 candle_core::cuda::set_gemm_reduced_precision_bf16(true);
             },
@@ -112,6 +111,9 @@ impl TextGenerator {
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 | GeneratorModel::DeepseekR1Qwen32bF16 
+                | GeneratorModel::Qwen4bQ80 
+                | GeneratorModel::Qwen8bQ80 
+                | GeneratorModel::Qwen32bQ80 
              => {
 
                 let model = qwen2::ModelWeights::from_gguf(
@@ -122,6 +124,8 @@ impl TextGenerator {
                 Box::new(model)
             }
         };
+
+        log::info!("Inference model weights loaded on GPU.");
 
         Ok(Self {
             model,
@@ -142,7 +146,7 @@ impl TextGenerator {
         let prompt = if self.config.raw_prompt {
             prompt.to_string()
         } else {
-            self.config.model.format_prompt(prompt)
+            self.config.model.format_prompt(prompt, false)
         };
 
         if self.config.log_info {
@@ -176,6 +180,9 @@ impl TextGenerator {
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 | GeneratorModel::DeepseekR1Qwen32bF16 
+                | GeneratorModel::Qwen4bQ80 
+                | GeneratorModel::Qwen8bQ80 
+                | GeneratorModel::Qwen32bQ80 
             => {}
         }
 
@@ -186,11 +193,11 @@ impl TextGenerator {
             self.config.top_p
         );
 
-        log::info!("Build model architecture with weights...");
+        log::info!("Build model architecture with weights.");
         
         let eos_token = self.config.model.get_eos_token(&tos)?;
 
-        log::info!("Start generative process...");
+        log::info!("Start generative processing and sampling tokens.");
         let (thoughts, answer) = TextGenerator::generate(
             self.model.as_mut(),
             &self.device,
@@ -241,8 +248,6 @@ impl TextGenerator {
                 std::io::stdout().flush()?;
             }
         }
-
-        log::info!("Generating tokens...");
 
         // Process the main sample loop
         let (mut text, sampled, gen_dt) = TextGenerator::sample_tokens(
@@ -463,6 +468,13 @@ pub enum GeneratorModel {
     DeepseekR1Qwen32bQ80,
     #[value(name = "deepseekr1-qwen32b-f16")]
     DeepseekR1Qwen32bF16,
+
+    #[value(name = "qwen3-32b-q8-0")]
+    Qwen32bQ80,
+    #[value(name = "qwen3-8b-q8-0")]
+    Qwen8bQ80,
+    #[value(name = "qwen3-4b-q8-0")]
+    Qwen4bQ80
 }
 
 impl GeneratorModel {
@@ -522,6 +534,9 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 | GeneratorModel::DeepseekR1Qwen32bF16
                 => "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+            GeneratorModel::Qwen4bQ80 => "Qwen/Qwen3-4B",
+            GeneratorModel::Qwen8bQ80 => "Qwen/Qwen3-8B",
+            GeneratorModel::Qwen32bQ80 => "Qwen/Qwen3-32B",
         }
     }
     pub fn model_repository(&self) -> &'static str {
@@ -542,6 +557,9 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 | GeneratorModel::DeepseekR1Qwen32bF16
                 => "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+            GeneratorModel::Qwen4bQ80 => "unsloth/Qwen3-4B-GGUF",
+            GeneratorModel::Qwen8bQ80 => "unsloth/Qwen3-8B-GGUF",
+            GeneratorModel::Qwen32bQ80 => "unsloth/Qwen3-32B-GGUF",
         }
     }
     pub fn model_config(&self) -> &'static str {
@@ -558,6 +576,9 @@ impl GeneratorModel {
             GeneratorModel::DeepseekR1Qwen32bQ4KM => "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
             GeneratorModel::DeepseekR1Qwen32bQ80 => "DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf",
             GeneratorModel::DeepseekR1Qwen32bF16 => "DeepSeek-R1-Distill-Qwen-32B-F16.gguf",
+            GeneratorModel::Qwen4bQ80 => "Qwen3-4B-Q8_0.gguf",
+            GeneratorModel::Qwen8bQ80 => "Qwen3-8B-Q8_0.gguf",
+            GeneratorModel::Qwen32bQ80 => "Qwen3-32B-Q8_0.gguf",
         }
     }
     pub fn model_revision(&self) -> &'static str {
@@ -578,6 +599,9 @@ impl GeneratorModel {
             GeneratorModel::DeepseekR1Qwen32bQ4KM => "deepseekr1-qwen32b-q4-km",
             GeneratorModel::DeepseekR1Qwen32bQ80 => "deepseekr1-qwen32b-q8-0",
             GeneratorModel::DeepseekR1Qwen32bF16 => "deepseekr1-qwen32b-f16",
+            GeneratorModel::Qwen4bQ80 => "qwen3-4b-q8-0",
+            GeneratorModel::Qwen8bQ80 => "qwen3-8b-q8-0",
+            GeneratorModel::Qwen32bQ80 => "qwen3-32b-q8-0",
         }
     }
     pub fn model_file(&self) -> PathBuf {
@@ -613,7 +637,10 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen32bQ2KL
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
-                | GeneratorModel::DeepseekR1Qwen32bF16  => "<｜end▁of▁sentence｜>"
+                | GeneratorModel::DeepseekR1Qwen32bF16  => "<｜end▁of▁sentence｜>",
+            GeneratorModel::Qwen4bQ80 
+                | GeneratorModel::Qwen8bQ80
+                | GeneratorModel::Qwen32bQ80 => "<|im_end|>"
         };
         let eos = *tos.tokenizer()
             .get_vocab(true)
@@ -626,6 +653,9 @@ impl GeneratorModel {
     pub fn is_deepseek_qwen(&self) -> bool {
         match self {
             GeneratorModel::DeepseekR1Llama8bQ4KM => false,
+            GeneratorModel::Qwen4bQ80 
+            | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen32bQ80 => false,
             GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
             | GeneratorModel::DeepseekR1Qwen7bF16
@@ -642,6 +672,28 @@ impl GeneratorModel {
     pub fn is_deepseek_llama(&self) -> bool {
         match self {
             GeneratorModel::DeepseekR1Llama8bQ4KM => true,
+            GeneratorModel::Qwen4bQ80 
+            | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen32bQ80 => false,
+            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+            | GeneratorModel::DeepseekR1Qwen7bQ80
+            | GeneratorModel::DeepseekR1Qwen7bF16
+            | GeneratorModel::DeepseekR1Qwen14bQ2KL
+            | GeneratorModel::DeepseekR1Qwen14bQ4KM
+            | GeneratorModel::DeepseekR1Qwen14bQ80
+            | GeneratorModel::DeepseekR1Qwen14bF16 
+            | GeneratorModel::DeepseekR1Qwen32bQ2KL
+            | GeneratorModel::DeepseekR1Qwen32bQ4KM
+            | GeneratorModel::DeepseekR1Qwen32bQ80
+            | GeneratorModel::DeepseekR1Qwen32bF16 => false
+        }
+    }
+    pub fn is_qwen(&self) -> bool {
+        match self {
+            GeneratorModel::DeepseekR1Llama8bQ4KM => false,
+            GeneratorModel::Qwen4bQ80 
+            | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen32bQ80 => true,
             GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
             | GeneratorModel::DeepseekR1Qwen7bF16
@@ -656,11 +708,13 @@ impl GeneratorModel {
         }
     }
 
-    pub fn format_prompt(&self, prompt: &str) -> String {
+    pub fn format_prompt(&self, prompt: &str, disable_thinking: bool) -> String {
         if self.is_deepseek_qwen() {
             format!("<｜User｜>{prompt}<｜Assistant｜>")
         } else if self.is_deepseek_llama() {
             format!("<｜user｜>{prompt}<｜assistant｜>")  // llama distillation only works with non-capitalized tags?
+        } else if self.is_qwen() {
+            format!("<｜user｜>{prompt}<｜assistant｜>") 
         } else {
             prompt.to_string()
         }
