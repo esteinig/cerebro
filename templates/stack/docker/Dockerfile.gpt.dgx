@@ -29,14 +29,13 @@ RUN apt-get update \
       cmake \
  && rm -rf /var/lib/apt/lists/*
 
-
 USER $APP_USER
 WORKDIR /home/$APP_USER/app
 
 # install Rust
-env RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
+ENV RUSTUP_HOME=/home/$APP_USER/rustup 
+ENV CARGO_HOME=/home/$APP_USER/cargo
+ENV PATH=/home/$APP_USER/cargo/bin:$PATH
 
 RUN curl https://sh.rustup.rs -sSf \
     | sh -s -- -y --default-toolchain stable \
