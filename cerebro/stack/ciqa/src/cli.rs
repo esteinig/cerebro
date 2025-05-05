@@ -225,6 +225,18 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 let batch_samples = samples[start..end].to_vec();
                 
                 handles.push(std::thread::spawn(move || -> Result<(), GptError> {
+
+                    // Load inference model and weights for this batch on GPU
+                    let mut text_generator = TextGenerator::new(
+                        GeneratorConfig::with_default(
+                            args.model.clone(),
+                            args.model_dir.clone(),
+                            args.sample_len,
+                            args.temperature,
+                            gpu_id,
+                        )
+                    )?;
+
                     for sample_id in batch_samples {
                         
                         // rebuild paths
@@ -241,20 +253,12 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         let prefetch_data = PrefetchData::from_json(&data_file)?;
                         log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
-                        // instantiate agent + text generator on this GPU
+                        // instantiate agent
                         let mut agent = DiagnosticAgent::new(None)?;
-                        let mut text_generator = TextGenerator::new(
-                            GeneratorConfig::with_default(
-                                args.model.clone(),
-                                args.model_dir.clone(),
-                                args.sample_len,
-                                args.temperature,
-                                gpu_id,
-                            )
-                        )?;
                         
                         // sample context logic
                         let sample_ref = plate.get_sample_reference(&sample_id);
+
                         let sample_context = sample_ref
                             .as_ref()
                             .map(|s| match s.sample_type {
@@ -263,6 +267,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                                 _               => SampleContext::None,
                             })
                             .unwrap_or(SampleContext::None);
+                        
                         let clinical_notes = sample_ref.and_then(|s| s.clinical.clone());
                         
                         // run agent
