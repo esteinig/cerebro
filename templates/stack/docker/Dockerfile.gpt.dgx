@@ -29,6 +29,10 @@ RUN apt-get update \
       cmake \
  && rm -rf /var/lib/apt/lists/*
 
+
+USER $APP_USER
+WORKDIR /home/$APP_USER/app
+
 # install Rust
 env RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -38,9 +42,6 @@ RUN curl https://sh.rustup.rs -sSf \
     | sh -s -- -y --default-toolchain stable \
  && rustup default stable \
  && rustup component add rustfmt clippy
-
-USER $APP_USER
-WORKDIR /home/$APP_USER/app
 
 # fetch and build
 COPY --chown=$APP_USER:$APP_USER Cargo.toml ./
@@ -57,6 +58,13 @@ RUN cargo build \
 ###############################################################################
 FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu20.04
 
+# runtime deps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libfontconfig1 \
+ && rm -rf /var/lib/apt/lists/*
+
 ARG APP_USER=appuser
 ARG APP_UID=1000
 ARG APP_GID=1000
@@ -67,14 +75,7 @@ RUN groupadd -g $APP_GID $APP_USER \
             --shell /usr/sbin/nologin \
             --create-home \
             $APP_USER
-
-# runtime deps
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      libfontconfig1 \
- && rm -rf /var/lib/apt/lists/*
-
+            
 # create mount-point for host files
 RUN mkdir -p /mnt/host \
  && chown $APP_USER:$APP_USER /mnt/host
