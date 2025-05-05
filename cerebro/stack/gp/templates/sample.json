@@ -1,4 +1,5 @@
 {
+    "sample": "",
     "identifiers": {
         "controls": [
             "DW-63-V06",
@@ -18,5 +19,10 @@
         "min_rpm": 0.0,
         "sample_type": null,
         "collapse_variants": false
+    },
+    "prevalence_outliers": {
+        "primary": true,
+        "secondary": false,
+        "target": false
     }
 }

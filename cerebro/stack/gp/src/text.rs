@@ -4,17 +4,40 @@ use hf_hub::api::sync::Api;
 use std::io::Write;
 
 use tokenizers::Tokenizer;
-use candle_examples::token_output_stream::TokenOutputStream;
 
 use candle_core::{Device, Tensor};
 use candle_core::quantized::gguf_file;
+use candle_core::utils::{cuda_is_available, metal_is_available};
 
-use candle_transformers::utils::apply_repeat_penalty;
 use candle_transformers::models::quantized_llama as llama;
 use candle_transformers::models::quantized_qwen2 as qwen2;
+
+use candle_transformers::utils::apply_repeat_penalty;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 
 use crate::error::GptError;
+
+
+pub fn device(gpu: usize) -> Result<Device, GptError> {
+
+    if cuda_is_available() {
+        Ok(Device::new_cuda(gpu)?)
+    } else if metal_is_available() {
+        Ok(Device::new_metal(gpu)?)
+    } else {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            println!(
+                "Running on CPU, to run on GPU(metal), build this example with `--features metal`"
+            );
+        }
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            println!("Running on CPU, to run on GPU, build this example with `--features cuda`");
+        }
+        Ok(Device::Cpu)
+    }
+}
 
 // Define a trait that abstracts over model weight types
 pub trait InferenceModel {
@@ -37,16 +60,17 @@ impl InferenceModel for qwen2::ModelWeights {
 }
 
 pub struct TextGenerator {
-    pub model: GeneratorModel,
-    pub model_dir: PathBuf,
-    pub force_download: bool
+    pub model: Box<dyn InferenceModel>,
+    pub tokenizer: Tokenizer,
+    pub device: Device,
+    pub config: GeneratorConfig
 }
 
 impl TextGenerator {
-    pub fn new(model: GeneratorModel, model_dir: &Path, force_download: bool) -> Self {
+    pub fn new(config: GeneratorConfig) -> Result<Self, GptError> {
 
-        // Mixed precision GEMM kernels required for quantized Llama
-        match model {
+        match config.model {
+                // Mixed precision GEMM kernels for quantized Llama
             GeneratorModel::DeepseekR1Llama8bQ4KM => {
                 log::info!("Activate reduced precision GEMM kernels");
                 candle_core::cuda::set_gemm_reduced_precision_f16(true);
@@ -55,75 +79,20 @@ impl TextGenerator {
             _ => {},
         }
 
-        Self {
-            model,
-            model_dir: model_dir.to_path_buf(),
-            force_download
-        }
-    }
-    pub fn run(
-        &self,
-        prompt: &str,
-        raw_prompt: bool,
-        sample_len: usize,
-        split_prompt: bool,      // process prompt elements separately
-        clean: bool,
-        temperature: f64,
-        seed: u64,               // seed for generating random samples
-        top_k: Option<usize>,    // only sample among the top k samples
-        top_p: Option<f64>,      // nucleus sampling probability cutoff
-        repeat_penalty: f32,
-        repeat_last_n: usize,
-        log_info: bool
-    ) -> Result<(), GptError> {
+        let (model_path, tokenizer_path) = Self::get_model(&config)?;
 
-        let (model_path, tokenizer_path) = self.get_model()?;
-
-        let device = candle_examples::device(false)?;
+        let device = device(config.gpu)?;
         let mut file = std::fs::File::open(&model_path)?;
 
-        let start_reading_tensors = std::time::Instant::now();
+        let start_tensor_load = std::time::Instant::now();
         let gguf = gguf_file::Content::read(&mut file)
             .map_err(|e| e.with_path(&model_path))?;
-        self.gguf_info(&gguf, &start_reading_tensors);
+        Self::gguf_info(&gguf, &start_tensor_load);
 
         let tokenizer = Tokenizer::from_file(tokenizer_path)?;
-        let mut tos = TokenOutputStream::new(tokenizer);
 
-        let prompt = if raw_prompt {
-            prompt.to_string()
-        } else {
-            self.model.format_prompt(prompt)
-        };
-
-        if log_info {
-            log::info!("Prompt is: \n\n{prompt}\n\n");
-        }
-
-        let tokens = tos
-            .tokenizer()
-            .encode(prompt, true)?;
-
-        let mut tokens = tokens.get_ids().to_vec();
-        let to_sample = sample_len.saturating_sub(1);
-
-
-        let mut logits_processor = self.build_logits_processor(
-            temperature, 
-            seed, 
-            top_k, 
-            top_p
-        );
-
-        let mut model: Box<dyn InferenceModel>  = match self.model {
+        let model: Box<dyn InferenceModel>  = match config.model {
             GeneratorModel::DeepseekR1Llama8bQ4KM => {
-
-                tokens = if tokens.len() + to_sample > llama::MAX_SEQ_LEN - 10 {
-                    let to_remove = tokens.len() + to_sample + 10 - llama::MAX_SEQ_LEN;
-                    tokens[tokens.len().saturating_sub(to_remove)..].to_vec()
-                } else {
-                    tokens.to_vec()
-                };
 
                 let model = llama::ModelWeights::from_gguf(
                     gguf, 
@@ -154,26 +123,92 @@ impl TextGenerator {
             }
         };
 
-        self.generate(
-            &mut *model,
-            &device,
+        Ok(Self {
+            model,
+            tokenizer,
+            device,
+            config
+        })
+    }
+    pub fn run(
+        &mut self,
+        prompt: &str,
+    ) -> Result<(String, String), GptError> {
+
+        let mut tos = TokenOutputStream::new(
+            self.tokenizer.clone()
+        );
+
+        let prompt = if self.config.raw_prompt {
+            prompt.to_string()
+        } else {
+            self.config.model.format_prompt(prompt)
+        };
+
+        if self.config.log_info {
+            log::info!("Prompt is: \n\n{prompt}\n\n");
+        }
+
+        let tokens = tos
+            .tokenizer()
+            .encode(prompt, true)?;
+
+        let mut tokens = tokens.get_ids().to_vec();
+        let to_sample = self.config.sample_len.saturating_sub(1);
+
+        match self.config.model {
+            GeneratorModel::DeepseekR1Llama8bQ4KM => {
+                tokens = if tokens.len() + to_sample > llama::MAX_SEQ_LEN - 10 {
+                    let to_remove = tokens.len() + to_sample + 10 - llama::MAX_SEQ_LEN;
+                    tokens[tokens.len().saturating_sub(to_remove)..].to_vec()
+                } else {
+                    tokens.to_vec()
+                };
+            },
+            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+                | GeneratorModel::DeepseekR1Qwen7bQ80
+                | GeneratorModel::DeepseekR1Qwen7bF16
+                | GeneratorModel::DeepseekR1Qwen14bQ2KL
+                | GeneratorModel::DeepseekR1Qwen14bQ4KM
+                | GeneratorModel::DeepseekR1Qwen14bQ80
+                | GeneratorModel::DeepseekR1Qwen14bF16 
+                | GeneratorModel::DeepseekR1Qwen32bQ2KL
+                | GeneratorModel::DeepseekR1Qwen32bQ4KM
+                | GeneratorModel::DeepseekR1Qwen32bQ80
+                | GeneratorModel::DeepseekR1Qwen32bF16 
+            => {}
+        }
+
+        let mut logits_processor = TextGenerator::build_logits_processor(
+            self.config.temperature, 
+            self.config.seed, 
+            self.config.top_k, 
+            self.config.top_p
+        );
+
+        log::info!("Build model architecture with weights...");
+        
+        let eos_token = self.config.model.get_eos_token(&tos)?;
+
+        log::info!("Start generative process...");
+        let (thoughts, answer) = TextGenerator::generate(
+            self.model.as_mut(),
+            &self.device,
             &tokens,
             &mut tos,
             &mut logits_processor,
-            sample_len,
-            repeat_penalty,
-            repeat_last_n,
-            split_prompt,
-            log_info,
-            clean
+            self.config.sample_len,
+            self.config.repeat_penalty,
+            self.config.repeat_last_n,
+            eos_token,
+            self.config.split_prompt,
+            self.config.log_info
         )?;
 
-        Ok(())
+        Ok((thoughts, answer))
         
-
     }
     pub fn generate(
-        &self,
         model: &mut dyn InferenceModel,
         device: &Device,
         tokens: &[u32],
@@ -182,16 +217,16 @@ impl TextGenerator {
         to_sample: usize,
         repeat_penalty: f32,
         repeat_last_n: usize,
+        eos_token: u32,
         split_prompt: bool,
         log_info: bool,
-        clean: bool
-    ) -> Result<(), GptError> {
+    ) -> Result<(String, String), GptError> {
 
         // Holds all tokens generated
         let mut all_tokens = vec![];
         
         // Process the prompt input
-        let (first_token, prompt_dt) = self.process_prompt(
+        let (first_token, prompt_dt) = TextGenerator::process_prompt(
             &mut *model,
             &tokens,
             split_prompt,
@@ -199,17 +234,18 @@ impl TextGenerator {
             logits_processor,
         )?;
 
-        // Hold the token and print it out
         all_tokens.push(first_token);
         if let Some(t) = tos.next_token(first_token)? {
-            print!("{t}");
-            std::io::stdout().flush()?;
+            if log_info {
+                print!("{t}");
+                std::io::stdout().flush()?;
+            }
         }
 
-        let eos = self.model.get_eos_token(tos)?;
+        log::info!("Generating tokens...");
 
         // Process the main sample loop
-        let (sampled, gen_dt) = self.generate_qwen(
+        let (mut text, sampled, gen_dt) = TextGenerator::sample_tokens(
             &mut *model,
             first_token,
             &mut all_tokens,
@@ -218,18 +254,22 @@ impl TextGenerator {
             tokens.len(),
             repeat_penalty,
             repeat_last_n,
-            eos,
+            eos_token,
             tos,
             &device,
+            log_info
         )?;
 
         // Flush any trailing subwords and final newline
         if let Some(rest) = tos.decode_rest().map_err(candle_core::Error::msg)? {
-            print!("{rest}");
+            if log_info {
+                print!("{rest}");
+                std::io::stdout().flush()?;
+                println!("\n");
+            }
+            text.push_str(&rest)
         }
-        std::io::stdout().flush()?;
 
-        println!("\n");
 
         if log_info {
             log::info!(
@@ -243,12 +283,11 @@ impl TextGenerator {
                 sampled as f64 / gen_dt.as_secs_f64(),
             );
         }
-        
-        Ok(())
+
+        Ok(split_think(&text))
     }
-    /// Run the post-prompt generation loop for Qwen-based models
-    pub fn generate_qwen(
-        &self,
+    /// Run the post-prompt generation loop
+    fn sample_tokens(
         model: &mut dyn InferenceModel,
         mut next_token: u32,
         all_tokens: &mut Vec<u32>,
@@ -260,11 +299,14 @@ impl TextGenerator {
         eos_token: u32,
         tos: &mut TokenOutputStream,
         device: &Device,
-    ) -> Result<(usize, std::time::Duration), GptError> {
+        log_info: bool
+    ) -> Result<(String, u32, std::time::Duration), GptError> {
 
         let start = std::time::Instant::now();
-        let mut sampled = 0;
 
+        let mut sampled = 0;
+        let mut generated = String::new();
+        
         for i in 0..to_sample {
 
             // Forward one token
@@ -282,8 +324,11 @@ impl TextGenerator {
             all_tokens.push(next_token);
 
             if let Some(text) = tos.next_token(next_token)? {
-                print!("{}", text);
-                std::io::stdout().flush()?;
+                if log_info {
+                    print!("{}", text);
+                    std::io::stdout().flush()?;
+                }
+                generated.push_str(&text)
             }
 
             sampled += 1;
@@ -292,10 +337,9 @@ impl TextGenerator {
             }
         }
 
-        Ok((sampled, start.elapsed()))
+        Ok((generated, sampled, start.elapsed()))
     }
     pub fn process_prompt(
-        &self,
         model: &mut dyn InferenceModel,
         tokens: &[u32],
         split_prompt: bool,
@@ -320,7 +364,7 @@ impl TextGenerator {
 
         Ok((tok, start.elapsed()))
     }
-    pub fn build_logits_processor(&self, temperature: f64, seed: u64, top_k: Option<usize>, top_p: Option<f64>) -> LogitsProcessor {
+    pub fn build_logits_processor(temperature: f64, seed: u64, top_k: Option<usize>, top_p: Option<f64>) -> LogitsProcessor {
 
         let sampling = if temperature <= 0. {
             Sampling::ArgMax
@@ -334,7 +378,7 @@ impl TextGenerator {
         };
         LogitsProcessor::from_sampling(seed, sampling)
     }
-    pub fn gguf_info(&self, gguf: &gguf_file::Content, start: &std::time::Instant) {
+    pub fn gguf_info(gguf: &gguf_file::Content, start: &std::time::Instant) {
 
         let mut total_size_in_bytes = 0;
         for (_, tensor) in gguf.tensor_infos.iter() {
@@ -349,24 +393,44 @@ impl TextGenerator {
             start.elapsed().as_secs_f32(),
         );
     }
-    pub fn get_model(&self) -> Result<(PathBuf, PathBuf), GptError> {
+    pub fn get_model(config: &GeneratorConfig) -> Result<(PathBuf, PathBuf), GptError> {
 
-        let model_path = self.model_dir.join(&self.model.model_file());
-        let tokenizer_path = self.model_dir.join(&self.model.tokenizer_file());
+        let model_path = config.model_dir.join(&config.model.model_file());
+        let tokenizer_path = config.model_dir.join(&config.model.tokenizer_file());
         
-        let model_file = if model_path.exists() & !self.force_download {
+        let model_file = if model_path.exists() & !config.force_download {
             model_path.clone()
         } else {
-            self.model.save_model(&self.model_dir)?
+            config.model.save_model(&config.model_dir)?
         };
 
-        let tokenizer_file = if tokenizer_path.exists() & !self.force_download {
+        let tokenizer_file = if tokenizer_path.exists() & !config.force_download {
             tokenizer_path.clone()
         } else {
-            self.model.save_tokenizer(&self.model_dir)?
+            config.model.save_tokenizer(&config.model_dir)?
         };
 
         Ok((model_file, tokenizer_file))
+    }
+}
+
+fn split_think(text: &str) -> (String, String) {
+    // Split at most once on the delimiter
+    let mut parts = text.splitn(2, "</think>");
+
+    // Always get the text before the first (or only) chunk
+    let first = parts.next().unwrap_or("");
+
+    if let Some(second) = parts.next() {
+        // We had exactly two parts
+        let though  = first.to_string();
+        let answer  = second.to_string();
+        (though, answer)
+    } else {
+        // No delimiter found → return the whole thing as `answer`
+        let though = String::new();
+        let answer = text.to_string();
+        (though, answer)
     }
 }
 
@@ -531,8 +595,9 @@ impl GeneratorModel {
         PathBuf::from(format!("{}.tokenizer.json", self.model_name()))
     }
 
-    pub fn get_eos_token(&self, 
-        tos: &mut TokenOutputStream,
+    pub fn get_eos_token(
+        &self, 
+        tos: &TokenOutputStream,
     ) -> Result<u32, GptError> {
 
         // Get the  end of sentence token
@@ -620,23 +685,23 @@ fn format_size(size_in_bytes: usize) -> String {
 pub struct TextGeneratorArgs {
 
     /// Text generation model.
-    #[arg(long, default_value = "deepseekr1-qwen7b-q4-km")]
+    #[arg(long, short='m', default_value = "deepseekr1-qwen7b-q4-km")]
     pub model: GeneratorModel,
 
     /// Input user prompt.
-    #[arg(long)]
+    #[arg(long, short='p')]
     pub prompt: String,
 
     /// Model file and download directory.
-    #[arg(long, default_value=".")]
-    pub model_dir: PathBuf,
+    #[arg(long, short='d', default_value=".")]
+    pub dir: PathBuf,
 
     /// Force download of model and tokenizer files if they do not exist in the model directory.
-    #[arg(long)]
+    #[arg(long, short='f')]
     pub force_download: bool,
 
     /// Force raw prompt instead of adding model tokens to input prompt.
-    #[arg(long)]
+    #[arg(long, short='r')]
     pub raw_prompt: bool,
 
     /// The length of the sample to generate (in tokens).
@@ -644,16 +709,20 @@ pub struct TextGeneratorArgs {
     pub sample_len: usize,
 
     /// The temperature used to generate samples, use 0 for greedy sampling.
-    #[arg(long, default_value_t = 0.8)]
+    #[arg(long, short='t', default_value_t = 0.8)]
     pub temperature: f64,
 
     /// Nucleus sampling probability cutoff.
-    #[arg(long)]
+    #[arg(long, short='p')]
     pub top_p: Option<f64>,
 
     /// Only sample among the top K samples.
-    #[arg(long)]
+    #[arg(long, short='k')]
     pub top_k: Option<usize>,
+
+    /// GPU device index to run on.
+    #[arg(long, short='g', default_value_t=0)]
+    pub gpu: usize,
 
     /// The seed to use when generating random samples.
     #[arg(long, default_value_t = 299792458)]
@@ -664,8 +733,8 @@ pub struct TextGeneratorArgs {
     pub split_prompt: bool,
 
     /// Clean output prompt e.g. by removing <think> tags for Deepseek.
-    #[arg(long, short='c')]
-    pub clean: bool,
+    #[arg(long)]
+    pub clean_output: bool,
 
     /// Penalty to be applied for repeating tokens, 1. means no penalty.
     #[arg(long, default_value_t = 1.1)]
@@ -679,4 +748,239 @@ pub struct TextGeneratorArgs {
     #[arg(long)]
     pub log_info: bool,
 
+}
+
+
+/// This is a wrapper around a tokenizer to ensure that tokens can be returned to the user in a
+/// streaming way rather than having to wait for the full decoding.
+/// 
+/// https://github.com/huggingface/candle/blob/main/candle-examples/src/token_output_stream.rs
+pub struct TokenOutputStream {
+    tokenizer: tokenizers::Tokenizer,
+    tokens: Vec<u32>,
+    prev_index: usize,
+    current_index: usize,
+}
+
+impl TokenOutputStream {
+    pub fn new(tokenizer: tokenizers::Tokenizer) -> Self {
+        Self {
+            tokenizer,
+            tokens: Vec::new(),
+            prev_index: 0,
+            current_index: 0,
+        }
+    }
+
+    pub fn into_inner(self) -> tokenizers::Tokenizer {
+        self.tokenizer
+    }
+
+    fn decode(&self, tokens: &[u32]) -> Result<String, GptError> {
+        Ok(self.tokenizer.decode(tokens, true)?)
+    }
+
+    // https://github.com/huggingface/text-generation-inference/blob/5ba53d44a18983a4de32d122f4cb46f4a17d9ef6/server/text_generation_server/models/model.py#L68
+    pub fn next_token(&mut self, token: u32) -> Result<Option<String>, GptError> {
+        let prev_text = if self.tokens.is_empty() {
+            String::new()
+        } else {
+            let tokens = &self.tokens[self.prev_index..self.current_index];
+            self.decode(tokens)?
+        };
+        self.tokens.push(token);
+        let text = self.decode(&self.tokens[self.prev_index..])?;
+        if text.len() > prev_text.len() && text.chars().last().unwrap().is_alphanumeric() {
+            let text = text.split_at(prev_text.len());
+            self.prev_index = self.current_index;
+            self.current_index = self.tokens.len();
+            Ok(Some(text.1.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn decode_rest(&self) -> Result<Option<String>, GptError> {
+        let prev_text = if self.tokens.is_empty() {
+            String::new()
+        } else {
+            let tokens = &self.tokens[self.prev_index..self.current_index];
+            self.decode(tokens)?
+        };
+        let text = self.decode(&self.tokens[self.prev_index..])?;
+        if text.len() > prev_text.len() {
+            let text = text.split_at(prev_text.len());
+            Ok(Some(text.1.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn decode_all(&self) -> Result<String, GptError> {
+        self.decode(&self.tokens)
+    }
+
+    pub fn get_token(&self, token_s: &str) -> Option<u32> {
+        self.tokenizer.get_vocab(true).get(token_s).copied()
+    }
+
+    pub fn tokenizer(&self) -> &tokenizers::Tokenizer {
+        &self.tokenizer
+    }
+
+    pub fn clear(&mut self) {
+        self.tokens.clear();
+        self.prev_index = 0;
+        self.current_index = 0;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GeneratorConfig {
+    pub model: GeneratorModel,
+    pub model_dir: PathBuf, 
+    pub force_download: bool,
+    pub raw_prompt: bool,
+    pub sample_len: usize,
+    pub split_prompt: bool,
+    pub clean_output: bool,
+    pub temperature: f64,
+    pub seed: u64,
+    pub top_k: Option<usize>,
+    pub top_p: Option<f64>,
+    pub repeat_penalty: f32,
+    pub repeat_last_n: usize,
+    pub log_info: bool,
+    pub gpu: usize,
+}
+
+impl Default for GeneratorConfig {
+    fn default() -> Self {
+        GeneratorConfig {
+            model: GeneratorModel::DeepseekR1Qwen7bQ4KM,
+            model_dir: PathBuf::from("."), 
+            force_download: false,
+            raw_prompt: false,
+            sample_len: 10000,
+            split_prompt: false,
+            clean_output: false,
+            temperature: 0.8,
+            seed: 299792458,
+            top_k: None,
+            top_p: None,
+            repeat_penalty: 1.1,
+            repeat_last_n: 64,
+            log_info: false,
+            gpu: 0,
+        }
+    }
+}
+
+impl GeneratorConfig {
+    pub fn with_default(model: GeneratorModel, model_dir: PathBuf, sample_len: usize, temperature: f64, gpu: usize) -> Self {
+        GeneratorConfigBuilder::new()
+            .model(model)
+            .model_dir(model_dir)
+            .sample_len(sample_len)
+            .temperature(temperature)
+            .gpu(gpu)
+            .build()
+    }
+    pub fn from_args(args: &TextGeneratorArgs) -> Self {
+        GeneratorConfig {
+            model: args.model,
+            model_dir: args.dir.clone(), 
+            force_download: args.force_download,
+            raw_prompt: args.raw_prompt,
+            sample_len: args.sample_len,
+            split_prompt: args.split_prompt,
+            clean_output: args.clean_output,
+            temperature: args.temperature,
+            seed: args.seed,
+            top_k: args.top_k.clone(),
+            top_p: args.top_p.clone(),
+            repeat_penalty: args.repeat_penalty,
+            repeat_last_n: args.repeat_last_n,
+            log_info: args.log_info,
+            gpu: args.gpu,
+        }
+    }
+}
+
+pub struct GeneratorConfigBuilder {
+    cfg: GeneratorConfig,
+}
+
+impl GeneratorConfigBuilder {
+    /// Start a new builder with all defaults.
+    pub fn new() -> Self {
+        GeneratorConfigBuilder {
+            cfg: GeneratorConfig::default(),
+        }
+    }
+    pub fn model(mut self, model: GeneratorModel) -> Self {
+        self.cfg.model = model;
+        self
+    }
+    pub fn model_dir(mut self, model_dir: PathBuf) -> Self {
+        self.cfg.model_dir = model_dir;
+        self
+    }
+    pub fn force_download(mut self, force_download: bool) -> Self {
+        self.cfg.force_download = force_download;
+        self
+    }
+    pub fn raw_prompt(mut self, raw_prompt: bool) -> Self {
+        self.cfg.raw_prompt = raw_prompt;
+        self
+    }
+    pub fn sample_len(mut self, sample_len: usize) -> Self {
+        self.cfg.sample_len = sample_len;
+        self
+    }
+    pub fn split_prompt(mut self, split_prompt: bool) -> Self {
+        self.cfg.split_prompt = split_prompt;
+        self
+    }
+    pub fn clean_output(mut self, clean_output: bool) -> Self {
+        self.cfg.clean_output = clean_output;
+        self
+    }
+    pub fn temperature(mut self, temperature: f64) -> Self {
+        self.cfg.temperature = temperature;
+        self
+    }
+    pub fn seed(mut self, seed: u64) -> Self {
+        self.cfg.seed = seed;
+        self
+    }
+    pub fn top_k(mut self, top_k: impl Into<Option<usize>>) -> Self {
+        self.cfg.top_k = top_k.into();
+        self
+    }
+    pub fn top_p(mut self, top_p: impl Into<Option<f64>>) -> Self {
+        self.cfg.top_p = top_p.into();
+        self
+    }
+    pub fn repeat_penalty(mut self, repeat_penalty: f32) -> Self {
+        self.cfg.repeat_penalty = repeat_penalty;
+        self
+    }
+    pub fn repeat_last_n(mut self, repeat_last_n: usize) -> Self {
+        self.cfg.repeat_last_n = repeat_last_n;
+        self
+    }
+    pub fn log_info(mut self, log_info: bool) -> Self {
+        self.cfg.log_info = log_info;
+        self
+    }
+    pub fn gpu(mut self, gpu: usize) -> Self {
+        self.cfg.gpu = gpu;
+        self
+    }
+
+    /// Finalize the builder and get your `GeneratorConfig`.
+    pub fn build(self) -> GeneratorConfig {
+        self.cfg
+    }
 }

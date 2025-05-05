@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use plotters::prelude::DrawingBackend;
 use thiserror::Error;
 
 /*

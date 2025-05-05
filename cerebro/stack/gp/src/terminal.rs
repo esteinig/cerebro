@@ -1,20 +1,10 @@
 use std::path::PathBuf;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
-use crate::gpt::{ClinicalContext, GptModel};
-
-
-#[cfg(feature = "local")]
-use crate::llama::LlamaArgs;
+use crate::gpt::{AssayContext, GptModel, SampleContext};
 
 #[cfg(feature = "local")]
-use crate::quantized::QuantizedArgs;
-
-#[cfg(feature = "local")]
-use crate::qwen::QwenArgs;
-
-#[cfg(feature = "local")]
-use crate::text::TextGeneratorArgs;
+use crate::text::{GeneratorModel, TextGeneratorArgs};
 
 /// Cerebro: metagenomic generative practitioner (GPT)
 #[derive(Debug, Parser)]
@@ -100,24 +90,20 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Diagnose a sample given the evidence and decision tree
-    Diagnose(DiagnoseArgs),
+    /// Diagnose a sample given the evidence and decision tree using commercial models
+    DiagnoseApi(DiagnoseApiArgs),
+
+
+    /// Prefetch tiered data with filter settings for a sample and save to file
+    PrefetchTiered(PrefetchTieredArgs),
     
     #[cfg(feature = "local")]
-    /// Run local text generation wrapper
+    /// Diagnose a sample given the evidence and decision tree using local models
+    DiagnoseLocal(DiagnoseLocalArgs),
+
+    #[cfg(feature = "local")]
+    /// Run local text generation on GPU
     Generate(TextGeneratorArgs),
-
-    #[cfg(feature = "local")]
-    /// Run local text generation with Llama
-    Llama(LlamaArgs),
-
-    #[cfg(feature = "local")]
-    /// Run local text generation with quantized models
-    Quantized(QuantizedArgs),
-
-    #[cfg(feature = "local")]
-    /// Run local text generation with quantized models
-    Qwen(QwenArgs),
 }
 
 #[derive(Debug, Args)]
@@ -131,7 +117,8 @@ pub enum Commands {
     .required(false)
     .multiple(true)
 )]
-pub struct DiagnoseArgs {
+
+pub struct DiagnoseApiArgs {
     /// Sample identifier for query
     #[clap(long, short = 's')]
     pub sample: String,
@@ -145,7 +132,7 @@ pub struct DiagnoseArgs {
     #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
     pub json: Option<PathBuf>,
     /// OpenAI model for diagnostic queries
-    #[clap(long, short = 'm', default_value="3o-mini")]
+    #[clap(long, short = 'm', default_value="o3-mini")]
     pub model: GptModel,
     /// Dry run printing only decision tree and validating inputs
     #[clap(long, short = 'd')]
@@ -158,15 +145,104 @@ pub struct DiagnoseArgs {
     pub diagnostic_log: PathBuf,
     /// Clinical context model for diagnostic queries
     #[clap(long, default_value="csf")]
-    pub clinical_context: ClinicalContext,
-    /// Add memory of the diagostic decision tree to key decision points
-    #[clap(long, short = 'd')]
-    pub diagnostic_memory: bool,
+    pub clinical_context: SampleContext,
+    /// Clinical notes to be added to clinical context
+    #[clap(long)]
+    pub clinical_notes: Option<String>,
     /// Check for contamination history outliers to be removed from prevalence filter
-    #[clap(long, short = 'h')]
-    pub contam_history: bool,
+    #[clap(long)]
+    pub contam_history: Option<bool>,
     /// Ignore these taxstr as filter for threshold values
-    #[clap(long, short = 'i', num_args=1..)]
+    #[clap(long, num_args=1..)]
+    pub ignore_taxstr: Option<Vec<String>>,
+}
+
+
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("user")
+    .multiple(true)
+    .args(&["controls", "tags"])
+)]
+#[clap(group = ArgGroup::new("file")
+    .args(&["json"])
+)]
+pub struct PrefetchTieredArgs {
+    /// Sample identifier for query
+    #[clap(long, short = 's')]
+    pub sample: String,
+    /// Output file for prefetched tiered filter data
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+    /// Control sample identifiers associated with sample
+    #[clap(long, short = 'c', num_args(0..), group = "user", help_heading = "Validation Query")]
+    pub controls: Option<Vec<String>>,
+    /// Tags for sample and model query
+    #[clap(long, short = 't', num_args(0..), group = "user", help_heading = "Validation Query")]
+    pub tags: Option<Vec<String>>,
+    /// Request schema (.json)
+    #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
+    pub json: Option<PathBuf>,
+    /// Check for contamination history outliers to be removed from prevalence filter
+    #[clap(long)]
+    pub contam_history: Option<bool>,
+    /// Ignore these taxstr as filter for threshold values
+    #[clap(long, num_args=1..)]
+    pub ignore_taxstr: Option<Vec<String>>,
+}
+
+#[cfg(feature = "local")]
+#[derive(Debug, Args)]
+#[clap(group = ArgGroup::new("user")
+    .multiple(true)
+    .args(&["sample", "controls", "tags"])
+)]
+#[clap(group = ArgGroup::new("file")
+    .args(&["sample", "json"])
+)]
+#[clap(group = ArgGroup::new("data")
+    .args(&["prefetch"])
+)]pub struct DiagnoseLocalArgs {
+    /// Sample identifier for query
+    #[clap(long, short = 's')]
+    pub sample: Option<String>,
+    /// Control sample identifiers associated with sample
+    #[clap(long, short = 'c', num_args(0..), group = "user", help_heading = "User Query")]
+    pub controls: Option<Vec<String>>,
+    /// Tags for sample and model query
+    #[clap(long, short = 't', num_args(0..), group = "user", help_heading = "User Query")]
+    pub tags: Option<Vec<String>>,
+    /// JSON file of request schema
+    #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
+    pub json: Option<PathBuf>,
+    /// Prefetched data for sample
+    #[clap(long, short = 'p', group = "data", help_heading = "Prefetch Query")]
+    pub prefetch: Option<PathBuf>,
+    /// Local generator model for diagnostic queries
+    #[clap(long, short = 'm', default_value="deepseekr1-qwen7b-q8-0")]
+    pub model: GeneratorModel,
+    /// Dry run printing only decision tree and validating inputs
+    #[clap(long, short = 'd')]
+    pub dry_run: bool,
+    /// State log at completion of diagnostic evidence synthesis
+    #[clap(long, short = 'l')]
+    pub state_log: Option<PathBuf>,
+    /// Diagnostic log at completion of diagnostic evidence synthesis
+    #[clap(long, short = 'o', default_value="diagnostic.log")]
+    pub diagnostic_log: PathBuf,
+    /// Clinical context model for diagnostic queries
+    #[clap(long, default_value="none")]
+    pub sample_context: SampleContext,
+    /// Clinical context model for diagnostic queries
+    #[clap(long, default_value="cerebro-filter")]
+    pub assay_context: Option<AssayContext>,
+    /// Clinical notes to be added to clinical context
+    #[clap(long)]
+    pub clinical_notes: Option<String>,
+    /// Check for contamination history outliers to be removed from prevalence filter
+    #[clap(long)]
+    pub contam_history: Option<bool>,
+    /// Ignore these taxstr as filter for threshold values
+    #[clap(long, num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,
 }
 

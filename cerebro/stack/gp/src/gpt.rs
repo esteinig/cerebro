@@ -27,6 +27,9 @@ use plotters::prelude::*;
 use crate::error::GptError;
 
 
+#[cfg(feature = "local")]
+use crate::text::{TextGenerator, GeneratorModel};
+
 //
 // === Refined Question Types ===
 //
@@ -36,67 +39,51 @@ use crate::error::GptError;
 pub enum Question {
     Simple(String),
     Detailed {
-        prompt: String,
-        context_description: Option<String>,
+        tasks: String,
+        data: Option<String>,
+        context: Option<String>,
         instructions: Option<String>,
     },
 }
 impl Question {
-    /// Emit in the standard:
     /// [Context]
     /// ...
     /// 
-    /// [Task]
+    /// [Tasks]
     /// ...
     ///
-    /// [Output Format]
+    /// [Instructions]
     /// ...
     pub fn to_standard_prompt(&self) -> String {
-        let (prompt, ctx, instr) = match self {
-            Question::Simple(p) => (p.clone(), None, None),
-            Question::Detailed { prompt, context_description, instructions } => {
-                (prompt.clone(), context_description.clone(), instructions.clone())
+        let (tasks, data, context, instructions) = match self {
+            Question::Simple(p) => (p.clone(), None, None, None),
+            Question::Detailed { tasks, data, context, instructions } => {
+                (tasks.clone(), data.clone(), context.clone(), instructions.clone())
             }
         };
 
         let mut out = String::new();
-        if let Some(ctx) = ctx {
+        if let Some(context) = context {
             out.push_str("[Context]\n");
-            out.push_str(&ctx);
+            out.push_str(&context);
             out.push_str("\n\n");
         }
-        out.push_str("[Task]\n");
-        out.push_str(&prompt);
+        if let Some(data) = data {
+            out.push_str("[Data]\n");
+            out.push_str(&data);
+            out.push_str("\n\n");
+        }
+
+        out.push_str("[Tasks]\n");
+        out.push_str(&tasks);
         out.push_str("\n\n");
-        if let Some(instr) = instr {
-            out.push_str("[Output Format]\n");
-            out.push_str(&instr);
+
+        if let Some(instructions) = instructions {
+            out.push_str("[Instructions]\n");
+            out.push_str(&instructions);
             out.push_str("\n");
         }
         out
-    }
-}
-
-impl Question {
-    pub fn to_prompt(&self) -> String {
-        match self {
-            Question::Simple(s) => s.clone(),
-            Question::Detailed {
-                prompt,
-                context_description,
-                instructions,
-            } => {
-                let mut combined = String::new();
-                combined.push_str(&format!("{}\n", prompt));
-                if let Some(context) = context_description {
-                    combined.push_str(&format!("Context: {}\n", context));
-                }
-                if let Some(instr) = instructions {
-                    combined.push_str(&format!("Instructions: {}\n", instr));
-                }
-                combined
-            }
-        }
     }
 }
 
@@ -108,60 +95,71 @@ pub enum GptStrategy {
 }
 
 pub struct ThresholdCandidates {
-    pub above_threshold: Option<Vec<Taxon>>,
-    pub below_threshold: Option<Vec<Taxon>>,
-    pub target_list: Option<Vec<Taxon>>
+    pub primary_threshold: Option<Vec<Taxon>>,
+    pub secondary_threshold: Option<Vec<Taxon>>,
+    pub target_threshold: Option<Vec<Taxon>>,
+    pub integrate_threshold: Option<Vec<Taxon>>
 }
 
 impl ThresholdCandidates {
-    pub fn from_above_threshold(above_threshold: Vec<Taxon>) -> Self {
-        Self { above_threshold: Some(above_threshold), below_threshold: None, target_list: None }
+    pub fn from_primary_threshold(taxa: Vec<Taxon>) -> Self {
+        Self { primary_threshold: Some(taxa), secondary_threshold: None, target_threshold: None, integrate_threshold: None }
     }
-    pub fn from_below_threshold(below_threshold: Vec<Taxon>) -> Self {
-        Self { above_threshold: None, below_threshold: Some(below_threshold), target_list: None }
+    pub fn from_secondary_threshold(taxa: Vec<Taxon>) -> Self {
+        Self { primary_threshold: None, secondary_threshold: Some(taxa), target_threshold: None, integrate_threshold: None }
     }
-    pub fn from_target_list(target_list: Vec<Taxon>) -> Self {
-        Self { above_threshold: None, below_threshold: None, target_list: Some(target_list) }
+    pub fn from_target_threshold(taxa: Vec<Taxon>) -> Self {
+        Self { primary_threshold: None, secondary_threshold: None, target_threshold: Some(taxa), integrate_threshold: None }
     }
-    /// Returns a formatted string summary of candidate taxa for each threshold.
-    /// - If a candidate group is `None`, it is omitted.
-    /// - If a candidate group is `Some` but empty, "no taxa called" is shown.
-    /// - Otherwise, the header is printed along with the list of taxon names.
-    pub fn to_str(&self) -> String {
+    pub fn from_integrate_threshold(taxa: Vec<Taxon>) -> Self {
+        Self { primary_threshold: None, secondary_threshold: None, target_threshold: None, integrate_threshold: Some(taxa) }
+    }
+    pub fn to_str(&self, evidence: bool) -> String {
         let mut output = String::new();
 
         // Process above threshold candidates
-        if let Some(ref above) = self.above_threshold {
-            output.push_str("Above threshold candidate taxa: ");
+        if let Some(ref above) = self.primary_threshold {
             if above.is_empty() {
-                output.push_str("no taxa called\n\n");
+                output.push_str("No taxa detected.");
             } else {
+                output.push_str("Taxa:\n\n");
                 // Join the names of the taxa with commas.
-                let taxa: Vec<String> = above.iter().map(|taxon| format!("{taxon}")).collect();
-                output.push_str(&taxa.join("\n"));
+                let taxa: Vec<String> = above.iter().map(|taxon| taxon.species_data(evidence)).collect();
+                output.push_str(&taxa.join("\n\n"));
             }
             output.push('\n');
         }
 
         // Process below threshold candidates
-        if let Some(ref below) = self.below_threshold {
-            output.push_str("Below threshold candidate taxa: ");
+        if let Some(ref below) = self.secondary_threshold {
             if below.is_empty() {
-                output.push_str("no taxa called\n\n");
+                output.push_str("No taxa detected.");
             } else {
-                let taxa: Vec<String> = below.iter().map(|taxon| format!("{taxon}")).collect();
-                output.push_str(&taxa.join("\n"));
+                output.push_str("Taxa:\n\n");
+                let taxa: Vec<String> = below.iter().map(|taxon| taxon.species_data(evidence)).collect();
+                output.push_str(&taxa.join("\n\n"));
             }
         }
 
         // Process target list candidate taxa
-        if let Some(ref target) = self.target_list {
-            output.push_str("Target threshold candidate taxa: ");
+        if let Some(ref target) = self.target_threshold {
             if target.is_empty() {
-                output.push_str("no taxa called\n\n");
+                output.push_str("No taxa detected.");
             } else {
-                let taxa: Vec<String> = target.iter().map(|taxon| format!("{taxon}")).collect();
-                output.push_str(&taxa.join("\n"));
+                output.push_str("Taxa:\n\n");
+                let taxa: Vec<String> = target.iter().map(|taxon| taxon.species_data(evidence)).collect();
+                output.push_str(&taxa.join("\n\n"));
+            }
+        }
+
+        // Process target list candidate taxa
+        if let Some(ref integrate) = self.integrate_threshold {
+            if integrate.is_empty() {
+                output.push_str("No taxa detected.");
+            } else {
+                output.push_str("Taxa:\n\n");
+                let taxa: Vec<String> = integrate.iter().map(|taxon| taxon.species_data(evidence)).collect();
+                output.push_str(&taxa.join("\n\n"));
             }
         }
 
@@ -170,50 +168,47 @@ impl ThresholdCandidates {
 }
 
 
-pub enum DataBackground {
-    CerebroFilter
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum AssayContext {
+    CerebroFilter,
+    None
 }
-impl DataBackground {
-    pub fn get_default(&self) -> String {
+impl AssayContext {
+    pub fn text(&self) -> String {
         match self {
-            DataBackground::CerebroFilter => String::from("
-                We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries on NextSeq) - a 'needle in a haystack' problem. Filtering the taxonomic profiling data from 
-                the Cerebro pipeline produced three subsets of the same dataset: above threshold (high-confidence, high abundance, specific but less sensitive), below threshold (sensitive but less specific, often 
-                contamination and low-level pathogen abundance), and a target pathogen list of high priority pathogens of interest, in this case vertebrate viruses (very sensitive but much less specific, 
-                often misalignments reported from viral reference queries low level,  filter on alkignment and k-mer evidence required imposed nevertheless). Cerebro in general uses multiple profiling methods 
-                (alignment, k-mer, assembly) for pathogen detection. Cerebro uses k-mer classifiers (Kraken2+Bracken, Metabuli, Ganon2), read alignment (Vircov with bowtie2 against ICTV viral references only) 
-                and metagenome assembly (Megahit) and BLAST queries of contigs - all methods use the same reference database Cipher which consists of ICTV, GTDB, EuPath, WormBase, FungiDB, etc,
-                as well as the human reference genome (CHM13v2). There is a risk of real contamination from sampling, processing, the lab environment, as well as from reference database genome contamination 
-                in particular in eukaryotic genomes as well as variable peformance sensitivties/specificities of the classifiers and aligners involved in making a taxon call. Host aneuploidy detection is conducted 
-                in some sample DNA libraries which involves detection of abnormal copy number variation (CNV) of large chromosomal segments across the host genome as tumors and cancer can be a differential diagnosis
-                for some infectious symptoms, and the metagenomics assay sequences a high amount of host background nucleic acid.
+            AssayContext::CerebroFilter => dedent(r"
+                We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries on NextSeq). Filtering the taxonomic profiling data from the bioinformatics pipeline produced three subsets of the same dataset: 
+                primary threshold (specific but less sensitive for pathogen detection, can contain high-abundance contamination), secondary threshold (sensitive but less specific for pathogen detection, can contain low-abundance contamination), and a 
+                target filter section containing high priority pathogens of interest (very sensitive but not specific for pathogen detection, can contain very low-abundance contamination). Our pipeline uses multiple profiling methods for pathogen detection - 
+                read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names
+                are taxonomic species name (genus name and species name). If you do not know a species, assume that the provided species name is correct - do not interpret unknown species names as another species you know!
             "),
+            AssayContext::None => String::new()
         }
     } 
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
-pub enum ClinicalContext {
+pub enum SampleContext {
     Csf,
     Eye,
+    None
 }
 
-impl ClinicalContext {
+impl SampleContext {
     pub fn text(&self) -> String {
         match self {
-            ClinicalContext::Csf => String::from("
-                CSF sample from a patient with neuroinflammatory or neurological symptoms. Rare cases of infectious agents common in this sample type and clinical presentation should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.
+            SampleContext::Csf => String::from("
+                CSF sample.
             "),
-            ClinicalContext::Eye => String::from("
-                Vitreous fluid sample from a patient with ocular infection or neurological symptoms. Unusual bacterial species at high to medium abundance should be considered if detected. Consider skin microbiome contamination from sampling site and other sources of contamination from handling of sterile samples.
+            SampleContext::Eye => String::from("
+                Vitreous fluid sample.
             "),
+            SampleContext::None => String::new()
         }
     }
-    pub fn with_default(&self, header: String, text: String) -> String {
-        match self {
-            ClinicalContext::Csf => format!("{}\n\n{header}==={text}", self.text()),
-            ClinicalContext::Eye => format!("{}\n\n{header}==={text}", self.text()),
-        }
+    pub fn with_clinical_notes(&self, notes: &str) -> String {
+        format!("{}\nClinical notes: {}", self.text(), notes)
     }
 }
 
@@ -223,82 +218,43 @@ impl ClinicalContext {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, Hash, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum CheckType {
-    LlmEval,
-    LlmDiagnosticEval,
-    LlmJsonEval,
+pub enum DiagnosticNode {
+    AneuploidyQuery,
     AboveThresholdQuery,
     BelowThresholdQuery,
     TargetThresholdQuery,
-    AneuploidyQuery,
-    TaxaHistoryQuery,
-    FlightCheckNonInfectious
+    IntegrateThresholds,
+    DiagnoseInfectious,
+    DiagnoseNonInfectious
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, Hash, PartialEq)]
 pub struct TreeNode {
+    label: Option<String>,
     question: Option<Question>,
-    check: Option<CheckType>,
+    check: Option<DiagnosticNode>,
     true_node: Option<String>,
     false_node: Option<String>,
     next: Option<String>,
     final_node: Option<bool>,
-    label: Option<String>
 }
 
 
 impl Default for TreeNode {
     fn default() -> Self {
         Self {
+            label: None,
             question: None,
             check: None,
             true_node: None,
             false_node: None,
             next: None,
             final_node: None,
-            label: None,
         }
     }
 }
 
 impl TreeNode {
-
-    /// Wrap the standard prompt in Qwen’s tokens
-    pub fn to_qwen_prompt(&self) -> String {
-        let system = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.";
-        let user_block = self
-            .question
-            .as_ref()
-            .expect("no question")
-            .to_standard_prompt();
-        format!(
-            "<|im_start|>system\n{}\n<|im_end|>\n\
-             <|im_start|>user\n{}\n<|im_end|>\n\
-             <|im_start|>assistant\n",
-            system, user_block
-        )
-    }
-
-    /// Wrap the standard prompt in Llama's tokens
-    pub fn to_llama_prompt(&self) -> String {
-        let system_msg = "You are a helpful assistant.";
-        let user_block = self
-            .question
-            .as_ref()
-            .expect("no question")
-            .to_standard_prompt();
-        format!(
-            "<|begin_of_text|>\
-            <|start_header_id|>system<|end_header_id|>\n\
-            {}\n\
-            <|eot_id|>\
-            <|start_header_id|>user<|end_header_id|>\n\
-            {}\n\
-            <|eot_id|>\
-            <|start_header_id|>assistant<|end_header_id|>",
-            system_msg, user_block
-        )
-    }
 
     /// Set a simple prompt
     pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
@@ -308,80 +264,117 @@ impl TreeNode {
     }
 
     /// Upgrade or set a Detailed question prompt
-    pub fn with_detailed_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
-        let prompt = prompt.into();
+    pub fn with_tasks<S: Into<String>>(mut self, tasks: S) ->  Result<Self, GptError>  {
+        let tasks = tasks.into();
         match self.question.take() {
-            Some(Question::Detailed { context_description, instructions, .. }) => {
-                self.question = Some(Question::Detailed { prompt, context_description, instructions })
+            Some(Question::Detailed { data, context, instructions, .. }) => {
+                self.question = Some(Question::Detailed { 
+                    tasks,
+                    context, 
+                    data, 
+                    instructions
+                })
             }
             _ => self.question = Some(Question::Detailed {
-                prompt,
-                context_description: None,
+                tasks,
+                context: None,
+                data: None,
                 instructions: None,
             }),
         }
-        self
+        Ok(self)
     }
 
     /// Add or replace the “Context:” block (use placeholders here)
-    pub fn with_context<S: Into<String>>(mut self, ctx: S) -> Self {
-        let ctx = ctx.into();
+    pub fn with_context<S: Into<String>>(mut self, context: S) -> Result<Self, GptError> {
+        let context = context.into();
         match self.question.take() {
-            Some(Question::Detailed { prompt, instructions, .. }) => {
+            Some(Question::Detailed { tasks, data, instructions, .. }) => {
                 self.question = Some(Question::Detailed {
-                    prompt,
-                    context_description: Some(ctx),
+                    tasks,
+                    context: Some(context),
+                    data,
                     instructions,
                 })
             }
             Some(Question::Simple(p)) => {
                 self.question = Some(Question::Detailed {
-                    prompt: p,
-                    context_description: Some(ctx),
+                    tasks: p,
+                    context: Some(context),
+                    data: None,
                     instructions: None,
                 })
             }
             None => {
                 self.question = Some(Question::Detailed {
-                    prompt: String::new(),
-                    context_description: Some(ctx),
+                    tasks: String::new(),
+                    context: Some(context),
+                    data: None,
                     instructions: None,
                 })
             }
         }
-        self
+        Ok(self)
     }
 
     /// Add or replace the “Instructions:” block
-    pub fn with_instructions<S: Into<String>>(mut self, instr: S) -> Self {
-        let instr = instr.into();
+    pub fn with_instructions<S: Into<String>>(mut self, instructions: S) -> Result<Self, GptError> {
+        let instructions = instructions.into();
         match self.question.take() {
-            Some(Question::Detailed { prompt, context_description, .. }) => {
+            Some(Question::Detailed { tasks, context, data, .. }) => {
                 self.question = Some(Question::Detailed {
-                    prompt,
-                    context_description,
-                    instructions: Some(instr),
+                    tasks,
+                    context,
+                    data,
+                    instructions: Some(instructions),
                 })
             }
             Some(Question::Simple(p)) => {
                 self.question = Some(Question::Detailed {
-                    prompt: p,
-                    context_description: None,
-                    instructions: Some(instr),
+                    tasks: p,
+                    context: None,
+                    data: None,
+                    instructions: Some(instructions),
                 })
             }
             None => {
                 self.question = Some(Question::Detailed {
-                    prompt: String::new(),
-                    context_description: None,
-                    instructions: Some(instr),
+                    tasks: String::new(),
+                    context: None,
+                    data: None,
+                    instructions: Some(instructions),
                 })
             }
         }
-        self
+        Ok(self)
     }
 
-    pub fn with_check(mut self, c: CheckType) -> Self {
+    /// Add or replace the “Instructions:” block
+    pub fn with_data<S: Into<String>>(mut self, data: S) -> Result<Self, GptError> {
+        let data = data.into();
+        match self.question.take() {
+            Some(Question::Detailed { tasks, context, instructions, .. }) => {
+                self.question = Some(Question::Detailed {
+                    tasks,
+                    context,
+                    data: Some(data),
+                    instructions,
+                })
+            }
+            Some(Question::Simple(p)) => {
+                self.question = Some(Question::Detailed {
+                    tasks: p,
+                    context: None,
+                    data: Some(data),
+                    instructions: None,
+                })
+            }
+            None => return Err(GptError::TreeNodeQuestionMissing)
+        }
+        Ok(self)
+    }
+
+    pub fn with_check(mut self, c: DiagnosticNode) -> Self {
         self.check = Some(c);
         self
     }
@@ -443,19 +436,6 @@ pub enum TreeAction {
     False
 }
 
-
-
-//
-// === Diagnostic History Structures ===
-//
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DiagnosticStep {
-    pub node_key: String,
-    pub question: Option<String>,
-    pub answer: Option<String>,
-}
-
 //
 // === Evaluation Details Structure ===
 //
@@ -502,15 +482,8 @@ impl std::fmt::Display for Diagnosis {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiagnosticResult {
     pub diagnosis: Diagnosis,
-    pub candidate: Option<String>,
-    pub candidate_description: Option<String>,
+    pub candidates: Vec<String>,
     pub pathogen: Option<String>,
-    pub pathogen_description: Option<String>,
-    pub reason_non_infectious: Option<String>,
-    pub clinical_context: String,
-    pub diagnostic_history_shorthand: Vec<String>,
-    pub diagnostic_history_annotated: Vec<DiagnosticStep>,
-    pub taxa: ThresholdTaxa
 }
 impl DiagnosticResult {
     pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
@@ -530,38 +503,52 @@ impl DiagnosticResult {
 // === Agent State (Memory) ===
 //
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticMemory {
+    pub node: DiagnosticNode,
+    pub data: Vec<Taxon>,
+    pub result: Option<bool>,
+    pub prompt: Option<String>,
+    pub thoughts: Option<String>,
+    pub answer: Option<String>
+}
+impl DiagnosticMemory {
+    pub fn new(node: DiagnosticNode, data: Vec<Taxon>, result: Option<bool>, prompt: Option<String>, thoughts: Option<String>, answer: Option<String>) -> Self {
+        Self { node, data, result, prompt, thoughts, answer }
+    }
+    pub fn non_infectious(node: DiagnosticNode) -> Self {
+        Self {
+            node,
+            data: vec![],
+            result:  Some(false),
+            prompt: None,
+            thoughts: None,
+            answer: None
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AgentState {
-    pub memory: HashMap<String, String>,
-    pub history: Vec<DiagnosticStep>,
-    pub shorthand: Vec<String>,
+    pub memory: Vec<DiagnosticMemory>,
+    pub repeat: HashMap<DiagnosticNode, usize>,
 }
 
 impl AgentState {
     fn new() -> Self {
         AgentState {
-            memory: HashMap::new(),
-            history: Vec::new(),
-            shorthand: Vec::new(),
+            memory: Vec::new(),
+            repeat: HashMap::new()
         }
     }
 
-    fn log(&mut self, key: &str, value: &str) {
-        self.memory.insert(key.to_string(), value.to_string());
+    pub fn memorize(&mut self, mem: DiagnosticMemory) {
+        self.memory.push(mem);
     }
 
-    fn add_history(&mut self, node_key: &str, question: Option<String>, answer: Option<&str>) {
-        self.shorthand.push(node_key.to_string());
-        self.history.push(DiagnosticStep {
-            node_key: node_key.to_string(),
-            question: question.map(|s| s.to_string()),
-            answer: answer.map(|s| s.to_string()),
-        });
+    pub fn retrieve(&self, node: DiagnosticNode) -> Option<&DiagnosticMemory> {
+        self.memory.iter().find(|mem| mem.node == node)
     }
-    fn get_history(&mut self, node_key: &str) -> Option<&DiagnosticStep> {
-        self.history.iter().find(|s| s.node_key == node_key)
-    }
-
     pub fn to_json(&mut self, path: &Path) -> Result<(), GptError> {
         let agent_state = serde_json::to_string_pretty(self).map_err(|err| GptError::SerdeJsonError(err))?;
         let mut writer = BufWriter::new(File::create(path)?);
@@ -673,12 +660,23 @@ impl From<&GptModel> for String {
 pub type TreeNodes = HashMap<String, TreeNode>;
 
 pub trait TreeNodeReader {
-    fn from_str(s: &str) -> Result<TreeNodes, serde_json::Error>;
+    fn from_vec(v: Vec<TreeNode>) -> Result<TreeNodes, GptError>;
+    fn from_str(s: &str) -> Result<TreeNodes, GptError>;
 }
 
 impl TreeNodeReader for TreeNodes {
-    fn from_str(s: &str) -> Result<TreeNodes, serde_json::Error> {
-        serde_json::from_str::<TreeNodes>(s)
+    fn from_str(s: &str) -> Result<TreeNodes, GptError> {
+        Ok(serde_json::from_str::<TreeNodes>(s)?)
+    }
+    fn from_vec(v: Vec<TreeNode>) -> Result<TreeNodes, GptError> {
+        let mut label_nodes = Vec::new();
+        for node in v {
+            label_nodes.push((
+                node.label.clone().ok_or(GptError::TreeNodeLabelMissing)?, 
+                node
+            ))
+        }
+        Ok(HashMap::from_iter(label_nodes))
     }
 }
 
@@ -687,6 +685,7 @@ pub struct DecisionTree {
     pub name: String,
     pub version: String,
     pub description: String,
+    pub max_repeats: usize,
     pub nodes: TreeNodes
 }
 impl DecisionTree {
@@ -696,183 +695,884 @@ impl DecisionTree {
                 name: name.to_string(),
                 version: version.to_string(),
                 description: description.to_string(),
+                max_repeats: 3,
                 nodes: TreeNodes::from_str(nodes)?
             }
         )
     }
-    pub fn new_tiered() -> Result<Self, GptError> {
+    pub fn tiered() -> Result<Self, GptError> {
 
-        let nodes = r#"
-        {
-            "start": {
-                "question": {
-                    "prompt": "Does the segmental aneuploidy analysis (if conducted) indicate host tumor DNA in the sample? Copy number variation (CNV) along large segments of chromosomes are indicated in the scatter plot analysis and data extraction. Large variation (a braodly scattered) usually indicates low human genome coverage.",
-                    "instructions": "Answer 'yes' if the data indicates a tumor signal, 'no' if a tumor-signal is not supported or the analysis was not conducted."
-                },
-                "check": "aneuploidy_query",
-                "true_node": "diagnose_tumor",
-                "false_node": "check_above_threshold"
-            },
-            "check_above_threshold": {
-                "question": {
-                    "prompt": "Based on the evidence synthesis from above-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. Consider the presence of contaminant taxa at above threshold levels particularly from sample sites or lab environment. If pathogens known to commonly infect humans are detected you should select 'infectious'. If viral pathogens were detected from the target list and a detected virus is known to infect humans, consider this sample 'infectious'.",
-                    "instructions": "Answer 'yes' if the above-threshold data supports infection, 'no' if it does not or if no taxa were called."
-                },
-                "check": "above_threshold_query",
-                "true_node": "diagnose_infectious",
-                "false_node": "check_below_threshold"
-            },
-            "check_below_threshold": {
-                "question": {
-                    "prompt": "Based on the evidence synthesis from below-threshold metagenomic profiling, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, sample type. If selection is not clear from the evidence synthesis or data is not available for this filter, you should select 'non-infectious'. If pathogens known to infect humans are detected and a detected target taxon has reasonable evidence you should select 'infectious'. This section sometimes contains low-level bacterial assemblages - if you are making this call based on multiple pathogen candidates, consider the overall diversity and alternative reasoning around contamination. If a taxon has both a pathogen and contaminant role -- e.g. a pathogen that is a commensal in sample or sample adjacent sites of the human body, deriving for example from skin or lab environment sequenced in the metagenomics assay -- deprioritize the taxon as a pathogen candidate especially if itoccurss at low abundance in the sample and among the microbial profile called in this section.",
-                    "instructions": "Answer 'yes' if the below-threshold data supports infectious diagnosis; 'no' if it does not or if no taxa were called."
-                },
-                "check": "below_threshold_query",
-                "next": "check_target_threshold"
-            },
-            "check_target_threshold": {
-                "question": {
-                    "prompt": "Based on the synthesis of target-list metagenomic profiling evidence, make a diagnosis of infectious or non-infectious in the context of the metagenomics assay, sources of contamination, microbial profile, patient clinical history, and sample type. If selection is not clear from the evidence synthesis or data is not avilable for this filter, you should select 'non-infectious'. If viral targets were detected from the target list and a detected target is known to infect humans, consider this sample 'infectious'. Other taxa from prokaryotic and eukaryotic domains should be considered with caution and only selected with reasonably strong evidence from the taxon calling in relation to clinical context of the patient from whom this sample derives.",
-                    "instructions": "Answer 'yes' if the target list supports infectious diagnosis; 'no' if it does not or if no taxa were called."
-                },
-                "check": "target_threshold_query",
-                "next": "integrate_below_target_evidence"
-            },
-            "integrate_below_target_evidence": {
-                "question": {
-                        "prompt": "Make a diagnosis for 'infectious' or 'non-infectious'. If there are few taxa called in the below threshold data, evaluate each whether they are a candidate for contamination or classification artifact ('non-infectious'), or whether they are a candidate for a pathogen ('infectious'). Consider taxa even if they are rare human pathogens. If known viral human pathogens are called prioritize for 'infectious'",
-                        "instructions": "Answer 'yes' if the integrated below threshold and target list data supports infectious diagnosis; 'no' if it does not or if no taxa were called."
-                },
-                "check": "llm_eval",
-                "true_node": "diagnose_infectious",
-                "false_node": "diagnose_non_infectious_flight_check"
-            },
-            "diagnose_infectious": {
-                "question": {
-                        "prompt": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type. Consider the contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided..",
-                        "instructions": "Select the most likely pathogen candidates from the data. You must return each pathogen candidate species name from the data in <candidate></candidate> tags."
-                },
-                "check": "llm_eval",
-                "next": "describe_infectious"
-            },
-            "describe_infectious": {
-                "question": {
-                        "prompt": "You have selected one or more taxa as pathogen candidates and have the clinical information for this sample.",
-                        "instructions": "Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Keep sentences minimal with all sufficient information."
-                },
-                "check": "llm_eval",
-                "next": "select_infectious"
-            },
-            "select_infectious": {
-                "question": {
-                        "prompt": "You have selected on or more taxa as pathogen candidates. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates.",
-                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. You must return the selected pathogen species name from the data in <candidate></candidate> tags."
-                },
-                "check": "llm_eval",
-                "next": "describe_select_infectious"
-            },
-            "describe_select_infectious": {
-                "question": {
-                        "prompt": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.",
-                        "instructions": "Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample."
-                },
-                "check": "llm_eval",
-                "final_node": true
-            },
-            "diagnose_non_infectious_flight_check": {
-                "question": {
-                        "prompt": "Consider the below threshold and target evidence and consider whether changing to an 'infectious' call especially if the taxon is human infection associated but rare or unusual; alternatively make a call for 'non-infectious' when no taxa qualify as pathogen candidates or no taxa were called.",
-                        "instructions": "Answer 'yes' if unusual or rare taxa were called that support an 'infectious' diagnosis; 'no' if it does not or if no taxa were called."
-                },
-                "check": "flight_check_non_infectious",
-                "true_node": "diagnose_infectious_review",
-                "false_node": "diagnose_non_infectious"
-            },
-            "diagnose_non_infectious": {
-                "question": {
-                        "prompt": "You have diagnosed this sample as non-infectious and have the clinical information for this sample. ",
-                        "instructions": "Provide a short paragraph with a precise summary of the reasons for calling this sample non-infectious, highlighting conclusions around pathogen and contamination, and differentiating it with diagnostic results from the decision trees for differential tumor or infectious diagnosis."
-                },
-                "check": "llm_eval",
-                "final_node": true
-            },
-            "diagnose_tumor": {
-                "final_node": true
-            },
-            "diagnose_infectious_review": {
-                "question": {
-                    "prompt": "Based on the synthesis of metagenomics evidence select the most likely pathogen candidates considering medical signficance (even of rare pathogens), metagenomics assay, sources of contamination, patient clinical history and sample type (CSF or vitreous fluid). Make sure to differentiate between the most likely pathogen candidates with supporting evidence and contaminating taxa in your selection - report only the pathogen candidates with good supporting evidence for human infection in the clinical context provided.",
-                    "instructions": "Select the most likely pathogen candidates from the data. You must return each pathogen candidate species name from the data in <candidate></candidate> tags."
-                },
-                "check": "llm_eval",
-                "next": "describe_infectious_review"
-            },
-            "describe_infectious_review": {
-                "question": {
-                        "prompt": "You have selected on or more taxa as pathogen candidates for review and have the clinical information for this sample.",
-                        "instructions": "Provide one paragraph with a precise summary of the role of each taxon (or group of related candidate pathogen taxa) in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type."
-                },
-                "check": "llm_eval",
-                "next": "select_infectious_review"
-            },
-            "select_infectious_review": {
-                "question": {
-                        "prompt": "You have selected one or more taxa as pathogen candidates with review. Take into consideration the strength and weaknesses of the evidence from metagenomics assay results if multiple pathogen candidates were chosen. When encountering multiple bacterial or eukaryotic pathogen candidates often the causative agent is the one with the strongest evidence or abundance from metagenomic data especially the one with most assembled bases. If a virus is present that is a human pathogen and is a reasonable candidate given the clinical patient and sample type, prefer it over other candidates. If a candidate is well known for being a human pathogen and is less frequently observed as contamination, prefer it over a candidate that can be a human pathogen but is more frequently observed as contamination.",
-                        "instructions": "Select a single pathogen from the pathogen candidates as most likely cause of infection. You must return the selected pathogen species name from the data in <candidate></candidate> tags."
-                },
-                "check": "llm_eval",
-                "next": "describe_select_infectious_review"
-            },
-            "describe_select_infectious_review": {
-                "question": {
-                        "prompt": "You have selected a single taxon as pathogen candidate and have the clinical information for this sample.",
-                        "instructions": "Provide one paragraph with a precise summary of the role of this taxon in the context of the patient clinical data and the strength of the metagenomic profiling evidence, as well as a short descriptor of its microbiological and clinical background (or absence thereof) in this sample type. Explain why this taxon was chosen over other candidates as most likely pathogen in the sample."
-                },
-                "check": "llm_eval",
-                "final_node": true
-            }
-        }
-        "#;
+        let check_above_threshold = TreeNode::default()
+            .label("check_above_threshold")
+            .true_node("diagnose_infectious")
+            .false_node("check_below_threshold")
+            .with_check(DiagnosticNode::AboveThresholdQuery)
+            .with_tasks(
+                dedent(r"  
+                    1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis only if you are certain the species is a human pathogen.
+                    3. If a virus is detected, strongly consider an infectious diagnosis.
+                ")
+            )?
+            .with_instructions(
+                dedent(r"
+                    1.  Output your determination inside <result></result> tags (XML).
+                    1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
+                    1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
+                "))?;
 
+        let check_below_threshold = TreeNode::default()
+            .label("check_below_threshold")
+            .next("check_target_threshold")
+            .with_check(DiagnosticNode::BelowThresholdQuery)
+            .with_tasks(
+                dedent(r"  
+                    1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                    3. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis only if you are certain the species is a human pathogen.
+                    4. If a virus is detected, strongly consider an infectious diagnosis.
+                ")
+            )?
+            .with_instructions(
+                dedent(r"
+                    1.  Output your determination inside <result></result> tags (XML).
+                    1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
+                    1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
+                ")
+            )?;
+        
+            let check_target_threshold = TreeNode::default()
+                .label("check_target_threshold")
+                .next("integrate_thresholds")
+                .with_check(DiagnosticNode::TargetThresholdQuery)
+                .with_tasks(
+                    dedent(r"  
+                       1. Determine if the metagenomic taxonomic profiling data  [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                       2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis only if you are certain the species is a human pathogen.
+                       3. If a virus is detected, strongly consider an infectious diagnosis.
+                    ")
+                )?
+                .with_instructions(
+                    dedent(r"
+                        1.  Output your determination inside <result></result> tags (XML).
+                        1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
+                        1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
+                    ")
+                )?;
+
+            let integrate_thresholds = TreeNode::default()
+                .label("integrate_thresholds")
+                .true_node("diagnose_infectious")
+                .false_node("diagnose_non_infectious")
+                .with_check(DiagnosticNode::IntegrateThresholds)
+                .with_tasks(
+                    dedent(r"  
+                        1. Determine if the metagenomic taxonomic profiling data supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis only if you are certain the species is a human pathogen.
+                        3. If a virus is detected, strongly consider an infectious diagnosis.
+                    ")
+                )?
+                .with_instructions(
+                    dedent(r"
+                        1.  Output your determination inside <result></result> tags (XML).
+                        1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
+                        1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
+                    ")
+                )?;
+            
+            let diagnose_infectious = TreeNode::default()
+                .label("diagnose_infectious")
+                .final_node(true)
+                .with_check(DiagnosticNode::DiagnoseInfectious)
+                .with_tasks(
+                    dedent(r"  
+                        You have made an infectious diagnosis for this sample. 
+
+                        1. Given the context provided in [Context] select the most likely pathogen species from [Data].
+                    ")
+                )?
+                .with_instructions(
+                    dedent(r"
+                        1.  Output the most likely pathogen inside <pathogen></pathogen> (XML).
+                        1a. You must select only one of the species in [Data] - the most likely pathogen - and place it into <pathogen></pathogen> tags (XML)
+                        1b. You are not allowed to put a value other than the pathogen species inside <pathogen></pathogen> tags (XML).
+                        1c. You must place the full genus and species name from [Data] inside <pathogen></pathogen> tags (XML).
+                        1d. You are not allowd to explain your selection.
+
+                        Example: <pathogen>Rodorendens figura</pathogen>
+
+                        Your output:
+                    ")
+                )?;
+            
+            let diagnose_non_infectious = TreeNode::default()
+                .label("diagnose_non_infectious")
+                .final_node(true)
+                .with_check(DiagnosticNode::DiagnoseNonInfectious);
+
+        let nodes = vec![
+            check_above_threshold,
+            check_below_threshold,
+            check_target_threshold,
+            integrate_thresholds,
+            diagnose_infectious,
+            diagnose_non_infectious
+        ];
+        
         Ok(
             Self {
                 name: "tiered".to_string(),
-                version: "0.1.0".to_string(),
+                version: "0.2.0".to_string(),
                 description: "Tiered decision making process using tiered filter sections of the metagenomic taxonomic profiling data as primary determination of infectious or non-infectious samples".to_string(),
-                nodes: TreeNodes::from_str(nodes)?
+                max_repeats: 3,
+                nodes: TreeNodes::from_vec(nodes)?
             }
         )
     }
+
 }
 
+fn dedent(input: &str) -> String {
 
+    let lines: Vec<&str> = input
+        .lines()
+        .skip_while(|l| l.trim().is_empty())
+        .collect();
+    let indent = lines
+        .iter()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.chars().take_while(|c| c.is_whitespace()).count())
+        .min()
+        .unwrap_or(0);
+
+    lines
+        .iter()
+        .map(|l| {
+            if l.len() > indent {
+                &l[indent..]
+            } else {
+                *l
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PrefetchData {
+    pub primary: Vec<Taxon>,
+    pub secondary: Vec<Taxon>,
+    pub target: Vec<Taxon>,
+    pub config: MetaGpConfig
+}
+impl PrefetchData {
+    pub fn new(
+        primary: Vec<Taxon>,
+        secondary: Vec<Taxon>,
+        target: Vec<Taxon>,
+        config: &MetaGpConfig
+    ) -> Self {
+        Self {
+            primary,
+            secondary,
+            target,
+            config: config.clone()
+        }
+    }
+    pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
+        let data = serde_json::to_string_pretty(self).map_err(|err| GptError::SerdeJsonError(err))?;
+        let mut writer = BufWriter::new(File::create(path)?);
+        write!(writer, "{data}")?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, GptError> {
+        let data = std::fs::read_to_string(path)?;
+        let result = serde_json::from_str::<PrefetchData>(&data)?;
+        Ok(result)
+    }
+}
 
 pub struct DiagnosticAgent {
-    pub tree: DecisionTree,
-    pub cerebro_client: CerebroClient,
-    pub llm_client: async_openai::Client<OpenAIConfig>,
     pub state: AgentState,
+    pub tree: DecisionTree,
+    pub client: Option<CerebroClient>,
     pub graph: Graph<TreeNode, TreeEdge>,
-    pub model: GptModel,
-    pub diagnostic_memory: bool,
-    pub contam_history: bool,
 }
 
 impl DiagnosticAgent {
-    pub async fn new(cerebro_client: CerebroClient, model: GptModel, diagnostic_memory: bool, contam_history: bool) -> Result<Self, GptError> {
+    pub async fn new(client: Option<CerebroClient>) -> Result<Self, GptError> {
         
-        let tree = DecisionTree::new_tiered()?;
+        let tree = DecisionTree::tiered()?;
         
         Ok(DiagnosticAgent {
             tree: tree.clone(),
-            cerebro_client,
-            llm_client: async_openai::Client::new(),
+            client,
             state: AgentState::new(),
-            graph: Self::graph(&tree)?,
-            model,
-            diagnostic_memory,
-            contam_history
+            graph: Self::graph(&tree)?
         })
+    }
+
+    pub async fn prefetch(&self, output: &Path, config: &MetaGpConfig) -> Result<(), GptError> {
+        
+        log::info!("Fetching primary threshold data for sample '{}'", config.sample);
+
+        if let Some(client) = &self.client {
+            let (primary, _) = client.get_taxa( 
+                &CerebroIdentifierSchema::from_gp_config(config), 
+                &TaxonFilterConfig::gp_above_threshold(
+                    config.ignore_taxstr.clone()
+                ), 
+                &config.contamination,
+                config.prevalence_outliers.primary
+            )?;
+    
+            log::info!("Fetching secondary threshold data for sample '{}'", config.sample);
+    
+            let (secondary, _) = client.get_taxa( 
+                &CerebroIdentifierSchema::from_gp_config(config), 
+                &TaxonFilterConfig::gp_below_threshold(
+                    config.ignore_taxstr.clone()
+                ), 
+                &config.contamination,
+                config.prevalence_outliers.secondary
+            )?;
+    
+            log::info!("Fetching target threshold data for sample '{}'", config.sample);
+    
+            let (target, _) = client.get_taxa( 
+                &CerebroIdentifierSchema::from_gp_config(config), 
+                &TaxonFilterConfig::gp_target_threshold(
+                    config.ignore_taxstr.clone()
+                ), 
+                &config.contamination,
+                config.prevalence_outliers.target
+            )?;
+
+            PrefetchData::new(primary, secondary, target, config).to_json(output)
+        } else {
+            Err(GptError::CerebroClientNotProvided)
+        }
+        
+
+    }
+
+    pub async fn run_local(
+        &mut self, 
+        text_generator: &mut TextGenerator, 
+        sample_context: SampleContext, 
+        clinical_notes: Option<String>, 
+        assay_context: Option<AssayContext>, 
+        config: &MetaGpConfig,
+        prefetch: Option<PrefetchData>
+    ) -> Result<DiagnosticResult, GptError> {
+
+        let mut node_label = "check_above_threshold".to_string();
+
+        let sample_context = match clinical_notes {
+            Some(notes) => sample_context.with_clinical_notes(&notes),
+            None => sample_context.text()
+        };
+        
+        let assay_context = match assay_context {
+            Some(context) => context.text(),
+            None => AssayContext::None.text()
+        };
+
+        let context = format!(
+            "{}\n{}", 
+            dedent(&assay_context), 
+            dedent(&sample_context)
+        );
+
+        let mut result = DiagnosticResult {
+            diagnosis: Diagnosis::Unknown,
+            candidates: Vec::new(),
+            pathogen: None
+        };
+
+        while let Some(node_ref) = self.tree.nodes.get(&node_label) {
+
+            let current_node = node_ref.clone();
+
+            log::info!("Processing node: {}", node_label);
+            
+            match current_node.check {
+                Some(DiagnosticNode::AboveThresholdQuery) => {
+
+                    // Taxon 
+                    let primary_taxa = match prefetch {
+                        Some(ref data) => data.primary.clone(),
+                        None => {
+                            let (primary, _) = match &self.client {
+                                Some(client) => client.get_taxa( 
+                                    &CerebroIdentifierSchema::from_gp_config(config), 
+                                    &TaxonFilterConfig::gp_above_threshold(
+                                        config.ignore_taxstr.clone()
+                                    ), 
+                                    &config.contamination,
+                                    config.prevalence_outliers.primary
+                                )?,
+                                None => return Err(GptError::CerebroClientNotProvided)
+                            };
+                            primary
+                        }
+                    };
+                    
+
+                    let (result, confidence, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
+
+                        let candidates = ThresholdCandidates::from_primary_threshold(
+                            primary_taxa.clone()
+                        ).to_str(true);
+
+                        let prompt = current_node
+                            .clone()
+                            .with_context(&context)?
+                            .with_data(&candidates)?
+                            .question
+                            .unwrap()
+                            .to_standard_prompt();
+                        
+                        log::info!("{prompt}");
+
+                        let (thoughts, answer) = text_generator.run(&prompt)?;
+                        
+                        log::info!("{thoughts}\n\n\n\n");
+                        log::info!("{answer}");
+
+                        (Self::extract_result(&answer), None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                    } else {
+                        log::info!("No data retrieved for this node");
+                        (Some(false), None, None, None, None) // no taxa detected
+                    };
+
+                    self.state.memorize(
+                        DiagnosticMemory::new(
+                            DiagnosticNode::AboveThresholdQuery, 
+                            primary_taxa, 
+                            result, 
+                            prompt, 
+                            thoughts, 
+                            answer
+                        )
+                    );
+                    
+                    match self.get_next_node_label(&current_node, result)? {
+                        Some(label) => node_label = label,
+                        None => break
+                    }
+                },
+
+                Some(DiagnosticNode::BelowThresholdQuery) => {
+                    
+                    let secondary_taxa = match prefetch {
+                        Some(ref data) => data.secondary.clone(),
+                        None => {
+                            let (secondary, _) = match &self.client { 
+                                Some(client) => client.get_taxa( 
+                                    &CerebroIdentifierSchema::from_gp_config(config), 
+                                    &TaxonFilterConfig::gp_below_threshold(
+                                        config.ignore_taxstr.clone()
+                                    ), 
+                                    &config.contamination,
+                                    config.prevalence_outliers.secondary
+                                )?,
+                                None =>  return Err(GptError::CerebroClientNotProvided)
+                            };
+                            secondary
+                        }
+                    };
+
+                    let (result, confidence, prompt, thoughts, answer) = if !secondary_taxa.is_empty() {
+
+                        let candidates = ThresholdCandidates::from_secondary_threshold(
+                            secondary_taxa.clone()
+                        ).to_str(true);
+
+                        let prompt = current_node
+                            .clone()
+                            .with_context(&context)?
+                            .with_data(&candidates)?
+                            .question
+                            .unwrap()
+                            .to_standard_prompt();
+                        
+                        log::info!("{prompt}");
+
+                        let (thoughts, answer) = text_generator.run(&prompt)?;
+                        
+                        log::info!("{thoughts}\n\n\n\n");
+                        log::info!("{answer}");
+
+                        (Self::extract_result(&answer), None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                    } else {
+                        log::info!("No data retrieved for this node");
+                        (Some(false), None, None, None, None) // no taxa detected
+                    };
+
+                    self.state.memorize(
+                        DiagnosticMemory::new(
+                            DiagnosticNode::BelowThresholdQuery, 
+                            secondary_taxa, 
+                            result, 
+                            prompt, 
+                            thoughts, 
+                            answer
+                        )
+
+                    );
+                    
+                    match self.get_next_node_label(&current_node, result)? {
+                        Some(label) => node_label = label,
+                        None => break
+                    }
+                    
+                },
+                Some(DiagnosticNode::TargetThresholdQuery) => {
+
+                    let target_taxa = match prefetch {
+                        Some(ref data) => data.target.clone(),
+                        None => {
+                            let (target, _) = match &self.client {
+                                Some(client) => client.get_taxa( 
+                                    &CerebroIdentifierSchema::from_gp_config(config), 
+                                    &TaxonFilterConfig::gp_target_threshold(
+                                        config.ignore_taxstr.clone()
+                                    ), 
+                                    &config.contamination,
+                                    config.prevalence_outliers.target
+                                )?,
+                            None => return Err(GptError::CerebroClientNotProvided)
+                            };
+                            target
+                        }
+                    };
+
+                    let (result, confidence, prompt, thoughts, answer) = if !target_taxa.is_empty() {
+
+                        let candidates = ThresholdCandidates::from_target_threshold(
+                            target_taxa.clone()
+                        ).to_str(true);
+
+                        let prompt = current_node
+                            .clone()
+                            .with_context(&context)?
+                            .with_data(&candidates)?
+                            .question
+                            .unwrap()
+                            .to_standard_prompt();
+                        
+                        log::info!("{prompt}");
+
+                        let (thoughts, answer) = text_generator.run(&prompt)?;
+                        
+                        log::info!("{thoughts}\n\n\n\n");
+                        log::info!("{answer}");
+
+                        (Self::extract_result(&answer), None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                    } else {
+                        log::info!("No data retrieved for this node");
+                        (Some(false), None, None, None, None) // no taxa detected
+                    };
+                    
+                    self.state.memorize(
+                        DiagnosticMemory::new(
+                            DiagnosticNode::TargetThresholdQuery, 
+                            target_taxa, 
+                            result, 
+                            prompt, 
+                            thoughts, 
+                            answer
+                        )
+                    );
+
+                    match self.get_next_node_label(&current_node, result)? {
+                        Some(label) => node_label = label,
+                        None => break
+                    }
+                    
+                },
+                Some(DiagnosticNode::IntegrateThresholds) => {
+                    
+                    // Retrieve the below and target threshold data and result memories
+                    log::info!("IntegrateThresholds");
+                    let secondary_memory = self.state.retrieve(DiagnosticNode::BelowThresholdQuery).cloned();
+                    let target_memory = self.state.retrieve(DiagnosticNode::TargetThresholdQuery).cloned();
+
+                    match (
+                        secondary_memory, 
+                        target_memory
+                    ) {
+                        (
+                            Some(secondary_memory), 
+                            Some(target_memory)
+                        ) => {
+                            match (
+                                secondary_memory.data.is_empty(), 
+                                target_memory.data.is_empty()
+                            ) {
+                                // Continue with diagnosis if data was available in one of the diagnostic nodes but not the other
+                                // use the result from that stage to continue in the decision tree
+                                (false, true) => {
+                                    log::info!("Data only from secondary threshold node - continue to next node with result from secondary threshold node");
+
+                                    let mut secondary_memory_integrated = secondary_memory.clone();
+                                    secondary_memory_integrated.node = DiagnosticNode::IntegrateThresholds;
+
+                                    self.state.memorize(secondary_memory_integrated);
+
+                                    match self.get_next_node_label(&current_node, secondary_memory.result)? {
+                                        Some(label) => node_label = label,
+                                        None => break
+                                    }
+                                },
+                                (true, false) => {
+                                    let mut target_memory_integrated = target_memory.clone();
+                                    target_memory_integrated.node = DiagnosticNode::IntegrateThresholds;
+
+                                    self.state.memorize(target_memory_integrated);
+
+                                    log::info!("Data only from target threshold node - continue to next node with result from target threshold node");
+                                    match self.get_next_node_label(&current_node, target_memory.result)? {
+                                        Some(label) => node_label = label,
+                                        None => break
+                                    }
+                                },
+                                (true, true) => {
+                                    // No data from the sub-threshold nodes mean we didn't make a diagnosis in the primary threshold either 
+                                    // so we assign the final result as non-infectious
+                                    self.state.memorize(
+                                        DiagnosticMemory::non_infectious(
+                                            DiagnosticNode::IntegrateThresholds
+                                        )
+                                    );
+
+                                    node_label = String::from("diagnose_non_infectious")
+                                },
+                                // Continue with integration node processing and decision making if bnoth nodes had data available -
+                                // this will combine the data for the integration node prompt and override the decisions made previously
+                                (false, false) => {
+
+                                    let below_threshold_data = ThresholdCandidates::from_secondary_threshold(
+                                        secondary_memory.data.clone()
+                                    ).to_str(true);
+
+                                    let target_threshold_data = ThresholdCandidates::from_target_threshold(
+                                        target_memory.data.clone()
+                                    ).to_str(true);
+                                    
+                                    let candidates = format!("{}\n\n{}", below_threshold_data, target_threshold_data);
+
+                                    let prompt = current_node
+                                        .clone()
+                                        .with_context(&context)?
+                                        .with_data(&candidates)?
+                                        .question
+                                        .unwrap()
+                                        .to_standard_prompt();
+                                    
+                                    log::info!("{prompt}");
+            
+                                    let (thoughts, answer) = text_generator.run(&prompt)?;
+                                    
+                                    log::info!("{thoughts}\n\n\n\n");
+                                    log::info!("{answer}");
+
+                                    let result = Self::extract_result(&answer);
+
+                                    let data = [
+                                        secondary_memory.data.clone(), 
+                                        target_memory.data.clone()
+                                    ].concat();
+
+                                    self.state.memorize(
+                                        DiagnosticMemory::new(
+                                            DiagnosticNode::IntegrateThresholds, 
+                                            data, 
+                                            result, 
+                                            Some(prompt), 
+                                            Some(thoughts), 
+                                            Some(answer)
+                                        )
+                                    );
+
+                                    match self.get_next_node_label(&current_node, result)? {
+                                        Some(label) => node_label = label,
+                                        None => break
+                                    }
+
+                                }
+                            }
+                        },
+                        // If no memories were available for either of the low abundance diagnostic nodes
+                        _ => {
+                            log::warn!("No data available for the integration node - this should not happen!");
+                            break
+                        }
+                    }
+
+                },
+                Some(DiagnosticNode::DiagnoseInfectious) => {
+                    
+                    let mut candidates = String::new();
+
+                    if let Some(memory) = self.state.retrieve(DiagnosticNode::AboveThresholdQuery) {
+                        if let Some(result) = memory.result {
+                            if result {
+                                let primary_candidates = ThresholdCandidates::from_primary_threshold(
+                                    memory.data.clone()
+                                ).to_str(false);
+                                
+                                if !primary_candidates.is_empty() {
+                                    candidates.push_str(&primary_candidates);
+                                    candidates.push_str("\n\n");
+                                }
+                            }
+                        };
+                    };
+
+
+                    if let Some(memory) = self.state.retrieve(DiagnosticNode::IntegrateThresholds) {
+                        if let Some(result) = memory.result {
+                            if result {
+                                let integrate_candidates = ThresholdCandidates::from_integrate_threshold(
+                                    memory.data.clone()
+                                ).to_str(false);
+                                
+                                if !integrate_candidates.is_empty() {
+                                    candidates.push_str(&integrate_candidates);
+                                    candidates.push_str("\n\n");
+                                }
+                            }
+                        }
+                    };
+    
+                    
+
+                    let prompt = current_node
+                        .clone()
+                        .with_context(&context)? 
+                        .with_data(&candidates)?
+                        .question
+                        .unwrap()
+                        .to_standard_prompt();
+                
+                    log::info!("{prompt}");
+
+                    let (thoughts, answer) = text_generator.run(&prompt)?;
+                    
+                    log::info!("{thoughts}\n\n\n\n");
+                    log::info!("{answer}");
+
+
+                    let candidates = Self::extract_candidates(&answer);
+                    let pathogen = Self::extract_pathogen(&answer);
+
+                    result.diagnosis = Diagnosis::Infectious;
+                    result.candidates = candidates;
+                    result.pathogen = pathogen;
+
+                    break
+                },
+                Some(DiagnosticNode::DiagnoseNonInfectious) => {
+                    result.diagnosis = Diagnosis::NonInfectious;
+                    break
+                },
+                Some(_) => {
+                    log::warn!("Node processing not implemented for node: {}", current_node.label.unwrap_or("no_label".to_string()));
+                    break
+                }
+                _ => {
+                    log::warn!("Node processing not implemented for node: {}", current_node.label.unwrap_or("no_label".to_string()));
+                    break
+                }
+            }            
+        }
+
+        Ok(result)
+    }
+    fn get_next_node_label(&mut self, current_node: &TreeNode, result: Option<bool>) -> Result<Option<String>, GptError> {
+        
+        let node_label = if let Some(next_node_label) = &current_node.next {
+            Some(next_node_label.clone())
+        } else {
+            // Failed to extract expected decision value -> repeat node question (self-loop)
+            match result {
+                None => {
+                    log::info!("Failed to extract decision from answer - intitiate repeat check.");
+
+                    // Check the current node repeats before returning
+                    let check_type = current_node.check.as_ref()
+                        .ok_or(GptError::NodeCheckTypeMissing)?;
+
+                    let count = self
+                        .state
+                        .repeat
+                        .entry(check_type.clone())
+                        .and_modify(|c| *c += 1)   
+                        .or_insert(1);
+
+                    if *count > self.tree.max_repeats {
+                        log::warn!("Maximum number of repeats exceeded, exit diagnostic process.");
+                        None
+                    } else { 
+                        log::warn!("Initiate diagnostic node process ({count}).");
+                        current_node.label.clone()
+                    }
+                },
+                Some(decision) => {
+                    if decision {
+                        Some(current_node.true_node.clone().expect(&format!("True node expected")))
+                    } else {
+                        Some(current_node.false_node.clone().expect(&format!("False node expected")))
+                    }
+                }
+            }
+        };
+        Ok(node_label)
+    }
+     /// Extract all `<candidate>…</candidate>` values.
+     fn extract_candidates(answer: &str) -> Vec<String> {
+        let mut candidates = Vec::new();
+        let mut rest = answer;
+
+        while let Some(start_idx) = rest.find("<candidate>") {
+            // skip past the opening tag
+            let after_open = &rest[start_idx + "<candidate>".len()..];
+            // find the closing tag in the remainder
+            if let Some(end_idx) = after_open.find("</candidate>") {
+                // grab the text in between
+                let value = &after_open[..end_idx];
+                candidates.push(value.to_string());
+                // move `rest` forward past this closing tag
+                rest = &after_open[end_idx + "</candidate>".len()..];
+            } else {
+                break; // no matching close, bail out
+            }
+        }
+
+        candidates
+    }
+
+    /// Extract the first `<pathogen>…</pathogen>` value, warning if more than one.
+    fn extract_pathogen(answer: &str) -> Option<String> {
+        let mut rest = answer;
+        // find first
+        let first = if let Some(start_idx) = rest.find("<pathogen>") {
+            let after_open = &rest[start_idx + "<pathogen>".len()..];
+            if let Some(end_idx) = after_open.find("</pathogen>") {
+                let value = after_open[..end_idx].to_string();
+                // prepare to look for a second tag further down
+                rest = &after_open[end_idx + "</pathogen>".len()..];
+                Some(value)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // if there's still another `<pathogen>` in the leftover, warn
+        if first.is_some() && rest.contains("<pathogen>") {
+            log::warn!("Multiple <pathogen> tags detected; using the first one");
+        }
+
+        first
+    }
+
+    fn extract_result(s: &str) -> Option<bool> {
+        let result = Self::extract_tag(s, "result");
+        
+        match result {
+            Some(value) => {
+                if value.replace(" ", "").to_lowercase() == "yes" {
+                    Some(true)
+                } else if value.replace(" ", "").to_lowercase() == "no"  {
+                    Some(false)
+                } else {
+                    None
+                }
+            },
+            None => {
+                // ALl the crazy ways the models can spit out identifiable yes or no answers... damn things
+                if s.contains("Result: yes") {
+                    Some(true)
+                } else if s.contains("Result: no")   {
+                    Some(false)
+                } else if s.contains("```\nyes\n```") {
+                    Some(true)
+                } else if s.contains("=yes") {
+                    Some(true)
+                } else if s.contains("=no") {
+                    Some(true)
+                } else if s.contains("```\nno\n```") {
+                    Some(false)
+                } else if s.contains("```result\nyes\n```") {
+                    Some(true)
+                } else if s.contains("```result\nno\n```") {
+                    Some(false)
+                } else if s.contains("<result>yes</result>") {
+                    Some(true)
+                } else if s.contains("<result>no</result>") {
+                    Some(false)
+                } else {
+
+                    log::warn!("Failed to find result in answer: {s}");
+                    None
+                }
+            }
+        }
+    }
+    fn extract_confidence(s: &str) -> Option<String> {
+        let result = Self::extract_tag(s, "confidence");
+        
+        match result {
+            Some(value) => {
+                Some(Self::extract_digits(&value))
+            },
+            None => {
+                log::warn!("Failed to find XML confidence tag in answer: {s}");
+                let result = Self::extract_markdown(s, "confidence");
+                
+                match result {
+                    Some(value) => {
+                        Some(Self::extract_digits(&value))
+                    },
+                    None => {
+                        log::warn!("Failed to find MD confidence tag in answer - returning indeterminate result (None)");
+                        None
+                    }
+                }
+                
+            }
+        }
+    }
+    fn extract_tag(s: &str, tag: &str) -> Option<String> {
+        let open = format!("<{tag}>");
+        let close = format!("</{tag}>");
+        let start = s.find(&open)? + open.len();
+        let end   = s[start..].find(&close)? + start;
+        Some(s[start..end].to_string())
+    }
+    fn extract_markdown(s: &str, tag: &str) -> Option<String> {
+        let open = format!("```{tag}");
+        let close = format!("```");
+        let start = s.find(&open)? + open.len();
+        let end   = s[start..].find(&close)? + start;
+        Some(s[start..end].to_string())
+    }
+
+    fn extract_whitespace(s: &str, tag: &str) -> Option<String> {
+        let open = format!("{tag} ");
+        let close = format!("\n");
+        let start = s.find(&open)? + open.len();
+        let end   = s[start..].find(&close)? + start;
+        Some(s[start..end].to_string())
+    }
+    fn extract_digits(input: &str) -> String {
+        input
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .collect()
     }
     pub fn graph(tree: &DecisionTree) -> Result<petgraph::Graph<TreeNode, TreeEdge>, GptError> {
 
@@ -913,790 +1613,6 @@ impl DiagnosticAgent {
         }
 
         Ok(graph)
-    }
-     // Evaluate an LLM prompt for yes/no diagnostic questions.
-     pub async fn evaluate_diagnostic_llm(&self, question: &Question, context: &str) -> Result<bool> {
-        let prompt_text = question.to_prompt();
-
-        if self.model.is_anthropic() {
-            let messages = vec![
-                Message {
-                    role: MessageRole::User,
-                    content: MessageContent::Text("You are a diagnostic assistant. Answer 'yes' or 'no' only.".into()),
-                },
-                Message {
-                    role: MessageRole::User,
-                    content: MessageContent::Text(
-                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
-                    ),
-                },
-            ];
-
-            let response = MessagesBuilder::builder(
-                    &String::from(&self.model),
-                    messages,
-                    self.model.anthropic_max_tokens(),
-                )
-                .credentials(
-                    self.model.anthropic_credentials()
-                )
-                .create()
-                .await?;
-
-            let reply = if let Some(ResponseContentBlock::Text { text }) = response.content.first() {
-                text.trim()
-            } else {
-                ""
-            };
-
-            Ok(reply.to_lowercase().contains("yes"))
-        } else {
-            let messages = if self.model.has_system_message() {
-                vec![
-                    ChatCompletionRequestMessage::System(
-                        "You are a diagnostic assistant. Answer 'yes' or 'no' only.".into()
-                    ),
-                    ChatCompletionRequestMessage::User(
-                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
-                    ),
-                ]
-            } else {
-                vec![
-                    ChatCompletionRequestMessage::User(
-                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
-                    ),
-                ]
-            };
-
-            let request = CreateChatCompletionRequestArgs::default()
-                .model(&self.model)
-                .messages(messages)
-                .build()?;
-
-            let response = self.llm_client.chat().create(request).await?;
-            let reply = &response.choices[0].message.content;
-            Ok(reply.as_ref().map(|s| s.to_lowercase().contains("yes")).unwrap_or(false))
-        }
-    }
-
-    // Evaluate an LLM prompt for generating a free-text answer.
-    pub async fn evaluate_llm(&self, question: &Question, context: &str) -> Result<String> {
-
-        let prompt_text = question.to_prompt();
-
-        if self.model.is_anthropic() {
-            let messages = vec![
-                Message {
-                    role: MessageRole::User,
-                    content: MessageContent::Text("You are a diagnostic assistant.".into()),
-                },
-                Message {
-                    role: MessageRole::User,
-                    content: MessageContent::Text(format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}")),
-                },
-            ];
-
-            let response = MessagesBuilder::builder(
-                &String::from(&self.model), 
-                messages, 
-                self.model.anthropic_max_tokens()
-            )
-                .credentials(
-                    self.model.anthropic_credentials()
-                )
-                .create()
-                .await?;
-
-            let reply = if let Some(ResponseContentBlock::Text { text }) = response.content.first() {
-                text.trim().to_string()
-            } else {
-                "Unknown response from Anthropic API".to_string()
-            };
-
-            Ok(reply)
-        } else {
-            let messages = if self.model.has_system_message() {
-                vec![
-                    ChatCompletionRequestMessage::System("You are a diagnostic assistant.".into()),
-                    ChatCompletionRequestMessage::User(
-                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
-                    ),
-                ]
-            } else {
-                vec![
-                    ChatCompletionRequestMessage::User(
-                        format!("{prompt_text}\n\nCase Context:\n{context}\n\n{prompt_text}").into()
-                    ),
-                ]
-            };
-
-            let request = CreateChatCompletionRequestArgs::default()
-                .model(&self.model)
-                .messages(messages)
-                .build()?;
-            
-            let response = self.llm_client.chat().create(request).await?;
-            let reply = &response.choices[0].message.content;
-
-            Ok(reply.as_ref().unwrap_or(&"Unknown response from LLM".to_string()).to_string())
-        }
-    }
-
-    // Prime (initialize) the LLM with background context.
-    pub async fn prime_llm(&self, background: &str) -> Result<()> {
-        if self.model.is_anthropic() {
-
-            let messages = vec![
-                Message {
-                    role: MessageRole::User,
-                    content: MessageContent::Text(background.into()),
-                },
-                Message {
-                    role: MessageRole::User,
-                    content: MessageContent::Text("Please acknowledge that you have received the background context.".into()),
-                },
-            ];
-
-            let response = MessagesBuilder::builder(
-                &String::from(&self.model), 
-                messages, 
-                self.model.anthropic_max_tokens()
-            )
-                .credentials(
-                    self.model.anthropic_credentials()
-                )
-                .create()
-                .await?;
-
-            let reply = if let Some(ResponseContentBlock::Text { text }) = response.content.first() {
-                text.trim().to_string()
-            } else {
-                "Unknown response from Anthropic API".to_string()
-            };
-
-            log::info!("Prime LLM with background:\n\n{}\n\n", background);
-            log::info!("Response: \n\n{}\n\n", reply);
-
-            Ok(())
-        } else {
-            let messages = if self.model.has_system_message() {
-                vec![
-                    ChatCompletionRequestMessage::System(background.into()),
-                    ChatCompletionRequestMessage::User("Please acknowledge that you have received the background context.".into()),
-                ]
-            } else {
-                vec![
-                    ChatCompletionRequestMessage::User("Please acknowledge that you have received the background context.".into()),
-                ]
-            };
-
-            let request = CreateChatCompletionRequestArgs::default()
-                .model(&self.model)
-                .messages(messages)
-                .build()?;
-            let _ = self.llm_client.chat().create(request).await?;
-            Ok(())
-        }
-    }
-    /// Gets the current state memory into a JSON string.
-    fn _get_agent_state_memory(&self) -> String {
-        serde_json::to_string_pretty(&self.state.memory).unwrap_or_else(|_| "{}".into())
-    }
-    /// Gets the current diagnostic history into a JSON string.
-    fn get_history(&self) -> String {
-        serde_json::to_string_pretty(&self.state.history).unwrap_or_else(|_| "{}".into())
-    }
-    /// Gets the current threshold considerations
-    fn _get_threshold_considerations(&self) -> String {
-        let atc = self.state.memory.get("data__AboveThresholdQuery__Considerations").map_or("[]", |x| x.deref());
-        let btc = self.state.memory.get("data__BelowThresholdQuery__Considerations").map_or("[]", |x| x.deref());
-        let ttc = self.state.memory.get("data__TargetThresholdQuery__Considerations").map_or("[]", |x| x.deref());
-        format!("Above threshold filter configuration: {atc} === Below threshold filter configuration: {btc} === Target threshold filter contamination {ttc}")
-    }
-    /// Gets the current threshold candidate taxa by deserializing JSON strings to Vec<Taxon>
-    fn get_threshold_candidates(&self) -> ThresholdCandidates {
-
-        // Retrieve JSON strings from memory, defaulting to "[]" if not found.
-        let atc_json = self.state.memory.get("data__AboveThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
-        let btc_json = self.state.memory.get("data__BelowThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
-        let ttc_json = self.state.memory.get("data__TargetThresholdQuery__CandidateTaxa").map_or("[]", |x| x.deref());
-        
-        ThresholdCandidates { 
-            above_threshold: serde_json::from_str(atc_json).ok(), 
-            below_threshold: serde_json::from_str(btc_json).ok(), 
-            target_list: serde_json::from_str(ttc_json).ok() 
-        }
-    }
-    fn threshold_candidates_to_str(&self, full_context: &mut String, threshold_candidates: &ThresholdCandidates) {
-        full_context.push_str(&threshold_candidates.to_str());
-    }
-    /// Runs the diagnostic pathway and returns a DiagnosticResult as JSON.
-    pub async fn run(&mut self, gp_config: &mut MetaGpConfig, clinical_context: &str) -> Result<DiagnosticResult> {
-
-        // Create the identifier query for this sample:
-        self.state.log("identifier_schema", &gp_config.identifiers.to_json());
-
-        let mut node_key = "start".to_string();
-
-        // Loop through the decision tree.
-        while let Some(node) = self.tree.nodes.get(&node_key) {
-            log::info!("Processing node: {}", node_key);
-
-            self.state.log("current_node", &node_key);
-            
-            // Record the current node in history (include question if available)
-            let question_text = node.question.as_ref().map(|q| q.to_prompt());
-
-            match node.check {
-                Some(CheckType::LlmEval) | Some(CheckType::LlmDiagnosticEval) | Some(CheckType::LlmJsonEval) => {
-                    
-                    let question = node.question.as_ref().expect("LLM JSON eval requires a question");
-                    
-                    // Special handling for the output_evaluation node:
-                    if node_key == "output_evaluation" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let threshold_candidate_taxa = self.get_threshold_candidates();
-
-                        // Combine clinical context with the injected memory.
-                        let mut full_context = format!("Clinical Context: {}\n\n{}", clinical_context,  if self.diagnostic_memory { format!("Diagnostic memory: {}\n\n", diagnostic_memory) } else { String::new() });
-
-                        // Combine data context with the query
-                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&diagnostic_response.to_string()));
-
-                        if diagnostic_response {
-                            node_key = node.true_node.clone().expect("True node key expected");
-                        } else {
-                            node_key = node.false_node.clone().expect("False node key expected");
-                        }
-
-                    } else if node_key == "diagnose_infectious" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let threshold_candidate_taxa = self.get_threshold_candidates();
-
-                        // Combine clinical context with the injected memory.
-                        let mut full_context = format!("Clinical Context: {}\n\n{}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}\n\n", diagnostic_memory) } else { String::new() });
-
-                        // Combine data context with the query
-                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_candidates = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_candidates.to_string()));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_candidates", &pathogen_candidates.to_string());
-                        
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        }
-
-                        
-                    } else if node_key == "describe_infectious" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let pathogen_candidates = self.state.memory.get("pathogen_candidates");
-
-                        // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_description = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_description.to_string()));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_candidate_description", &pathogen_description.to_string());
-
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        }
-                        
-                    } else if node_key == "select_infectious" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let threshhold_candidates = self.get_threshold_candidates();
-                        let pathogen_candidates = self.state.memory.get("pathogen_candidates");
-                        let pathogen_candidate_description = self.state.memory.get("pathogen_candidate_description");
-
-                        // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}\n\nThreshold candidates: {}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description, threshhold_candidates.to_str());
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_selection = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_selection));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_selection", &pathogen_selection);
-
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        }
-                        
-                    } else if node_key == "describe_select_infectious" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let pathogen_selection = self.state.memory.get("pathogen_selection");
-
-                        // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nSelected pathogen candidate: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_selection);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_description = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_description));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_description", &pathogen_description);
-                        
-                    } else if node_key == "integrate_below_target_evidence" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let threshold_candidate_taxa = self.get_threshold_candidates();
-
-                        // Combine clinical context with the injected memory.
-                        let mut full_context = format!("Clinical Context: {}\n\n{}\n\n", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() });
-
-                        // Combine data context with the query
-                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&diagnostic_response.to_string()));
-
-                        if diagnostic_response {
-                            node_key = node.true_node.clone().expect("True node key expected");
-                        } else {
-                            node_key = node.false_node.clone().expect("False node key expected");
-                        }
-                        
-                    } else if node_key == "diagnose_infectious_review" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let threshold_candidate_taxa = self.get_threshold_candidates();
-
-                        // Combine clinical context with the injected memory.
-                        let mut full_context = format!("Clinical Context: {}\n\n{}\n\n", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() });
-                        
-                        // Combine data context with the query
-                        self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_candidates = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_candidates.to_string()));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_candidates", &pathogen_candidates.to_string());
-                        
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        }
-                        
-                    } else if node_key == "describe_infectious_review" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let pathogen_candidates = self.state.memory.get("pathogen_candidates");
-
-                        // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_description = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_description.to_string()));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_candidate_description", &pathogen_description.to_string());
-
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        }
-                        
-                    } else if node_key == "select_infectious_review" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let threshhold_candidates = self.get_threshold_candidates();
-                        let pathogen_candidates = self.state.memory.get("pathogen_candidates");
-                        let pathogen_candidate_description = self.state.memory.get("pathogen_candidate_description");
-
-                        // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nPathogen candidate taxa: {:?}\n\nPathogen candidate description: {:?}\n\nThreshold candidate taxa: {}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_candidates, pathogen_candidate_description, threshhold_candidates.to_str());
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_selection = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_selection.to_string()));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_selection", &pathogen_selection.to_string());
-
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        }
-                        
-                    } else if node_key == "describe_select_infectious_review" {
-
-                        // Get JSON-structured memory injection.
-                        let diagnostic_memory = self.get_history();
-
-                        let pathogen_selection = self.state.memory.get("pathogen_selection");
-
-                        // Combine clinical context with the injected memory.
-                        let full_context = format!("Clinical Context: {}\n\n{}\n\nSelected pathogen candidate: {:?}", clinical_context, if self.diagnostic_memory { format!("Diagnostic memory: {}", diagnostic_memory) } else { String::new() }, pathogen_selection);
-
-                        // Fetch JSON output from the LLM with the full context.
-                        let pathogen_description = self.evaluate_llm(question, &full_context).await?;
-                        
-                        // Log the JSON response in history.
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&pathogen_description));
-
-                        // Save the parsed evaluation details in memory.
-                        self.state.log("pathogen_description", &pathogen_description);
-                        
-                    } else {
-                        // Otherwise full diagnostic decision LLM evaluation returning yes/no.
-                        let answer = self.evaluate_llm(question, clinical_context).await?;
-
-                        self.state.log("llm_decision", &answer);
-                        self.state.add_history(&node_key, Some(question.to_prompt()), Some(&answer));
-                        
-                        if let Some(next_node) = &node.next {
-                            node_key = next_node.to_string();
-                        } else {
-                            if node.final_node.unwrap_or(false) {
-                                self.state.add_history(&node_key, question_text, Some("Final node reached"));
-                                log::info!("Final node reached: {}.", node_key);
-                                break;
-                            }
-
-                            if let Some(next_node) = &node.next {
-                                node_key = next_node.to_string();
-                            }
-                        }
-                    }
-                },
-                Some(CheckType::FlightCheckNonInfectious) => {
-
-                    let question = node.question.as_ref().expect("LLM eval requires a question");
-
-                    // Candidate taxa
-                    let threshold_candidate_taxa = self.get_threshold_candidates();
-
-                    // Get JSON-structured memory injection.
-                    let above_threshold_answer = self.state.get_history(&"check_above_threshold").and_then(|d| d.answer.clone()).unwrap_or(String::from("no"));
-                    let below_threshold_answer = self.state.get_history(&"check_below_threshold").and_then(|d| d.answer.clone()).unwrap_or(String::from("no"));
-                    let target_threshold_answer = self.state.get_history(&"check_target_threshold").and_then(|d| d.answer.clone()).unwrap_or(String::from("no"));
-
-                    // Combine clinical context with the injected memory.
-                    let mut full_context = format!(
-                        "Clinical Context: {}\n\nAbove threshold answer for infectious sample: {:?}\n\nBelow threshold answer for infectious sample: {:?}\n\nTarget list answer for infectious sample: {:?}", 
-                        clinical_context, above_threshold_answer, below_threshold_answer, target_threshold_answer
-                    );
-                    
-                    // Combine data context with the query
-                    self.threshold_candidates_to_str(&mut full_context, &threshold_candidate_taxa);
-
-                    // Fetch JSON output from the LLM with the full context.
-                    let diagnostic_result = self.evaluate_diagnostic_llm(question, &full_context).await?;
-                    
-                    // Log the JSON response in history.
-                    self.state.add_history(&node_key, Some(question.to_prompt()), Some(&diagnostic_result.to_string()));
-
-                    // Save the parsed evaluation details in memory.
-                    self.state.log("non_infectious_check", &diagnostic_result.to_string());
-                    
-                    if let Some(next_node) = &node.next {
-                        node_key = next_node.to_string();
-                    } else {
-                        node_key = if diagnostic_result {
-                            node.true_node.clone()
-                        } else {
-                            node.false_node.clone()
-                        }
-                        .expect("Next node key expected");
-                    }
-
-                }
-                Some(CheckType::AboveThresholdQuery) => {
-
-                    let (above_threshold_taxa, above_threshold_contam) = self.cerebro_client.get_taxa( 
-                        &CerebroIdentifierSchema::from_gp_config(gp_config), 
-                        &TaxonFilterConfig::gp_above_threshold(gp_config.ignore_taxstr.clone()), 
-                        &mut gp_config.contamination,
-                        self.contam_history
-                    )?;
-
-                    self.state.log(
-                        "data__AboveThresholdQuery__CandidateTaxa", 
-                        &serde_json::to_string_pretty(&above_threshold_taxa).unwrap_or("{}".to_string())
-                    );
-                    self.state.log(
-                        "data__AboveThresholdQuery__ContamTaxa", 
-                        &serde_json::to_string_pretty(&above_threshold_contam).unwrap_or("{}".to_string())
-                    );
-                    
-                    // Combine data context with the query
-                    let mut full_context = String::new();
-                    
-                    // Combine data context with the query
-                    self.threshold_candidates_to_str(&mut full_context, &ThresholdCandidates::from_above_threshold(above_threshold_taxa));
-
-                    let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
-
-                    // Fetch bool output from the LLM with the full context.
-                    let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-
-                    self.state.add_history(&node_key, node.question.as_ref().map(|q| q.to_prompt()), Some(&diagnostic_response.to_string()));
-
-                    if let Some(next_node) = &node.next {
-                        node_key = next_node.to_string();
-                    } else {
-                        node_key = if diagnostic_response {
-                            node.true_node.clone()
-                        } else {
-                            node.false_node.clone()
-                        }
-                        .expect("Next node key expected");
-                    }
-
-                }
-                Some(CheckType::BelowThresholdQuery) => {
-                    
-                    let (below_threshold_taxa, below_threshold_contam) = self.cerebro_client.get_taxa(
-                        &CerebroIdentifierSchema::from_gp_config(gp_config), 
-                        &TaxonFilterConfig::gp_below_threshold(gp_config.ignore_taxstr.clone()), 
-                        &mut gp_config.contamination,
-                        false
-                    )?;
-
-                    self.state.log(
-                        "data__BelowThresholdQuery__CandidateTaxa", 
-                        &serde_json::to_string_pretty(&below_threshold_taxa).unwrap_or("{}".to_string())
-                    );
-                    self.state.log(
-                        "data__BelowThresholdQuery__ContamTaxa", 
-                        &serde_json::to_string_pretty(&below_threshold_contam).unwrap_or("{}".to_string())
-                    );
-
-
-                    // Combine data context with the query
-                    let mut full_context = String::new();
-                    
-                    // Combine data context with the query
-                    self.threshold_candidates_to_str(&mut full_context, &ThresholdCandidates::from_below_threshold(below_threshold_taxa));
-
-                    let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
-
-                    // Fetch bool output from the LLM with the full context.
-                    let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-
-                    self.state.add_history(&node_key, node.question.as_ref().map(|q| q.to_prompt()), Some(&diagnostic_response.to_string()));
-
-                    if let Some(next_node) = &node.next {
-                        node_key = next_node.to_string();
-                    } else {
-                        node_key = if diagnostic_response {
-                            node.true_node.clone()
-                        } else {
-                            node.false_node.clone()
-                        }
-                        .expect("Next node key expected");
-                    }
-                }
-                Some(CheckType::TargetThresholdQuery) => {
-
-                    let (target_threshold_taxa, target_threshold_contam) = self.cerebro_client.get_taxa(
-                        &CerebroIdentifierSchema::from_gp_config(gp_config), 
-                        &TaxonFilterConfig::gp_target_threshold(gp_config.ignore_taxstr.clone()), 
-                        &mut gp_config.contamination,
-                        false
-                    )?;
-            
-                    self.state.log(
-                        "data__TargetThresholdQuery__CandidateTaxa", 
-                        &serde_json::to_string_pretty(&target_threshold_taxa).unwrap_or("{}".to_string())
-                    );
-                    self.state.log(
-                        "data__TargetThresholdQuery__ContamTaxa", 
-                        &serde_json::to_string_pretty(&target_threshold_contam).unwrap_or("{}".to_string())
-                    );
-
-                    // Combine data context with the query
-                    let mut full_context = String::new();
-
-                    // Combine data context with the query
-                    self.threshold_candidates_to_str(&mut full_context, &ThresholdCandidates::from_target_list(target_threshold_taxa));
-
-                    let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
-
-                    // Fetch bool output from the LLM with the full context.
-                    let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-
-                    self.state.add_history(&node_key, node.question.as_ref().map(|q| q.to_prompt()), Some(&diagnostic_response.to_string()));
-
-                    if let Some(next_node) = &node.next {
-                        node_key = next_node.to_string();
-                    } else {
-                        node_key = if diagnostic_response {
-                            node.true_node.clone()
-                        } else {
-                            node.false_node.clone()
-                        }
-                        .expect("Next node key expected");
-                    }
-
-                },
-                Some(CheckType::AneuploidyQuery) => {
-
-                    let aneuploidy_data = self.cerebro_client.get_aneuploidy(&gp_config.sample)?;
-                    let considerations = "[Host aneuploidy evaluation from host genome-wide segmental copy number variation (CNV) - large segmental aberrations across multiple chromosomes with 
-                    data not widely spread around the genome-wide CNV estimate. If data is widely spread and diffuse it indicates insufficient host genome coverage. Positive large 
-                    segmental abberrations in CNV across multiple chromosomes indicates tumorous host DNA.]";
-                    
-                    self.state.log(
-                        "data__AneuploidyQuery__Considerations",
-                        considerations 
-                    );
-
-                    self.state.log(
-                        "data__AneuploidyQuery__Data", 
-                        aneuploidy_data.unwrap_or("No data available")
-                    );
-                    
-                    // Combine data context with the query
-                    let full_context = format!("Aneuploidy data: {:#?}\n\nConsiderations: {}", aneuploidy_data, considerations);
-
-                    let question = node.question.as_ref().expect("LLM diagnostic eval requires a question");
-
-                    // Fetch bool output from the LLM with the full context.
-                    let diagnostic_response = self.evaluate_diagnostic_llm(question, &full_context).await?;
-
-                    self.state.add_history(&node_key, node.question.as_ref().map(|q| q.to_prompt()), Some(&diagnostic_response.to_string()));
-                    
-                    if let Some(next_node) = &node.next {
-                        node_key = next_node.to_string();
-                    } else {
-                        node_key = if diagnostic_response {
-                            node.true_node.clone()
-                        } else {
-                            node.false_node.clone()
-                        }
-                        .expect("Next node key expected");
-                    }
-                },
-                Some(CheckType::TaxaHistoryQuery) => {
-                    unimplemented!("Not implemented as distinct node action yet")
-                }
-                None => {},
-            }
-
-            // If this is a final node, log and exit the loop.
-            if node.final_node.unwrap_or(false) {
-                self.state.add_history(&node_key, question_text, Some("Final node reached"));
-                log::info!("Final node reached: {}.", node_key);
-                break;
-            }
-        };
-
-
-        // Map the final node key to an overall diagnosis
-        let diagnosis = match node_key.as_str() {
-            "diagnose_infectious" => Diagnosis::Infectious,
-            "describe_select_infectious" => Diagnosis::Infectious,
-            "diagnose_infectious_review" => Diagnosis::InfectiousReview,
-            "describe_select_infectious_review" => Diagnosis::InfectiousReview,
-            "diagnose_tumor" => Diagnosis::Tumor,
-            "diagnose_non_infectious" => Diagnosis::NonInfectious,
-            "diagnose_non_infectious_review" => Diagnosis::NonInfectiousReview,
-            _ => Diagnosis::Unknown,
-        };
-
-        let candidate = self.state.memory.get("pathogen_candidates").cloned();
-        let pathogen = self.state.memory.get("pathogen_selection").cloned();
-
-        let reason_non_infectious = self.state.memory.get("non_infectious_reason").cloned();
-        let candidate_description = self.state.memory.get("pathogen_candidate_description").cloned();
-        let pathogen_description = self.state.memory.get("pathogen_description").cloned();
-
-        let taxa = ThresholdTaxa::from_agent_memory(&self.state.memory)?;
-
-        let diagnostic_result = DiagnosticResult {
-            diagnosis,
-            candidate,
-            candidate_description,
-            pathogen,
-            pathogen_description,
-            reason_non_infectious,
-            clinical_context: clinical_context.to_string(),
-            diagnostic_history_shorthand: self.state.shorthand.clone(),
-            diagnostic_history_annotated: self.state.history.clone(),
-            taxa
-        };
-        
-
-        log::info!(
-            "Diagnosis: '{}'",
-            format!("{}", diagnostic_result.diagnosis).blue()
-        );
-
-        if diagnostic_result.diagnosis == Diagnosis::Infectious || diagnostic_result.diagnosis == Diagnosis::InfectiousReview {
-            log::info!(
-                "Candidates: {} | Description: {}", 
-                diagnostic_result.candidate.clone().unwrap_or_default().red(), 
-                diagnostic_result.candidate_description.clone().unwrap_or_default()
-            );        
-            log::info!(
-                "Pathogen: {} | Description: {}", 
-                diagnostic_result.pathogen.clone().unwrap_or_default().red(), 
-                diagnostic_result.pathogen_description.clone().unwrap_or_default()
-            )
-        }
-
-        if diagnostic_result.diagnosis == Diagnosis::NonInfectious || diagnostic_result.diagnosis == Diagnosis::NonInfectiousReview {
-            log::info!(
-                "Reason: {}", 
-                diagnostic_result.reason_non_infectious.clone().unwrap_or_default() 
-            );     
-        }
-
-        Ok(diagnostic_result)
     }
 
     pub fn print_decision_tree(&self, tree: &DecisionTree, root: &str) {

@@ -1334,7 +1334,7 @@ impl CerebroClient {
         &self,
         schema: &CerebroIdentifierSchema,
         filter_config: &TaxonFilterConfig,
-        contam_config: &mut PrevalenceContaminationConfig,
+        contam_config: &PrevalenceContaminationConfig,
         contam_history: bool
     ) -> Result<(Vec<Taxon>, Vec<Taxon>), HttpClientError> {
 
@@ -1346,7 +1346,8 @@ impl CerebroClient {
         // since the returned 'taxid' from the filter required for the contamination detection may have
         // changed
 
-        contam_config.collapse_variants = filter_config.collapse_variants;
+        let mut contam_config_checked = contam_config.clone();
+        contam_config_checked.collapse_variants = filter_config.collapse_variants;
         
         let identifier_response = self.get_identifiers(schema)?;
 
@@ -1399,7 +1400,7 @@ impl CerebroClient {
                     let contamination_schema = ContaminationSchema::from_config(
                         taxa_response_data.data.taxa.iter().map(|t| t.taxid.to_string()).collect(),
                         vec![tag.to_string()], 
-                        contam_config
+                        &contam_config_checked
                     );
 
                     let response = self.send_request_with_team_db_project(

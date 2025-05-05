@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use cerebro_gp::gpt::GptModel;
+use cerebro_gp::{gpt::{AssayContext, GptModel}, text::GeneratorModel};
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use crate::plate::{DiagnosticOutcome, MissingOrthogonal, SampleType, StatsMode};
@@ -88,8 +88,8 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Evaluate a set of samples with a reference template
-    Evaluate(EvaluateArgs),
+    /// Prefetch tiered data with filter settings for a sample and save to file
+    Prefetch(PrefetchArgs),
     /// Plot the reference plate layout
     PlotPlate(PlotPlateArgs),
     /// Plot the reference plate review results
@@ -97,7 +97,7 @@ pub enum Commands {
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
     /// Diagnose samples on the reference plate using the generative practitioner
-    Diagnose(DiagnoseArgs),
+    DiagnoseLocal(DiagnoseLocalArgs),
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
 }
@@ -175,28 +175,43 @@ pub struct PlotReviewArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct DiagnoseArgs {
+pub struct DiagnoseLocalArgs {
     /// Reference plate file (.json)
     #[clap(long, short = 'p')]
     pub plate: PathBuf,
+    /// Data directory for prefetched data files (.prefetch.json)
+    #[clap(long, short = 'd')]
+    pub prefetch: PathBuf,
     /// Output directory for diagnostic results (.json)
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
-    /// OpenAI model for diagnostic queries
-    #[clap(long, short = 'm', default_value="3o-mini")]
-    pub model: GptModel,
-    /// Add memory of the diagostic decision tree to key decision points
-    #[clap(long, short = 'd')]
-    pub diagnostic_memory: bool,
-    /// Check for contamination history outliers to be removed from prevalence filter
-    #[clap(long)]
-    pub contam_history: bool,
+    /// Local generator model for diagnostic queries
+    #[clap(long, short = 'm', default_value="deepseekr1-qwen7b-q8-0")]
+    pub model: GeneratorModel,
+    /// The length of the sample to generate (in tokens).
+    #[arg(short = 'n', long, default_value_t = 1000)]
+    pub sample_len: usize,
+    /// The temperature used to generate samples, use 0 for greedy sampling.
+    #[arg(long, short='t', default_value_t = 0.8)]
+    pub temperature: f64,
+    /// GPU device index to run on.
+    #[arg(long, short='g', default_value_t=0)]
+    pub gpu: usize,
+    /// Include clinical notes from plate reference into prompt context (if available)
+    #[clap(long, short = 'c')]
+    pub clinical_notes: bool,
+    /// Include sample description from plate reference into prompt context
+    #[clap(long, short = 's', default_value="true")]
+    pub sample_context: Option<bool>,
+    /// Include assay context into prompt context
+    #[clap(long, short = 'a', default_value="cerebro-filter")]
+    pub assay_context: Option<AssayContext>,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,
-    /// Parallel agent evaluation on multiple threads
-    #[clap(long, short = 't', default_value="1")]
-    pub threads: usize,
+    /// Model directory for generator model(.gguf) and tokenizer file (.json)
+    #[clap(long, default_value=".")]
+    pub model_dir: PathBuf,
 }
 
 
@@ -240,6 +255,23 @@ pub struct ReviewArgs {
     /// Set plot title
     #[clap(long)]
     pub title: Option<String>,
+}
+
+
+#[derive(Debug, Args)]
+pub struct PrefetchArgs {
+    /// Reference plate file (.json)
+    #[clap(long, short = 'p')]
+    pub plate: PathBuf,
+    /// Output directory for tiered filter data (.prefetch.json) and configuration (.config.json)
+    #[clap(long, short = 'o')]
+    pub outdir: PathBuf,
+    /// Override for primary filter prevalence contamination outliers included (default) or excluded
+    #[clap(long, short='c')]
+    pub contam_history: Option<bool>,
+    /// Force overwrite output, otherwise skip if exists
+    #[clap(long, short = 'f')]
+    pub force: bool,
 }
 
 #[derive(Debug, Args)]

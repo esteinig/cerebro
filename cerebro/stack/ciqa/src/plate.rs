@@ -2,7 +2,7 @@
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use regex::Regex;
 use statrs::distribution::{ContinuousCDF, StudentsT};
-use cerebro_gp::gpt::{ClinicalContext, Diagnosis, DiagnosticResult};
+use cerebro_gp::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
@@ -10,14 +10,14 @@ use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, 
 use rand::Rng;
 
 pub trait FromSampleType {
-    fn from_sample_type(sample_type: SampleType) -> ClinicalContext;
+    fn from_sample_type(sample_type: SampleType) -> SampleContext;
 }
 
-impl FromSampleType for ClinicalContext {
-    fn from_sample_type(sample_type: SampleType) -> ClinicalContext {
+impl FromSampleType for SampleContext {
+    fn from_sample_type(sample_type: SampleType) -> SampleContext {
         match sample_type {
-            SampleType::Csf => ClinicalContext::Csf,
-            SampleType::Eye => ClinicalContext::Eye,
+            SampleType::Csf => SampleContext::Csf,
+            SampleType::Eye => SampleContext::Eye,
             _ => unimplemented!("Variant of sample type not implemented for FromSampleType -> Clinical Context")
         }
     }
@@ -160,6 +160,7 @@ pub struct SampleReference {
     pub sample_type: SampleType,
     pub result: Option<TestResult>,
     pub note: Option<String>,
+    pub clinical: Option<String>,
     pub orthogonal: Vec<Orthogonal>,
 }
 
@@ -1122,6 +1123,15 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
                 // Look for any positive orthogonal test in the SampleReference that has a matching test string.
                 for ortho in &reference.orthogonal {
                     for test in &ortho.tests {
+
+                        // Exclude any tests that have the "exclude_test" note usually where confirmatory testing
+                        // with another test has not found the reference pathogen.
+                        if let Some(note) = &test.note {
+                            if note.contains("exclude_test") {
+                                continue;
+                            }
+                        }
+
                         if test.result == TestResult::Positive {
 
                             if test.taxa.iter().any(|t| t == pathogen) {
@@ -1144,10 +1154,12 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
                                     }
                                 }
                             }
+                        } else {
+                            continue; // if test result is negative skip this comparison
                         }
                     }
                 }
-                // If no positive test in the reference matches the pathogen, then it's a false positive.
+                // If no positive test in the reference matches the pathogen, it's a false positive.
                 DiagnosticOutcome::FalsePositive
             } else {
                 DiagnosticOutcome::Indeterminate

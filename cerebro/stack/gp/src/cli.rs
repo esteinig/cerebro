@@ -1,18 +1,14 @@
 
-use cerebro_model::api::cerebro::schema::MetaGpConfig;
+use std::path::PathBuf;
+
+use cerebro_model::api::cerebro::schema::{MetaGpConfig, PrevalenceOutliers};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_gp::{gpt::{draw_consensus_tree, DataBackground, DiagnosticAgent}, terminal::{App, Commands}, utils::init_logger};
+use cerebro_gp::{error::GptError, gpt::{draw_consensus_tree, AssayContext, DiagnosticAgent, PrefetchData}, terminal::{App, Commands}, utils::init_logger};
 use cerebro_client::client::CerebroClient;
 
 #[cfg(feature = "local")]
-use cerebro_gp::llama::run_llama;
-#[cfg(feature = "local")]
-use cerebro_gp::quantized::run_quantized;
-#[cfg(feature = "local")]
-use cerebro_gp::qwen::run_qwen;
-#[cfg(feature = "local")]
-use cerebro_gp::text::TextGenerator;
+use cerebro_gp::text::{TextGenerator, GeneratorConfig};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
@@ -22,8 +18,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
     let cli = App::parse();
 
     match &cli.command {
-        Commands::Diagnose( args ) => {
-
+        Commands::DiagnoseApi( args ) => {
+            log::warn!("Not implemented yet")
+        }
+        Commands::PrefetchTiered( args ) => {
+           
             let api_client = CerebroClient::new(
                 &cli.url,
                 cli.token,
@@ -37,52 +36,79 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             log::info!("Checking status of Cerebro API at {}",  &api_client.url);
             api_client.ping_servers()?;
+
+            let (gp_config, _) = get_config(
+                &args.json, 
+                Some(args.sample.clone()), 
+                &args.controls, 
+                &args.tags, 
+                &args.ignore_taxstr,
+                args.contam_history,
+                None
+            )?;
+
+            log::info!("{:#?}", gp_config);
+
+            DiagnosticAgent::new(Some(api_client))
+                .await?
+                .prefetch(&args.output, &gp_config)
+                .await?
+        }
+        #[cfg(feature = "local")]
+        Commands::DiagnoseLocal( args ) => {
+
+            let api_client = match args.prefetch {
+                Some(_) => None,
+                None => {
+                    let api_client = CerebroClient::new(
+                        &cli.url,
+                        cli.token,
+                        false,
+                        cli.danger_invalid_certificate,
+                        cli.token_file,
+                        cli.team,
+                        cli.db,
+                        cli.project
+                    )?;
+                    
+                    log::info!("Checking status of Cerebro API at {}",  &api_client.url);
+                    api_client.ping_servers()?;
+
+                    Some(api_client)
+                },
+            };
+
                         
-            let mut agent = DiagnosticAgent::new(
-                api_client, 
-                args.model.clone(),
-                args.diagnostic_memory,
-                args.contam_history
-            ).await?;
-
-            // Optionally, print the knowledge graph
-            agent.print_decision_tree(&agent.tree, "start");
-
-            draw_consensus_tree(&DiagnosticAgent::graph(&agent.tree)?, &vec![], "tree.svg", 1000, 1000)?;
+            let mut agent = DiagnosticAgent::new(api_client).await?;
 
             if !args.dry_run {
 
-                // Parse generative practicioner configuration
-                let mut gp_config = match &args.json {
-                    Some(path) => {
-                        MetaGpConfig::from_json(
-                            args.sample.clone(), 
-                            path,
-                            args.ignore_taxstr.clone()
-                        )?
-                    },
-                    None => MetaGpConfig::new(
-                        args.sample.clone(), 
-                        args.controls.clone(), 
-                        args.tags.clone(),
-                        args.ignore_taxstr.clone(),
-                        PrevalenceContaminationConfig::gp_default()
-                    )
-                };
-                            
-                // Prime the LLM with the background explanation
-                agent.prime_llm(
-                    &DataBackground::CerebroFilter.get_default()
-                ).await?;
-                            
-                // Run the diagnostic agent, for synthesis of metagenomic pathogen 
-                // detection, host aneuploidy signature, and patient clinical notes
-                let diagnostic_result = agent.run(
-                    &mut gp_config, 
-                    &args.clinical_context.text()
+                let mut generator = TextGenerator::new(
+                    GeneratorConfig::default()
+                )?;
+
+                let (gp_config, prefetch) = get_config(
+                    &args.json, 
+                    args.sample.clone(), 
+                    &args.controls, 
+                    &args.tags, 
+                    &args.ignore_taxstr,
+                    args.contam_history,
+                    args.prefetch.clone()
+                )?;
+
+                let result = agent.run_local(
+                    &mut generator,
+                    args.sample_context.clone(),
+                    args.clinical_notes.clone(),
+                    args.assay_context.clone(),
+                    &gp_config, 
+                    prefetch
                 ).await?;
 
-                diagnostic_result.to_json(&args.diagnostic_log)?;
+                result.to_json(&args.diagnostic_log)?;
+
+                log::info!("{:#?}", result);
 
                 if let Some(state_log) = &args.state_log {
                     agent.state.to_json(state_log)?;
@@ -95,43 +121,72 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         #[cfg(feature = "local")]
         Commands::Generate( args ) => {
             
-            let generator = TextGenerator::new(
-                args.model, 
-                &args.model_dir, 
-                args.force_download
-            );
-
-            generator.run(
-                &args.prompt,
-                args.raw_prompt,
-                args.sample_len,
-                args.split_prompt,
-                args.clean,
-                args.temperature,
-                args.seed,
-                args.top_k,
-                args.top_p,
-                args.repeat_penalty,
-                args.repeat_last_n,
-                args.log_info
+            let mut generator = TextGenerator::new(
+                GeneratorConfig::from_args(&args)
             )?;
 
-        }
-        #[cfg(feature = "local")]
-        Commands::Llama( args ) => {
-            run_llama(args.clone())?
-        },
-        #[cfg(feature = "local")]
-        Commands::Quantized( args ) => {
-            run_quantized(args.clone())?
-        },
-        #[cfg(feature = "local")]
-        Commands::Qwen( args ) => {
-            run_qwen(args.clone())?
+            generator.run(&args.prompt)?;
+
         }
     }
 
     Ok(())
 
 }
-   
+
+
+fn get_config(
+    json: &Option<PathBuf>,
+    sample: Option<String>,
+    controls: &Option<Vec<String>>,
+    tags: &Option<Vec<String>>,
+    ignore_taxstr: &Option<Vec<String>>,
+    prevalence_outliers: Option<bool>,
+    prefetch: Option<PathBuf>
+) -> Result<(MetaGpConfig, Option<PrefetchData>), GptError> {
+
+    // Parse generative practitioner configuration
+    match &json {
+        Some(path) => {
+            // Config from JSON file:
+            Ok((
+                MetaGpConfig::with_json(
+                    sample.ok_or(GptError::SampleIdentifierMissing)?, 
+                    path,
+                    ignore_taxstr.clone(),
+                    match prevalence_outliers { 
+                        Some(true) => Some(PrevalenceOutliers::default()),
+                        Some(false) => Some(PrevalenceOutliers::disabled()),
+                        None => None
+                    }
+                )?,
+                None
+            ))
+        },
+        None => {
+            match &prefetch {
+                Some(path) => {
+                    let data = PrefetchData::from_json(path)?;
+                    Ok((data.config.clone(), Some(data)))
+                },
+                None => {
+                    Ok((
+                        MetaGpConfig::new(
+                            sample.ok_or(GptError::SampleIdentifierMissing)?, 
+                            controls.clone(), 
+                            tags.clone(),
+                            ignore_taxstr.clone(),
+                            PrevalenceContaminationConfig::gp_default(),
+                            match prevalence_outliers { 
+                                Some(true) => Some(PrevalenceOutliers::default()),
+                                Some(false) => Some(PrevalenceOutliers::disabled()),
+                                None => None
+                            }
+                        ),
+                        None
+                    ))
+                }
+            }
+        }
+    }
+}

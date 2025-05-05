@@ -1,37 +1,91 @@
+###############################################################################
+#                                   BUILDER                                   #
+###############################################################################
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04 AS builder
 
-FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04
+ARG APP_USER=appuser
+ARG APP_UID=1000
+ARG APP_GID=1000
 
-ARG CUDA_COMPUTE_CAP=80
+# create non-root user
+RUN groupadd -g $APP_GID $APP_USER \
+ && useradd --uid $APP_UID --gid $APP_GID \
+            --shell /usr/sbin/nologin \
+            --create-home \
+            $APP_USER
 
-ENV CUDA_COMPUTE_CAP=${CUDA_COMPUTE_CAP}
+ENV CUDA_COMPUTE_CAP=${CUDA_COMPUTE_CAP:-80}
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# install build deps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
       build-essential \
       curl \
       ca-certificates \
       git \
       pkg-config \
       libfontconfig1-dev \
-      cmake && \
-    rm -rf /var/lib/apt/lists/*
+      cmake \
+ && rm -rf /var/lib/apt/lists/*
 
-ENV RUSTUP_HOME=/usr/local/rustup \
+# install Rust
+env RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable && \
-    rustup default stable && \
-    rustup component add rustfmt clippy
 
-WORKDIR /app
+RUN curl https://sh.rustup.rs -sSf \
+    | sh -s -- -y --default-toolchain stable \
+ && rustup default stable \
+ && rustup component add rustfmt clippy
 
-COPY Cargo.toml ./
-COPY cerebro/ ./cerebro/
+USER $APP_USER
+WORKDIR /home/$APP_USER/app
+
+# fetch and build
+COPY --chown=$APP_USER:$APP_USER Cargo.toml ./
+COPY --chown=$APP_USER:$APP_USER cerebro/ ./cerebro/
 
 RUN cargo fetch
-
 RUN cargo build \
     --release \
     --manifest-path cerebro/stack/gp/Cargo.toml \
     --features local
+
+###############################################################################
+#                                  RUNTIME                                    #
+###############################################################################
+FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu20.04
+
+ARG APP_USER=appuser
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+# recreate unprivileged user
+RUN groupadd -g $APP_GID $APP_USER \
+ && useradd --uid $APP_UID --gid $APP_GID \
+            --shell /usr/sbin/nologin \
+            --create-home \
+            $APP_USER
+
+# runtime deps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libfontconfig1 \
+ && rm -rf /var/lib/apt/lists/*
+
+# create mount-point for host files
+RUN mkdir -p /mnt/host \
+ && chown $APP_USER:$APP_USER /mnt/host
+
+# copy in the meta-gp binary into PATH
+COPY --from=builder /home/$APP_USER/app/target/release/meta-gp /usr/local/bin/meta-gp
+
+# switch to non-root
+USER $APP_USER
+WORKDIR /home/$APP_USER
+
+# run meta-gp by default
+ENTRYPOINT ["meta-gp"]
+CMD ["--help"]

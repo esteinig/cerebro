@@ -21,6 +21,8 @@ pub enum GptError {
     #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
     #[error(transparent)]
+    CerebroClientError(#[from] cerebro_client::error::HttpClientError),
+    #[error(transparent)]
     NifflerError(#[from] niffler::Error),
     #[error(transparent)]
     CsvError(#[from] csv::Error),
@@ -28,8 +30,18 @@ pub enum GptError {
     PlottersError(#[from] Box<dyn std::error::Error + Send + Sync>), 
     #[error("decision tree root not found")]
     TreeRootMissing, 
+    #[error("decision tree label not found")]
+    TreeNodeLabelMissing, 
+    #[error("decision tree question not found")]
+    TreeNodeQuestionMissing, 
     #[error("end of sentence token not in vocabulary ({0})")]
     EosTokenNotInVocabulary(String), 
+    #[error("sample identifier must be specified when not using prefetch data")]
+    SampleIdentifierMissing, 
+    #[error("node requires a check type")]
+    NodeCheckTypeMissing, 
+    #[error("Cerebro client not provided for diagnostic agent")]
+    CerebroClientNotProvided, 
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for GptError

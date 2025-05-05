@@ -43,6 +43,43 @@ impl Taxon {
 
         })
     }
+    pub fn species_data(&self, evidence: bool) -> String {
+
+        let mut str = String::new();
+
+        if let Some(species) = self.lineage.get_species() {
+            str.push_str(
+                &format!("Species: {species}\n")
+            );
+        }
+
+        if evidence {
+            if self.evidence.profile.is_empty() {
+                str.push_str("No evidence available.");
+            } else {
+                // For each profile record, display key metrics.
+                for record in &self.evidence.profile {
+                    if record.contigs > 0 {
+                        str.push_str(
+                            &format!(
+                                "{} contigs {} bases | ",
+                                record.contigs,
+                                record.bases
+                            )
+                        );
+                    } else {
+                        str.push_str(
+                            &format!(
+                                "{:.2} RPM | ",
+                                record.rpm
+                            )
+                        )
+                    }   
+                }
+            }
+        }
+        str
+    }
 }
 
 impl std::fmt::Display for Taxon {
@@ -130,34 +167,36 @@ impl std::fmt::Display for Taxon {
         } else {
 
             if let Some(species) = self.lineage.get_species() {
-                writeln!(f, "Species: '{species}'")?;
+                writeln!(f, "Species: {species}")?;
             }
 
 
             // --- Profile Evidence Summary ---
-            writeln!(f, "### Taxonomic profiling evidence")?;
             if self.evidence.profile.is_empty() {
-                writeln!(f, "_No evidence available._")?;
+                writeln!(f, "No evidence available.")?;
             } else {
                 // For each profile record, display key metrics.
+                let mut results = String::new();
                 for record in &self.evidence.profile {
                     if record.contigs > 0 {
-                        writeln!(
-                            f,
-                            "Assembly: {} contigs {} bases|",
-                            record.contigs,
-                            record.bases
-                        )?;
+                        results.push_str(
+                            &format!(
+                                "{} contigs {} bases |",
+                                record.contigs,
+                                record.bases
+                            )
+                        );
                     } else {
-                        writeln!(
-                            f,
-                            "{}: {:.2} RPM |",
-                            record.tool.to_string(),
-                            record.rpm
-                        )?;
+                        results.push_str(
+                            &format!(
+                                "{:.2} RPM |",
+                                record.rpm
+                            )
+                        )
                     }
                     
                 }
+                writeln!(f, "{}", results)?;
             }
             writeln!(f)?;
 

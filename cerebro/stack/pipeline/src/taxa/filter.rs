@@ -118,7 +118,7 @@ impl TaxonFilterConfig {
             min_rpm: 10.0,
             max_rpm: None,
             min_abundance: 0.0,
-            ntc_ratio: Some(3.0),
+            ntc_ratio: Some(1.0),
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_above_threshold(),
                 LineageFilterConfig::gp_viruses_above_threshold(),
@@ -142,7 +142,7 @@ impl TaxonFilterConfig {
             min_rpm: 1.0,
             max_rpm: Some(15.0),
             min_abundance: 0.0,
-            ntc_ratio: Some(3.0),
+            ntc_ratio: Some(1.0),
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_below_threshold(),
                 LineageFilterConfig::gp_viruses_below_threshold(),
@@ -450,7 +450,7 @@ impl PrevalenceContaminationConfig {
     }
     pub fn gp_default() -> Self {
         Self {
-            threshold: 0.50,
+            threshold: 0.60,
             min_rpm: 0.0,
             sample_type: None,
             collapse_variants: false
@@ -593,15 +593,21 @@ pub fn apply_evidence_filters(
                             let retain = (ntc_rpm / record.rpm) <= ratio_threshold; // Retain evidence if the NTC RPM / Library RPM ratio is larger than the provided threshold
                             
                             if retain {
-                                log::debug!(
-                                    "Retaining: taxon.name = {}, record.rpm = {:.2}, ntc_rpm = {:.2}, ratio = {:.2}, threshold = {}, retained = {}",
-                                    taxon.name,
-                                    record.rpm,
-                                    ntc_rpm,
-                                    (ntc_rpm / record.rpm),
-                                    ratio_threshold,
-                                    retain
-                                );
+                                if taxon.name == "Aquabacterium sp001770725" {
+                                    log::info!(
+                                        "Retaining: taxon.name = {}, record.rpm = {:.2}, ntc_rpm = {:.2}, ratio = {:.2}, threshold = {}, retained = {} tool={:?} mode={:?} id={}",
+                                        taxon.name,
+                                        record.rpm,
+                                        ntc_rpm,
+                                        (ntc_rpm / record.rpm),
+                                        ratio_threshold,
+                                        retain,
+                                        record.tool,
+                                        record.mode,
+                                        record.id
+                                    );
+                                }
+                                
                             }
 
                             return retain; 
