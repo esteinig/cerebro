@@ -81,39 +81,42 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         
             let mut agent = DiagnosticAgent::new(api_client).await?;
 
-            if !args.dry_run {
 
-                let mut generator = TextGenerator::new(
-                    GeneratorConfig::default()
-                )?;
+            let mut generator = TextGenerator::new(
+                GeneratorConfig::with_default(
+                    args.model.clone(),
+                    args.model_dir.clone(),
+                    args.sample_len,
+                    args.temperature,
+                    args.gpu
+                )
+            )?;
 
-                let (gp_config, prefetch) = get_config(
-                    &args.json, 
-                    args.sample.clone(), 
-                    &args.controls, 
-                    &args.tags, 
-                    &args.ignore_taxstr,
-                    args.contam_history,
-                    args.prefetch.clone()
-                )?;
+            let (gp_config, prefetch) = get_config(
+                &args.json, 
+                args.sample.clone(), 
+                &args.controls, 
+                &args.tags, 
+                &args.ignore_taxstr,
+                args.contam_history,
+                args.prefetch.clone()
+            )?;
 
-                let result = agent.run_local(
-                    &mut generator,
-                    args.sample_context.clone(),
-                    args.clinical_notes.clone(),
-                    args.assay_context.clone(),
-                    &gp_config, 
-                    prefetch
-                ).await?;
+            let result = agent.run_local(
+                &mut generator,
+                args.sample_context.clone(),
+                args.clinical_notes.clone(),
+                args.assay_context.clone(),
+                &gp_config, 
+                prefetch
+            ).await?;
 
-                result.to_json(&args.diagnostic_log)?;
+            result.to_json(&args.diagnostic_log)?;
 
-                log::info!("{:#?}", result);
+            log::info!("{:#?}", result);
 
-                if let Some(state_log) = &args.state_log {
-                    agent.state.to_json(state_log)?;
-                }
-
+            if let Some(state_log) = &args.state_log {
+                agent.state.to_json(state_log)?;
             }
             
 

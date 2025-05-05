@@ -220,9 +220,18 @@ pub struct PrefetchTieredArgs {
     /// Local generator model for diagnostic queries
     #[clap(long, short = 'm', default_value="deepseekr1-qwen7b-q8-0")]
     pub model: GeneratorModel,
-    /// Dry run printing only decision tree and validating inputs
-    #[clap(long, short = 'd')]
-    pub dry_run: bool,
+    /// Model directory for generator model(.gguf) and tokenizer file (.json)
+    #[clap(long, default_value=".")]
+    pub model_dir: PathBuf,
+    /// The length of the sample to generate (in tokens).
+    #[arg(short = 'n', long, default_value_t = 1000)]
+    pub sample_len: usize,
+    /// The temperature used to generate samples, use 0 for greedy sampling.
+    #[arg(long, short='t', default_value_t = 0.8)]
+    pub temperature: f64,
+    /// GPU device index to run on.
+    #[arg(long, short='g', default_value_t=0)]
+    pub gpu: usize,
     /// State log at completion of diagnostic evidence synthesis
     #[clap(long, short = 'l')]
     pub state_log: Option<PathBuf>,

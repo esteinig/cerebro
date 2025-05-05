@@ -88,6 +88,3 @@ COPY --from=builder /home/$APP_USER/app/target/release/meta-gp /usr/local/bin/me
 USER $APP_USER
 WORKDIR /home/$APP_USER
 
-# run meta-gp by default
-ENTRYPOINT ["meta-gp"]
-CMD ["--help"]
