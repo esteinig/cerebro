@@ -31,6 +31,7 @@ RUN apt-get update \
 
 USER $APP_USER
 WORKDIR /home/$APP_USER/app
+RUN chown -R $APP_USER:$APP_USER /home/$APP_USER/app
 
 # install Rust
 ENV RUSTUP_HOME=/home/$APP_USER/rustup 
