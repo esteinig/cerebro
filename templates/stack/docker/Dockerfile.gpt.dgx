@@ -29,9 +29,10 @@ RUN apt-get update \
       cmake \
  && rm -rf /var/lib/apt/lists/*
 
-USER $APP_USER
 WORKDIR /home/$APP_USER/app
 RUN chown -R $APP_USER:$APP_USER /home/$APP_USER/app
+
+USER $APP_USER
 
 # install Rust
 ENV RUSTUP_HOME=/home/$APP_USER/rustup 
