@@ -51,7 +51,6 @@ COPY --chown=$APP_USER:$APP_USER cerebro/ ./cerebro/
 RUN cargo fetch
 RUN cargo build \
     --release \
-    --manifest-path cerebro/stack/gp/Cargo.toml \
     --features local
 
 ###############################################################################
