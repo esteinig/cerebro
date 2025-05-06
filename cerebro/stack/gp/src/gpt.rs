@@ -3,9 +3,9 @@
 use anthropic_api::messages::{MessageContent, MessageRole};
 use anyhow::Result;
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig};
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
-use cerebro_pipeline::taxa::taxon::Taxon;
+use cerebro_pipeline::taxa::taxon::{collapse_taxa, LineageOperations, Taxon};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -951,7 +951,92 @@ impl DiagnosticAgent {
         
 
     }
+    // Collapses GTDB species variants and sums the taxon evidence for
+    // each combination of (id, tool, mode) returned from the taxon
+    // retrieval request with the standard settings - the filter config
+    // for the retrieval request itself can collapse variants; in this 
+    // case we do this for the pathogen selection stage since the variants
+    // are not informative for clinicians
+    //
+    // Note: the prevalence filter uses the variants in the retrieval request!
+    pub fn collapse_variants(taxa: Vec<Taxon>) -> Result<Vec<Taxon>, GptError> {
+        Ok(collapse_taxa(taxa)?)
+    }
+    // Selects the species with the most evidence support if multiple species
+    // of the same genus are detected - used for bacteria and eukaryots
+    pub fn select_best_species(taxa: Vec<Taxon>, domains: Vec<String>, base_weight: Option<f64>) -> Result<Vec<Taxon>, GptError> {
 
+        let base_weight = base_weight.unwrap_or(1.0);
+
+        let mut retained = Vec::new();
+
+        let mut species_selection: HashMap<String, Vec<Taxon>> = HashMap::new();
+        for taxon in taxa {
+            match taxon.lineage.get_domain() {
+                Some(domain_str) => {
+                    if domains.contains(&domain_str) {
+
+                        // Aggregate only from the provided domains - we want to do this for Bacteria/Archaea/Eukaryota 
+                        // but not necessarily for viruses as the genera are quite diverse and likely to co-occur whereas
+                        // this is generally not the case for Eukaryots. Application of selection for Bacteria/Archaea may 
+                        // need to be tested and optimized.
+
+                        match taxon.lineage.get_genus() {
+                            Some(genus_str) => {
+                                species_selection
+                                    .entry(genus_str.clone())
+                                    .or_default()
+                                    .push(taxon);
+                            },
+                            None => retained.push(taxon) // taxa with rank above genus are retained by default
+                        }
+                    } else {
+                        retained.push(taxon) // taxon with domain rank not in targeted domains
+                    }
+                },
+                None => retained.push(taxon) // taxon with missing domain rank in lineage
+            }
+        }
+
+        let best_species: Vec<Taxon> = species_selection.into_iter()
+            .filter_map(|(_, taxa)| {
+                // Skip empty Vecs just in case
+                let best = taxa.into_iter()
+                    .max_by(|a, b| {
+                        let sa = a.evidence.profile_score(base_weight);
+                        let sb = b.evidence.profile_score(base_weight);
+                        sa.partial_cmp(&sb).unwrap()
+                    })?;
+                Some(best)
+            })
+            .collect();
+        
+        for taxon in best_species {
+            retained.push(taxon)
+        }
+
+        Ok(retained)
+    }
+    pub fn apply_post_filter(taxa: Vec<Taxon>, post_filter: &PostFilterConfig) -> Result<Vec<Taxon>, GptError> {
+        
+        let taxa = if post_filter.collapse_variants {
+            Self::collapse_variants(taxa)?
+        } else {
+            taxa
+        };
+
+        log::info!("Taxa after collapsing variants: {}", taxa.len());
+
+        let taxa = if post_filter.best_species {
+            Self::select_best_species(taxa, post_filter.best_species_domains.clone(), post_filter.best_species_base_weight)?
+        } else {
+            taxa
+        };
+
+        log::info!("Taxa after selecting best species: {}", taxa.len());
+
+        Ok(taxa)
+    }
     pub fn run_local(
         &mut self, 
         text_generator: &mut TextGenerator, 
@@ -959,7 +1044,8 @@ impl DiagnosticAgent {
         clinical_notes: Option<String>, 
         assay_context: Option<AssayContext>, 
         config: &MetaGpConfig,
-        prefetch: Option<PrefetchData>
+        prefetch: Option<PrefetchData>,
+        post_filter: Option<PostFilterConfig>
     ) -> Result<DiagnosticResult, GptError> {
 
         let mut node_label = "check_above_threshold".to_string();
@@ -1013,6 +1099,17 @@ impl DiagnosticAgent {
                             primary
                         }
                     };
+
+                    log::info!("Primary taxa: {}", primary_taxa.len());
+
+                    let primary_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(primary_taxa, post_filter)?
+                    } else {
+                        primary_taxa
+                    };
+
+
+                    log::info!("Primary taxa post filter: {}", primary_taxa.len());
                     
 
                     let (result, confidence, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
@@ -1029,14 +1126,14 @@ impl DiagnosticAgent {
                             .unwrap()
                             .to_standard_prompt();
                         
-                        log::info!("{prompt}");
+                        log::info!("\n\n{prompt}");
 
                         let (thoughts, answer) = text_generator.run(&prompt)?;
                         
-                        log::info!("{thoughts}\n\n\n\n");
+                        log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
 
-                        (Self::extract_result(&answer), None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                        (Self::extract_result(&answer)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
                         log::info!("No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
@@ -1079,6 +1176,12 @@ impl DiagnosticAgent {
                         }
                     };
 
+                    let secondary_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(secondary_taxa, post_filter)?
+                    } else {
+                        secondary_taxa
+                    };
+
                     let (result, confidence, prompt, thoughts, answer) = if !secondary_taxa.is_empty() {
 
                         let candidates = ThresholdCandidates::from_secondary_threshold(
@@ -1093,14 +1196,14 @@ impl DiagnosticAgent {
                             .unwrap()
                             .to_standard_prompt();
                         
-                        log::info!("{prompt}");
+                        log::info!("\n\n{prompt}");
 
                         let (thoughts, answer) = text_generator.run(&prompt)?;
                         
-                        log::info!("{thoughts}\n\n\n\n");
+                        log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
 
-                        (Self::extract_result(&answer), None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                        (Self::extract_result(&answer)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
                         log::info!("No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
@@ -1144,6 +1247,12 @@ impl DiagnosticAgent {
                         }
                     };
 
+                    let target_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(target_taxa, post_filter)?
+                    } else {
+                        target_taxa
+                    };
+
                     let (result, confidence, prompt, thoughts, answer) = if !target_taxa.is_empty() {
 
                         let candidates = ThresholdCandidates::from_target_threshold(
@@ -1158,14 +1267,14 @@ impl DiagnosticAgent {
                             .unwrap()
                             .to_standard_prompt();
                         
-                        log::info!("{prompt}");
+                        log::info!("\n\n{prompt}");
 
                         let (thoughts, answer) = text_generator.run(&prompt)?;
                         
-                        log::info!("{thoughts}\n\n\n\n");
+                        log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
 
-                        (Self::extract_result(&answer), None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                        (Self::extract_result(&answer)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
                         log::info!("No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
@@ -1267,14 +1376,14 @@ impl DiagnosticAgent {
                                         .unwrap()
                                         .to_standard_prompt();
                                     
-                                    log::info!("{prompt}");
+                                    log::info!("\n\n{prompt}");
             
                                     let (thoughts, answer) = text_generator.run(&prompt)?;
                                     
-                                    log::info!("{thoughts}\n\n\n\n");
+                                    log::info!("{thoughts}\n\n");
                                     log::info!("{answer}");
 
-                                    let result = Self::extract_result(&answer);
+                                    let result = Self::extract_result(&answer)?;
 
                                     let data = [
                                         secondary_memory.data.clone(), 
@@ -1343,8 +1452,6 @@ impl DiagnosticAgent {
                         }
                     };
     
-                    
-
                     let prompt = current_node
                         .clone()
                         .with_context(&context)? 
@@ -1353,20 +1460,20 @@ impl DiagnosticAgent {
                         .unwrap()
                         .to_standard_prompt();
                 
-                    log::info!("{prompt}");
+                    log::info!("\n\n{prompt}");
 
                     let (thoughts, answer) = text_generator.run(&prompt)?;
                     
-                    log::info!("{thoughts}\n\n\n\n");
+                    log::info!("{thoughts}\n\n");
                     log::info!("{answer}");
 
 
-                    let candidates = Self::extract_candidates(&answer);
-                    let pathogen = Self::extract_pathogen(&answer);
+                    let candidates = Self::extract_tags(&answer, "candidate")?;
+                    let pathogens = Self::extract_tags(&answer, "pathogen")?;
 
                     result.diagnosis = Diagnosis::Infectious;
                     result.candidates = candidates;
-                    result.pathogen = pathogen;
+                    result.pathogen = pathogens.first().cloned();
 
                     break
                 },
@@ -1427,37 +1534,11 @@ impl DiagnosticAgent {
         };
         Ok(node_label)
     }
-
-    /// Extract the first `<pathogen>…</pathogen>` value, warning if more than one.
-    fn extract_pathogen(answer: &str) -> Option<String> {
-        let mut rest = answer;
-        // find first
-        let first = if let Some(start_idx) = rest.find("<pathogen>") {
-            let after_open = &rest[start_idx + "<pathogen>".len()..];
-            if let Some(end_idx) = after_open.find("</pathogen>") {
-                let value = after_open[..end_idx].to_string();
-                // prepare to look for a second tag further down
-                rest = &after_open[end_idx + "</pathogen>".len()..];
-                Some(value)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        // if there's still another `<pathogen>` in the leftover, warn
-        if first.is_some() && rest.contains("<pathogen>") {
-            log::warn!("Multiple <pathogen> tags detected; using the first one");
-        }
-
-        first
-    }
-
-    fn extract_result(s: &str) -> Option<bool> {
-        let result = Self::extract_tag(s, "result");
+    fn extract_result(s: &str) -> Result<Option<bool>, GptError> {
+        let results = Self::extract_tags(s, "result")?;
         
-        match result {
+        // Only consider the first result block
+        let result = match results.first() {
             Some(value) => {
                 if value.replace(" ", "").to_lowercase() == "yes" {
                     Some(true)
@@ -1490,64 +1571,12 @@ impl DiagnosticAgent {
                 } else if s.contains("<result>no</result>") {
                     Some(false)
                 } else {
-
                     log::warn!("Failed to find result in answer: {s}");
                     None
                 }
             }
-        }
-    }
-    fn extract_confidence(s: &str) -> Option<String> {
-        let result = Self::extract_tag(s, "confidence");
-        
-        match result {
-            Some(value) => {
-                Some(Self::extract_digits(&value))
-            },
-            None => {
-                log::warn!("Failed to find XML confidence tag in answer: {s}");
-                let result = Self::extract_markdown(s, "confidence");
-                
-                match result {
-                    Some(value) => {
-                        Some(Self::extract_digits(&value))
-                    },
-                    None => {
-                        log::warn!("Failed to find MD confidence tag in answer - returning indeterminate result (None)");
-                        None
-                    }
-                }
-                
-            }
-        }
-    }
-    fn extract_tag(s: &str, tag: &str) -> Option<String> {
-        let open = format!("<{tag}>");
-        let close = format!("</{tag}>");
-        let start = s.find(&open)? + open.len();
-        let end   = s[start..].find(&close)? + start;
-        Some(s[start..end].to_string())
-    }
-    fn extract_markdown(s: &str, tag: &str) -> Option<String> {
-        let open = format!("```{tag}");
-        let close = format!("```");
-        let start = s.find(&open)? + open.len();
-        let end   = s[start..].find(&close)? + start;
-        Some(s[start..end].to_string())
-    }
-
-    fn extract_whitespace(s: &str, tag: &str) -> Option<String> {
-        let open = format!("{tag} ");
-        let close = format!("\n");
-        let start = s.find(&open)? + open.len();
-        let end   = s[start..].find(&close)? + start;
-        Some(s[start..end].to_string())
-    }
-    fn extract_digits(input: &str) -> String {
-        input
-            .chars()
-            .filter(|c| c.is_ascii_digit())
-            .collect()
+        };
+        Ok(result)
     }
 
     /// Removes trailing variant tags (an underscore + uppercase letters) from each
@@ -1563,24 +1592,23 @@ impl DiagnosticAgent {
         input
             .split_whitespace()
             .map(|token| {
-                // if it ends in "_XXX", strip that off; otherwise leave it alone
+                // if the token ends in "_XXX", strip that off; otherwise leave it alone
                 re.replace(token, "").into_owned()
             })
             .collect::<Vec<_>>()
             .join(" ")
     }
-    fn extract_candidates(input: &str) -> Vec<String> {
-        // The regex looks for "<candidate>" followed by any characters (non-greedy) 
-        // until the next "<candidate>".
-        let re = regex::Regex::new(r"<candidate>(.*?)</candidate>").expect("Invalid regex: <candidate>(.*?)</candidate>");
-        re.captures_iter(input)
-            .filter_map(|cap| {
-                // cap[1] holds the part captured by (.*?)
-                cap.get(1).map(|m| {
-                    Self::strip_variant_tags(m.as_str())
-                })
-            })
-            .collect()
+    fn extract_tags(input: &str, tag: &str) -> Result<Vec<String>, GptError> {
+        let tag = regex::escape(tag);
+        let pat = format!(r"<{0}>(?s)(.*?)</{0}>", tag);
+        let re = regex::Regex::new(&pat)?;
+
+        let extracted = re.captures_iter(input)
+            .filter_map(|cap| cap.get(1))
+            .map(|m| Self::strip_variant_tags(m.as_str()))  // GTDB genus or species variant tags are not informative and too unpredictable for clinical evaluation!
+            .collect();
+        
+        Ok(extracted)
     }
     pub fn graph(tree: &DecisionTree) -> Result<petgraph::Graph<TreeNode, TreeEdge>, GptError> {
 

@@ -182,9 +182,9 @@ pub struct PrefetchTieredArgs {
     /// Request schema (.json)
     #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
     pub json: Option<PathBuf>,
-    /// Check for contamination history outliers to be removed from prevalence filter
+    /// Override for prevalence contamination regresision outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
     #[clap(long)]
-    pub contam_history: Option<bool>,
+    pub prevalence_outliers: Option<bool>,
     /// Ignore these taxstr as filter for threshold values
     #[clap(long, num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,
@@ -223,8 +223,8 @@ pub struct PrefetchTieredArgs {
     /// Model directory for generator model(.gguf) and tokenizer file (.json)
     #[clap(long, default_value=".")]
     pub model_dir: PathBuf,
-    /// The length of the sample to generate (in tokens).
-    #[arg(short = 'n', long, default_value_t = 1000)]
+    /// The length of the sample to generate (in tokens)  - needs to be long enough to capture model thought process
+    #[arg(short = 'n', long, default_value_t = 10000)]
     pub sample_len: usize,
     /// The temperature used to generate samples, use 0 for greedy sampling.
     #[arg(long, short='t', default_value_t = 0.8)]
@@ -247,9 +247,12 @@ pub struct PrefetchTieredArgs {
     /// Clinical notes to be added to clinical context
     #[clap(long)]
     pub clinical_notes: Option<String>,
-    /// Check for contamination history outliers to be removed from prevalence filter
+    /// Override for prevalence contamination regresision outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
     #[clap(long)]
-    pub contam_history: Option<bool>,
+    pub prevalence_outliers: Option<bool>,
+    /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
+    #[clap(long, default_value="true")]
+    pub post_filter: Option<bool>,
     /// Ignore these taxstr as filter for threshold values
     #[clap(long, num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,

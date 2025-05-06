@@ -221,10 +221,18 @@ impl TaxonEvidence {
             profile: Vec::new()
         }
     }
+    /// Compute a simple profile-based score.
+    ///
+    /// `base_weight` scales the log10(total_bases) term to the same order as RPM
+    pub fn profile_score(&self, base_weight: f64) -> f64 {
+        let total_rpm: f64 = self.profile.iter().map(|r| r.rpm).sum();
+        let total_bases: f64 = self.profile.iter().map(|r| r.bases as f64).sum();
+        let base_score = total_bases.log10().max(0.0) * base_weight;
+        total_rpm + base_score
+    }
 }
 
-// Lineage in GTDB liek format
-
+// Lineage in GTDB like format
 pub trait LineageOperations: AsRef<str> {
     fn from_taxid(taxid: &str, taxonomy: &GeneralTaxonomy) -> Result<String, WorkflowError> {
         

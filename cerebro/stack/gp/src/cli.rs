@@ -1,10 +1,10 @@
 
 use std::path::PathBuf;
 
-use cerebro_model::api::cerebro::schema::{MetaGpConfig, PrevalenceOutliers};
+use cerebro_model::api::cerebro::schema::{MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
-use cerebro_gp::{error::GptError, gpt::{draw_consensus_tree, AssayContext, DiagnosticAgent, PrefetchData}, terminal::{App, Commands}, utils::init_logger};
+use cerebro_gp::{error::GptError, gpt::{draw_consensus_tree, AssayContext, DiagnosticAgent, PrefetchData}, terminal::{App, Commands}, utils::{get_config, init_logger}};
 use cerebro_client::client::CerebroClient;
 
 #[cfg(feature = "local")]
@@ -43,8 +43,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 &args.controls, 
                 &args.tags, 
                 &args.ignore_taxstr,
-                args.contam_history,
-                None
+                args.prevalence_outliers,
+                None,   // not relevant
             )?;
 
             log::info!("{:#?}", gp_config);
@@ -96,9 +96,15 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 &args.controls, 
                 &args.tags, 
                 &args.ignore_taxstr,
-                args.contam_history,
+                args.prevalence_outliers,
                 args.prefetch.clone()
             )?;
+
+            let post_filter_config = if args.post_filter.unwrap_or(false) { 
+                Some(PostFilterConfig::default()) 
+            } else { 
+                None 
+            };
 
             let result = agent.run_local(
                 &mut generator,
@@ -106,7 +112,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.clinical_notes.clone(),
                 args.assay_context.clone(),
                 &gp_config, 
-                prefetch
+                prefetch,
+                post_filter_config
             )?;
 
             result.to_json(&args.diagnostic_log)?;
@@ -135,59 +142,3 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
 }
 
-
-fn get_config(
-    json: &Option<PathBuf>,
-    sample: Option<String>,
-    controls: &Option<Vec<String>>,
-    tags: &Option<Vec<String>>,
-    ignore_taxstr: &Option<Vec<String>>,
-    prevalence_outliers: Option<bool>,
-    prefetch: Option<PathBuf>
-) -> Result<(MetaGpConfig, Option<PrefetchData>), GptError> {
-
-    // Parse generative practitioner configuration
-    match &json {
-        Some(path) => {
-            // Config from JSON file:
-            Ok((
-                MetaGpConfig::with_json(
-                    sample.ok_or(GptError::SampleIdentifierMissing)?, 
-                    path,
-                    ignore_taxstr.clone(),
-                    match prevalence_outliers { 
-                        Some(true) => Some(PrevalenceOutliers::default()),
-                        Some(false) => Some(PrevalenceOutliers::disabled()),
-                        None => None
-                    }
-                )?,
-                None
-            ))
-        },
-        None => {
-            match &prefetch {
-                Some(path) => {
-                    let data = PrefetchData::from_json(path)?;
-                    Ok((data.config.clone(), Some(data)))
-                },
-                None => {
-                    Ok((
-                        MetaGpConfig::new(
-                            sample.ok_or(GptError::SampleIdentifierMissing)?, 
-                            controls.clone(), 
-                            tags.clone(),
-                            ignore_taxstr.clone(),
-                            PrevalenceContaminationConfig::gp_default(),
-                            match prevalence_outliers { 
-                                Some(true) => Some(PrevalenceOutliers::default()),
-                                Some(false) => Some(PrevalenceOutliers::disabled()),
-                                None => None
-                            }
-                        ),
-                        None
-                    ))
-                }
-            }
-        }
-    }
-}

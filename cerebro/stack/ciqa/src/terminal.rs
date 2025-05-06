@@ -126,7 +126,7 @@ pub struct EvaluateArgs {
     pub json: Option<PathBuf>,
     /// Check for contamination history outliers to be removed from prevalence filter
     #[clap(long)]
-    pub contam_history: bool,
+    pub prevalence_outliers: bool,
 }
 
 #[derive(Debug, Args)]
@@ -188,13 +188,13 @@ pub struct DiagnoseLocalArgs {
     /// Local generator model for diagnostic queries
     #[clap(long, short = 'm', default_value="deepseekr1-qwen7b-q8-0")]
     pub model: GeneratorModel,
-    /// The length of the sample to generate (in tokens).
-    #[arg(short = 'n', long, default_value_t = 1000)]
+    /// The length of the sample to generate (in tokens) - needs to be long enough to capture model thought process
+    #[arg(short = 'n', long, default_value_t = 20000)]
     pub sample_len: usize,
-    /// The temperature used to generate samples, use 0 for greedy sampling.
+    /// The temperature used to generate samples, use 0 for greedy sampling
     #[arg(long, short='t', default_value_t = 0.8)]
     pub temperature: f64,
-    /// GPU device index to run on.
+    /// Number of GPUs to batch sample evaluations on (each must support model)
     #[arg(long, short='g', default_value_t=1)]
     pub num_gpu: usize,
     /// Include clinical notes from plate reference into prompt context (if available)
@@ -206,6 +206,9 @@ pub struct DiagnoseLocalArgs {
     /// Include assay context into prompt context
     #[clap(long, short = 'a', default_value="cerebro-filter")]
     pub assay_context: Option<AssayContext>,
+    /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
+    #[clap(long, default_value="true")]
+    pub post_filter: Option<bool>,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,
@@ -263,12 +266,12 @@ pub struct PrefetchArgs {
     /// Reference plate file (.json)
     #[clap(long, short = 'p')]
     pub plate: PathBuf,
-    /// Output directory for tiered filter data (.prefetch.json) and configuration (.config.json)
+    /// Output directory for tiered filter data (.prefetch.json)
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
-    /// Override for primary filter prevalence contamination outliers included (default) or excluded
-    #[clap(long, short='c')]
-    pub contam_history: Option<bool>,
+    /// Override for prevalence contamination regresision outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
+    #[clap(long, short='c', default_value="true")]
+    pub prevalence_outliers: Option<bool>,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,

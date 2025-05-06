@@ -1,7 +1,9 @@
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use cerebro_model::api::cerebro::schema::{MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
+use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::Builder;
 use env_logger::fmt::Color;
@@ -10,6 +12,7 @@ use niffler::{get_reader, get_writer};
 use serde::{Deserialize, Serialize};
 
 use crate::error::GptError;
+use crate::gpt::PrefetchData;
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
@@ -139,4 +142,61 @@ pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header
     }
 
     Ok(records)
+}
+
+
+pub fn get_config(
+    json: &Option<PathBuf>,
+    sample: Option<String>,
+    controls: &Option<Vec<String>>,
+    tags: &Option<Vec<String>>,
+    ignore_taxstr: &Option<Vec<String>>,
+    prevalence_outliers: Option<bool>,
+    prefetch: Option<PathBuf>,
+) -> Result<(MetaGpConfig, Option<PrefetchData>), GptError> {
+
+    // Parse generative practitioner configuration
+    match &json {
+        Some(path) => {
+            // Config from JSON file:
+            Ok((
+                MetaGpConfig::with_json(
+                    sample.ok_or(GptError::SampleIdentifierMissing)?, 
+                    path,
+                    ignore_taxstr.clone(),
+                    match prevalence_outliers { 
+                        Some(true) => Some(PrevalenceOutliers::default()),
+                        Some(false) => Some(PrevalenceOutliers::disabled()),
+                        None => None
+                    },
+                )?,
+                None
+            ))
+        },
+        None => {
+            match &prefetch {
+                Some(path) => {
+                    let data = PrefetchData::from_json(path)?;
+                    Ok((data.config.clone(), Some(data)))
+                },
+                None => {
+                    Ok((
+                        MetaGpConfig::new(
+                            sample.ok_or(GptError::SampleIdentifierMissing)?, 
+                            controls.clone(), 
+                            tags.clone(),
+                            ignore_taxstr.clone(),
+                            PrevalenceContaminationConfig::gp_default(),
+                            match prevalence_outliers { 
+                                Some(true) => Some(PrevalenceOutliers::default()),
+                                Some(false) => Some(PrevalenceOutliers::disabled()),
+                                None => None
+                            }
+                        ),
+                        None
+                    ))
+                }
+            }
+        }
+    }
 }

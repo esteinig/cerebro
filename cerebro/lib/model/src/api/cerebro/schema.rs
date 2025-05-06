@@ -201,12 +201,44 @@ impl Default for PrevalenceOutliers {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PostFilterConfig {
+    pub collapse_variants: bool,
+    pub best_species: bool,
+    pub best_species_domains: Vec<String>,
+    pub best_species_base_weight: Option<f64>
+}
+impl Default for PostFilterConfig {
+    fn default() -> Self {
+        Self {
+            collapse_variants: true,
+            best_species: true,
+            best_species_domains: vec![
+                "Archaea".to_string(),
+                "Bacteria".to_string(),
+                "Eukaryota".to_string()
+            ],
+            best_species_base_weight: None
+        }
+    }
+}
+impl PostFilterConfig {
+    pub fn disabled() -> Self {
+        Self {
+            collapse_variants: false,
+            best_species: false,
+            best_species_domains: vec![],
+            best_species_base_weight: None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaGpConfig {
     pub sample: String,
     pub identifiers: CerebroIdentifierSmallSchema,
     pub contamination: PrevalenceContaminationConfig,
-    pub ignore_taxstr: Option<Vec<String>>,
-    pub prevalence_outliers: PrevalenceOutliers
+    pub prevalence_outliers: PrevalenceOutliers,
+    pub ignore_taxstr: Option<Vec<String>>
 }
 impl MetaGpConfig {
     pub fn new(
@@ -222,26 +254,16 @@ impl MetaGpConfig {
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
             contamination,
             ignore_taxstr,
-            prevalence_outliers: prevalence_outliers.unwrap_or(PrevalenceOutliers::default())  // default no check for new configurations - aligns with terminal inputs
+            prevalence_outliers: prevalence_outliers.unwrap_or(PrevalenceOutliers::default()) , // default no check for new configurations - aligns with terminal inputs
         }
     }
-    pub fn from_reference_plate(
-        sample: &str, 
-        controls: &Vec<String>, 
-        tags: &Vec<String>, 
+    pub fn with_json(
+        sample: String, 
+        path: &Path, 
         ignore_taxstr: Option<Vec<String>>, 
-        contamination: PrevalenceContaminationConfig, 
-        prevalence_outliers: PrevalenceOutliers
-    ) -> Self {
-        Self {
-            sample: sample.to_string(),
-            identifiers: CerebroIdentifierSmallSchema { controls: Some(controls.clone()), tags: Some(tags.clone()) },
-            contamination,
-            ignore_taxstr,
-            prevalence_outliers
-        }
-    }
-    pub fn with_json(sample: String, path: &Path, ignore_taxstr: Option<Vec<String>>, prevalence_outliers: Option<PrevalenceOutliers>) -> Result<Self, ModelError> {
+        prevalence_outliers: Option<PrevalenceOutliers>
+    ) -> Result<Self, ModelError> {
+        
         let rdr = BufReader::new(File::open(&path)?);
         let mut config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
 

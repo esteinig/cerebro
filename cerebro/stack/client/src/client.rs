@@ -1434,7 +1434,7 @@ impl CerebroClient {
                         'contam: for contam_taxon in &contam_taxa {
                             let reg = self.get_taxon_history(
                                 format!("s__{}", contam_taxon.name), 
-                                format!("s__Homo sapiens"), 
+                                format!("s__Homo sapiens"), // hardcoded for now
                                 true,
                                 false
                             )?;

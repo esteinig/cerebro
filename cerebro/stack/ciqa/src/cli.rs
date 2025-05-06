@@ -1,8 +1,8 @@
 
 use std::{fs::create_dir_all, path::PathBuf, sync::Arc};
 
-use cerebro_gp::{error::GptError, gpt::{AssayContext, SampleContext, DiagnosticAgent, DiagnosticResult, PrefetchData}, text::{GeneratorConfig, TextGenerator}};
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrevalenceOutliers};
+use cerebro_gp::{error::GptError, gpt::{AssayContext, DiagnosticAgent, DiagnosticResult, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
 use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use clap::Parser;
 use cerebro_ciqa::{config::EvaluationConfig, error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_diagnostic_matrix, plot_plate, plot_stripplot, CellShape, DiagnosticData, DiagnosticReview, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{get_file_component, init_logger, write_tsv, FileComponent}};
@@ -93,7 +93,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             for sample_id in &plate.samples {
 
                 let data_file = args.outdir.join(format!("{sample_id}.prefetch.json"));
-                let config_file = args.outdir.join(format!("{sample_id}.config.json"));
 
                 if args.force || !data_file.exists() {
 
@@ -113,7 +112,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         &Some(plate.negative_controls.clone()), 
                         &Some(tags), 
                         &ignore_taxstr,
-                        args.contam_history,
+                        args.prevalence_outliers,
                         None
                     )?;
 
@@ -121,8 +120,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                     DiagnosticAgent::new(Some(api_client.clone()))?
                         .prefetch(&data_file, &gp_config)?;
-                    
-                    gp_config.to_json(&config_file)?;
 
                 } else {
                     log::info!("File '{}' exists and force not enabled - skipping file", data_file.display());
@@ -194,6 +191,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::DiagnoseLocal( args ) => {
 
             std::fs::create_dir_all(&args.outdir)?;
+
+            let state_dir = args.outdir.join("state_logs");
+            std::fs::create_dir_all(&state_dir)?;
+
             let plate = ReferencePlate::new(
                 &args.plate,
                 None,
@@ -226,7 +227,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 
                 handles.push(std::thread::spawn(move || -> Result<(), GptError> {
 
-                    // Load inference model and weights for this batch on GPU
+                    // state logs directory
+                    let state_dir = args.outdir.join("state_logs");
+
+                    // load inference model and weights for this batch on GPU
                     let mut text_generator = TextGenerator::new(
                         GeneratorConfig::with_default(
                             args.model.clone(),
@@ -237,12 +241,16 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         )
                     )?;
 
+                    // post filter config log
+
+
                     for sample_id in batch_samples {
                         
                         // rebuild paths
                         let data_file   = args.prefetch.join(format!("{sample_id}.prefetch.json"));
-                        let result_file = args.outdir.join(format!("{sample_id}.result.json"));
-                        let state_file  = args.outdir.join(format!("{sample_id}.state.json"));
+
+                        let result_file = args.outdir.join(format!("{sample_id}.json"));
+                        let state_file  = state_dir.join(format!("{sample_id}.state.json"));
                         
                         if !data_file.exists() {
                             log::info!("no prefetch for {}, skipping", sample_id);
@@ -278,6 +286,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             args.assay_context.clone(),
                             &prefetch_data.config.clone(),
                             Some(prefetch_data),
+                            if args.post_filter.unwrap_or(false) { Some(PostFilterConfig::default()) } else { None }
                         )?;
                         
                         // write out
@@ -341,63 +350,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
     Ok(())
 
-}
-   
-
-fn get_config(
-    json: &Option<PathBuf>,
-    sample: Option<String>,
-    controls: &Option<Vec<String>>,
-    tags: &Option<Vec<String>>,
-    ignore_taxstr: &Option<Vec<String>>,
-    prevalence_outliers: Option<bool>,
-    prefetch: Option<PathBuf>
-) -> Result<(MetaGpConfig, Option<PrefetchData>), GptError> {
-
-    // Parse generative practitioner configuration
-    match &json {
-        Some(path) => {
-            // Config from JSON file:
-            Ok((
-                MetaGpConfig::with_json(
-                    sample.ok_or(GptError::SampleIdentifierMissing)?, 
-                    path,
-                    ignore_taxstr.clone(),
-                    match prevalence_outliers { 
-                        Some(true) => Some(PrevalenceOutliers::default()),
-                        Some(false) => Some(PrevalenceOutliers::disabled()),
-                        None => None
-                    }
-                )?,
-                None
-            ))
-        },
-        None => {
-            match &prefetch {
-                Some(path) => {
-                    let data = PrefetchData::from_json(path)?;
-                    Ok((data.config.clone(), Some(data)))
-                },
-                None => {
-                    Ok((
-                        MetaGpConfig::new(
-                            sample.ok_or(GptError::SampleIdentifierMissing)?, 
-                            controls.clone(), 
-                            tags.clone(),
-                            ignore_taxstr.clone(),
-                            PrevalenceContaminationConfig::gp_default(),
-                            match prevalence_outliers { 
-                                Some(true) => Some(PrevalenceOutliers::default()),
-                                Some(false) => Some(PrevalenceOutliers::disabled()),
-                                None => None
-                            }
-                        ),
-                        None
-                    ))
-                }
-            }
-        }
-    }
 }
 
 fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Option<Vec<String>>) {

@@ -1,6 +1,5 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
-use regex::Regex;
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use cerebro_gp::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};

@@ -23,9 +23,13 @@ pub enum GptError {
     #[error(transparent)]
     CerebroClientError(#[from] cerebro_client::error::HttpClientError),
     #[error(transparent)]
+    CerebroPipelineError(#[from] cerebro_pipeline::error::WorkflowError),
+    #[error(transparent)]
     NifflerError(#[from] niffler::Error),
     #[error(transparent)]
     CsvError(#[from] csv::Error),
+    #[error(transparent)]
+    RegexError(#[from] regex::Error),
     #[error("plotters crate error: {0}")]
     PlottersError(#[from] Box<dyn std::error::Error + Send + Sync>), 
     #[error("decision tree root not found")]
