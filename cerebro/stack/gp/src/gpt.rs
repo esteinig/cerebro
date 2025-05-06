@@ -964,9 +964,9 @@ impl DiagnosticAgent {
     }
     // Selects the species with the most evidence support if multiple species
     // of the same genus are detected - used for bacteria and eukaryots
-    pub fn select_best_species(taxa: Vec<Taxon>, domains: Vec<String>, base_weight: Option<f64>) -> Result<Vec<Taxon>, GptError> {
+    pub fn select_best_species(taxa: Vec<Taxon>, post_filter: &PostFilterConfig) -> Result<Vec<Taxon>, GptError> {
 
-        let base_weight = base_weight.unwrap_or(1.0);
+        let base_weight = post_filter.best_species_base_weight.unwrap_or(1.0);
 
         let mut retained = Vec::new();
 
@@ -974,7 +974,7 @@ impl DiagnosticAgent {
         for taxon in taxa {
             match taxon.lineage.get_domain() {
                 Some(domain_str) => {
-                    if domains.contains(&domain_str) {
+                    if post_filter.best_species_domains.contains(&domain_str) {
 
                         // Aggregate only from the provided domains - we want to do this for Bacteria/Archaea/Eukaryota 
                         // but not necessarily for viruses as the genera are quite diverse and likely to co-occur whereas
@@ -998,7 +998,17 @@ impl DiagnosticAgent {
             }
         }
 
-        let best_species: Vec<Taxon> = species_selection.into_iter()
+        // Pre-filter genera with too few species
+        let mut filtered_selection = HashMap::new();
+        for (genus, species_vec) in species_selection {
+            if species_vec.len() < post_filter.best_species_min {
+                retained.extend(species_vec);
+            } else {
+                filtered_selection.insert(genus, species_vec);
+            }
+        }
+
+        let best_species: Vec<Taxon> = filtered_selection.into_iter()
             .filter_map(|(_, taxa)| {
                 // Skip empty Vecs just in case
                 let best = taxa.into_iter()
@@ -1028,7 +1038,7 @@ impl DiagnosticAgent {
         log::info!("Taxa after collapsing variants: {}", taxa.len());
 
         let taxa = if post_filter.best_species {
-            Self::select_best_species(taxa, post_filter.best_species_domains.clone(), post_filter.best_species_base_weight)?
+            Self::select_best_species(taxa, &post_filter)?
         } else {
             taxa
         };

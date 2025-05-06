@@ -204,6 +204,7 @@ impl Default for PrevalenceOutliers {
 pub struct PostFilterConfig {
     pub collapse_variants: bool,
     pub best_species: bool,
+    pub best_species_min: usize,
     pub best_species_domains: Vec<String>,
     pub best_species_base_weight: Option<f64>
 }
@@ -212,6 +213,7 @@ impl Default for PostFilterConfig {
         Self {
             collapse_variants: true,
             best_species: true,
+            best_species_min: 10,
             best_species_domains: vec![
                 "Archaea".to_string(),
                 "Bacteria".to_string(),
@@ -226,6 +228,7 @@ impl PostFilterConfig {
         Self {
             collapse_variants: false,
             best_species: false,
+            best_species_min: 1,
             best_species_domains: vec![],
             best_species_base_weight: None
         }
