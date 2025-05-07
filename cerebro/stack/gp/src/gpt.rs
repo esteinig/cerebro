@@ -178,8 +178,8 @@ impl AssayContext {
         match self {
             AssayContext::CerebroFilter => dedent(r"
                 We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries on NextSeq). Filtering the taxonomic profiling data from the bioinformatics pipeline produced three subsets of the same dataset: 
-                primary threshold (specific but less sensitive for pathogen detection, can contain high-abundance contamination), secondary threshold (sensitive but less specific for pathogen detection, can contain low-abundance contamination), and a 
-                target filter section containing high priority pathogens of interest (very sensitive but not specific for pathogen detection, can contain very low-abundance contamination). Our pipeline uses multiple profiling methods for pathogen detection - 
+                primary threshold (specific but less sensitive for pathogen detection, moderate to high abundance organisms), secondary threshold (sensitive but less specific for pathogen detection, low to moderate abundance organisms), and a 
+                target filter section containing high priority pathogens of interest (very sensitive but not specific for pathogen detection, very low to low abundance but may still be signficant). Our pipeline uses multiple profiling methods for pathogen detection - 
                 read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names
                 are taxonomic species name (genus name and species name). If you do not know a species, assume that the provided species name is correct - do not interpret unknown species names as another species you know!
             "),
