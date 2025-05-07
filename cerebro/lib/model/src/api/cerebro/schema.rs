@@ -224,14 +224,13 @@ impl Default for PostFilterConfig {
     }
 }
 impl PostFilterConfig { 
-    pub fn with_default(collapse_variants: bool, best_species: bool, min_species: usize) -> Self {
-        Self {
-            collapse_variants,
-            best_species,
-            best_species_min: min_species,
-            best_species_domains: vec![],
-            best_species_base_weight: None
-        }
+    pub fn with_default(collapse_variants: bool, best_species: bool, min_species: usize, species_domains: Vec<String>) -> Self {
+        let mut config = Self::default();
+        config.collapse_variants = collapse_variants;
+        config.best_species = best_species;
+        config.best_species_min = min_species;
+        config.best_species_domains = species_domains;
+        config
     }
     pub fn disabled() -> Self {
         Self {

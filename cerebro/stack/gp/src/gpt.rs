@@ -528,6 +528,7 @@ impl DiagnosticMemory {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AgentState {
     pub memory: Vec<DiagnosticMemory>,
+    pub post_filter_config: Option<PostFilterConfig>,
     pub repeat: HashMap<DiagnosticNode, usize>,
 }
 
@@ -535,6 +536,7 @@ impl AgentState {
     fn new() -> Self {
         AgentState {
             memory: Vec::new(),
+            post_filter_config: None,
             repeat: HashMap::new()
         }
     }
@@ -743,7 +745,7 @@ impl DecisionTree {
                 .with_check(DiagnosticNode::TargetThresholdQuery)
                 .with_tasks(
                     dedent(r"  
-                       1. Determine if the metagenomic taxonomic profiling data  [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                       1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen.
                        3. If a virus is detected, strongly consider an infectious diagnosis.
                     ")
@@ -784,7 +786,9 @@ impl DecisionTree {
                     dedent(r"  
                         You have made an infectious diagnosis for this sample. 
 
-                        1. Given the context provided in [Context] select the most likely pathogen species from [Data].
+                        1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] and the provided context [Context]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making selection if you are certain the species is a human pathogen.
+                        3. If a virus is detected, strongly consider a selection as most likely pathogen.
                     ")
                 )?
                 .with_instructions(
@@ -793,7 +797,7 @@ impl DecisionTree {
                         1a. You must select only one of the species in [Data] - the most likely pathogen - and place it into <pathogen></pathogen> tags (XML)
                         1b. You are not allowed to put a value other than the pathogen species inside <pathogen></pathogen> tags (XML).
                         1c. You must place the full genus and species name from [Data] inside <pathogen></pathogen> tags (XML).
-                        1d. You are not allowd to explain your selection.
+                        1d. You are not allowed to explain your selection.
 
                         Example: <pathogen>Rodorendens figura</pathogen>
 
@@ -1057,6 +1061,8 @@ impl DiagnosticAgent {
         prefetch: Option<PrefetchData>,
         post_filter: Option<PostFilterConfig>
     ) -> Result<DiagnosticResult, GptError> {
+
+        self.state.post_filter_config = post_filter.clone();
 
         let mut node_label = "check_above_threshold".to_string();
 
@@ -1436,7 +1442,7 @@ impl DiagnosticAgent {
                             if result {
                                 let primary_candidates = ThresholdCandidates::from_primary_threshold(
                                     memory.data.clone()
-                                ).to_str(false);
+                                ).to_str(true);
                                 
                                 if !primary_candidates.is_empty() {
                                     candidates.push_str(&primary_candidates);
@@ -1452,7 +1458,7 @@ impl DiagnosticAgent {
                             if result {
                                 let integrate_candidates = ThresholdCandidates::from_integrate_threshold(
                                     memory.data.clone()
-                                ).to_str(false);
+                                ).to_str(true);
                                 
                                 if !integrate_candidates.is_empty() {
                                     candidates.push_str(&integrate_candidates);

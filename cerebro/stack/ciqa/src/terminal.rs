@@ -212,6 +212,9 @@ pub struct DiagnoseLocalArgs {
     /// Minimum species per genus required to enable selecting best species for the genus (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="3")]
     pub min_species: usize,
+    /// Apply the species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
+    #[clap(long, num_args=1..)]
+    pub species_domains: Option<Vec<String>>,
     /// Override deafault variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
     #[clap(long, default_value="true")]
     pub collapse_variants: Option<bool>,

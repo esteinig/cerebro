@@ -247,12 +247,21 @@ pub struct PrefetchTieredArgs {
     /// Clinical notes to be added to clinical context
     #[clap(long)]
     pub clinical_notes: Option<String>,
-    /// Override for prevalence contamination regresision outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
+    /// Override for prevalence contamination regression outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
     #[clap(long)]
     pub prevalence_outliers: Option<bool>,
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="true")]
     pub post_filter: Option<bool>,
+    /// Minimum species per genus required to enable selecting best species for the genus (Archaea|Bacteria|Eukaryota)
+    #[clap(long, default_value="3")]
+    pub min_species: usize,
+    /// Apply the species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
+    #[clap(long, num_args=1..)]
+    pub species_domains: Option<Vec<String>>,
+    /// Override deafault variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
+    #[clap(long, default_value="true")]
+    pub collapse_variants: Option<bool>,
     /// Ignore these taxstr as filter for threshold values
     #[clap(long, num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,

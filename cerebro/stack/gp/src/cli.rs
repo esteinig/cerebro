@@ -100,8 +100,22 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.prefetch.clone()
             )?;
 
-            let post_filter_config = if args.post_filter.unwrap_or(false) { 
-                Some(PostFilterConfig::default()) 
+            
+            let post_filter = if args.post_filter.unwrap_or(false) { 
+                let collapse_variants = match args.collapse_variants {
+                    Some(value) => value,
+                    None => false,
+                };
+                let species_domains = match &args.species_domains {
+                    Some(domains) => domains.to_vec(),
+                    None => vec!["Archaea".to_string(), "Bacteria".to_string(), "Eukaryota".to_string()]
+                };
+                Some(PostFilterConfig::with_default(
+                    collapse_variants,
+                    args.min_species > 0,
+                    args.min_species,
+                    species_domains
+                )) 
             } else { 
                 None 
             };
@@ -113,7 +127,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.assay_context.clone(),
                 &gp_config, 
                 prefetch,
-                post_filter_config
+                post_filter
             )?;
 
             result.to_json(&args.diagnostic_log)?;

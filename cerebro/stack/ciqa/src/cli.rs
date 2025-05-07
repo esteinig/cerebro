@@ -283,10 +283,15 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                                 Some(value) => value,
                                 None => false,
                             };
+                            let species_domains = match &args.species_domains {
+                                Some(domains) => domains.to_vec(),
+                                None => vec!["Archaea".to_string(), "Bacteria".to_string(), "Eukaryota".to_string()]
+                            };
                             Some(PostFilterConfig::with_default(
                                 collapse_variants,
                                 args.min_species > 0,
-                                args.min_species
+                                args.min_species,
+                                species_domains
                             )) 
                         } else { 
                             None 
@@ -306,6 +311,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         // write out
                         result.to_json(&result_file)?;
                         agent.state.to_json(&state_file)?;
+
                         log::info!("finished {}", sample_id);
                     }
                     Ok(())
