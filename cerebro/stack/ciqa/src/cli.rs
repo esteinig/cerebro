@@ -249,7 +249,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         // rebuild paths
                         let data_file   = args.prefetch.join(format!("{sample_id}.prefetch.json"));
 
-                        let result_file = args.outdir.join(format!("{sample_id}.json"));
+                        let result_file = args.outdir.join(format!("{sample_id}.model.json"));
                         let state_file  = state_dir.join(format!("{sample_id}.state.json"));
                         
                         if !data_file.exists() {
