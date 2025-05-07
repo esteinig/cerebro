@@ -1436,6 +1436,7 @@ impl DiagnosticAgent {
                 Some(DiagnosticNode::DiagnoseInfectious) => {
                     
                     let mut candidates = String::new();
+                    let mut memory_candidates = Vec::new();
 
                     if let Some(memory) = self.state.retrieve(DiagnosticNode::AboveThresholdQuery) {
                         if let Some(result) = memory.result {
@@ -1448,6 +1449,7 @@ impl DiagnosticAgent {
                                     candidates.push_str(&primary_candidates);
                                     candidates.push_str("\n\n");
                                 }
+                                memory_candidates.extend_from_slice(&memory.data);
                             }
                         };
                     };
@@ -1464,6 +1466,7 @@ impl DiagnosticAgent {
                                     candidates.push_str(&integrate_candidates);
                                     candidates.push_str("\n\n");
                                 }
+                                memory_candidates.extend_from_slice(&memory.data);
                             }
                         }
                     };
@@ -1490,6 +1493,18 @@ impl DiagnosticAgent {
                     result.diagnosis = Diagnosis::Infectious;
                     result.candidates = candidates;
                     result.pathogen = pathogens.first().cloned();
+
+
+                    self.state.memorize(
+                        DiagnosticMemory::new(
+                            DiagnosticNode::DiagnoseInfectious, 
+                            memory_candidates, 
+                            None, 
+                            Some(prompt), 
+                            Some(thoughts), 
+                            Some(answer)
+                        )
+                    );
 
                     break
                 },
