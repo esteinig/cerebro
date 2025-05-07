@@ -213,7 +213,7 @@ impl Default for PostFilterConfig {
         Self {
             collapse_variants: true,
             best_species: true,
-            best_species_min: 10,
+            best_species_min: 3,
             best_species_domains: vec![
                 "Archaea".to_string(),
                 "Bacteria".to_string(),
