@@ -180,8 +180,10 @@ impl AssayContext {
                 We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries on NextSeq). Filtering the taxonomic profiling data from the bioinformatics pipeline produced three subsets of the same dataset: 
                 primary threshold (specific but less sensitive for pathogen detection, moderate to high abundance organisms), secondary threshold (sensitive but less specific for pathogen detection, low to moderate abundance organisms), and a 
                 target filter section containing high priority pathogens of interest (very sensitive but not specific for pathogen detection, very low to low abundance but may still be signficant). Our pipeline uses multiple profiling methods for pathogen detection - 
-                read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names
-                are taxonomic species name (genus name and species name). If you do not know a species, assume that the provided species name is correct - do not interpret unknown species names as another species you know!
+                read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). 
+                
+                Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names are taxonomic species name (genus name and species name). If you do not know a species, assume that the provided species name is correct - 
+                do not interpret unknown species names as another species you know. You must make your considerations and determinations based on the species not the genus.
             "),
             AssayContext::None => String::new()
         }
@@ -709,7 +711,7 @@ impl DecisionTree {
             .with_tasks(
                 dedent(r"  
                     1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen or the species occurs at very high abundance. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the given sample type and clinical presentation.
+                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen, or the species occurs at very high abundance. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the provided sample type or clinical context.
                     3. If a virus is detected, strongly consider an infectious diagnosis. 
                 ")
             )?
@@ -727,7 +729,7 @@ impl DecisionTree {
             .with_tasks(
                 dedent(r"  
                     1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen. Err on the side of caution if the precise species listed is not a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the given sample type and clinical presentation.
+                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
                     3. If a virus is detected, strongly consider an infectious diagnosis.
                 ")
             )?
