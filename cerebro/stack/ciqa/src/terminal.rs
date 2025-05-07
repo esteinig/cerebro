@@ -209,6 +209,12 @@ pub struct DiagnoseLocalArgs {
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="true")]
     pub post_filter: Option<bool>,
+    /// Minimum species per genus required to enable selecting best species for the genus (Archaea|Bacteria|Eukaryota)
+    #[clap(long, default_value="3")]
+    pub min_species: usize,
+    /// Override deafault variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
+    #[clap(long, default_value="true")]
+    pub collapse_variants: Option<bool>,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,

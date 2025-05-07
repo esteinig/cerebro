@@ -707,8 +707,8 @@ impl DecisionTree {
             .with_tasks(
                 dedent(r"  
                     1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen.
-                    3. If a virus is detected, strongly consider an infectious diagnosis.
+                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen. Consider making an infectious diagnosis even if the pathogen is rare for the given sample type and clinical presentation.
+                    3. If a virus is detected, strongly consider an infectious diagnosis. 
                 ")
             )?
             .with_instructions(

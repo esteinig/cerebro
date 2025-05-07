@@ -223,7 +223,16 @@ impl Default for PostFilterConfig {
         }
     }
 }
-impl PostFilterConfig {
+impl PostFilterConfig { 
+    pub fn with_default(collapse_variants: bool, best_species: bool, min_species: usize) -> Self {
+        Self {
+            collapse_variants,
+            best_species,
+            best_species_min: min_species,
+            best_species_domains: vec![],
+            best_species_base_weight: None
+        }
+    }
     pub fn disabled() -> Self {
         Self {
             collapse_variants: false,

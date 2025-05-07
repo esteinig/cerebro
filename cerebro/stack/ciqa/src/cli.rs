@@ -278,6 +278,20 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         
                         let clinical_notes = sample_ref.and_then(|s| s.clinical.clone());
                         
+                        let post_filter = if args.post_filter.unwrap_or(false) { 
+                            let collapse_variants = match args.collapse_variants {
+                                Some(value) => value,
+                                None => false,
+                            };
+                            Some(PostFilterConfig::with_default(
+                                collapse_variants,
+                                args.min_species > 0,
+                                args.min_species
+                            )) 
+                        } else { 
+                            None 
+                        };
+
                         // run agent
                         let result = agent.run_local(
                             &mut text_generator,
@@ -286,7 +300,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             args.assay_context.clone(),
                             &prefetch_data.config.clone(),
                             Some(prefetch_data),
-                            if args.post_filter.unwrap_or(false) { Some(PostFilterConfig::default()) } else { None }
+                            post_filter
                         )?;
                         
                         // write out
