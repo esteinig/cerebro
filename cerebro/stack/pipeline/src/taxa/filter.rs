@@ -254,6 +254,15 @@ impl TargetList {
             Self { targets: Vec::new() }
         })
     }
+    /// Loads the target list from an embedded TSV file.
+    /// The file "templates/ictv_prokaryote_targets.tsv" is embedded at compile time.
+    pub fn gp_prokaryote_viruses() -> Self {
+        let tsv_data = include_str!("../../templates/ictv_prokaryote_targets.tsv");
+        Self::from_tsv_str(tsv_data).unwrap_or_else(|e| {
+            log::error!("Error parsing TSV data: {:?}", e);
+            Self { targets: Vec::new() }
+        })
+    }
 }
 
 

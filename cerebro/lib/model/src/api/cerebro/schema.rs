@@ -1,10 +1,11 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig};
+use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TargetList, TaxonFilterConfig};
 
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
@@ -206,7 +207,9 @@ pub struct PostFilterConfig {
     pub best_species: bool,
     pub best_species_min: usize,
     pub best_species_domains: Vec<String>,
-    pub best_species_base_weight: Option<f64>
+    pub best_species_base_weight: Option<f64>,
+    pub exclude_phage: bool,
+    pub exclude_phage_list: HashSet<String>
 }
 impl Default for PostFilterConfig {
     fn default() -> Self {
@@ -219,17 +222,22 @@ impl Default for PostFilterConfig {
                 "Bacteria".to_string(),
                 "Eukaryota".to_string()
             ],
-            best_species_base_weight: None
+            best_species_base_weight: None,
+            exclude_phage: true,
+            exclude_phage_list: HashSet::from_iter(
+                TargetList::gp_prokaryote_viruses().to_vec()
+            )
         }
     }
 }
 impl PostFilterConfig { 
-    pub fn with_default(collapse_variants: bool, best_species: bool, min_species: usize, species_domains: Vec<String>) -> Self {
+    pub fn with_default(collapse_variants: bool, best_species: bool, min_species: usize, species_domains: Vec<String>, exclude_phage: bool) -> Self {
         let mut config = Self::default();
         config.collapse_variants = collapse_variants;
         config.best_species = best_species;
         config.best_species_min = min_species;
         config.best_species_domains = species_domains;
+        config.exclude_phage = exclude_phage;
         config
     }
     pub fn disabled() -> Self {
@@ -238,7 +246,9 @@ impl PostFilterConfig {
             best_species: false,
             best_species_min: 1,
             best_species_domains: vec![],
-            best_species_base_weight: None
+            best_species_base_weight: None,
+            exclude_phage: false,
+            exclude_phage_list: HashSet::new()
         }
     }
 }

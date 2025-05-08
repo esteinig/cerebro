@@ -110,11 +110,16 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     Some(domains) => domains.to_vec(),
                     None => vec!["Archaea".to_string(), "Bacteria".to_string(), "Eukaryota".to_string()]
                 };
+                let exclude_phage = match args.exclude_phage {
+                    Some(value) => value,
+                    None => false,
+                };
                 Some(PostFilterConfig::with_default(
                     collapse_variants,
                     args.min_species > 0,
                     args.min_species,
-                    species_domains
+                    species_domains,
+                    exclude_phage
                 )) 
             } else { 
                 None 
