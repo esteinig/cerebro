@@ -1033,6 +1033,20 @@ impl DiagnosticAgent {
 
         Ok(retained)
     }
+    pub fn exclude_phage(taxa: Vec<Taxon>, post_filter: &PostFilterConfig) -> Vec<Taxon> {
+
+        taxa.into_iter().filter(|taxon| {
+            if let Some(domain) = taxon.lineage.get_domain() {
+                if domain == "Viruses" {
+                    !post_filter.exclude_phage_list.contains(&taxon.name) // do not return taxon if in phage list
+                } else {
+                    true // return taxon not virus
+                }
+            } else {
+                true // return taxon no domain
+            }
+        }).collect()
+    }
     pub fn apply_post_filter(taxa: Vec<Taxon>, post_filter: &PostFilterConfig) -> Result<Vec<Taxon>, GptError> {
         
         let taxa = if post_filter.collapse_variants {
@@ -1041,15 +1055,17 @@ impl DiagnosticAgent {
             taxa
         };
 
-        log::info!("Taxa after collapsing variants: {}", taxa.len());
-
         let taxa = if post_filter.best_species {
             Self::select_best_species(taxa, &post_filter)?
         } else {
             taxa
         };
 
-        log::info!("Taxa after selecting best species: {}", taxa.len());
+        let taxa = if post_filter.exclude_phage {
+            Self::exclude_phage(taxa, &post_filter)
+        } else {
+            taxa
+        };
 
         Ok(taxa)
     }
