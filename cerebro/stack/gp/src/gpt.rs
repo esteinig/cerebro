@@ -711,7 +711,7 @@ impl DecisionTree {
             .with_tasks(
                 dedent(r"  
                     1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen, or the species occurs at very high abundance. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the provided sample type or clinical context.
+                    2. Consider making an infectious diagnosis if you are certain the species is a human pathogen, or the species occurs at very high abundance. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the provided sample type or clinical context. Consider the potential for background contamination from reagents, sample site and the environment, but only if you are sure the species is not a typical human pathogen.
                     3. If a virus is detected, strongly consider an infectious diagnosis. 
                 ")
             )?
@@ -748,7 +748,7 @@ impl DecisionTree {
                 .with_tasks(
                     dedent(r"  
                        1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                       2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen.
+                       2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
                        3. If a virus is detected, strongly consider an infectious diagnosis.
                     ")
                 )?
@@ -768,7 +768,7 @@ impl DecisionTree {
                 .with_tasks(
                     dedent(r"  
                         1. Determine if the metagenomic taxonomic profiling data supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a human pathogen.
+                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
                         3. If a virus is detected, strongly consider an infectious diagnosis.
                     ")
                 )?
@@ -789,7 +789,7 @@ impl DecisionTree {
                         You have made an infectious diagnosis for this sample. 
 
                         1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] and the provided context [Context]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making selection if you are certain the species is a human pathogen.
+                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making the determination if the species is a human pathogen.
                         3. If a virus is detected, strongly consider a selection as most likely pathogen.
                     ")
                 )?
