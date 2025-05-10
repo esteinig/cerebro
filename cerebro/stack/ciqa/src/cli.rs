@@ -3,9 +3,9 @@ use std::{fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use cerebro_gp::{error::GptError, gpt::{AssayContext, DiagnosticAgent, DiagnosticResult, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
-use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
+use cerebro_pipeline::{taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_diagnostic_matrix, plot_plate, plot_stripplot, CellShape, DiagnosticData, DiagnosticReview, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{get_file_component, init_logger, write_tsv, FileComponent}};
+use cerebro_ciqa::{config::EvaluationConfig, error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_diagnostic_matrix, plot_plate, plot_stripplot, CellShape, DiagnosticData, DiagnosticReview, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -47,7 +47,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     palette.colors.get(3),
                     palette.colors.get(6),
                     highlight.colors.get(3),
-                    args.ci
+                    args.ci,
+                    args.stats.clone()
                 )?;
             } else {
                 plot_stripplot(
@@ -59,7 +60,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     palette.colors.get(3),
                     palette.colors.get(6),
                     highlight.colors.get(3),
-                    args.ci
+                    args.ci,
+                    args.stats.clone()
                 )?;
             };
 

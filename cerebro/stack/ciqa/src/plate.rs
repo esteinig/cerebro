@@ -1175,12 +1175,28 @@ pub fn plot_stripplot<B: DrawingBackend>(
     col1: Option<&RGBColor>,
     col2: Option<&RGBColor>,
     col3: Option<&RGBColor>,
-    ci: bool
+    ci: bool,
+    file_order: Vec<PathBuf>
 ) -> Result<(), CiqaError> {
+
+    let mut file_labels = Vec::new();
+    for file in file_order {
+        file_labels.push(
+            get_file_component(
+                &file, 
+                FileComponent::FileStem
+            )?
+        )
+    }
 
     // Convert the categories to a sorted list to have consistent ordering
     let mut categories: Vec<String> = data.keys().cloned().collect();
-    categories.sort();
+
+    if file_labels.is_empty() {
+        categories.sort();
+    } else {
+        categories = file_labels;
+    }; 
 
     let n_cats = categories.len();
     
