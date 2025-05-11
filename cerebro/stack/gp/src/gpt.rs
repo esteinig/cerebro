@@ -19,8 +19,6 @@ use async_openai::{config::OpenAIConfig, types::*};
 use colored::Colorize;
 use anthropic_api::{messages::*, Credentials};
 
-use tracing_chrome::ChromeLayerBuilder;
-use tracing_subscriber::prelude::*;
 
 use petgraph::graph::Graph;
 use petgraph::visit::EdgeRef;
@@ -1087,6 +1085,8 @@ impl DiagnosticAgent {
         tracing: bool
     ) -> Result<DiagnosticResult, GptError> {
 
+        use tracing_chrome::ChromeLayerBuilder;
+        use tracing_subscriber::prelude::*;
 
         let _guard = if tracing {
             let (chrome_layer, guard) = ChromeLayerBuilder::new().build();
@@ -1095,7 +1095,6 @@ impl DiagnosticAgent {
         } else {
             None
         };
-
 
         self.state.post_filter_config = post_filter.clone();
 
