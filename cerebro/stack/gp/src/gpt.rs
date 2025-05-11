@@ -1082,19 +1082,10 @@ impl DiagnosticAgent {
         config: &MetaGpConfig,
         prefetch: Option<PrefetchData>,
         post_filter: Option<PostFilterConfig>,
-        tracing: bool
+        enable_tracing: bool,
+        disable_thinking: bool
     ) -> Result<DiagnosticResult, GptError> {
 
-        use tracing_chrome::ChromeLayerBuilder;
-        use tracing_subscriber::prelude::*;
-
-        let _guard = if tracing {
-            let (chrome_layer, guard) = ChromeLayerBuilder::new().build();
-            tracing_subscriber::registry().with(chrome_layer).init();
-            Some(guard)
-        } else {
-            None
-        };
 
         self.state.post_filter_config = post_filter.clone();
 
@@ -1178,7 +1169,7 @@ impl DiagnosticAgent {
                         
                         log::info!("\n\n{prompt}");
 
-                        let (thoughts, answer) = text_generator.run(&prompt)?;
+                        let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                         
                         log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
@@ -1248,7 +1239,7 @@ impl DiagnosticAgent {
                         
                         log::info!("\n\n{prompt}");
 
-                        let (thoughts, answer) = text_generator.run(&prompt)?;
+                        let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                         
                         log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
@@ -1319,7 +1310,7 @@ impl DiagnosticAgent {
                         
                         log::info!("\n\n{prompt}");
 
-                        let (thoughts, answer) = text_generator.run(&prompt)?;
+                        let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                         
                         log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
@@ -1428,7 +1419,7 @@ impl DiagnosticAgent {
                                     
                                     log::info!("\n\n{prompt}");
             
-                                    let (thoughts, answer) = text_generator.run(&prompt)?;
+                                    let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                                     
                                     log::info!("{thoughts}\n\n");
                                     log::info!("{answer}");
@@ -1515,7 +1506,7 @@ impl DiagnosticAgent {
                 
                     log::info!("\n\n{prompt}");
 
-                    let (thoughts, answer) = text_generator.run(&prompt)?;
+                    let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                     
                     log::info!("{thoughts}\n\n");
                     log::info!("{answer}");

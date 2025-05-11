@@ -270,7 +270,10 @@ pub struct PrefetchTieredArgs {
     pub ignore_taxstr: Option<Vec<String>>,
     /// Enable tracing (trace-timestamp.json)
     #[clap(long)]
-    pub tracing: bool,
+    pub enable_tracing: bool,
+    /// Disable thinking in Qwen3
+    #[clap(long)]
+    pub disable_thinking: bool,
 }
 
 #[derive(Debug, Args)]

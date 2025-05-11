@@ -133,7 +133,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 &gp_config, 
                 prefetch,
                 post_filter,
-                args.tracing
+                args.enable_tracing,
+                args.disable_thinking
             )?;
 
             result.to_json(&args.diagnostic_log)?;
@@ -153,7 +154,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 GeneratorConfig::from_args(&args)
             )?;
 
-            generator.run(&args.prompt)?;
+            generator.run(&args.prompt, false)?;
 
         }
     }

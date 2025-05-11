@@ -154,6 +154,7 @@ impl TextGenerator {
     pub fn run(
         &mut self,
         prompt: &str,
+        disable_thinking: bool
     ) -> Result<(String, String), GptError> {
 
         let mut tos = TokenOutputStream::new(
@@ -163,7 +164,7 @@ impl TextGenerator {
         let prompt = if self.config.raw_prompt {
             prompt.to_string()
         } else {
-            self.config.model.format_prompt(prompt, false)
+            self.config.model.format_prompt(prompt, disable_thinking)
         };
 
         if self.config.log_info {
@@ -669,8 +670,8 @@ impl GeneratorModel {
 
     pub fn is_deepseek_qwen(&self) -> bool {
         match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM => false,
-            GeneratorModel::Qwen4bQ80 
+            GeneratorModel::DeepseekR1Llama8bQ4KM
+            | GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
             | GeneratorModel::Qwen32bQ80 => false,
             GeneratorModel::DeepseekR1Qwen7bQ4KM 
@@ -688,10 +689,6 @@ impl GeneratorModel {
     }
     pub fn is_deepseek_llama(&self) -> bool {
         match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM => true,
-            GeneratorModel::Qwen4bQ80 
-            | GeneratorModel::Qwen8bQ80
-            | GeneratorModel::Qwen32bQ80 => false,
             GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
             | GeneratorModel::DeepseekR1Qwen7bF16
@@ -702,16 +699,17 @@ impl GeneratorModel {
             | GeneratorModel::DeepseekR1Qwen32bQ2KL
             | GeneratorModel::DeepseekR1Qwen32bQ4KM
             | GeneratorModel::DeepseekR1Qwen32bQ80
-            | GeneratorModel::DeepseekR1Qwen32bF16 => false
+            | GeneratorModel::DeepseekR1Qwen32bF16
+            | GeneratorModel::Qwen4bQ80 
+            | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen32bQ80 => false,
+            GeneratorModel::DeepseekR1Llama8bQ4KM => true,
         }
     }
     pub fn is_qwen(&self) -> bool {
         match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM => false,
-            GeneratorModel::Qwen4bQ80 
-            | GeneratorModel::Qwen8bQ80
-            | GeneratorModel::Qwen32bQ80 => true,
-            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+            GeneratorModel::DeepseekR1Llama8bQ4KM
+            | GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
             | GeneratorModel::DeepseekR1Qwen7bF16
             | GeneratorModel::DeepseekR1Qwen14bQ2KL
@@ -721,16 +719,22 @@ impl GeneratorModel {
             | GeneratorModel::DeepseekR1Qwen32bQ2KL
             | GeneratorModel::DeepseekR1Qwen32bQ4KM
             | GeneratorModel::DeepseekR1Qwen32bQ80
-            | GeneratorModel::DeepseekR1Qwen32bF16 => false
+            | GeneratorModel::DeepseekR1Qwen32bF16 => false,
+            GeneratorModel::Qwen4bQ80 
+            | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen32bQ80 => true,
         }
     }
 
     pub fn format_prompt(&self, prompt: &str, disable_thinking: bool) -> String {
         if self.is_deepseek_qwen() {
+            log::info!("Model is DeepseekR1-Qwen for prompt");
             format!("<｜User｜>{prompt}<｜Assistant｜>")
         } else if self.is_deepseek_llama() {
+            log::info!("Model is DeepseekR1-Llama for prompt");
             format!("<｜user｜>{prompt}<｜assistant｜>")  // llama distillation only works with non-capitalized tags?
         } else if self.is_qwen() {
+            log::info!("Model is Qwen3 for prompt");
             if disable_thinking {
                 format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n") 
             } else {
