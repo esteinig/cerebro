@@ -1485,8 +1485,8 @@ pub fn plot_stripplot<B: DrawingBackend>(
     // Finally configure and draw the legend box
     chart
         .configure_series_labels()
-        .position(SeriesLabelPosition::UpperMiddle)
-        .border_style(&WHITE)
+        .position(SeriesLabelPosition::LowerMiddle)
+        .border_style(&BLACK)
         .background_style(WHITE.filled())
         .draw()
         .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;

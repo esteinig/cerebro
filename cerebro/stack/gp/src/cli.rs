@@ -132,7 +132,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.assay_context.clone(),
                 &gp_config, 
                 prefetch,
-                post_filter
+                post_filter,
+                args.tracing
             )?;
 
             result.to_json(&args.diagnostic_log)?;

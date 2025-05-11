@@ -1,11 +1,12 @@
 // main.rs
 
-use anthropic_api::messages::{MessageContent, MessageRole};
+
 use anyhow::Result;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig};
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::{collapse_taxa, LineageOperations, Taxon};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -13,9 +14,13 @@ use std::hash::Hash;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+
 use async_openai::{config::OpenAIConfig, types::*};
 use colored::Colorize;
 use anthropic_api::{messages::*, Credentials};
+
+use tracing_chrome::ChromeLayerBuilder;
+use tracing_subscriber::prelude::*;
 
 use petgraph::graph::Graph;
 use petgraph::visit::EdgeRef;
@@ -25,6 +30,7 @@ use petgraph::visit::IntoNodeReferences;
 use plotters::prelude::*;
 
 use crate::error::GptError;
+
 
 
 #[cfg(feature = "local")]
@@ -1077,8 +1083,19 @@ impl DiagnosticAgent {
         assay_context: Option<AssayContext>, 
         config: &MetaGpConfig,
         prefetch: Option<PrefetchData>,
-        post_filter: Option<PostFilterConfig>
+        post_filter: Option<PostFilterConfig>,
+        tracing: bool
     ) -> Result<DiagnosticResult, GptError> {
+
+
+        let _guard = if tracing {
+            let (chrome_layer, guard) = ChromeLayerBuilder::new().build();
+            tracing_subscriber::registry().with(chrome_layer).init();
+            Some(guard)
+        } else {
+            None
+        };
+
 
         self.state.post_filter_config = post_filter.clone();
 

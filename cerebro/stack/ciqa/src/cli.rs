@@ -312,7 +312,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             args.assay_context.clone(),
                             &prefetch_data.config.clone(),
                             Some(prefetch_data),
-                            post_filter
+                            post_filter,
+                            args.tracing
                         )?;
                         
                         // write out

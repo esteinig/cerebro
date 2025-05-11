@@ -227,6 +227,9 @@ pub struct DiagnoseLocalArgs {
     /// Model directory for generator model(.gguf) and tokenizer file (.json)
     #[clap(long, default_value=".")]
     pub model_dir: PathBuf,
+    /// Enable tracing (trace-timestamp.json)
+    #[clap(long)]
+    pub tracing: bool,
 }
 
 

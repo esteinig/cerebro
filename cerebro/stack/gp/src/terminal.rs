@@ -268,6 +268,9 @@ pub struct PrefetchTieredArgs {
     /// Ignore these taxstr as filter for threshold values
     #[clap(long, num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,
+    /// Enable tracing (trace-timestamp.json)
+    #[clap(long)]
+    pub tracing: bool,
 }
 
 #[derive(Debug, Args)]
