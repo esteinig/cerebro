@@ -731,7 +731,11 @@ impl GeneratorModel {
         } else if self.is_deepseek_llama() {
             format!("<｜user｜>{prompt}<｜assistant｜>")  // llama distillation only works with non-capitalized tags?
         } else if self.is_qwen() {
-            format!("<｜user｜>{prompt}<｜assistant｜>") 
+            if disable_thinking {
+                format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n") 
+            } else {
+                format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n") 
+            }
         } else {
             prompt.to_string()
         }
