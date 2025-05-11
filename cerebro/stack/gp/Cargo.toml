@@ -62,11 +62,11 @@ anthropic-api = "0.0.5"
 serde_plain = "1.0.2"
 plotters = "0.3.7"
 
-candle-core = { version = "0.9.0-alpha.4", features = ["cuda"], optional = true }
-candle-transformers = { version = "0.9.0-alpha.4", features = ["cuda"], optional = true }
 tokenizers = { version = "0.21.1", optional = true }
 hf-hub = { version = "0.4.2", optional = true }
 regex = "1.11.1"
+candle-core = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
+candle-transformers = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
 
 [features]
 default = []

@@ -11,6 +11,8 @@ use candle_core::utils::{cuda_is_available, metal_is_available};
 
 use candle_transformers::models::quantized_llama as llama;
 use candle_transformers::models::quantized_qwen2 as qwen2;
+use candle_transformers::models::quantized_qwen3 as qwen3;
+
 
 use candle_transformers::utils::apply_repeat_penalty;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
@@ -59,6 +61,13 @@ impl InferenceModel for qwen2::ModelWeights {
     }
 }
 
+impl InferenceModel for qwen3::ModelWeights {
+    fn forward(&mut self, input: &Tensor, position: usize) -> Result<Tensor, GptError> {
+        // delegate to the inherent method on ModelWeights
+        Ok(qwen3::ModelWeights::forward(self, input, position)?)
+    }
+}
+
 pub struct TextGenerator {
     pub model: Box<dyn InferenceModel>,
     pub tokenizer: Tokenizer,
@@ -99,7 +108,7 @@ impl TextGenerator {
                     &device
                 )?;
                 Box::new(model)
-            }
+            },
             GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
                 | GeneratorModel::DeepseekR1Qwen7bF16
@@ -111,12 +120,20 @@ impl TextGenerator {
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 | GeneratorModel::DeepseekR1Qwen32bF16 
-                | GeneratorModel::Qwen4bQ80 
-                | GeneratorModel::Qwen8bQ80 
-                | GeneratorModel::Qwen32bQ80 
              => {
 
                 let model = qwen2::ModelWeights::from_gguf(
+                    gguf, 
+                    &mut file, 
+                    &device
+                )?;
+                Box::new(model)
+            },
+            GeneratorModel::Qwen4bQ80 
+            | GeneratorModel::Qwen8bQ80 
+            | GeneratorModel::Qwen32bQ80 => {
+
+                let model = qwen3::ModelWeights::from_gguf(
                     gguf, 
                     &mut file, 
                     &device
@@ -469,12 +486,12 @@ pub enum GeneratorModel {
     #[value(name = "deepseekr1-qwen32b-f16")]
     DeepseekR1Qwen32bF16,
 
-    #[value(name = "qwen3-32b-q8-0")]
-    Qwen32bQ80,
+    #[value(name = "qwen3-4b-q8-0")]
+    Qwen4bQ80,
     #[value(name = "qwen3-8b-q8-0")]
     Qwen8bQ80,
-    #[value(name = "qwen3-4b-q8-0")]
-    Qwen4bQ80
+    #[value(name = "qwen3-32b-q8-0")]
+    Qwen32bQ80,
 }
 
 impl GeneratorModel {
