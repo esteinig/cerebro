@@ -502,6 +502,25 @@ impl DiagnosticResult {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AgentBenchmark {
+    pub seconds: f32
+}
+impl AgentBenchmark {
+    pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
+        let writer = BufWriter::new(
+            File::create(path)?
+        );
+        serde_json::to_writer_pretty(writer, self)?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, GptError> {
+        let data: String = std::fs::read_to_string(path)?;
+        let data = serde_json::from_str::<AgentBenchmark>(&data)?;
+        Ok(data)
+    }
+}
+
 //
 // === Agent State (Memory) ===
 //
@@ -1085,7 +1104,6 @@ impl DiagnosticAgent {
         enable_tracing: bool,
         disable_thinking: bool
     ) -> Result<DiagnosticResult, GptError> {
-
 
         self.state.post_filter_config = post_filter.clone();
 

@@ -466,6 +466,26 @@ fn compute_mean_and_ci(values: &[f64]) -> (f64, Vec<f64>) {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct AgentBenchmark {
+    pub seconds: f32
+}
+impl AgentBenchmark {
+    pub fn to_json(&self, path: &Path) -> Result<(), CiqaError> {
+        let writer = BufWriter::new(
+            File::create(path)?
+        );
+        serde_json::to_writer_pretty(writer, self)?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, CiqaError> {
+        let data: String = std::fs::read_to_string(path)?;
+        let data = serde_json::from_str::<AgentBenchmark>(&data)?;
+        Ok(data)
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DiagnosticData {
     pub summary: DiagnosticSummary,
     pub stats: Vec<DiagnosticStats>

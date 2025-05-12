@@ -1,7 +1,7 @@
 
 use std::{fs::create_dir_all, path::PathBuf, sync::Arc};
 
-use cerebro_gp::{error::GptError, gpt::{AssayContext, DiagnosticAgent, DiagnosticResult, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
+use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, AssayContext, DiagnosticAgent, DiagnosticResult, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
 use cerebro_pipeline::{taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
 use clap::Parser;
@@ -253,6 +253,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                         let result_file = args.outdir.join(format!("{sample_id}.model.json"));
                         let state_file  = state_dir.join(format!("{sample_id}.state.json"));
+                        let bench_file  = state_dir.join(format!("{sample_id}.bench.json"));
                         
                         if !data_file.exists() {
                             log::info!("no prefetch for {}, skipping", sample_id);
@@ -304,6 +305,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             None 
                         };
 
+                        let start = std::time::Instant::now();
+
                         // run agent
                         let result = agent.run_local(
                             &mut text_generator,
@@ -316,10 +319,18 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             args.enable_tracing,
                             args.disable_thinking
                         )?;
+
+                        let elapsed = start.elapsed().as_secs_f32();
+
+                        let bench = AgentBenchmark {
+                            seconds: elapsed
+                        };
+
                         
                         // write out
                         result.to_json(&result_file)?;
                         agent.state.to_json(&state_file)?;
+                        bench.to_json(&bench_file)?;
 
                         log::info!("finished {}", sample_id);
                     }
