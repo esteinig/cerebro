@@ -109,17 +109,15 @@ impl TextGenerator {
                 )?;
                 Box::new(model)
             },
-            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+            GeneratorModel::DeepseekR1Qwen7bQ2KL 
+                | GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
-                | GeneratorModel::DeepseekR1Qwen7bF16
                 | GeneratorModel::DeepseekR1Qwen14bQ2KL
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen14bF16 
                 | GeneratorModel::DeepseekR1Qwen32bQ2KL
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
-                | GeneratorModel::DeepseekR1Qwen32bF16 
              => {
 
                 let model = qwen2::ModelWeights::from_gguf(
@@ -131,6 +129,7 @@ impl TextGenerator {
             },
             GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80 
+            | GeneratorModel::Qwen14bQ80 
             | GeneratorModel::Qwen32bQ80 => {
 
                 let model = qwen3::ModelWeights::from_gguf(
@@ -187,20 +186,20 @@ impl TextGenerator {
                     tokens.to_vec()
                 };
             },
-            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+
+            GeneratorModel::DeepseekR1Qwen7bQ2KL 
+                | GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
-                | GeneratorModel::DeepseekR1Qwen7bF16
                 | GeneratorModel::DeepseekR1Qwen14bQ2KL
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen14bF16 
                 | GeneratorModel::DeepseekR1Qwen32bQ2KL
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
-                | GeneratorModel::DeepseekR1Qwen32bF16 
                 | GeneratorModel::Qwen4bQ80 
                 | GeneratorModel::Qwen8bQ80 
-                | GeneratorModel::Qwen32bQ80 
+                | GeneratorModel::Qwen32bQ80
+                | GeneratorModel::Qwen14bQ80 
             => {}
         }
 
@@ -446,14 +445,14 @@ fn split_think(text: &str) -> (String, String) {
 
     if let Some(second) = parts.next() {
         // We had exactly two parts
-        let though  = first.to_string();
+        let thought  = first.to_string();
         let answer  = second.to_string();
-        (though, answer)
+        (thought, answer)
     } else {
         // No delimiter found → return the whole thing as `answer`
-        let though = String::new();
+        let thought = String::new();
         let answer = text.to_string();
-        (though, answer)
+        (thought, answer)
     }
 }
 
@@ -462,12 +461,12 @@ pub enum GeneratorModel {
     #[value(name = "deepseekr1-llama8b-q4-km")]
     DeepseekR1Llama8bQ4KM,
     
+    #[value(name = "deepseekr1-qwen7b-q2-kl")]
+    DeepseekR1Qwen7bQ2KL,
     #[value(name = "deepseekr1-qwen7b-q4-km")]
     DeepseekR1Qwen7bQ4KM,
     #[value(name = "deepseekr1-qwen7b-q8-0")]
     DeepseekR1Qwen7bQ80,
-    #[value(name = "deepseekr1-qwen7b-f16")]
-    DeepseekR1Qwen7bF16,
 
     #[value(name = "deepseekr1-qwen14b-q2-kl")]
     DeepseekR1Qwen14bQ2KL,
@@ -475,8 +474,6 @@ pub enum GeneratorModel {
     DeepseekR1Qwen14bQ4KM,
     #[value(name = "deepseekr1-qwen14b-q8-0")]
     DeepseekR1Qwen14bQ80,
-    #[value(name = "deepseekr1-qwen14b-f16")]
-    DeepseekR1Qwen14bF16,
 
     #[value(name = "deepseekr1-qwen32b-q2-kl")]
     DeepseekR1Qwen32bQ2KL,
@@ -484,13 +481,13 @@ pub enum GeneratorModel {
     DeepseekR1Qwen32bQ4KM,
     #[value(name = "deepseekr1-qwen32b-q8-0")]
     DeepseekR1Qwen32bQ80,
-    #[value(name = "deepseekr1-qwen32b-f16")]
-    DeepseekR1Qwen32bF16,
 
     #[value(name = "qwen3-4b-q8-0")]
     Qwen4bQ80,
     #[value(name = "qwen3-8b-q8-0")]
     Qwen8bQ80,
+    #[value(name = "qwen3-14b-q8-0")]
+    Qwen14bQ80,
     #[value(name = "qwen3-32b-q8-0")]
     Qwen32bQ80,
 }
@@ -538,22 +535,21 @@ impl GeneratorModel {
         match self {
             GeneratorModel::DeepseekR1Llama8bQ4KM 
                 => "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            GeneratorModel::DeepseekR1Qwen7bQ4KM  
+            GeneratorModel::DeepseekR1Qwen7bQ2KL  
+                | GeneratorModel::DeepseekR1Qwen7bQ4KM  
                 | GeneratorModel::DeepseekR1Qwen7bQ80
-                | GeneratorModel::DeepseekR1Qwen7bF16  
                 => "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
             GeneratorModel::DeepseekR1Qwen14bQ2KL
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen14bF16
                 => "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
             GeneratorModel::DeepseekR1Qwen32bQ2KL
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
-                | GeneratorModel::DeepseekR1Qwen32bF16
                 => "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
             GeneratorModel::Qwen4bQ80 => "Qwen/Qwen3-4B",
             GeneratorModel::Qwen8bQ80 => "Qwen/Qwen3-8B",
+            GeneratorModel::Qwen14bQ80 => "Qwen/Qwen3-14B",
             GeneratorModel::Qwen32bQ80 => "Qwen/Qwen3-32B",
         }
     }
@@ -561,41 +557,39 @@ impl GeneratorModel {
         match self {
             GeneratorModel::DeepseekR1Llama8bQ4KM 
                 => "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
-            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+            GeneratorModel::DeepseekR1Qwen7bQ2KL
+                | GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
-                | GeneratorModel::DeepseekR1Qwen7bF16
                 => "unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF",
             GeneratorModel::DeepseekR1Qwen14bQ2KL
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen14bF16
                 => "unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF",
             GeneratorModel::DeepseekR1Qwen32bQ2KL
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
-                | GeneratorModel::DeepseekR1Qwen32bF16
                 => "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
             GeneratorModel::Qwen4bQ80 => "unsloth/Qwen3-4B-GGUF",
             GeneratorModel::Qwen8bQ80 => "unsloth/Qwen3-8B-GGUF",
+            GeneratorModel::Qwen14bQ80 => "unsloth/Qwen3-14B-GGUF",
             GeneratorModel::Qwen32bQ80 => "unsloth/Qwen3-32B-GGUF",
         }
     }
     pub fn model_config(&self) -> &'static str {
         match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM    => "DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
+            GeneratorModel::DeepseekR1Llama8bQ4KM => "DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
+            GeneratorModel::DeepseekR1Qwen7bQ2KL => "DeepSeek-R1-Distill-Qwen-7B-Q2_K_L.gguf",
             GeneratorModel::DeepseekR1Qwen7bQ4KM => "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
             GeneratorModel::DeepseekR1Qwen7bQ80 => "DeepSeek-R1-Distill-Qwen-7B-Q8_0.gguf",
-            GeneratorModel::DeepseekR1Qwen7bF16 => "DeepSeek-R1-Distill-Qwen-7B-F16.gguf",
             GeneratorModel::DeepseekR1Qwen14bQ2KL => "DeepSeek-R1-Distill-Qwen-14B-Q2_K_L.gguf",
             GeneratorModel::DeepseekR1Qwen14bQ4KM => "DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
             GeneratorModel::DeepseekR1Qwen14bQ80 => "DeepSeek-R1-Distill-Qwen-14B-Q8_0.gguf",
-            GeneratorModel::DeepseekR1Qwen14bF16 => "DeepSeek-R1-Distill-Qwen-14B-F16.gguf",
             GeneratorModel::DeepseekR1Qwen32bQ2KL => "DeepSeek-R1-Distill-Qwen-32B-Q2_K_L.gguf",
             GeneratorModel::DeepseekR1Qwen32bQ4KM => "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
             GeneratorModel::DeepseekR1Qwen32bQ80 => "DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf",
-            GeneratorModel::DeepseekR1Qwen32bF16 => "DeepSeek-R1-Distill-Qwen-32B-F16.gguf",
             GeneratorModel::Qwen4bQ80 => "Qwen3-4B-Q8_0.gguf",
             GeneratorModel::Qwen8bQ80 => "Qwen3-8B-Q8_0.gguf",
+            GeneratorModel::Qwen14bQ80 => "Qwen3-14B-Q8_0.gguf",
             GeneratorModel::Qwen32bQ80 => "Qwen3-32B-Q8_0.gguf",
         }
     }
@@ -605,20 +599,19 @@ impl GeneratorModel {
     // For writing files to disk
     pub fn model_name(&self) -> &'static str {
         match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM    => "deepseekr1-llama8b-q4-km",
+            GeneratorModel::DeepseekR1Llama8bQ4KM  => "deepseekr1-llama8b-q4-km",
+            GeneratorModel::DeepseekR1Qwen7bQ2KL => "deepseekr1-qwen7b-q2-kl",
             GeneratorModel::DeepseekR1Qwen7bQ4KM => "deepseekr1-qwen7b-q4-km",
             GeneratorModel::DeepseekR1Qwen7bQ80 => "deepseekr1-qwen7b-q8-0",
-            GeneratorModel::DeepseekR1Qwen7bF16 => "deepseekr1-qwen7b-f16",
             GeneratorModel::DeepseekR1Qwen14bQ2KL => "deepseekr1-qwen14b-q2-kl",
             GeneratorModel::DeepseekR1Qwen14bQ4KM => "deepseekr1-qwen14b-q4-km",
             GeneratorModel::DeepseekR1Qwen14bQ80 => "deepseekr1-qwen14b-q8-0",
-            GeneratorModel::DeepseekR1Qwen14bF16 => "deepseekr1-qwen14b-f16",
             GeneratorModel::DeepseekR1Qwen32bQ2KL => "deepseekr1-qwen32b-q2-kl",
             GeneratorModel::DeepseekR1Qwen32bQ4KM => "deepseekr1-qwen32b-q4-km",
             GeneratorModel::DeepseekR1Qwen32bQ80 => "deepseekr1-qwen32b-q8-0",
-            GeneratorModel::DeepseekR1Qwen32bF16 => "deepseekr1-qwen32b-f16",
             GeneratorModel::Qwen4bQ80 => "qwen3-4b-q8-0",
             GeneratorModel::Qwen8bQ80 => "qwen3-8b-q8-0",
+            GeneratorModel::Qwen14bQ80 => "qwen3-14b-q8-0",
             GeneratorModel::Qwen32bQ80 => "qwen3-32b-q8-0",
         }
     }
@@ -645,19 +638,18 @@ impl GeneratorModel {
         // Get the  end of sentence token
         let eos_token = match self {
             GeneratorModel::DeepseekR1Llama8bQ4KM 
+                | GeneratorModel::DeepseekR1Qwen7bQ2KL 
                 | GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
-                | GeneratorModel::DeepseekR1Qwen7bF16
                 | GeneratorModel::DeepseekR1Qwen14bQ2KL
                 | GeneratorModel::DeepseekR1Qwen14bQ4KM
                 | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen14bF16
                 | GeneratorModel::DeepseekR1Qwen32bQ2KL
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
-                | GeneratorModel::DeepseekR1Qwen32bQ80
-                | GeneratorModel::DeepseekR1Qwen32bF16  => "<｜end▁of▁sentence｜>",
+                | GeneratorModel::DeepseekR1Qwen32bQ80  => "<｜end▁of▁sentence｜>",
             GeneratorModel::Qwen4bQ80 
                 | GeneratorModel::Qwen8bQ80
+                | GeneratorModel::Qwen14bQ80 
                 | GeneratorModel::Qwen32bQ80 => "<|im_end|>"
         };
         let eos = *tos.tokenizer()
@@ -673,35 +665,33 @@ impl GeneratorModel {
             GeneratorModel::DeepseekR1Llama8bQ4KM
             | GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen14bQ80 
             | GeneratorModel::Qwen32bQ80 => false,
-            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+            GeneratorModel::DeepseekR1Qwen7bQ2KL 
+            | GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
-            | GeneratorModel::DeepseekR1Qwen7bF16
             | GeneratorModel::DeepseekR1Qwen14bQ2KL
             | GeneratorModel::DeepseekR1Qwen14bQ4KM
             | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen14bF16
             | GeneratorModel::DeepseekR1Qwen32bQ2KL
             | GeneratorModel::DeepseekR1Qwen32bQ4KM
-            | GeneratorModel::DeepseekR1Qwen32bQ80
-            | GeneratorModel::DeepseekR1Qwen32bF16 => true,
+            | GeneratorModel::DeepseekR1Qwen32bQ80 => true,
         }
     }
     pub fn is_deepseek_llama(&self) -> bool {
         match self {
-            GeneratorModel::DeepseekR1Qwen7bQ4KM 
+            GeneratorModel::DeepseekR1Qwen7bQ2KL 
+            | GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
-            | GeneratorModel::DeepseekR1Qwen7bF16
             | GeneratorModel::DeepseekR1Qwen14bQ2KL
             | GeneratorModel::DeepseekR1Qwen14bQ4KM
             | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen14bF16 
             | GeneratorModel::DeepseekR1Qwen32bQ2KL
             | GeneratorModel::DeepseekR1Qwen32bQ4KM
             | GeneratorModel::DeepseekR1Qwen32bQ80
-            | GeneratorModel::DeepseekR1Qwen32bF16
             | GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen14bQ80 
             | GeneratorModel::Qwen32bQ80 => false,
             GeneratorModel::DeepseekR1Llama8bQ4KM => true,
         }
@@ -709,19 +699,18 @@ impl GeneratorModel {
     pub fn is_qwen(&self) -> bool {
         match self {
             GeneratorModel::DeepseekR1Llama8bQ4KM
+            | GeneratorModel::DeepseekR1Qwen7bQ2KL 
             | GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
-            | GeneratorModel::DeepseekR1Qwen7bF16
             | GeneratorModel::DeepseekR1Qwen14bQ2KL
             | GeneratorModel::DeepseekR1Qwen14bQ4KM
             | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen14bF16 
             | GeneratorModel::DeepseekR1Qwen32bQ2KL
             | GeneratorModel::DeepseekR1Qwen32bQ4KM
-            | GeneratorModel::DeepseekR1Qwen32bQ80
-            | GeneratorModel::DeepseekR1Qwen32bF16 => false,
+            | GeneratorModel::DeepseekR1Qwen32bQ80 => false,
             GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
+            | GeneratorModel::Qwen14bQ80 
             | GeneratorModel::Qwen32bQ80 => true,
         }
     }

@@ -1174,7 +1174,7 @@ impl DiagnosticAgent {
                         log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
 
-                        (Self::extract_result(&answer)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                        (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
                         log::info!("No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
@@ -1244,7 +1244,7 @@ impl DiagnosticAgent {
                         log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
 
-                        (Self::extract_result(&answer)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                        (Self::extract_result(&answer,disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
                         log::info!("No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
@@ -1315,7 +1315,7 @@ impl DiagnosticAgent {
                         log::info!("{thoughts}\n\n");
                         log::info!("{answer}");
 
-                        (Self::extract_result(&answer)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                        (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
                         log::info!("No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
@@ -1424,7 +1424,7 @@ impl DiagnosticAgent {
                                     log::info!("{thoughts}\n\n");
                                     log::info!("{answer}");
 
-                                    let result = Self::extract_result(&answer)?;
+                                    let result = Self::extract_result(&answer,disable_thinking)?;
 
                                     let data = [
                                         secondary_memory.data.clone(), 
@@ -1512,8 +1512,8 @@ impl DiagnosticAgent {
                     log::info!("{answer}");
 
 
-                    let candidates = Self::extract_tags(&answer, "candidate")?;
-                    let pathogens = Self::extract_tags(&answer, "pathogen")?;
+                    let candidates = Self::extract_tags(&answer, "candidate", disable_thinking)?;
+                    let pathogens = Self::extract_tags(&answer, "pathogen",disable_thinking)?;
 
                     result.diagnosis = Diagnosis::Infectious;
                     result.candidates = candidates;
@@ -1590,8 +1590,8 @@ impl DiagnosticAgent {
         };
         Ok(node_label)
     }
-    fn extract_result(s: &str) -> Result<Option<bool>, GptError> {
-        let results = Self::extract_tags(s, "result")?;
+    fn extract_result(s: &str, relaxed: bool) -> Result<Option<bool>, GptError> {
+        let results = Self::extract_tags(s, "result", relaxed)?;
         
         // Only consider the first result block
         let result = match results.first() {
@@ -1654,14 +1654,20 @@ impl DiagnosticAgent {
             .collect::<Vec<_>>()
             .join(" ")
     }
-    fn extract_tags(input: &str, tag: &str) -> Result<Vec<String>, GptError> {
+    fn extract_tags(input: &str, tag: &str, relaxed: bool) -> Result<Vec<String>, GptError> {
         let tag = regex::escape(tag);
-        let pat = format!(r"<{0}>(?s)(.*?)</{0}>", tag);
+        
+        let pat = if relaxed {
+            format!(r">(?s)(.*?)</{0}>", tag)  // diabling thinking mode in Qwen3 results in partial tags for some answers such as: "ogen>Streptococcus mitis</pathogen>"
+        } else {
+            format!(r"<{0}>(?s)(.*?)</{0}>", tag)
+        };
+
         let re = regex::Regex::new(&pat)?;
 
         let extracted = re.captures_iter(input)
             .filter_map(|cap| cap.get(1))
-            .map(|m| Self::strip_variant_tags(m.as_str()))  // GTDB genus or species variant tags are not informative and too unpredictable for clinical evaluation!
+            .map(|m| Self::strip_variant_tags(m.as_str()))  // GTDB genus or species variant tags are not informative and too unpredictable for clinical evaluation
             .collect();
         
         Ok(extracted)
