@@ -64,6 +64,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
       libfontconfig1 \
+      sudo \
  && rm -rf /var/lib/apt/lists/*
 
 ARG APP_USER=appuser
@@ -87,13 +88,10 @@ COPY --from=builder /home/$APP_USER/app/target/release/cerebro-ciqa /usr/local/b
 
 WORKDIR /home/$APP_USER
 
-# Set the default user environment variables
-ENV HOME=/home/$APP_USER \
-    USER=$APP_USER
 
-# Entrypoint: create symlink as root, then exec as appuser
+# Create symlink as root, then exec as non-root app user
 ENTRYPOINT ["/bin/bash", "-c", "\
   if [ ! -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so ] && [ -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ]; then \
     ln -s /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so; \
   fi && \
-  exec /bin/bash -c 'cd $HOME && exec \"$@\"' -- $USER \"$@\"", "--"]
+  exec sudo -u appuser --preserve-env=PATH \"$@\"", "--"]
