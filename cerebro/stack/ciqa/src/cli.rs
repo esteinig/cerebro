@@ -1,7 +1,7 @@
 
 use std::{fs::create_dir_all, path::PathBuf, sync::Arc};
 
-use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, AssayContext, DiagnosticAgent, DiagnosticResult, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
+use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, AssayContext, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
 use cerebro_pipeline::{taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
 use clap::Parser;
@@ -10,6 +10,7 @@ use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
@@ -204,24 +205,26 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 false,
             )?;
             
-            // 2) How many GPUs (default to 1 if not set)
+            // How many GPUs (default to 1 if not set)
             let num_gpus = args.num_gpu;
             
-            // 3) Collect samples and compute batch size
+            // Collect samples and compute batch size
             let samples: Vec<_> = plate.samples.clone();
             let batch_size = (samples.len() + num_gpus - 1) / num_gpus;
             
-            // 4) Share args + plate between threads
+            // Share args + plate between threads
             let args = Arc::new(args);
             let plate = Arc::new(plate);
+            let nvml = Arc::new(nvml_wrapper::Nvml::init()?);
             
-            // 5) Spawn one thread per GPU
+            // Spawn one thread per GPU
             let mut handles = Vec::with_capacity(num_gpus);
             
             for gpu_id in 0..num_gpus {
 
-                let args   = Arc::clone(&args);
+                let args= Arc::clone(&args);
                 let plate  = Arc::clone(&plate);
+                let nvml_clone = Arc::clone(&nvml);
 
                 let start  = gpu_id * batch_size;
                 let end    = (start + batch_size).min(samples.len());
@@ -229,8 +232,26 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 
                 handles.push(std::thread::spawn(move || -> Result<(), GptError> {
 
+                    let keep_polling = Arc::new(AtomicBool::new(true));
+                    let polling_flag = Arc::clone(&keep_polling);
+
+                    let bench_handle = std::thread::spawn(move || -> Result<u64, GptError> {
+
+                        let nvml_device = nvml_clone.device_by_index(gpu_id as u32)?;
+                        let mut peak = 0;
+
+                        while polling_flag.load(Ordering::Relaxed) {
+                            let usage = nvml_device.memory_info()?.used;
+                            peak = peak.max(usage);
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                        }
+
+                        Ok(peak)
+                    });
+
                     // state logs directory
                     let state_dir = args.outdir.join("state_logs");
+                    let gpu_bench_file = state_dir.join(format!("gpu{gpu_id}.bench.json"));
 
                     // load inference model and weights for this batch on GPU
                     let mut text_generator = TextGenerator::new(
@@ -242,9 +263,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             gpu_id,
                         )
                     )?;
-
-                    // post filter config log
-
 
                     for sample_id in batch_samples {
                         
@@ -326,7 +344,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             seconds: elapsed
                         };
 
-                        
                         // write out
                         result.to_json(&result_file)?;
                         agent.state.to_json(&state_file)?;
@@ -334,11 +351,36 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                         log::info!("finished {}", sample_id);
                     }
+
+                    // Stop polling
+                    keep_polling.store(false, Ordering::Relaxed);
+
+                    let peak_vram = match bench_handle.join() {
+                        // Thread ran to completion, giving a `Result<(), GptError>`
+                        Ok(inner) => {
+                            let peak_vram = match inner {
+                                Ok(peak_vram) => peak_vram,
+                                Err(gpt_err) => {
+                                    log::error!("GPT error in GPU memory thread: {}", gpt_err.to_string());
+                                    0
+                                }
+                            };
+                            peak_vram
+                        }
+                        // Thread actually panicked:
+                        Err(panic_payload) => {
+                            log::error!("GPU memory thread panicked: {:?}", panic_payload);
+                            0
+                        }
+                    };
+
+                    GpuBenchmark {  peak_vram }.to_json(&gpu_bench_file)?;
+
                     Ok(())
                 }));
             }
             
-            // 6) Wait for all GPUs to finish
+            // Wait for all GPUs to finish
             for handle in handles {
                 match handle.join() {
                     // Thread ran to completion, giving you a `Result<(), GptError>`
@@ -355,7 +397,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         log::error!("Worker thread panicked: {:?}", panic_payload);
                     }
                 }
-            }                  
+            }              
+
         },
 
         Commands::DebugPathogen( args ) => {

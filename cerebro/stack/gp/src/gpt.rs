@@ -521,6 +521,28 @@ impl AgentBenchmark {
     }
 }
 
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GpuBenchmark {
+    pub peak_vram: u64  // bytes
+}
+impl GpuBenchmark {
+    pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
+        let writer = BufWriter::new(
+            File::create(path)?
+        );
+        serde_json::to_writer_pretty(writer, self)?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, GptError> {
+        let data: String = std::fs::read_to_string(path)?;
+        let data = serde_json::from_str::<GpuBenchmark>(&data)?;
+        Ok(data)
+    }
+}
+
+
 //
 // === Agent State (Memory) ===
 //

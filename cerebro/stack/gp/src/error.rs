@@ -17,6 +17,8 @@ pub enum GptError {
     #[error(transparent)]
     CandleCoreError(#[from] candle_core::Error),
     #[error(transparent)]
+    NvmlError(#[from] nvml_wrapper::error::NvmlError),
+    #[error(transparent)]
     IoError(#[from] std::io::Error),
     #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),

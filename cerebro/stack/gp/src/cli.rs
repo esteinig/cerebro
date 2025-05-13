@@ -9,6 +9,7 @@ use cerebro_client::client::CerebroClient;
 
 #[cfg(feature = "local")]
 use cerebro_gp::text::{TextGenerator, GeneratorConfig};
+use nvml_wrapper::Nvml;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
@@ -149,6 +150,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         },
         #[cfg(feature = "local")]
         Commands::Generate( args ) => {
+            
+            let nvml = Nvml::init()?;
+            let nvml_device = nvml.device_by_index(args.gpu as u32)?;
+
+            log::info!("Device name is: {}", nvml_device.name()?);
             
             let mut generator = TextGenerator::new(
                 GeneratorConfig::from_args(&args)

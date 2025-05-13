@@ -58,7 +58,7 @@ RUN cargo build \
 #                                  RUNTIME                                    #
 ###############################################################################
 FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu20.04
-
+ 
 # runtime deps
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -89,3 +89,8 @@ COPY --from=builder /home/$APP_USER/app/target/release/cerebro-ciqa /usr/local/b
 USER $APP_USER
 WORKDIR /home/$APP_USER
 
+# entrypoint logic: create symlink to libnvidia-ml.so if missing, then run app
+ENTRYPOINT ["/bin/bash", "-c", "\
+  if [ ! -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so ] && [ -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ]; then \
+    ln -s /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so; \
+  fi && exec \"$@\"", "--"]
