@@ -1281,7 +1281,7 @@ impl CerebroClient {
             "Taxon history retrieval failed",
         )?;
 
-        if regression {
+        if regression & !response.data.is_empty() {
 
             // Build the analysis configuration.
             let config = RpmConfigBuilder::new()
