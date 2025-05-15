@@ -1293,7 +1293,10 @@ impl CerebroClient {
             let analyzer = RpmAnalyzer::from_taxon_history(config, response.data);
 
             // Run the regression and outlier detection.
-            let result = analyzer.run()?;
+            let result = match analyzer.run() {
+                Ok(result) => result,
+                Err(_) => return Ok(None)
+            };
 
             if print_regression {
                 log::info!("Regression result:");

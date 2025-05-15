@@ -225,7 +225,7 @@ impl RpmAnalyzer {
         data_map.insert("y".to_string(), self.log_taxon_rpm.clone());
         
         let data = RegressionDataBuilder::new()
-            .build_from(data_map).map_err(|err| HttpClientError::FailedRegressionBuild(err.to_string()))?;
+            .build_from(data_map).map_err(|err| HttpClientError::FailedRegressionBuild)?;
 
         // Fit the linear model with formula "y ~ x".
         let formula = "y ~ x";
