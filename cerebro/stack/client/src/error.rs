@@ -73,6 +73,8 @@ pub enum HttpClientError {
 
     #[error("you must provide a staged file (--stage-json) or global options for team, db and project authentication (cerebro-client --team --db --project)")]
     MissingUploadParameters,
+    #[error("failed building regression analyzer - {0}")]
+    FailedRegressionBuild(String),
 
     #[error(transparent)]
     PlottersError(#[from] DrawingAreaErrorKind<plotters_bitmap::BitMapBackendError>), 

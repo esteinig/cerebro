@@ -218,15 +218,14 @@ impl RpmAnalyzer {
     }
     
     /// Run the regression analysis and identify outliers.
-    pub fn run(&self) -> RpmAnalysisResult {
+    pub fn run(&self) -> Result<RpmAnalysisResult, HttpClientError> {
         // Build the data map: keys "x" for independent variable and "y" for dependent variable.
         let mut data_map: HashMap<String, Vec<f64>> = HashMap::new();
         data_map.insert("x".to_string(), self.log_host_rpm.clone());
         data_map.insert("y".to_string(), self.log_taxon_rpm.clone());
         
         let data = RegressionDataBuilder::new()
-            .build_from(data_map)
-            .expect("Failed to build regression data");
+            .build_from(data_map).map_err(|err| HttpClientError::FailedRegressionBuild(err.to_string()))?;
 
         // Fit the linear model with formula "y ~ x".
         let formula = "y ~ x";
@@ -301,13 +300,13 @@ impl RpmAnalyzer {
             }
         }
         
-        RpmAnalysisResult {
+        Ok(RpmAnalysisResult {
             intercept,
             slope,
             relationship,
             residual_standard_error,
             outliers,
-        }
+        })
     }
 
     /// Creates a PNG plot of the regression.
