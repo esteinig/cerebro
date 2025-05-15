@@ -1123,7 +1123,6 @@ impl DiagnosticAgent {
         config: &MetaGpConfig,
         prefetch: Option<PrefetchData>,
         post_filter: Option<PostFilterConfig>,
-        enable_tracing: bool,
         disable_thinking: bool
     ) -> Result<DiagnosticResult, GptError> {
 

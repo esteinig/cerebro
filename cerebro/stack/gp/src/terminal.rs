@@ -168,8 +168,8 @@ pub struct DiagnoseApiArgs {
 )]
 pub struct PrefetchTieredArgs {
     /// Sample identifier for query
-    #[clap(long, short = 's')]
-    pub sample: String,
+    #[clap(long, short = 's', num_args(1..))]
+    pub sample: Vec<String>,
     /// Output file for prefetched tiered filter data
     #[clap(long, short = 'o')]
     pub output: PathBuf,
@@ -268,9 +268,6 @@ pub struct PrefetchTieredArgs {
     /// Ignore these taxstr as filter for threshold values
     #[clap(long, num_args=1..)]
     pub ignore_taxstr: Option<Vec<String>>,
-    /// Enable tracing (trace-timestamp.json)
-    #[clap(long)]
-    pub enable_tracing: bool,
     /// Disable thinking in Qwen3
     #[clap(long)]
     pub disable_thinking: bool,

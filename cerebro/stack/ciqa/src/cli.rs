@@ -1,11 +1,11 @@
 
-use std::{fs::create_dir_all, path::PathBuf, sync::Arc};
+use std::{fs::create_dir_all, sync::Arc};
 
-use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, AssayContext, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig, PrevalenceOutliers};
-use cerebro_pipeline::{taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
+use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
+use cerebro_model::api::cerebro::schema::PostFilterConfig;
+use cerebro_pipeline::utils::{get_file_component, FileComponent};
 use clap::Parser;
-use cerebro_ciqa::{config::EvaluationConfig, error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_diagnostic_matrix, plot_plate, plot_stripplot, CellShape, DiagnosticData, DiagnosticReview, DiagnosticStatsVecExt, DiagnosticSummary, FromSampleType, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -334,7 +334,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             &prefetch_data.config.clone(),
                             Some(prefetch_data),
                             post_filter,
-                            args.enable_tracing,
                             args.disable_thinking
                         )?;
 

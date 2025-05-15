@@ -227,9 +227,6 @@ pub struct DiagnoseLocalArgs {
     /// Model directory for generator model(.gguf) and tokenizer file (.json)
     #[clap(long, default_value=".")]
     pub model_dir: PathBuf,
-    /// Enable tracing to file (trace-timestamp.json)
-    #[clap(long)]
-    pub enable_tracing: bool,
     /// Disable thinking in Qwen3
     #[clap(long)]
     pub disable_thinking: bool,

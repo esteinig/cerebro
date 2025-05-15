@@ -130,7 +130,11 @@ impl TextGenerator {
             GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80 
             | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80 => {
+            | GeneratorModel::Qwen32bQ80 
+            | GeneratorModel::Qwen4bQ4KXL 
+            | GeneratorModel::Qwen8bQ4KXL 
+            | GeneratorModel::Qwen14bQ40 
+            | GeneratorModel::Qwen32bQ40 => {
 
                 let model = qwen3::ModelWeights::from_gguf(
                     gguf, 
@@ -200,6 +204,10 @@ impl TextGenerator {
                 | GeneratorModel::Qwen8bQ80 
                 | GeneratorModel::Qwen32bQ80
                 | GeneratorModel::Qwen14bQ80 
+                | GeneratorModel::Qwen4bQ4KXL 
+                | GeneratorModel::Qwen8bQ4KXL 
+                | GeneratorModel::Qwen14bQ40 
+                | GeneratorModel::Qwen32bQ40
             => {}
         }
 
@@ -482,6 +490,15 @@ pub enum GeneratorModel {
     #[value(name = "deepseekr1-qwen32b-q8-0")]
     DeepseekR1Qwen32bQ80,
 
+    #[value(name = "qwen3-4b-q4-kxl")]
+    Qwen4bQ4KXL,
+    #[value(name = "qwen3-8b-q4-kxl")]
+    Qwen8bQ4KXL,
+    #[value(name = "qwen3-14b-q4-0")]
+    Qwen14bQ40,
+    #[value(name = "qwen3-32b-q4-0")]
+    Qwen32bQ40,
+
     #[value(name = "qwen3-4b-q8-0")]
     Qwen4bQ80,
     #[value(name = "qwen3-8b-q8-0")]
@@ -547,10 +564,10 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 => "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-            GeneratorModel::Qwen4bQ80 => "Qwen/Qwen3-4B",
-            GeneratorModel::Qwen8bQ80 => "Qwen/Qwen3-8B",
-            GeneratorModel::Qwen14bQ80 => "Qwen/Qwen3-14B",
-            GeneratorModel::Qwen32bQ80 => "Qwen/Qwen3-32B",
+            GeneratorModel::Qwen4bQ80  | GeneratorModel::Qwen4bQ4KXL => "Qwen/Qwen3-4B",
+            GeneratorModel::Qwen8bQ80  | GeneratorModel::Qwen8bQ4KXL  => "Qwen/Qwen3-8B",
+            GeneratorModel::Qwen14bQ80 | GeneratorModel::Qwen14bQ40 => "Qwen/Qwen3-14B",
+            GeneratorModel::Qwen32bQ80 | GeneratorModel::Qwen32bQ40 => "Qwen/Qwen3-32B",
         }
     }
     pub fn model_repository(&self) -> &'static str {
@@ -569,10 +586,10 @@ impl GeneratorModel {
                 | GeneratorModel::DeepseekR1Qwen32bQ4KM
                 | GeneratorModel::DeepseekR1Qwen32bQ80
                 => "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
-            GeneratorModel::Qwen4bQ80 => "unsloth/Qwen3-4B-GGUF",
-            GeneratorModel::Qwen8bQ80 => "unsloth/Qwen3-8B-GGUF",
-            GeneratorModel::Qwen14bQ80 => "unsloth/Qwen3-14B-GGUF",
-            GeneratorModel::Qwen32bQ80 => "unsloth/Qwen3-32B-GGUF",
+            GeneratorModel::Qwen4bQ80  | GeneratorModel::Qwen4bQ4KXL => "unsloth/Qwen3-4B-GGUF",
+            GeneratorModel::Qwen8bQ80  | GeneratorModel::Qwen8bQ4KXL => "unsloth/Qwen3-8B-GGUF",
+            GeneratorModel::Qwen14bQ80 | GeneratorModel::Qwen14bQ40 => "unsloth/Qwen3-14B-GGUF",
+            GeneratorModel::Qwen32bQ80 | GeneratorModel::Qwen32bQ40=> "unsloth/Qwen3-32B-GGUF",
         }
     }
     pub fn model_config(&self) -> &'static str {
@@ -591,6 +608,10 @@ impl GeneratorModel {
             GeneratorModel::Qwen8bQ80 => "Qwen3-8B-Q8_0.gguf",
             GeneratorModel::Qwen14bQ80 => "Qwen3-14B-Q8_0.gguf",
             GeneratorModel::Qwen32bQ80 => "Qwen3-32B-Q8_0.gguf",
+            GeneratorModel::Qwen4bQ4KXL => "Qwen3-4B-Q4_0.gguf",
+            GeneratorModel::Qwen8bQ4KXL => "Qwen3-8B-Q4_0.gguf",
+            GeneratorModel::Qwen14bQ40 => "Qwen3-14B-Q4_0.gguf",
+            GeneratorModel::Qwen32bQ40 => "Qwen3-32B-Q4_0.gguf",
         }
     }
     pub fn model_revision(&self) -> &'static str {
@@ -613,6 +634,10 @@ impl GeneratorModel {
             GeneratorModel::Qwen8bQ80 => "qwen3-8b-q8-0",
             GeneratorModel::Qwen14bQ80 => "qwen3-14b-q8-0",
             GeneratorModel::Qwen32bQ80 => "qwen3-32b-q8-0",
+            GeneratorModel::Qwen4bQ4KXL => "qwen3-4b-q4-kxl",
+            GeneratorModel::Qwen8bQ4KXL => "qwen3-8b-q4-kxl",
+            GeneratorModel::Qwen14bQ40 => "qwen3-14b-q4-0",
+            GeneratorModel::Qwen32bQ40 => "qwen3-32b-q4-0",
         }
     }
     pub fn model_file(&self) -> PathBuf {
@@ -650,7 +675,11 @@ impl GeneratorModel {
             GeneratorModel::Qwen4bQ80 
                 | GeneratorModel::Qwen8bQ80
                 | GeneratorModel::Qwen14bQ80 
-                | GeneratorModel::Qwen32bQ80 => "<|im_end|>"
+                | GeneratorModel::Qwen32bQ80
+                | GeneratorModel::Qwen4bQ4KXL 
+                | GeneratorModel::Qwen8bQ4KXL 
+                | GeneratorModel::Qwen14bQ40 
+                | GeneratorModel::Qwen32bQ40 => "<|im_end|>"
         };
         let eos = *tos.tokenizer()
             .get_vocab(true)
@@ -666,7 +695,11 @@ impl GeneratorModel {
             | GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
             | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80 => false,
+            | GeneratorModel::Qwen32bQ80 
+            | GeneratorModel::Qwen4bQ4KXL 
+            | GeneratorModel::Qwen8bQ4KXL 
+            | GeneratorModel::Qwen14bQ40 
+            | GeneratorModel::Qwen32bQ40 => false,
             GeneratorModel::DeepseekR1Qwen7bQ2KL 
             | GeneratorModel::DeepseekR1Qwen7bQ4KM 
             | GeneratorModel::DeepseekR1Qwen7bQ80
@@ -692,7 +725,11 @@ impl GeneratorModel {
             | GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
             | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80 => false,
+            | GeneratorModel::Qwen32bQ80
+            | GeneratorModel::Qwen4bQ4KXL 
+            | GeneratorModel::Qwen8bQ4KXL 
+            | GeneratorModel::Qwen14bQ40 
+            | GeneratorModel::Qwen32bQ40 => false,
             GeneratorModel::DeepseekR1Llama8bQ4KM => true,
         }
     }
@@ -711,19 +748,24 @@ impl GeneratorModel {
             GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80
             | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80 => true,
+            | GeneratorModel::Qwen32bQ80
+            | GeneratorModel::Qwen4bQ4KXL 
+            | GeneratorModel::Qwen8bQ4KXL 
+            | GeneratorModel::Qwen14bQ40 
+            | GeneratorModel::Qwen32bQ40 => true,
         }
     }
 
     pub fn format_prompt(&self, prompt: &str, disable_thinking: bool) -> String {
         if self.is_deepseek_qwen() {
-            log::info!("Model is DeepseekR1-Qwen for prompt");
-            format!("<｜User｜>{prompt}<｜Assistant｜>")
+            if disable_thinking {
+                format!("<｜User｜>{prompt}<｜Assistant｜>\n<think>\n\n</think>\n\n")
+            } else {
+                format!("<｜User｜>{prompt}<｜Assistant｜>")
+            }
         } else if self.is_deepseek_llama() {
-            log::info!("Model is DeepseekR1-Llama for prompt");
             format!("<｜user｜>{prompt}<｜assistant｜>")  // llama distillation only works with non-capitalized tags?
         } else if self.is_qwen() {
-            log::info!("Model is Qwen3 for prompt");
             if disable_thinking {
                 format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n") 
             } else {

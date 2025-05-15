@@ -1,0 +1,24 @@
+{
+    "sample": "",
+    "identifiers": {
+        "controls": [
+            "DW-63-424",
+            "DW-63-E040"
+        ],
+        "tags": [
+            "DNA",
+            "RNA"
+        ]
+    },
+    "contamination": {
+        "threshold": 0.60,
+        "min_rpm": 0.0,
+        "sample_type": null,
+        "collapse_variants": false
+    },
+    "prevalence_outliers": {
+        "primary": true,
+        "secondary": false,
+        "target": false
+    }
+}

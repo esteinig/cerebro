@@ -38,20 +38,22 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             log::info!("Checking status of Cerebro API at {}",  &api_client.url);
             api_client.ping_servers()?;
 
-            let (gp_config, _) = get_config(
-                &args.json, 
-                Some(args.sample.clone()), 
-                &args.controls, 
-                &args.tags, 
-                &args.ignore_taxstr,
-                args.prevalence_outliers,
-                None,   // not relevant
-            )?;
-
-            log::info!("{:#?}", gp_config);
-
-            DiagnosticAgent::new(Some(api_client))?
-                .prefetch(&args.output, &gp_config)?
+            for sample in &args.sample {
+                let (gp_config, _) = get_config(
+                    &args.json, 
+                    Some(sample.clone()), 
+                    &args.controls, 
+                    &args.tags, 
+                    &args.ignore_taxstr,
+                    args.prevalence_outliers,
+                    None,   // not relevant
+                )?;
+    
+                log::info!("{:#?}", gp_config);
+    
+                DiagnosticAgent::new(Some(api_client.clone()))?
+                    .prefetch(&args.output, &gp_config)?
+            }
         }
         #[cfg(feature = "local")]
         Commands::DiagnoseLocal( args ) => {
@@ -134,7 +136,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 &gp_config, 
                 prefetch,
                 post_filter,
-                args.enable_tracing,
                 args.disable_thinking
             )?;
 
