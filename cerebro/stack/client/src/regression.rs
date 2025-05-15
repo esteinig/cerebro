@@ -188,7 +188,6 @@ impl RpmAnalyzer {
             let host_reads_val = record.host_reads.unwrap_or(0) as f64;
             // Compute host RPM.
             let host_rpm_val = ((host_reads_val + avg_human_profile) / input_reads) * 1e6;
-            raw_host_rpm.push(host_rpm_val);
             
             // Compute average profile reads for non-"Homo sapiens" taxa.
             let non_human_profile_reads: Vec<u64> = record.taxa.iter()
@@ -202,10 +201,16 @@ impl RpmAnalyzer {
             };
             // Compute taxon RPM.
             let taxon_rpm_val = (avg_non_human_profile / input_reads) * 1e6;
-            raw_taxon_rpm.push(taxon_rpm_val);
-            
-            // Save sample_id for later use.
-            sample_ids.push(record.sample_id);
+
+            // Only it to the plot if both RPM are above zero for log10 conversion
+            if host_rpm_val > 0. && taxon_rpm_val > 0. {
+
+                raw_host_rpm.push(host_rpm_val);
+                raw_taxon_rpm.push(taxon_rpm_val);
+                
+                // Save sample_id for later use.
+                sample_ids.push(record.sample_id);
+            }
         }
         
         // Create the analyzer from the computed raw RPM vectors and sample IDs.
