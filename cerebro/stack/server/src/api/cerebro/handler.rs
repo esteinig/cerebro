@@ -128,6 +128,55 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
     }
 }
 
+#[get("/cerebro")]
+async fn retrieve_model_handler(data: web::Data<AppState>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+    match project_collection
+        .find(doc! {})
+        .await
+    {
+        Ok(cursor) => {
+
+            let mut samples = cursor
+                .try_collect()
+                .await
+                .unwrap_or_else(|_| vec![]);
+
+            match samples.is_empty() {
+                false => {
+
+                    let mut models = Vec::new();
+                    for model in samples.iter_mut() {
+                        
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+                            Ok(taxa) => {
+                                model.taxa = taxa;
+                                models.push(model)
+                            }
+                            Err(err) => {
+                                return HttpResponse::InternalServerError().json(format!("GridFS download error: {}", err));
+                            }
+                        };
+                    }
+                    
+                    HttpResponse::Ok().json(
+                        serde_json::json!({"status": "success", "message": "Documents found", "data": models})
+                    )
+                },
+                true => HttpResponse::Ok().json(
+                    serde_json::json!({"status": "fail", "message": "No document found", "data": []})
+                )
+            }
+        },
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+
 #[derive(Deserialize)]
 struct CerebroGetQuery {
     // Optional parameters
@@ -1526,6 +1575,7 @@ pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>
 pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
     
     cfg.service(insert_model_handler)
+       .service(retrieve_model_handler) 
        .service(cerebro_identifier_handler)
        .service(samples_overview_handler)
        .service(sample_overview_id_handler)

@@ -1,5 +1,6 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
+use cerebro_pipeline::modules::quality::{QcStatus, QualityControlSummary};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use cerebro_gp::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
@@ -463,25 +464,6 @@ fn compute_mean_and_ci(values: &[f64]) -> (f64, Vec<f64>) {
     let upper = mean + margin;
     
     (mean, vec![lower, upper])
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AgentBenchmark {
-    pub seconds: f32
-}
-impl AgentBenchmark {
-    pub fn to_json(&self, path: &Path) -> Result<(), CiqaError> {
-        let writer = BufWriter::new(
-            File::create(path)?
-        );
-        serde_json::to_writer_pretty(writer, self)?;
-        Ok(())
-    }
-    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, CiqaError> {
-        let data: String = std::fs::read_to_string(path)?;
-        let data = serde_json::from_str::<AgentBenchmark>(&data)?;
-        Ok(data)
-    }
 }
 
 
@@ -1196,7 +1178,11 @@ pub fn plot_stripplot<B: DrawingBackend>(
     col2: Option<&RGBColor>,
     col3: Option<&RGBColor>,
     ci: bool,
-    file_order: Vec<PathBuf>
+    file_order: Vec<PathBuf>,
+    legend_position: Option<SeriesLabelPosition>,
+    boxplot: bool,
+    barplot: bool,
+    y_labels: Option<Vec<String>>,  // <-- new argument
 ) -> Result<(), CiqaError> {
 
     let mut file_labels = Vec::new();
@@ -1218,7 +1204,13 @@ pub fn plot_stripplot<B: DrawingBackend>(
         categories = file_labels;
     }; 
 
-    let n_cats = categories.len();
+    // Decide which labels to use
+    let labels: Vec<String> = match &y_labels {
+        Some(custom) if custom.len() == categories.len() => custom.clone(),
+        _ => categories.clone(), // fallback to sample names
+    };
+
+    let n_cats = labels.len();
     
     let root_area = backend.into_drawing_area();
 
@@ -1248,16 +1240,17 @@ pub fn plot_stripplot<B: DrawingBackend>(
         )
         .draw()
         .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+    
 
     // We place each category at integer y-values: 0, 1, 2, ...
     // We'll label them near the middle of each integer (i + 0.5).
-    for (idx, cat_name) in categories.iter().enumerate() {
+    for (idx, label) in labels.iter().enumerate() {
 
         let y_center = idx as f64 + 0.5;
 
         chart.draw_series(std::iter::once(
             Text::new(
-                cat_name.clone(),
+                label.clone(),
                 (0.0, y_center),
                 ("monospace", 14)
                     .into_font()
@@ -1266,6 +1259,121 @@ pub fn plot_stripplot<B: DrawingBackend>(
             ),
         ))
         .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+    }
+
+
+    // Helper: simple quantile interpolation
+    let quantile = |sorted: &Vec<f64>, p: f64| -> f64 {
+        let n = sorted.len();
+        if n == 0 { return 0.0; }
+        let idx = p * (n - 1) as f64;
+        let lo = idx.floor() as usize;
+        let hi = idx.ceil() as usize;
+        if lo == hi {
+            sorted[lo]
+        } else {
+            sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo as f64)
+        }
+    };
+
+    // Optionally draw boxplot overlays
+    if boxplot {
+        let box_style = ShapeStyle {
+            color: RGBAColor(100, 100, 100, 0.2),
+            stroke_width: 0,
+            filled: true,
+        };
+        let whisker_style = ShapeStyle {
+            color: BLACK.into(),
+            stroke_width: 1,
+            filled: false,
+        };
+        for (idx, cat_name) in categories.iter().enumerate() {
+            if let Some(diag_data) = data.get(cat_name) {
+                let stats = &diag_data.stats;
+                // Measure 1 values
+                let mut vals1: Vec<f64> = stats.iter().map(|s| match mode {
+                    StatsMode::SensSpec => s.sensitivity,
+                    StatsMode::PpvNpv   => s.ppv,
+                }).collect();
+                vals1.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                if !vals1.is_empty() {
+                    let q1 = quantile(&vals1, 0.25);
+                    let med = quantile(&vals1, 0.5);
+                    let q3 = quantile(&vals1, 0.75);
+                    let iqr = q3 - q1;
+                    let lw = *vals1.iter()
+                        .filter(|v| **v >= q1 - 1.5 * iqr)
+                        .min_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap();
+                    let uw = *vals1.iter()
+                        .filter(|v| **v <= q3 + 1.5 * iqr)
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap();
+                    let center_y1 = idx as f64 + 0.3;
+                    let y0 = center_y1 - 0.1;
+                    let y1 = center_y1 + 0.1;
+                    // IQR box
+                    chart.draw_series(std::iter::once(
+                        Rectangle::new([(q1, y0), (q3, y1)], box_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                    // Median line
+                    chart.draw_series(std::iter::once(
+                        PathElement::new(vec![(med, y0), (med, y1)], whisker_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                    // Whiskers
+                    chart.draw_series(std::iter::once(
+                        PathElement::new(vec![(lw, center_y1), (q1, center_y1)], whisker_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                    chart.draw_series(std::iter::once(
+                        PathElement::new(vec![(q3, center_y1), (uw, center_y1)], whisker_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                }
+                // Measure 2 values
+                let mut vals2: Vec<f64> = stats.iter().map(|s| match mode {
+                    StatsMode::SensSpec => s.specificity,
+                    StatsMode::PpvNpv   => s.npv,
+                }).collect();
+                vals2.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                if !vals2.is_empty() {
+                    let q1 = quantile(&vals2, 0.25);
+                    let med = quantile(&vals2, 0.5);
+                    let q3 = quantile(&vals2, 0.75);
+                    let iqr = q3 - q1;
+                    let lw = *vals2.iter()
+                        .filter(|v| **v >= q1 - 1.5 * iqr)
+                        .min_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap();
+                    let uw = *vals2.iter()
+                        .filter(|v| **v <= q3 + 1.5 * iqr)
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap();
+                    let center_y2 = idx as f64 + 0.7;
+                    let y0 = center_y2 - 0.1;
+                    let y1 = center_y2 + 0.1;
+                    chart.draw_series(std::iter::once(
+                        Rectangle::new([(q1, y0), (q3, y1)], box_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                    chart.draw_series(std::iter::once(
+                        PathElement::new(vec![(med, y0), (med, y1)], whisker_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                    chart.draw_series(std::iter::once(
+                        PathElement::new(vec![(lw, center_y2), (q1, center_y2)], whisker_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                    chart.draw_series(std::iter::once(
+                        PathElement::new(vec![(q3, center_y2), (uw, center_y2)], whisker_style.clone())
+                    ))
+                    .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+                }
+            }
+        }
     }
 
     let point_radius: u32 = 4;
@@ -1286,34 +1394,44 @@ pub fn plot_stripplot<B: DrawingBackend>(
         None => RGBColor(70, 70, 70)
     };
 
-    if let Some(ref1) = ref1 {
-        chart.draw_series(DashedLineSeries::new(
-            vec![(ref1, 0.0), (ref1, n_cats as f64)],
-            5, /* size = length of dash */
-            10, /* spacing */
-            ShapeStyle {
-                color: color_1.into(),
-                filled: false,
-                stroke_width: 2,
-            }
-        ))
-        .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
-    }
+    let default_ref1 = data.values()
+        .filter_map(|d| d.stats.iter()
+            .find(|s| s.name == "consensus")
+            .map(|s| s.sensitivity))
+        .fold(0.0_f64, f64::max);
 
-    if let Some(ref2) = ref2 {
-        
-        chart.draw_series(DashedLineSeries::new(
-            vec![(ref2, 0.0), (ref2, n_cats as f64)],
-            5, /* size = length of dash */
-            10, /* spacing */
-            ShapeStyle {
-                color: color_2.into(),
-                filled: false,
-                stroke_width: 2,
-            }
-        ))
-        .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
-    }
+    let default_ref2 = data.values()
+        .filter_map(|d| d.stats.iter()
+            .find(|s| s.name == "consensus")
+            .map(|s| s.specificity))
+        .fold(0.0_f64, f64::max);
+
+    // 3) pick user‐supplied or default
+    let r1 = ref1.unwrap_or(default_ref1);
+    let r2 = ref2.unwrap_or(default_ref2);
+
+    // 4) draw dashed ref1 (max sens) line
+    chart.draw_series(DashedLineSeries::new(
+        vec![(r1, 0.0), (r1, n_cats as f64)],
+        5, 10,
+        ShapeStyle {
+            color: color_1.into(),
+            filled: false,
+            stroke_width: 2,
+        },
+    )).map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+
+
+    // 5) draw dashed ref2 (max spec) line
+    chart.draw_series(DashedLineSeries::new(
+        vec![(r2, 0.0), (r2, n_cats as f64)],
+        5, 10,
+        ShapeStyle {
+            color: color_2.into(),
+            filled: false,
+            stroke_width: 2,
+        },
+    )).map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
 
 
     if ci {
@@ -1337,7 +1455,7 @@ pub fn plot_stripplot<B: DrawingBackend>(
                 // We span a vertical band from y = idx + 0.2 to idx + 0.4.
                 chart.draw_series(std::iter::once(
                     Rectangle::new(
-                        [(ci_m1[0], idx as f64 + 0.2), (ci_m1[1], idx as f64 + 0.4)],
+                        [(ci_m1[0], idx as f64 + 0.3), (ci_m1[1], idx as f64 + 0.5)],
                         ci_box_style.clone(),
                     ),
                 ))
@@ -1346,7 +1464,7 @@ pub fn plot_stripplot<B: DrawingBackend>(
                 // We span a vertical band from y = idx + 0.6 to idx + 0.8.
                 chart.draw_series(std::iter::once(
                     Rectangle::new(
-                        [(ci_m2[0], idx as f64 + 0.6), (ci_m2[1], idx as f64 + 0.8)],
+                        [(ci_m2[0], idx as f64 + 0.5), (ci_m2[1], idx as f64 + 0.7)],
                         ci_box_style.clone(),
                     ),
                 ))
@@ -1354,7 +1472,78 @@ pub fn plot_stripplot<B: DrawingBackend>(
             }
         }
     }
+
+    if barplot {
+        
+        // First bar (e.g., Sensitivity/PPV): medium gray
+        let bar_fill_1 = ShapeStyle {
+            color: RGBColor(color_1.0, color_1.1, color_1.2).to_rgba().mix(0.6), // RGBAColor(100, 100, 100, 0.3),
+            stroke_width: 0,
+            filled: true,
+        };
+
+        // Second bar (e.g., Specificity/NPV): lighter gray
+        let bar_fill_2 = ShapeStyle {
+            color: RGBColor(color_2.0, color_2.1, color_2.2).to_rgba().mix(0.6), // RGBAColor(180, 180, 180, 0.3)
+            stroke_width: 0,
+            filled: true,
+        };
+
+        // Border color matches stripplot points
+        let bar_border_1 = ShapeStyle {
+            color: BLACK.to_rgba(), // RGBColor(color_1.0, color_1.1, color_1.2).to_rgba().mix(0.9),
+            stroke_width: 1,
+            filled: false,
+        };
     
+        let bar_border_2 = ShapeStyle {
+            color: BLACK.to_rgba(),  // RGBColor(color_2.0, color_2.1, color_2.2).to_rgba().mix(0.9),
+            stroke_width: 1,
+            filled: false,
+        };
+    
+        for (idx, cat_name) in categories.iter().enumerate() {
+            if let Some(diag_data) = data.get(cat_name) {
+                let stats = &diag_data.stats;
+                let (mut vals1, mut vals2) = (Vec::new(), Vec::new());
+                for s in stats {
+                    match mode {
+                        StatsMode::SensSpec => {
+                            vals1.push(s.sensitivity);
+                            vals2.push(s.specificity);
+                        }
+                        StatsMode::PpvNpv => {
+                            vals1.push(s.ppv);
+                            vals2.push(s.npv);
+                        }
+                    }
+                }
+    
+                let avg1 = if !vals1.is_empty() {
+                    vals1.iter().copied().sum::<f64>() / vals1.len() as f64
+                } else { 0.0 };
+    
+                let avg2 = if !vals2.is_empty() {
+                    vals2.iter().copied().sum::<f64>() / vals2.len() as f64
+                } else { 0.0 };
+    
+                let bar_height = 0.06;
+                let (bar1_y, bar2_y) = (idx as f64 + 0.4, idx as f64 + 0.6);
+                let y0_1 = bar1_y - bar_height;
+                let y1_1 = bar1_y + bar_height;
+                let y0_2 = bar2_y - bar_height;
+                let y1_2 = bar2_y + bar_height;
+    
+                chart.draw_series(vec![
+                    Rectangle::new([(0.0, y0_1), (avg1, y1_1)], bar_fill_1.clone()),
+                    Rectangle::new([(0.0, y0_1), (avg1, y1_1)], bar_border_1.clone()),
+                    Rectangle::new([(0.0, y0_2), (avg2, y1_2)], bar_fill_2.clone()),
+                    Rectangle::new([(0.0, y0_2), (avg2, y1_2)], bar_border_2.clone()),
+                ])
+                .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
+            }
+        }
+    }
 
     // We'll use a small random jitter so multiple points don't overlap exactly
     let mut rng = rand::rng();
@@ -1380,8 +1569,8 @@ pub fn plot_stripplot<B: DrawingBackend>(
             };
 
             // y offsets for measure1 vs measure2
-            let base_1 = idx as f64 + 0.3;
-            let base_2 = idx as f64 + 0.7;
+            let base_1 = idx as f64 + 0.4;
+            let base_2 = idx as f64 + 0.6;
 
             // small random vertical jitter: ± 0.04
             let jitter1: f64 = (rng.random::<f64>() - 0.5) * 0.08;
@@ -1505,8 +1694,8 @@ pub fn plot_stripplot<B: DrawingBackend>(
     // Finally configure and draw the legend box
     chart
         .configure_series_labels()
-        .position(SeriesLabelPosition::LowerMiddle)
-        .border_style(&BLACK)
+        .position(legend_position.unwrap_or(SeriesLabelPosition::MiddleMiddle))
+        .border_style(&WHITE)
         .background_style(WHITE.filled())
         .draw()
         .map_err(|e| CiqaError::StripPlotError(e.to_string()))?;
@@ -1537,7 +1726,7 @@ pub fn plot_diagnostic_matrix(
     title: Option<&str>,
 ) -> Result<(), CiqaError> {
 
-    // 1Determine sample labels and perform sanity checks
+    // Determine sample labels and perform sanity checks
     let sample_labels = if let Some(ref col) = reference {
         col.iter().map(|r| r.sample_id.clone()).collect::<Vec<_>>()
     } else if !data.is_empty() {
@@ -1730,3 +1919,136 @@ pub fn plot_diagnostic_matrix(
 }
 
 
+pub fn plot_qc_summary_matrix(
+    summaries: &[QualityControlSummary],
+    overall: Option<&[QcStatus]>,
+    output: &Path,
+    shape: CellShape,
+    width_px: u32,
+    height_px: u32,
+    title: Option<&str>,
+) -> Result<(), CiqaError> {
+    let sample_labels: Vec<_> = summaries.iter().map(|s| s.id.clone()).collect();
+    let nrows = sample_labels.len();
+
+    let mut categories = vec![
+        "Input Reads",
+        "Output Reads",
+        "ERCC | EDCC",
+        "Read Quality",
+    ];
+
+    if summaries.iter().any(|s| s.phage_coverage.is_some()) {
+        categories.push("Phage Coverage");
+    }
+    let has_overall = overall.is_some();
+    let ncols = categories.len() + if has_overall { 1 } else { 0 };
+
+    // margins: left, right, top, bottom
+    let root = SVGBackend::new(output, (width_px, height_px)).into_drawing_area();
+    root.fill(&WHITE)?;
+    if let Some(t) = title {
+        root.draw_text(
+            t,
+            &("sans-serif", 16).into_font().into_text_style(&root)
+                .pos(Pos::new(HPos::Center, VPos::Top)),
+            (width_px as i32/2, 20),
+        )?;
+    }
+
+    // give extra top margin for rotated labels
+    let plot_area = root.margin(100, 20, 140, 100);
+
+    let (pw, ph) = plot_area.dim_in_pixel();
+    let cell_w = pw as f64 / (ncols as f64);
+    let cell_h = ph as f64 / (nrows as f64);
+
+    // amount of padding inside each cell
+    let cell_pad = 2.0;
+
+    let get_style = |status: &QcStatus| match status {
+        QcStatus::Fail => RGBColor(204,  32,  32).filled(),
+        QcStatus::Pass => RGBColor(  0, 102, 204).filled(),
+        QcStatus::Ok   => RGBColor(  0, 153,   0).filled(),
+    };
+
+    // draw the matrix
+    for col in 0..ncols {
+        for row in 0..nrows {
+            // pick the right status
+            let status = if col < categories.len() {
+                match categories[col] {
+                    "Input Reads"     => &summaries[row].input_reads,
+                    "Output Reads"    => &summaries[row].output_reads,
+                    "ERCC | EDCC"     => &summaries[row].ercc_constructs,
+                    "Read Quality"    => &summaries[row].fastp_status,
+                    "Phage Coverage"  => summaries[row].phage_coverage.as_ref().unwrap(),
+                    _ => continue,
+                }
+            } else {
+                // overall column
+                &overall.unwrap()[row]
+            };
+            let style = get_style(status);
+
+            // compute a tight box for the shape
+            let x0 = col as f64 * cell_w + cell_pad;
+            let y0 = row as f64 * cell_h + cell_pad;
+            let w  = cell_w - 2.0*cell_pad;
+            let h  = cell_h - 2.0*cell_pad;
+
+            match shape {
+                CellShape::Circle => {
+                    let cx = (x0 + w/2.0) as i32;
+                    let cy = (y0 + h/2.0) as i32;
+                    let r  = (w.min(h)/2.0) as i32;
+                    plot_area.draw(&Circle::new((cx, cy), r, style.clone()))?;
+                }
+                CellShape::Square{ border_width } => {
+                    let rect = [(x0 as i32, y0 as i32), ((x0+w) as i32, (y0+h) as i32)];
+                    plot_area.draw(&Rectangle::new(rect, style.clone()))?;
+                    plot_area.draw(&Rectangle::new(rect, WHITE.stroke_width(border_width)))?;
+                }
+            }
+        }
+    }
+
+    // draw row labels
+    for (row, label) in sample_labels.iter().enumerate() {
+        let y = (row as f64 * cell_h + cell_h/2.0) as i32;
+        plot_area.draw_text(
+            label,
+            &("sans-serif", 12).into_font().into_text_style(&plot_area)
+                .pos(Pos::new(HPos::Right, VPos::Center)),
+            (-10, y),
+        )?;
+    }
+
+    // draw rotated column labels
+    for col in 0..categories.len() {
+        let x = (col as f64 * cell_w + cell_w/2.0) as i32;
+        // place them just above the top of plot_area
+        let y = -5;
+        let style = ("sans-serif", 12)
+            .into_font()
+            .into_text_style(&plot_area)
+            .pos(Pos::new(HPos::Left, VPos::Bottom))
+            .transform(FontTransform::Rotate270);
+        plot_area.draw_text(categories[col], &style, (x, y))?;
+    }
+
+    // if there's an overall column, label it too
+    if has_overall {
+        let col = categories.len();
+        let x = (col as f64 * cell_w + cell_w/2.0) as i32;
+        let y = -5;
+        let style = ("sans-serif", 12)
+            .into_font()
+            .into_text_style(&plot_area)
+            .pos(Pos::new(HPos::Left, VPos::Bottom))
+            .transform(FontTransform::Rotate270);
+        plot_area.draw_text("Overall", &style, (x, y))?;
+    }
+
+    Ok(())
+}

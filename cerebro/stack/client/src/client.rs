@@ -84,6 +84,7 @@ pub enum Route {
     DataUserSelf,
     DataUserSelfTeams,
     DataCerebroInsertModel,
+    DataCerebroRetrieveModel,
     DataCerebroIdentifiers,
     DataCerebroQualityControl,
     DataCerebroTaxaSummary,
@@ -119,6 +120,7 @@ impl Route {
             Route::DataUserSelf => "users/self",
             Route::DataUserSelfTeams => "users/self/teams",
             Route::DataCerebroInsertModel => "cerebro",
+            Route::DataCerebroRetrieveModel => "cerebro",
             Route::DataCerebroIdentifiers => "cerebro/ids",
             Route::DataCerebroQualityControl => "cerebro/samples/summary/qc",
             Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
@@ -420,6 +422,7 @@ impl CerebroClient {
         let response = request
             .query(&[("team", team)])
             .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
+        
         
         Ok(response)
     }
@@ -1160,6 +1163,29 @@ impl CerebroClient {
         Ok(())
     }
 
+    pub fn download_models(
+        &self,
+        outdir: &PathBuf
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
+        let url = format!("{}", self.routes.url(Route::DataCerebroRetrieveModel));
+
+        let response = self.send_request_with_team_db_project(
+            self.client.get(url)
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            None,
+            "Model download failed for this project",
+        )?;
+
+        Ok(())
+    }
     pub fn upload_models(
         &self,
         models: &[Cerebro]
@@ -1260,7 +1286,7 @@ impl CerebroClient {
 
         Ok(sample_summary_response.data.summary)
     }
-    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool, print_regression: bool) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
+    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool, print_regression: bool, plot: Option<PathBuf>) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
 
         self.log_team_warning();
         self.log_db_warning();
@@ -1313,6 +1339,10 @@ impl CerebroClient {
                 } else {
                     log::info!("No outliers detected.");
                 }
+            }
+
+            if let Some(path) = plot {
+                analyzer.plot_regression(&result, &path.display().to_string())?;
             }
             
 
@@ -1439,7 +1469,8 @@ impl CerebroClient {
                                 format!("s__{}", contam_taxon.name), 
                                 format!("s__Homo sapiens"), // hardcoded for now
                                 true,
-                                false
+                                false,
+                                None
                             )?;
                             if let Some(reg) = reg {
                                 for outlier in reg.outliers {

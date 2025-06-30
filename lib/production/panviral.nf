@@ -55,11 +55,9 @@ workflow PanviralEnrichment {
         if (params.cerebroProduction.enabled && params.cerebroProduction.uploadConfig.enabled) {
             
             UploadOutput(
-                stagedFileData.mix(ProcessOutput.out.results) | groupTuple | map { d -> d.flatten() }, 
+                ProcessOutput.out.results.mix(stagedFileData) | groupTuple | map { d -> d.flatten() }, 
                 panviralDatabases.taxonomy, 
-                PipelineConfig.out.config,
-                productionConfig.apiUrl,
-                productionConfig.authToken
+                PipelineConfig.out.config
             )
 
         }

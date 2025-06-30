@@ -1,14 +1,19 @@
 
-use std::{fs::create_dir_all, sync::Arc};
+use std::{alloc::System, fs::create_dir_all, process::exit, sync::Arc};
 
-use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext}, text::{GeneratorConfig, TextGenerator}, utils::get_config};
-use cerebro_model::api::cerebro::schema::PostFilterConfig;
-use cerebro_pipeline::utils::{get_file_component, FileComponent};
+use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext},  utils::get_config};
+
+#[cfg(feature = "local")]
+use cerebro_gp::text::{GeneratorConfig, TextGenerator};
+
+use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
+use cerebro_pipeline::{modules::quality::{QualityControl, QualityControlSummary}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
-use cerebro_client::client::CerebroClient;
+use cerebro_ciqa::{plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_client::{client::CerebroClient, error::HttpClientError};
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
+use reqwest::StatusCode;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -23,6 +28,50 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::PlotPlate( args ) => {
             plot_plate()?
         },
+        Commands::PlotQc( args ) => {
+
+            let mut qc_summaries = Vec::new();
+
+            if !args.cerebro.is_empty() {
+
+                create_dir_all(&args.outdir)?;
+
+                for file in args.cerebro {
+                    let model = Cerebro::from_json(&file)?;
+    
+                    let qc_summary = model.quality.summary_illumina_pe();
+    
+                    qc_summary.to_json(&args.outdir.join(
+                        format!("qc_{}", get_file_component(
+                            &file, 
+                            FileComponent::FileName
+                        )?)
+                    ))?;
+    
+                    qc_summaries.push(qc_summary);
+                }
+            } else if !args.summaries.is_empty() {
+                for file in args.summaries {
+                    let qc_summary = QualityControlSummary::from_json(&file)?;
+                    qc_summaries.push(qc_summary);
+                }
+            } else {
+                log::error!("Either Cerebro model files (.json, --cerebro, -c) or quality control summary files (.json, --summaries, -s) must be provided!");
+                exit(1);
+            };
+    
+            plot_qc_summary_matrix(
+                &qc_summaries, 
+                None, 
+                &args.output, 
+                cerebro_ciqa::plate::CellShape::Circle, 
+                args.width, 
+                args.height, 
+                args.title.as_deref()
+            )?;
+
+
+        },
         Commands::PlotReview( args ) => {
             
             let data = load_diagnostic_stats_from_files(
@@ -36,7 +85,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .to_lowercase();
 
             let palette = Palette::hiroshige();
-            let highlight = Palette::cassatt2();
+            let highlight = Palette::paquin();
+
+            let col1 = palette.colors.get(3);
+            let col2 = palette.colors.get(6);
+            let col3 = highlight.colors.get(3);
 
             if ext == "svg" {
                 plot_stripplot(
@@ -45,11 +98,15 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.mode, 
                     args.ref1, 
                     args.ref2,
-                    palette.colors.get(3),
-                    palette.colors.get(6),
-                    highlight.colors.get(3),
+                    col1,
+                    col2,
+                    col3,
                     args.ci,
-                    args.stats.clone()
+                    args.stats.clone(),
+                    None,
+                    args.boxplot,
+                    args.barplot,
+                    args.y_labels
                 )?;
             } else {
                 plot_stripplot(
@@ -58,76 +115,106 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.mode, 
                     args.ref1, 
                     args.ref2,
-                    palette.colors.get(3),
-                    palette.colors.get(6),
-                    highlight.colors.get(3),
+                    col1,
+                    col2,
+                    col3,
                     args.ci,
-                    args.stats.clone()
+                    args.stats.clone(),
+                    None,
+                    args.boxplot,
+                    args.barplot,
+                    args.y_labels
                 )?;
             };
 
         },
         Commands::Prefetch( args ) => {
 
+            // Deconvolute the blocking task spawn in this async context, if not (and if this runs in --release, this may be
+            // the reason for the ongoing dropouts in requests to the server)
 
-            let api_client = CerebroClient::new(
-                &cli.url,
-                cli.token,
-                false,
-                cli.danger_invalid_certificate,
-                cli.token_file,
-                cli.team,
-                cli.db,
-                cli.project
-            )?;
+            // In Commands::Prefetch, we are blocking IO and sync operations like create_dir_all, ReferencePlate::new, 
+            // and loops with potentially heavy filesystem or network IO inside an async function.
+            // Even though prefetch() appears async-safe, ReferencePlate creation, file checking, and even DiagnosticAgent 
+            // usage might contain sync-blocking behavior, particularly via filesystem or network access.
 
-            log::info!("Checking status of Cerebro API at {}",  &api_client.url);
-            api_client.ping_servers()?;
+            tokio::task::spawn_blocking(move || -> Result<(), anyhow::Error> {
 
-            create_dir_all(&args.outdir)?;
+                let api_client = CerebroClient::new(
+                    &cli.url,
+                    cli.token,
+                    false,
+                    cli.danger_invalid_certificate,
+                    cli.token_file,
+                    cli.team,
+                    cli.db,
+                    cli.project
+                )?;
 
-            let plate = ReferencePlate::new(
-                &args.plate, 
-                None,
-                MissingOrthogonal::Indeterminate,
-                false
-            )?;
+                log::info!("Checking status of Cerebro API at {}",  &api_client.url);
+                api_client.ping_servers()?;
 
-            for sample_id in &plate.samples {
+                create_dir_all(&args.outdir)?;
 
-                let data_file = args.outdir.join(format!("{sample_id}.prefetch.json"));
+                let plate = ReferencePlate::new(
+                    &args.plate, 
+                    None,
+                    MissingOrthogonal::Indeterminate,
+                    false
+                )?;
 
-                if args.force || !data_file.exists() {
+                for sample_id in &plate.samples {
 
-                    let sample_reference = match plate.get_sample_reference(&sample_id) {
-                        Some(sample_reference) => sample_reference,
-                        None => { 
-                            log::warn!("Failed to find plate reference for sample: {sample_id}");
-                            break
-                        }
-                    };
+                    let data_file = args.outdir.join(format!("{sample_id}.prefetch.json"));
 
-                    let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
+                    if args.force || !data_file.exists() {
 
-                    let (gp_config, _) = get_config(
-                        &None,
-                        Some(sample_reference.sample_id), 
-                        &Some(plate.negative_controls.clone()), 
-                        &Some(tags), 
-                        &ignore_taxstr,
-                        args.prevalence_outliers,
-                        None
-                    )?;
+                        let sample_reference = match plate.get_sample_reference(&sample_id) {
+                            Some(sample_reference) => sample_reference,
+                            None => { 
+                                log::warn!("Failed to find plate reference for sample: {sample_id}");
+                                break
+                            }
+                        };
 
-                    log::info!("{:#?}", gp_config);
+                        let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
-                    DiagnosticAgent::new(Some(api_client.clone()))?
-                        .prefetch(&data_file, &gp_config)?;
+                        let (gp_config, _) = get_config(
+                            &None,
+                            Some(sample_reference.sample_id), 
+                            &Some(plate.negative_controls.clone()), 
+                            &Some(tags), 
+                            &ignore_taxstr,
+                            args.prevalence_outliers,
+                            None
+                        )?;
 
-                } else {
-                    log::info!("File '{}' exists and force not enabled - skipping file", data_file.display());
+                        log::info!("{:#?}", gp_config);
+
+                        match DiagnosticAgent::new(Some(api_client.clone()))?
+                            .prefetch(&data_file, &gp_config) {
+                                Ok(_) => {},
+                                Err(err) => match err {
+                                    GptError::CerebroClientError(
+                                        HttpClientError::ResponseFailure(StatusCode::NOT_FOUND),
+                                    ) => {
+                                        // Sample not found warning but pass by skipping
+                                        log::warn!("Skipping sample due to failure to prefetch threshold data: {sample_id}")
+                                    }
+                            
+                                    // re-propagate
+                                    other => return Err(other.into()),
+                                },
+                            }
+
+                    } else {
+                        log::info!("File '{}' exists and force not enabled - skipping file", data_file.display());
+                    }
                 }
-            }
+
+                Ok(())
+            })
+            .await??;
         }
         Commands::Review( args ) => {
 
@@ -191,6 +278,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 )?;
             }
         },
+
+        #[cfg(feature = "local")]
         Commands::DiagnoseLocal( args ) => {
 
             std::fs::create_dir_all(&args.outdir)?;

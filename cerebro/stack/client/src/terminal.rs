@@ -85,7 +85,9 @@ pub enum Commands {
     /// Process and upload pipeline outputs to database
     UploadPanviral(UploadPanviralArgs),
     /// Upload processed model to database
-    UploadModel(UploadModelArgs),
+    UploadModels(UploadModelsArgs),
+    /// Upload processed model to database
+    DownloadModels(DownloadModelsArgs),
 
     /// Summary of taxa evidence for requested models
     GetTaxa(TaxaArgs),
@@ -276,12 +278,18 @@ pub struct CreatePanviralArgs {
 
 
 #[derive(Debug, Args)]
-pub struct UploadModelArgs {
+pub struct UploadModelsArgs {
     /// Processed database models(.json)
     #[clap(long, short = 'm', num_args(1..))]
     pub models: Vec<PathBuf>
 }
 
+#[derive(Debug, Args)]
+pub struct DownloadModelsArgs {
+    /// Output directory for models in the specified collection (.json)
+    #[clap(long, short = 'o')]
+    pub outdir: PathBuf
+}
 
 #[derive(Debug, Args)]
 pub struct QualityArgs {
@@ -329,6 +337,9 @@ pub struct TaxonHistoryArgs {
     /// Output regression data instead of history data
     #[clap(long, short = 'r')]
     pub regression: bool,
+    /// Output regression plot to this file
+    #[clap(long, short = 'p')]
+    pub plot: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]

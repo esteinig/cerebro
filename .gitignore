@@ -12,7 +12,7 @@ cerebro/stack/ciqa/templates/*.svg
 cerebro/stack/gp/templates/test*/
 cerebro/stack/gp/templates/adbdb5*.json
 cerebro/stack/gp/templates/bug_board.json
-cerebro/stack/ciqa/templates/plate_clinical.json
+cerebro/stack/ciqa/templates/plate_clinical*.json
 
 
 # Triggered dev builds

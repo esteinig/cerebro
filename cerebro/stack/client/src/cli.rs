@@ -202,12 +202,15 @@ fn main() -> anyhow::Result<()> {
             cerebro.write_json(&args.model)?;
 
         }
-        Commands::UploadModel( args ) => {
+        Commands::UploadModels( args ) => {
             for path in &args.models {
                 log::info!("Reading model from: {}", path.display());
                 let model = Cerebro::from_json(path)?;
                 client.upload_models(&vec![model])?;
             }
+        }
+        Commands::DownloadModels( args ) => {
+            client.download_models(&args.outdir)?;
         }
         Commands::Tower(subcommand) => {
             match subcommand {
@@ -441,7 +444,8 @@ fn main() -> anyhow::Result<()> {
                 args.taxon_label.clone(), 
                 args.host_label.clone(), 
                 args.regression, 
-                true
+                true,
+                args.plot.clone()
             )?;
 
         },

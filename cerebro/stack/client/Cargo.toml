@@ -46,7 +46,7 @@ log = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 csv = "1.2"
 uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
-reqwest = { version = "0.11.16", features = ["blocking", "json"] }
+reqwest = { version = "0.12.2", features = ["blocking", "json"] }
 toml = "0.7.6"
 clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
 anstyle = "1.0.1"

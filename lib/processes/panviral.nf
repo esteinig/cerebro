@@ -86,21 +86,17 @@ process UploadOutput {
     publishDir "$params.outputDirectory/panviral/models", mode: "copy", pattern: "${sampleID}.cerebro.json"
 
     input:
-    tuple val(sampleID), path(stageJson), path(quality), path(panviral)
+    tuple val(sampleID), path(quality), path(panviral), path(stageJson)
     path(taxonomyDirectory)
     path(pipelineConfig)
-    val(apiUrl)
-    val(authToken)
 
     output:
     path("${sampleID}.cerebro.json")
 
     script:
 
-    // We do not need the global --team authentication option for the client, the upload tasks use the data from stageJson
-
     """
-    cerebro-client --url $apiUrl --token $authToken upload-panviral --quality $quality --panviral $panviral --taxonomy $taxonomyDirectory --pipeline-config $pipelineConfig --stage-json $stageJson --model ${sampleID}.cerebro.json
+    cerebro-client -t $params.cerebroProduction.uploadConfig.team -d $params.cerebroProduction.uploadConfig.database -p $params.cerebroProduction.uploadConfig.project --url $params.cerebroProduction.authConfig.url --token \$$params.cerebroProduction.authConfig.tokenEnv upload-panviral --quality $quality --panviral $panviral --taxonomy $taxonomyDirectory --pipeline-config $pipelineConfig --model ${sampleID}.cerebro.json
     """
     
 }

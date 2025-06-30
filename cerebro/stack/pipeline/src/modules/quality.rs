@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use csv::WriterBuilder;
 use scrubby::report::ScrubbyReport;
@@ -148,6 +148,26 @@ impl QualityControl {
         let reader = BufReader::new(File::open(path)?);
         let quality_control = serde_json::from_reader(reader)?;
         Ok(quality_control)
+    }
+
+    pub fn summary_illumina_pe(&self) -> QualityControlSummary {
+
+        let fastp_map = HashMap::from([
+            ("q20_percent".to_string(), self.reads.q20_percent.unwrap()),
+            ("q30_percent".to_string(), self.reads.q30_percent.unwrap()),
+        ]);
+
+        let builder = QualityControlSummaryBuilder::new(
+            &self.id,
+            self.reads.input_reads,
+            self.reads.output_reads,
+            self.reads.ercc_constructs,
+            self.controls.organism.clone().unwrap().records,
+            fastp_map,
+            QcConfig::illumina_pe_sr(),
+        );
+
+        builder.build()
     }
 }
 
@@ -552,6 +572,7 @@ pub struct ReadQualityControl {
     pub q30_percent: Option<f64>,
 }
 impl ReadQualityControl {
+
     pub fn with_model(
         &mut self,
         model_id: &str, 
@@ -1051,6 +1072,205 @@ impl AlignmentRecord {
             reads: record.scan_reads,
             coverage: record.scan_coverage,
             class
+        }
+    }
+}
+
+use std::collections::HashMap;
+
+/// QC status enum
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum QcStatus {
+    Fail,
+    Pass,
+    Ok,
+}
+
+/// Numeric threshold for fail/pass/ok checks
+#[derive(Debug, Clone)]
+pub struct Threshold<T> {
+    pub fail_max: T,
+    pub pass_max: T,
+}
+
+/// Fastp-specific thresholds
+#[derive(Debug, Clone)]
+pub struct FastpThresholds {
+    pub q20_percent: Threshold<f64>,
+    pub q30_percent: Threshold<f64>,
+}
+
+/// Preset configuration for QC
+#[derive(Debug, Clone)]
+pub struct QcConfig {
+    pub input_reads: Threshold<u64>,
+    pub output_reads: Threshold<u64>,
+    pub ercc_constructs: Threshold<u64>,
+    pub phage_coverage: Threshold<f64>,
+    pub fastp: FastpThresholds,
+}
+
+impl QcConfig {
+    pub fn illumina_pe_sr() -> Self {
+        QcConfig {
+            input_reads: Threshold { fail_max: 1_000_000, pass_max: 5_000_000 },
+            output_reads: Threshold { fail_max: 10_000, pass_max: 100_000 },
+            ercc_constructs: Threshold { fail_max: 40, pass_max: 60 },
+            phage_coverage: Threshold { fail_max: 0.4, pass_max: 0.6 },
+            fastp: FastpThresholds {
+                q20_percent: Threshold { fail_max: 80.0, pass_max: 90.0 },
+                q30_percent: Threshold { fail_max: 70.0, pass_max: 85.0 },
+            },
+        }
+    }
+}
+
+/// Summary results for each category
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QualityControlSummary {
+    pub id: String,
+    pub input_reads: QcStatus,
+    pub output_reads: QcStatus,
+    pub ercc_constructs: QcStatus,
+    pub phage_coverage: Option<QcStatus>,
+    pub fastp_status: QcStatus,
+    pub fastp_details: HashMap<String, QcStatus>,
+}
+impl QualityControlSummary {
+    pub fn to_json(&self, path: &PathBuf) -> Result<(), WorkflowError> {
+        let writer = BufWriter::new(File::create(path)?);
+        serde_json::to_writer_pretty(writer, self)?;
+        Ok(())
+    }
+    pub fn from_json(path: &PathBuf) -> Result<Self, WorkflowError> {
+        let reader = BufReader::new(File::open(path)?);
+        let quality_control = serde_json::from_reader(reader)?;
+        Ok(quality_control)
+    }
+}
+
+/// Builder for QualityControlSummary
+pub struct QualityControlSummaryBuilder<'a> {
+    id: &'a str,
+    input_reads: u64,
+    output_reads: u64,
+    ercc_constructs: Option<u64>,
+    phage_records: Vec<AlignmentRecord>,
+    fastp_fields: HashMap<String, f64>,
+    config: QcConfig,
+}
+
+impl<'a> QualityControlSummaryBuilder<'a> {
+    pub fn new(
+        id: &'a str,
+        input_reads: u64,
+        output_reads: u64,
+        ercc_constructs: Option<u64>,
+        phage_records: Vec<AlignmentRecord>,
+        fastp_fields: HashMap<String, f64>,
+        config: QcConfig,
+    ) -> Self {
+        Self {
+            id,
+            input_reads,
+            output_reads,
+            ercc_constructs,
+            phage_records,
+            fastp_fields,
+            config,
+        }
+    }
+
+    fn status_from_threshold_u64(&self, value: u64, th: &Threshold<u64>) -> QcStatus {
+        if value <= th.fail_max {
+            QcStatus::Fail
+        } else if value <= th.pass_max {
+            QcStatus::Pass
+        } else {
+            QcStatus::Ok
+        }
+    }
+
+    fn status_from_threshold_f64(&self, value: f64, th: &Threshold<f64>) -> QcStatus {
+        if value < th.fail_max {
+            QcStatus::Fail
+        } else if value < th.pass_max {
+            QcStatus::Pass
+        } else {
+            QcStatus::Ok
+        }
+    }
+
+    /// Build the summary
+    pub fn build(self) -> QualityControlSummary {
+
+        // input_reads
+        let in_status = self.status_from_threshold_u64(
+            self.input_reads,
+            &self.config.input_reads,
+        );
+
+        // output_reads
+        let out_status = self.status_from_threshold_u64(
+            self.output_reads,
+            &self.config.output_reads,
+        );
+
+        // ercc_constructs
+        let ercc_status = self.ercc_constructs
+            .map(|c| self.status_from_threshold_u64(c, &self.config.ercc_constructs))
+            .unwrap_or(QcStatus::Fail);
+
+        // phage coverage – pass if either T4-DNA or MS2-RNA passes, only fail if both fail
+        let phage_status = {
+            // collect statuses for both phages
+            let statuses: Vec<QcStatus> = self.phage_records.iter()
+                .filter(|r| matches!(r.reference.as_str(), "T4-DNA" | "MS2-RNA"))
+                .map(|r| {
+                    self.status_from_threshold_f64(
+                        r.coverage,
+                        &self.config.phage_coverage,
+                    )
+                })
+                .collect();
+
+            match statuses.as_slice() {
+                [] => None,                                // no phage records at all
+                _ if statuses.iter().any(|s| *s == QcStatus::Ok)   => Some(QcStatus::Ok),
+                _ if statuses.iter().any(|s| *s == QcStatus::Pass) => Some(QcStatus::Pass),
+                _                                                  => Some(QcStatus::Fail),
+            }
+        };
+
+        // fastp per-field statuses
+        let mut details = HashMap::new();
+        for (k, v) in &self.fastp_fields {
+            let th = match k.as_str() {
+                "q20_percent" => &self.config.fastp.q20_percent,
+                "q30_percent" => &self.config.fastp.q30_percent,
+                _ => continue,
+            };
+            details.insert(k.clone(), self.status_from_threshold_f64(*v, th));
+        }
+
+        // combined: if any fail => Fail, all ok => Ok, else Pass
+        
+        let fastp_status = if details.values().any(|s| *s == QcStatus::Fail) {
+            QcStatus::Fail
+        } else if details.values().all(|s| *s == QcStatus::Ok) {
+            QcStatus::Ok
+        } else {
+            QcStatus::Pass
+        };
+
+        QualityControlSummary {
+            id: self.id.to_string(),
+            input_reads: in_status,
+            output_reads: out_status,
+            ercc_constructs: ercc_status,
+            phage_coverage: phage_status,
+            fastp_status,
+            fastp_details: details,
         }
     }
 }

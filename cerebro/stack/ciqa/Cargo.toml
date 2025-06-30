@@ -31,7 +31,6 @@ name = "cerebro_ciqa"
 cerebro-model = { path = "../../lib/model" }
 cerebro-client = { path = "../client" }
 cerebro-pipeline = { path = "../../stack/pipeline" }
-cerebro-gp = { path = "../../stack/gp", features = ["local"] }
 
 anyhow = "1.0"
 thiserror = "1.0"

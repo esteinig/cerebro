@@ -1,5 +1,9 @@
 use std::path::PathBuf;
-use cerebro_gp::{gpt::{AssayContext, GptModel}, text::GeneratorModel};
+use cerebro_gp::gpt::{AssayContext, GptModel};
+
+#[cfg(feature = "local")]
+use cerebro_gp::text::GeneratorModel;
+
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use crate::plate::{DiagnosticOutcome, MissingOrthogonal, SampleType, StatsMode};
@@ -92,12 +96,17 @@ pub enum Commands {
     Prefetch(PrefetchArgs),
     /// Plot the reference plate layout
     PlotPlate(PlotPlateArgs),
+    /// Plot the reference plate quality control summary
+    PlotQc(PlotQcArgs),
     /// Plot the reference plate review results
     PlotReview(PlotReviewArgs),
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
+
+    #[cfg(feature = "local")]
     /// Diagnose samples on the reference plate using the generative practitioner
     DiagnoseLocal(DiagnoseLocalArgs),
+    
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
 }
@@ -136,6 +145,32 @@ pub struct PlotPlateArgs {
     pub sample: String,
 }
 
+
+#[derive(Debug, Args)]
+pub struct PlotQcArgs {
+    /// Cerebro model files from DB (.json)
+    #[clap(long, short = 'i', num_args=0..)]
+    pub cerebro: Vec<PathBuf>,
+    /// Quality control summary files (.json) 
+    #[clap(long, short = 's', num_args=0..)]
+    pub summaries: Vec<PathBuf>,
+    /// Output plot file (.svg)
+    #[clap(long, short = 'o', default_value="qc_summary.svg")]
+    pub output: PathBuf,
+    /// Output directory for QC summary files (.json)
+    #[clap(long, short = 'd', default_value=".")]
+    pub outdir: PathBuf,
+    /// Plot width (px)
+    #[clap(long, default_value="800")]
+    pub width: u32,
+    /// Plot height (px)
+    #[clap(long, default_value="600")]
+    pub height: u32,
+    /// Set plot title
+    #[clap(long)]
+    pub title: Option<String>,
+}
+
 #[derive(Debug, Args)]
 pub struct DebugPathogenArgs {
     /// Diagnostic agent output files (.json)
@@ -155,11 +190,20 @@ pub struct PlotReviewArgs {
     #[clap(long, short = 'm', default_value="sens-spec")]
     pub mode: StatsMode,
     /// Output plot file (.svg)
-    #[clap(long, short = 'o', default_value="review_stats.svg")]
+    #[clap(long, short = 'o', default_value="review_sens_spec.svg")]
     pub output: PathBuf,
     /// Plot 95% CI interval as grey box behind points (assuming normal distribution)
     #[clap(long, short = 'c')]
     pub ci: bool,
+    /// Plot boxplot overlay
+    #[clap(long, short = 'b')]
+    pub boxplot: bool,
+    /// Plot barplot overlay
+    #[clap(long, short = 'a')]
+    pub barplot: bool,
+    /// Custom y-labels 
+    #[clap(long, short = 'y', num_args=0..)]
+    pub y_labels: Option<Vec<String>>,
     /// Reference line 1 (sensitivity/ppv)
     #[clap(long)]
     pub ref1: Option<f64>,
@@ -174,6 +218,8 @@ pub struct PlotReviewArgs {
     pub height: u32,
 }
 
+
+#[cfg(feature = "local")]
 #[derive(Debug, Args)]
 pub struct DiagnoseLocalArgs {
     /// Reference plate file (.json)
@@ -212,7 +258,7 @@ pub struct DiagnoseLocalArgs {
     /// Minimum species per genus required to enable selecting best species for the genus during post filter processing (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="3")]
     pub min_species: usize,
-    /// Apply the species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
+    /// Override default species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
     #[clap(long, num_args=1..)]
     pub species_domains: Option<Vec<String>>,
     /// Override default variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
