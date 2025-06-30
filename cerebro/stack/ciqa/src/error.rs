@@ -17,6 +17,8 @@ pub enum CiqaError {
     #[error(transparent)]
     CerebroClientError(#[from] cerebro_client::error::HttpClientError),
     #[error(transparent)]
+    NvlmError(#[from] nvml_wrapper::error::NvmlError),
+    #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
     #[error("plotters crate error: {0}")]
     PlottersError(#[from] Box<dyn std::error::Error + Send + Sync>), 
@@ -25,7 +27,7 @@ pub enum CiqaError {
     #[error(transparent)]
     CsvError(#[from] csv::Error),
     #[error(transparent)]
-    GptError(#[from] cerebro_gp::error::GptError),
+    MetaGptError(#[from] meta_gpt::error::GptError),
     #[error("failed to extract sample identifier from filename (format: sample_id.model.json)")]
     SampleIdentifierNotFound,
     #[error("failed to extract model name from filename (format: sample_id.model.json)")]

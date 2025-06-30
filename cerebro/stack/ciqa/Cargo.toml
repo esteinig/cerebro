@@ -26,11 +26,22 @@ name = "cerebro_ciqa"
 
 [dependencies]
 
-# Model library dependency to access shared module structs and definitions
-# to use in endpoints and client responses
-cerebro-model = { path = "../../lib/model" }
-cerebro-client = { path = "../client" }
-cerebro-pipeline = { path = "../../stack/pipeline" }
+# Using the remote version to align with META-GPT crate external dependency for now - this means
+# that all development on which CIQA relies must be pushed to the repository first!
+
+# cerebro-model = { path = "../../lib/model" }
+# cerebro-client = { path = "../client" }
+# cerebro-pipeline = { path = "../pipeline" }
+
+cerebro-client = { git = "https://github.com/esteinig/cerebro", package = "cerebro-client", branch = "main" }
+cerebro-model = { git = "https://github.com/esteinig/cerebro", package = "cerebro-model", branch = "main" }
+cerebro-pipeline = { git = "https://github.com/esteinig/cerebro", package = "cerebro-pipeline", branch = "main" }
+
+meta-gpt = { git = "ssh://git@github.com/esteinig/meta-gpt.git", branch = "main", features = [], default-features = false }
+
+
+
+
 
 anyhow = "1.0"
 thiserror = "1.0"
@@ -64,4 +75,4 @@ nvml-wrapper = "0.10.0"
 
 [features]
 default = []
-local = []
+local = ["meta-gpt/local"]

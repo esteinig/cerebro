@@ -2,7 +2,7 @@
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_pipeline::modules::quality::{QcStatus, QualityControlSummary};
 use statrs::distribution::{ContinuousCDF, StudentsT};
-use cerebro_gp::gpt::{SampleContext, Diagnosis, DiagnosticResult};
+use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};

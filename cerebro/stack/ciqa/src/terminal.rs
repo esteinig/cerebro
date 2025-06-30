@@ -1,8 +1,8 @@
 use std::path::PathBuf;
-use cerebro_gp::gpt::{AssayContext, GptModel};
+use meta_gpt::gpt::{AssayContext, GptModel};
 
 #[cfg(feature = "local")]
-use cerebro_gp::text::GeneratorModel;
+use meta_gpt::text::GeneratorModel;
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
 

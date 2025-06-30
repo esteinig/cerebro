@@ -1,19 +1,18 @@
 
-use std::{alloc::System, fs::create_dir_all, process::exit, sync::Arc};
+use std::{fs::create_dir_all, process::exit, sync::Arc};
 
-use cerebro_gp::{error::GptError, gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext},  utils::get_config};
+use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext},  utils::get_config};
 
 #[cfg(feature = "local")]
-use cerebro_gp::text::{GeneratorConfig, TextGenerator};
+use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
 use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
-use cerebro_pipeline::{modules::quality::{QualityControl, QualityControlSummary}, utils::{get_file_component, FileComponent}};
+use cerebro_pipeline::{modules::quality::{QualityControlSummary}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::{client::CerebroClient, error::HttpClientError};
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
-use reqwest::StatusCode;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -195,9 +194,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             .prefetch(&data_file, &gp_config) {
                                 Ok(_) => {},
                                 Err(err) => match err {
-                                    GptError::CerebroClientError(
-                                        HttpClientError::ResponseFailure(StatusCode::NOT_FOUND),
-                                    ) => {
+                                    meta_gpt::error::GptError::CerebroClientError(HttpClientError::ResponseFailure(status))
+                                     => {
                                         // Sample not found warning but pass by skipping
                                         log::warn!("Skipping sample due to failure to prefetch threshold data: {sample_id}")
                                     }
@@ -319,12 +317,12 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 let end    = (start + batch_size).min(samples.len());
                 let batch_samples = samples[start..end].to_vec();
                 
-                handles.push(std::thread::spawn(move || -> Result<(), GptError> {
+                handles.push(std::thread::spawn(move || -> Result<(), CiqaError> {
 
                     let keep_polling = Arc::new(AtomicBool::new(true));
                     let polling_flag = Arc::clone(&keep_polling);
 
-                    let bench_handle = std::thread::spawn(move || -> Result<u64, GptError> {
+                    let bench_handle = std::thread::spawn(move || -> Result<u64, CiqaError> {
 
                         let nvml_device = nvml_clone.device_by_index(gpu_id as u32)?;
                         let mut peak = 0;
