@@ -78,19 +78,16 @@ RUN groupadd -g $APP_GID $APP_USER \
             --create-home \
             $APP_USER
             
-# create mount-point for host files
 RUN mkdir -p /mnt/host \
  && chown $APP_USER:$APP_USER /mnt/host
 
-# copy in the meta-gp binary into PATH
-COPY --from=builder /home/$APP_USER/app/target/release/meta-gp /usr/local/bin/meta-gp
 COPY --from=builder /home/$APP_USER/app/target/release/cerebro-ciqa /usr/local/bin/cerebro-ciqa
 COPY --from=builder /home/$APP_USER/app/target/release/cerebro-client /usr/local/bin/cerebro-client
 
 WORKDIR /home/$APP_USER
 
 
-# Create symlink as root, then exec as non-root app user
+# create symlink as root, then exec as non-root app user
 ENTRYPOINT ["/bin/bash", "-c", "\
   if [ ! -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so ] && [ -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ]; then \
     ln -s /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so; \
