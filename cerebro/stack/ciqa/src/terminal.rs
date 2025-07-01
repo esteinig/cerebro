@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use meta_gpt::gpt::{AssayContext, GptModel};
 
 #[cfg(feature = "local")]
-use meta_gpt::text::GeneratorModel;
+use meta_gpt::model::GeneratorModel;
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
