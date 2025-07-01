@@ -37,7 +37,7 @@ cerebro-client = { git = "https://github.com/esteinig/cerebro", package = "cereb
 cerebro-model = { git = "https://github.com/esteinig/cerebro", package = "cerebro-model", branch = "main" }
 cerebro-pipeline = { git = "https://github.com/esteinig/cerebro", package = "cerebro-pipeline", branch = "main" }
 
-meta-gpt = { git = "ssh://git@github.com/esteinig/meta-gpt.git", branch = "main", features = [], default-features = false }
+meta-gpt = { git = "https://github.com/esteinig/meta-gpt", branch = "main", features = [], default-features = false }
 
 
 
