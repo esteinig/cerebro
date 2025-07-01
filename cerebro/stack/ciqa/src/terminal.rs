@@ -330,6 +330,9 @@ pub struct PrefetchArgs {
     /// Output directory for tiered filter data (.prefetch.json)
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
+    /// Subset of sample identifiers from plate to prefetch only
+    #[clap(long, short = 's', num_args(1..))]
+    pub samples: Option<Vec<String>>,
     /// Override for prevalence contamination regresision outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
     #[clap(long, short='c', default_value="true")]
     pub prevalence_outliers: Option<bool>,

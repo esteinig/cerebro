@@ -164,6 +164,13 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                 for sample_id in &plate.samples {
 
+                    if let Some(ref subset) = args.samples {
+                        if !subset.contains(sample_id) {
+                            log::warn!("Sample subset provided - skipping {}", sample_id);
+                            continue;
+                        }
+                    }
+
                     let data_file = args.outdir.join(format!("{sample_id}.prefetch.json"));
 
                     if args.force || !data_file.exists() {
