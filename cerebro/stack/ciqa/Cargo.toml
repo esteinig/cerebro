@@ -24,14 +24,11 @@ path = "src/cli.rs"
 [lib]
 name = "cerebro_ciqa"
 
+
 [dependencies]
 
 # Using the remote version to align with META-GPT crate external dependency for now - this means
 # that all development on which CIQA relies must be pushed to the repository first!
-
-# cerebro-model = { path = "../../lib/model" }
-# cerebro-client = { path = "../client" }
-# cerebro-pipeline = { path = "../pipeline" }
 
 cerebro-client = { git = "https://github.com/esteinig/cerebro", package = "cerebro-client", branch = "main" }
 cerebro-model = { git = "https://github.com/esteinig/cerebro", package = "cerebro-model", branch = "main" }

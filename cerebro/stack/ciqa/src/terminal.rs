@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 #[cfg(feature = "local")]
 use meta_gpt::model::GeneratorModel;
-use meta_gpt::gpt::AssayContext;
+use meta_gpt::gpt::{AssayContext, AgentPrimer};
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use crate::plate::{MissingOrthogonal, SampleType, StatsMode};
@@ -94,6 +94,8 @@ pub enum Commands {
     /// Prefetch tiered data with filter settings for a sample and save to file
     Prefetch(PrefetchArgs),
     /// Plot the reference plate layout
+    PlotPrefetch(PlotPrefetchArgs),
+    /// Plot the reference plate layout
     PlotPlate(PlotPlateArgs),
     /// Plot the reference plate quality control summary
     PlotQc(PlotQcArgs),
@@ -169,6 +171,27 @@ pub struct PlotQcArgs {
     #[clap(long)]
     pub title: Option<String>,
 }
+
+
+#[derive(Debug, Args)]
+pub struct PlotPrefetchArgs {
+    /// Prefetch file (.json)
+    #[clap(long, short = 'i')]
+    pub prefetch: PathBuf,
+    /// Output plot file (.svg)
+    #[clap(long, short = 'o', default_value="qc_summary.svg")]
+    pub output: PathBuf,
+    /// Plot width (px)
+    #[clap(long, default_value="800")]
+    pub width: u32,
+    /// Plot height (px)
+    #[clap(long, default_value="600")]
+    pub height: u32,
+    /// Set plot title
+    #[clap(long)]
+    pub title: Option<String>,
+}
+
 
 #[derive(Debug, Args)]
 pub struct DebugPathogenArgs {
@@ -251,6 +274,9 @@ pub struct DiagnoseLocalArgs {
     /// Include assay context into prompt context
     #[clap(long, short = 'a', default_value="cerebro-filter")]
     pub assay_context: Option<AssayContext>,
+    /// System prompt primer for diagnostic agent
+    #[clap(long, default_value="default")]
+    pub agent_primer: Option<AgentPrimer>,
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="true")]
     pub post_filter: Option<bool>,

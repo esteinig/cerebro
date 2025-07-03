@@ -27,6 +27,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::PlotPlate( args ) => {
             plot_plate()?
         },
+        Commands::PlotPrefetch( args ) => {
+        
+            let prefetch = PrefetchData::from_json(args.prefetch)?;
+            prefetch.plot_domain_counts_svg(&args.output)?;
+        },
         Commands::PlotQc( args ) => {
 
             let mut qc_summaries = Vec::new();
@@ -425,6 +430,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             if args.sample_context.unwrap_or(false) { sample_context } else { SampleContext::None },
                             if args.clinical_notes { clinical_notes } else { None },
                             args.assay_context.clone(),
+                            args.agent_primer.clone(),
                             &prefetch_data.config.clone(),
                             Some(prefetch_data),
                             post_filter,
