@@ -152,6 +152,9 @@ pub struct PlotQcArgs {
     /// Cerebro model files from DB (.json)
     #[clap(long, short = 'i', num_args=0..)]
     pub cerebro: Vec<PathBuf>,
+    /// Quality control module files (.json) 
+    #[clap(long, short = 'q', num_args=0..)]
+    pub quality_control: Vec<PathBuf>,
     /// Quality control summary files (.json) 
     #[clap(long, short = 's', num_args=0..)]
     pub summaries: Vec<PathBuf>,
@@ -159,7 +162,7 @@ pub struct PlotQcArgs {
     #[clap(long, short = 'o', default_value="qc_summary.svg")]
     pub output: PathBuf,
     /// Output directory for QC summary files (.json)
-    #[clap(long, short = 'd', default_value=".")]
+    #[clap(long, short = 'd', default_value="qc_summaries")]
     pub outdir: PathBuf,
     /// Plot width (px)
     #[clap(long, default_value="800")]

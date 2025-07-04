@@ -53,6 +53,19 @@ impl Taxon {
             );
         }
 
+        if let Some(domain) = self.lineage.get_domain() {
+            if domain.as_str() == "Viruses" {
+
+                // If there are (viral) alignment records, also list the reference description 
+                // for name and traditional abbreviation for clarity on species name
+                for record in &self.evidence.alignment {
+                    str.push_str(
+                        &format!("{}\n", &record.reference_description.trim_start_matches("bin="))
+                    )
+                }
+            }
+        }
+
         if evidence {
             if self.evidence.profile.is_empty() {
                 str.push_str("No evidence available.");

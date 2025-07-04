@@ -7,7 +7,7 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
 use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
-use cerebro_pipeline::{modules::quality::{QualityControlSummary}, utils::{get_file_component, FileComponent}};
+use cerebro_pipeline::{modules::quality::{QualityControl, QualityControlSummary}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::{client::CerebroClient, error::HttpClientError};
@@ -37,6 +37,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             let mut qc_summaries = Vec::new();
 
             if !args.cerebro.is_empty() {
+                log::info!(
+                    "Reading database models and saving quality control summaries to: {}", 
+                    args.outdir.display()
+                );
 
                 create_dir_all(&args.outdir)?;
 
@@ -55,12 +59,37 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     qc_summaries.push(qc_summary);
                 }
             } else if !args.summaries.is_empty() {
+                log::info!("Reading quality control summaries");
+
                 for file in args.summaries {
                     let qc_summary = QualityControlSummary::from_json(&file)?;
                     qc_summaries.push(qc_summary);
                 }
+            } else if !args.quality_control.is_empty() {
+                log::info!(
+                    "Reading quality controle module files and saving quality control summaries to: {}", 
+                    args.outdir.display()
+                );
+
+                create_dir_all(&args.outdir)?;
+
+                for file in args.quality_control {
+                    let model = QualityControl::from_json(&file)?;
+    
+                    let qc_summary = model.summary_illumina_pe();
+    
+                    qc_summary.to_json(&args.outdir.join(
+                        format!("qc_{}", get_file_component(
+                            &file, 
+                            FileComponent::FileName
+                        )?)
+                    ))?;
+    
+                    qc_summaries.push(qc_summary);
+                }
+
             } else {
-                log::error!("Either Cerebro model files (.json, --cerebro, -c) or quality control summary files (.json, --summaries, -s) must be provided!");
+                log::error!("Either Cerebro model files (.json, --cerebro, -c), quality control files (.json, --quality-control, -q) or quality control summary files (.json, --summaries, -s) must be provided!");
                 exit(1);
             };
     
