@@ -1,4 +1,4 @@
-FROM rust:1.82.0
+FROM rust:1.88.0
 
 # Dependencies for Tectonic LaTeX compiler library
 # TODO: add versions for all system packages

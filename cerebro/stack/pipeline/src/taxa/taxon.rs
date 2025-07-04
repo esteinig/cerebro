@@ -1,4 +1,5 @@
 use anyhow::Result;
+use itertools::Itertools;
 use vircov::vircov::VircovRecord;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -53,17 +54,22 @@ impl Taxon {
             );
         }
 
+        let mut virus_data = Vec::new();
         if let Some(domain) = self.lineage.get_domain() {
             if domain.as_str() == "Viruses" {
 
                 // If there are (viral) alignment records, also list the reference description 
                 // for name and traditional abbreviation for clarity on species name
                 for record in &self.evidence.alignment {
-                    str.push_str(
-                        &format!("{}\n", &record.reference_description.trim_start_matches("bin="))
-                    )
+                    virus_data.push(format!("{}\n", &record.reference_description.trim_start_matches("bin=")));
                 }
             }
+        }
+
+        let virus_dedup: Vec<_> = virus_data.iter().dedup().collect();
+
+        for virus_descr in virus_dedup {
+            str.push_str(virus_descr)
         }
 
         if evidence {
