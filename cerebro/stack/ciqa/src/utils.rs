@@ -54,10 +54,10 @@ pub enum FileComponent {
 ///
 /// ```
 /// use std::path::PathBuf;
-/// use ciqa::utils::{get_file_component, FileComponent};
+/// use cerebro_ciqa::utils::{get_file_component, FileComponent};
 ///
 /// let path = PathBuf::from("/some/path/to/file.txt");
-/// match get_file_component(path, FileComponent::FileName) {
+/// match get_file_component(&path, FileComponent::FileName) {
 ///     Ok(file_name) => println!("File name: {}", file_name),
 ///     Err(e) => eprintln!("Error: {}", e),
 /// }
@@ -65,10 +65,10 @@ pub enum FileComponent {
 ///
 /// ```
 /// use std::path::PathBuf;
-/// use ciqa::utils::{get_file_component, FileComponent};
+/// use cerebro_ciqa::utils::{get_file_component, FileComponent};
 ///
 /// let path = PathBuf::from("/some/path/to/file.txt");
-/// match get_file_component(path, FileComponent::FileStem) {
+/// match get_file_component(&path, FileComponent::FileStem) {
 ///     Ok(file_stem) => println!("File stem: {}", file_stem),
 ///     Err(e) => eprintln!("Error: {}", e),
 /// }

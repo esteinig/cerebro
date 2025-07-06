@@ -93,7 +93,7 @@ pub struct App {
 pub enum Commands {
     /// Prefetch tiered data with filter settings for a sample and save to file
     Prefetch(PrefetchArgs),
-    /// Plot the reference plate layout
+    /// Plot the tiered prefetch taxa composition
     PlotPrefetch(PlotPrefetchArgs),
     /// Plot the reference plate layout
     PlotPlate(PlotPlateArgs),
@@ -103,6 +103,8 @@ pub enum Commands {
     PlotReview(PlotReviewArgs),
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
+    /// Compare two diagnostic consensus reviews using McNemar's test statistic
+    Mcnemar(McnemarArgs),
 
     #[cfg(feature = "local")]
     /// Diagnose samples on the reference plate using the generative practitioner
@@ -110,6 +112,17 @@ pub enum Commands {
     
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
+}
+
+
+#[derive(Debug, Args)]
+pub struct McnemarArgs {
+    /// Path to output from review of configuration A (DiagnosticData, JSON)
+    #[clap(long, short = 'a')]
+    pub review_a: String,
+    /// Path to output from review of configuration B (DiagnosticData, JSON)
+    #[clap(long, short = 'b')]
+    pub review_b: String,
 }
 
 #[derive(Debug, Args)]

@@ -9,7 +9,7 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
 use cerebro_pipeline::{modules::quality::{QualityControl, QualityControlSummary}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::{client::CerebroClient, error::HttpClientError};
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -529,6 +529,25 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
         },
 
+        Commands::Mcnemar( args ) => {
+
+            let data_a = DiagnosticData::from_json(args.review_a)?;
+            let data_b = DiagnosticData::from_json(args.review_b)?;
+
+            let consensus_reviews_a = data_a.get_consensus_reviews_filtered();
+            let consensus_reviews_b = data_b.get_consensus_reviews_filtered();
+
+            match (consensus_reviews_a, consensus_reviews_b) {
+                (Some(reviews_a), Some(reviews_b)) => {
+                    let test_result = mcnemar_from_reviews(&reviews_a, &reviews_b);
+                    log::info!("{test_result:#?}")
+                },
+                _ => {
+                    log::error!("Could not find consensus reviews in provided diagnostic review data!")
+                }
+            }
+
+        }
         Commands::DebugPathogen( args ) => {
 
             #[derive(Serialize)]

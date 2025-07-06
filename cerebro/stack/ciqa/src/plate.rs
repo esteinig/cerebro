@@ -367,6 +367,42 @@ impl std::fmt::Display for DiagnosticStats {
     }
 }
 
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ConsensusDiagnosticSummary {
+    pub sensitivity: f64,
+    pub specificity: f64,
+    pub ppv: f64,
+    pub npv: f64,
+}
+impl Default for ConsensusDiagnosticSummary {
+    fn default() -> Self {
+        Self {
+            sensitivity: 0.0,
+            specificity: 0.0,
+            ppv: 0.0,
+            npv: 0.0,
+        }
+    }
+}
+impl ConsensusDiagnosticSummary {
+    pub fn from_stats(data: Vec<DiagnosticStats>) -> Self {
+        // Find the entry with name == "consensus"
+        if let Some(consensus) = data.into_iter().find(|s| s.name == "consensus") {
+            Self {
+                sensitivity: consensus.sensitivity,
+                specificity: consensus.specificity,
+                ppv: consensus.ppv,
+                npv: consensus.npv,
+            }
+        } else {
+            // If not found, return default (all zeros)
+            Self::default()
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DiagnosticSummary {
     pub mean_sensitivity: f64,
@@ -395,24 +431,24 @@ impl Default for DiagnosticSummary {
 impl DiagnosticSummary {
     pub fn from_stats(data: Vec<DiagnosticStats>) -> Self {
 
-        // Filter out any stats with name "consensus".
+        // Filter out any stats with name "consensus"
         let filtered: Vec<DiagnosticStats> = data
             .into_iter()
             .filter(|s| s.name != "consensus")
             .collect();
         
-        // If no items remain, return zeros.
+        // If no items remain, return zeros
         if filtered.is_empty() {
             return DiagnosticSummary::default()
         }
     
-        // Extract each metric into its own vector.
+        // Extract each metric into its own vector
         let sensitivities: Vec<f64> = filtered.iter().map(|s| s.sensitivity).collect();
         let specificities: Vec<f64> = filtered.iter().map(|s| s.specificity).collect();
         let ppvs: Vec<f64> = filtered.iter().map(|s| s.ppv).collect();
         let npvs: Vec<f64> = filtered.iter().map(|s| s.npv).collect();
     
-        // Compute mean and 95% CI for each metric.
+        // Compute mean and 95% CI for each metric
         let (mean_sensitivity, ci_sensitivity) = compute_mean_and_ci(&sensitivities);
         let (mean_specificity, ci_specificity) = compute_mean_and_ci(&specificities);
         let (mean_ppv, ci_ppv) = compute_mean_and_ci(&ppvs);
@@ -469,6 +505,7 @@ fn compute_mean_and_ci(values: &[f64]) -> (f64, Vec<f64>) {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DiagnosticData {
+    pub consensus: ConsensusDiagnosticSummary,
     pub summary: DiagnosticSummary,
     pub stats: Vec<DiagnosticStats>
 }
@@ -476,7 +513,8 @@ impl DiagnosticData {
     pub fn from(data: Vec<DiagnosticStats>) -> Self {
         Self {
             stats: data.clone(),
-            summary: DiagnosticSummary::from_stats(data),
+            summary: DiagnosticSummary::from_stats(data.clone()),
+            consensus: ConsensusDiagnosticSummary::from_stats(data)
         }
     }
     pub fn to_json(&self, path: &Path) -> Result<(), CiqaError> {
@@ -490,6 +528,16 @@ impl DiagnosticData {
         let data: String = std::fs::read_to_string(path)?;
         let diagnostic_data = serde_json::from_str::<DiagnosticData>(&data)?;
         Ok(diagnostic_data)
+    }
+    pub fn get_consensus_stats(&self) -> Option<DiagnosticStats> {
+        self.stats.iter().find(|s| s.name == "consensus").cloned()
+    }
+    pub fn get_consensus_reviews_filtered(&self) -> Option<Vec<DiagnosticReview>> {
+        if let Some(stats) = self.get_consensus_stats() {
+            Some(stats.data_filtered)
+        } else {
+            None
+        }
     }
     pub fn get_reference_from_json<P: AsRef<Path>>(path: P) -> Result<Option<Vec<DiagnosticReview>>, CiqaError> {
         let reference_data = Self::from_json(path)?;
@@ -536,22 +584,6 @@ impl DiagnosticData {
     }
 }
 
-/// Extension trait for `Vec<DiagnosticStats>` to write JSON to a file.
-pub trait DiagnosticStatsVecExt {
-    /// Writes this vector of diagnostic stats to the given path in JSON format.
-    /// Returns an error if the file cannot be written or serialization fails.
-    fn to_json(&self, path: &Path) -> Result<(), CiqaError>;
-}
-
-impl DiagnosticStatsVecExt for Vec<DiagnosticStats> {
-    fn to_json(&self, path: &Path) -> Result<(), CiqaError> {
-        let writer = BufWriter::new(
-            File::create(path)?
-        );
-        serde_json::to_writer_pretty(writer, self)?;
-        Ok(())
-    }
-}
 
 pub trait RgbColor {
     fn from_hex_str(hex: &str) -> Result<Self, String> where Self: Sized;
@@ -882,7 +914,7 @@ impl ReferencePlate {
 
     /// Given a vector of DiagnosticReview, compute sensitivity, specificity,
     /// negative predictive value and positive predictive value, excluding any
-    /// DiagnosticOutcome::Indeterminate results.
+    /// DiagnosticOutcome::Indeterminate | NotConsidere | Control | Unknown.
     pub fn compute_statistics(&self, name: &str, diagnostic_review: Vec<DiagnosticReview>) -> DiagnosticStats {
 
         // Filter out DiagnosticOutcome::Indeterminate
