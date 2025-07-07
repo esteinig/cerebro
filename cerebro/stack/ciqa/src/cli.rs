@@ -395,6 +395,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     for sample_id in batch_samples {
                         
                         // rebuild paths
+
+                        use meta_gpt::gpt::ClinicalContext;
                         let data_file   = args.prefetch.join(format!("{sample_id}.prefetch.json"));
 
                         let result_file = args.outdir.join(format!("{sample_id}.model.json"));
@@ -425,7 +427,13 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                             })
                             .unwrap_or(SampleContext::None);
                         
-                        let clinical_notes = sample_ref.and_then(|s| s.clinical.clone());
+                        let clinical_notes = sample_ref.and_then(|s: SampleReference| {
+                            if let Some(clinical) = s.clinical {
+                                Some(ClinicalContext::Custom(clinical))
+                            } else {
+                                None
+                            }
+                        });
                         
                         let post_filter = if args.post_filter.unwrap_or(false) { 
                             let collapse_variants = match args.collapse_variants {
@@ -456,7 +464,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         // run agent
                         let result = agent.run_local(
                             &mut text_generator,
-                            if args.sample_context.unwrap_or(false) { sample_context } else { SampleContext::None },
+                            if args.sample_context.unwrap_or(false) { Some(sample_context) } else { None },
                             if args.clinical_notes { clinical_notes } else { None },
                             args.assay_context.clone(),
                             args.agent_primer.clone(),
