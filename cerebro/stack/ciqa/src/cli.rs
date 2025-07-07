@@ -413,7 +413,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
                         // instantiate agent
-                        let mut agent = DiagnosticAgent::new(None, TaskConfig::Default)?;
+                        let mut agent = DiagnosticAgent::new(None, args.task_config.clone())?;
                         
                         // sample context logic
                         let sample_ref = plate.get_sample_reference(&sample_id);
