@@ -777,13 +777,15 @@ pub fn get_diagnostic_stats(args: &ReviewArgs, reference_plate: &mut ReferencePl
     let diagnostic_review = reference_plate.compute_diagnostic_review()?;
 
     for dr in &diagnostic_review {
-        log::info!("{} => {:<14}{}", dr.sample_id, dr.outcome.colored(), match dr.review { 
-            Some(ref review) => match &review.pathogen {
-                Some(taxstr) => format!(" => {}", taxstr), 
-                None => "".to_string()
-            }
-            None => "".to_string() 
-        })
+        if dr.outcome == DiagnosticOutcome::FalseNegative || dr.outcome == DiagnosticOutcome::FalsePositive {
+            log::info!("{} => {:<14}{}", dr.sample_id, dr.outcome.colored(), match dr.review { 
+                Some(ref review) => match &review.pathogen {
+                    Some(taxstr) => format!(" => {}", taxstr), 
+                    None => "".to_string()
+                }
+                None => "".to_string() 
+            })
+        }
     }
 
     let stats = reference_plate.compute_statistics(
