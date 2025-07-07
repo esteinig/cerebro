@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 #[cfg(feature = "local")]
 use meta_gpt::model::GeneratorModel;
-use meta_gpt::gpt::{AssayContext, AgentPrimer};
+use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use crate::plate::{MissingOrthogonal, SampleType, StatsMode};
@@ -293,6 +293,9 @@ pub struct DiagnoseLocalArgs {
     /// System prompt primer for diagnostic agent
     #[clap(long, default_value="default")]
     pub agent_primer: Option<AgentPrimer>,
+    /// Task configuration sets for the tiered decision tree
+    #[clap(long, default_value="default")]
+    pub task_config: TaskConfig,
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="true")]
     pub post_filter: Option<bool>,

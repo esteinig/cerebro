@@ -1,7 +1,7 @@
 
 use std::{fs::create_dir_all, process::exit, sync::Arc};
 
-use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext},  utils::get_config};
+use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext, TaskConfig},  utils::get_config};
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
@@ -231,7 +231,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
                         log::info!("{:#?}", gp_config);
 
-                        match DiagnosticAgent::new(Some(api_client.clone()))?
+                        match DiagnosticAgent::new(Some(api_client.clone()), TaskConfig::Default)?
                             .prefetch(&data_file, &gp_config) {
                                 Ok(_) => {},
                                 Err(err) => match err {
@@ -413,7 +413,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
                         // instantiate agent
-                        let mut agent = DiagnosticAgent::new(None)?;
+                        let mut agent = DiagnosticAgent::new(None, TaskConfig::Default)?;
                         
                         // sample context logic
                         let sample_ref = plate.get_sample_reference(&sample_id);
