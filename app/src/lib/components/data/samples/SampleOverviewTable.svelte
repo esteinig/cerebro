@@ -23,9 +23,6 @@
     export let selectedProject: ProjectCollection;
     
     
-
-    $: console.log(sampleOverviewData.length);
-    
     let checkAll: boolean = false;
     
 

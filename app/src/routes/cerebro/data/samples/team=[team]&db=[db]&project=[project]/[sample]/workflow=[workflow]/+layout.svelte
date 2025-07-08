@@ -85,7 +85,7 @@
     // Initialize selection
     $: {
         if (!isInitialized) {
-            console.log("Initializing to DNA");
+            // console.log("Initializing to DNA");
             [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.DNA);
             selectedLibraryTag = FileTag.DNA;
             setClientFilterConfigDomainDna();
@@ -103,12 +103,12 @@
                 getRnaLibraryIdentifiers().includes(id)
             );
             if (isDna && selectedLibraryTag !== FileTag.DNA) {
-                console.log("Switching to DNA");
+                // console.log("Switching to DNA");
                 [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.DNA);
                 selectedLibraryTag = FileTag.DNA;
                 setClientFilterConfigDomainDna();
             } else if (isRna && selectedLibraryTag !== FileTag.RNA) {
-                console.log("Switching to RNA");
+                // console.log("Switching to RNA");
                 [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.RNA);
                 selectedLibraryTag = FileTag.RNA;
                 setClientFilterConfigDomainRna();
@@ -130,6 +130,7 @@
     function reloadTable() {
         selectedIdentifiers.set($selectedIdentifiers);
     }
+    
 
 </script>
 
