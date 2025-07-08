@@ -1189,7 +1189,7 @@ where
 {
     source: &'a S,
     config: &'a PositiveControlConfig,
-    id:     Option<String>,
+    id:     String,
 }
 
 impl<'a, S> PositiveControlSummaryBuilder<'a, S>
@@ -1197,28 +1197,14 @@ where
     S: DetectionSource,
 {
     /// New builder: no id yet
-    pub fn new(source: &'a S, config: &'a PositiveControlConfig) -> Self {
+    pub fn new(source: &'a S, config: &'a PositiveControlConfig, id: impl Into<String>) -> Self {
         Self {
             source,
             config,
-            id: None,
+            id: id.into(),
         }
     }
 
-    /// Supply an explicit id (e.g. for Vec<Taxon> cases)
-    pub fn with_id(mut self, id: impl Into<String>) -> Self {
-        self.id = Some(id.into());
-        self
-    }
-
-    /// Internal helper to pick the right id
-    fn source_id(&self) -> &str {
-        if let Some(ref id) = self.id {
-            id
-        } else {
-            panic!("No ID supplied — call .with_id(...) for this source");
-        }
-    }
 
     /// Build the actual summary
     pub fn build(self) -> PositiveControlSummary {
@@ -1232,7 +1218,7 @@ where
                         let seen = detected.contains(&spec.as_str());
                         log::info!(
                             "[{}] {} control `{}` detected: {}",
-                            self.source_id(),
+                            self.id,
                             label,
                             spec,
                             seen
@@ -1243,7 +1229,7 @@ where
             };
 
         PositiveControlSummary {
-            id:        self.source_id().to_owned(),
+            id:        self.id.to_owned(),
             bacteria:  make_map(&self.config.bacteria,  "bacteria"),
             viruses:   make_map(&self.config.viruses,   "virus"),
             eukaryota: make_map(&self.config.eukaryota, "eukaryote"),
