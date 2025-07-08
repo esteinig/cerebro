@@ -1463,6 +1463,7 @@ impl CerebroClient {
                         .cloned()
                         .collect();
 
+                    let mut clear_contam_taxa = Vec::new();
                     if contam_history {
                         'contam: for contam_taxon in &contam_taxa {
                             let reg = self.get_taxon_history(
@@ -1480,10 +1481,13 @@ impl CerebroClient {
                                     }
                                 }
                             }
+                            clear_contam_taxa.push(contam_taxon.clone())
                         }    
+                    } else {
+                        clear_contam_taxa = contam_taxa.clone();
                     }
 
-                    tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), contam_taxa.clone()));
+                    tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), clear_contam_taxa.clone()));
                     
                 }   
             }
