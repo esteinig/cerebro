@@ -6,7 +6,7 @@
 
 include { QualityControl; QualityControlNanopore } from "./quality";
 include { Vircov; VircovNanopore } from "../processes/pathogen";
-include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile; ProcessOutputIllumina; PathogenDetectionTable } from "../processes/pathogen";
+include { Kraken2; Bracken; Metabuli; Sylph; Kmcp; GanonReads; GanonProfile; Megahit; MetaSpades; ProcessOutputIllumina; PathogenDetectionTable } from "../processes/pathogen";
 include { ContigCoverage as MetaSpadesCoverage; ContigCoverage as MegahitCoverage } from "../processes/pathogen";
 include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../processes/pathogen";
 include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "../processes/pathogen";
