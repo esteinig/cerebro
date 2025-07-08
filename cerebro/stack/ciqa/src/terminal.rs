@@ -169,7 +169,7 @@ pub struct PlotQcArgs {
     #[clap(long, short = 'q', num_args=0..)]
     pub quality_control: Vec<PathBuf>,
     /// Pathogen detection module files (.json) 
-    #[clap(long, short = 'q', num_args=0..)]
+    #[clap(long, short = 'p', num_args=0..)]
     pub pathogen_detection: Vec<PathBuf>,
     /// Quality control summary files (.json) 
     #[clap(long, short = 's', num_args=0..)]
