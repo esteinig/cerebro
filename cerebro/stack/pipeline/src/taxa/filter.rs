@@ -396,12 +396,12 @@ impl LineageFilterConfig {
         Self {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
-            min_alignment_tools: Some(1),
-            min_alignment_rpm: Some(1.0),
+            min_alignment_tools: None,
+            min_alignment_rpm: None,
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
-            min_kmer_rpm: Some(1.0),
+            min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }
     }
