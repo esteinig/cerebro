@@ -26,7 +26,7 @@ Production pipeline operate as follows:
 // include { BacterialEnrichment } from './lib/production/bacterial';
 
 include { QualityControl; QualityControlNanopore } from './lib/production/quality';
-include { PathogenDetection; PathogenDetectionNanopore } from './lib/production/pathogen';
+include { PathogenDetection } from './lib/production/pathogen';
 include { PanviralEnrichment } from './lib/production/panviral';
 
 
@@ -129,36 +129,19 @@ workflow pathogen {
 
     def pathogenDB = getPathogenDetectionDatabases();
 
-    if (params.nanopore) {
-        PathogenDetectionNanopore(
-            getReads(
-                null, 
-                params.fastqNanopore, 
-                params.sampleSheet, 
-                params.sampleSheetProduction
-            ),
-            pathogenDB.qualityControl,
-            pathogenDB.taxonomicProfile,
-            pathogenDB.metagenomeAssembly,
-            null,
-            null
-        )   
-    } else {
-        PathogenDetection(
-            getReads(
-                params.fastqPaired, 
-                null, 
-                params.sampleSheet, 
-                params.sampleSheetProduction
-            ),
-            pathogenDB.qualityControl,
-            pathogenDB.taxonomicProfile,
-            pathogenDB.metagenomeAssembly,
-            null,  
-            null  
-        )   
-    }
-    
+    PathogenDetection(
+        getReads(
+            params.fastqPaired, 
+            null, 
+            params.sampleSheet, 
+            params.sampleSheetProduction
+        ),
+        pathogenDB.qualityControl,
+        pathogenDB.taxonomicProfile,
+        pathogenDB.metagenomeAssembly,
+        null,  
+        null  
+    )   
 
 }
 
@@ -193,19 +176,6 @@ workflow culture {
     /* Bacterial culture identification (hybrid-) assembly and taxonomic profiling */
 
     def cultureDB = getCultureIdentificationDatabases();
-
-    if (params.nanopore) {
-
-        CultureIdentificationNanopore(
-            getReads(
-                params.fastqPaired, 
-                params.fastqNanopore, 
-                params.sampleSheet, 
-                params.sampleSheetProduction
-            ),
-            cultureDB.qualityControl,
-        )   
-    }
 
 }
 

@@ -116,7 +116,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     let model = PathogenDetection::from_json(&file)?;
                     let summary = PositiveControlSummaryBuilder::new(
                         &model, 
-                        &PositiveControlConfig::metagp()
+                        &PositiveControlConfig::metagp(),
+                        &model.id
                     ).build();
                 }
 
