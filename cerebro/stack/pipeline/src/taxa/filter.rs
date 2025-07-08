@@ -360,7 +360,7 @@ impl LineageFilterConfig {
             min_alignment_rpm: Some(10.0),
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(1),
+            min_kmer_tools: Some(2),
             min_kmer_rpm: Some(10.0),
             min_assembly_tools: None
         }
@@ -431,7 +431,6 @@ impl LineageFilterConfig {
             min_assembly_tools: Some(1)
         }
     }
-
 
     pub fn gp_viruses_target_threshold() -> Self {
         Self {

@@ -1,5 +1,5 @@
 import { browser } from "$app/environment";
-import { getCurrentDate, PATHOGENS, POSITIVE_CONTROLS, VALIDATION } from "$lib/utils/helpers";
+import { getCurrentDate, PATHOGENS, POSITIVE_CONTROLS, VALIDATION, VERTEBRATE_VIRUSES } from "$lib/utils/helpers";
 
 import { 
     ProfileTool, 
@@ -91,14 +91,14 @@ const defaultServerFilterConfig: TaxonFilterConfig = {
     domains: [],            // Filter by domain names
     tools: [],              // Filter by specific detection tools
     modes: [],              // Filter by detection modes (Sequence/Profile)
-    min_bases: 200,         // Minimum contig length for inclusion
+    min_bases: 0,           // Minimum contig length for inclusion
     max_bases: null,
     min_bpm: 0.0,           // Minimum contig length per million for inclusion
     min_reads: 0,           // Minimum read count for inclusion
-    min_rpm: 1.0,           // Minimum RPM for inclusion
+    min_rpm: 0.0,           // Minimum RPM for inclusion
     max_rpm: null,          // Minimum RPM for inclusion
-    min_abundance: 0,       // Minimum abundance for inclusion
-    ntc_ratio: 3,
+    min_abundance: 0.0,     // Minimum abundance for inclusion
+    ntc_ratio: 1,
     lineage: null,
     targets: null,
     collapse_variants: false
@@ -109,14 +109,14 @@ export const primaryThresholdServerFilterConfig: TaxonFilterConfig = {
     domains: [],
     tools: ["Vircov", "Bracken", "Metabuli", "Ganon2", "Blast"], 
     modes: ["Mixed"], 
-    min_bases: 500,   // Check this threshold TODO V75
+    min_bases: 0,   // Check this threshold TODO V75
     max_bases: null,
     min_bpm: 0.0,      
     min_reads: 0,       
-    min_rpm: 5.0,      
+    min_rpm: 0.0,      
     max_rpm: null,
     min_abundance: 0,   
-    ntc_ratio: 3,
+    ntc_ratio: 1,
     lineage: [
       {
         lineages: ["d__Bacteria", "d__Archaea"],
@@ -126,18 +126,18 @@ export const primaryThresholdServerFilterConfig: TaxonFilterConfig = {
         min_alignment_regions: null,
         min_alignment_regions_coverage: null,
         min_kmer_tools: 3,
-        min_kmer_rpm: 5.0,
+        min_kmer_rpm: 10.0,
         min_assembly_tools: null,
       },
       {
         lineages: ["d__Viruses"],
         tags: ["DNA", "RNA"],
         min_alignment_tools: 1,
-        min_alignment_rpm: 5.0,
+        min_alignment_rpm: 10.0,
         min_alignment_regions: null,
         min_alignment_regions_coverage: null,
         min_kmer_tools: 1,
-        min_kmer_rpm: 5.0,
+        min_kmer_rpm: 10.0,
         min_assembly_tools: null,
       },
       {
@@ -161,18 +161,29 @@ export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
     domains: [],
     tools: ["Vircov", "Bracken", "Metabuli", "Ganon2", "Blast"], 
     modes: ["Mixed"], 
-    min_bases: 200, 
+    min_bases: 0, 
     max_bases: null,
     min_bpm: 0.0, 
     min_reads: 0, 
-    min_rpm: 1, 
+    min_rpm: 0.0, 
     max_rpm: null,
-    min_abundance: 0,
-    ntc_ratio: 3,
+    min_abundance: 0.0,
+    ntc_ratio: 1,
     lineage: [
         {
             lineages: ["d__Bacteria", "d__Archaea"],
             tags: ["DNA"],
+            min_alignment_tools: null,
+            min_alignment_rpm: null,
+            min_alignment_regions: null,
+            min_alignment_regions_coverage: null,
+            min_kmer_tools: 3,
+            min_kmer_rpm: 3.0,
+            min_assembly_tools: null,
+        },
+        {
+            lineages: ["d__Viruses"],
+            tags: ["DNA", "RNA"],
             min_alignment_tools: null,
             min_alignment_rpm: null,
             min_alignment_regions: null,
@@ -182,26 +193,15 @@ export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
             min_assembly_tools: null,
         },
         {
-        lineages: ["d__Viruses"],
-        tags: ["DNA", "RNA"],
-        min_alignment_tools: 1,
-        min_alignment_rpm: 1.0,
-        min_alignment_regions: null,
-        min_alignment_regions_coverage: null,
-        min_kmer_tools: 2,
-        min_kmer_rpm: 1.0,
-        min_assembly_tools: null,
-        },
-        {
-        lineages: ["d__Eukaryota"],
-        tags: ["DNA"],
-        min_alignment_tools: null,
-        min_alignment_rpm: null,
-        min_alignment_regions: null,
-        min_alignment_regions_coverage: null,
-        min_kmer_tools: 3,
-        min_kmer_rpm: 3.0,
-        min_assembly_tools: 1,
+            lineages: ["d__Eukaryota"],
+            tags: ["DNA"],
+            min_alignment_tools: null,
+            min_alignment_rpm: null,
+            min_alignment_regions: null,
+            min_alignment_regions_coverage: null,
+            min_kmer_tools: 3,
+            min_kmer_rpm: 5.0,
+            min_assembly_tools: 1,
         },
     ],
     targets: null,
@@ -217,52 +217,30 @@ export const validationThresholdServerFilterConfig: TaxonFilterConfig = {
     max_bases: null,
     min_bpm: 0.0, 
     min_reads: 0, 
-    min_rpm: 0, 
+    min_rpm: 0.0, 
     max_rpm: null,
-    min_abundance: 0,
-    ntc_ratio: 3,
+    min_abundance: 0.0,
+    ntc_ratio: 1,
     lineage: [
         {
-        lineages: ["d__Bacteria", "d__Archaea"],
-        tags: ["DNA"],
-        min_alignment_tools: null,
-        min_alignment_rpm: null,
-        min_alignment_regions: null,
-        min_alignment_regions_coverage: null,
-        min_kmer_tools: 2,
-        min_kmer_rpm: null,
-        min_assembly_tools: null,
-        },
-        {
-        lineages: ["d__Viruses"],
-        tags: ["DNA", "RNA"],
-        min_alignment_tools: null,
-        min_alignment_rpm: null,
-        min_alignment_regions: null,
-        min_alignment_regions_coverage: null,
-        min_kmer_tools: null,
-        min_kmer_rpm: null,
-        min_assembly_tools: null,
-        },
-        {
-        lineages: ["d__Eukaryota"],
-        tags: ["DNA"],
-        min_alignment_tools: null,
-        min_alignment_rpm: null,
-        min_alignment_regions: null,
-        min_alignment_regions_coverage: null,
-        min_kmer_tools: 2,
-        min_kmer_rpm: null,
-        min_assembly_tools: null,
+            lineages: ["d__Viruses"],
+            tags: ["DNA", "RNA"],
+            min_alignment_tools: 1,
+            min_alignment_rpm: 0.0,
+            min_alignment_regions: 2,
+            min_alignment_regions_coverage: 20.0,
+            min_kmer_tools: 1,
+            min_kmer_rpm: 0.0,
+            min_assembly_tools: null,
         },
     ],
-    targets: VALIDATION,
+    targets: VERTEBRATE_VIRUSES,
     collapse_variants: false
 };
 
 const defaultPrevalenceContamConfig: PrevalenceContaminationConfig = {
     min_rpm: 0.0,
-    threshold: 0.5,
+    threshold: 0.6,
     sample_type: null,
     collapse_variants: false
 }
