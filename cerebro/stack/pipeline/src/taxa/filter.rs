@@ -43,7 +43,6 @@ impl TaxonFilterConfig {
         if let Some(targets) = &self.targets { Some(HashSet::from_iter(targets.into_iter().map(|t| t.as_str()))) } else { None }
     }
     /// Checks if the given taxon passes *all* defined lineage filter configurations.
-    /// (Here we focus on the alignment evidence part; you might extend this to other criteria.)
     pub fn passes_filters(&self, taxon: &Taxon) -> bool {
         if let Some(lineage_filters) = &self.lineage {
             for filter in lineage_filters {
@@ -263,6 +262,15 @@ impl TargetList {
             Self { targets: Vec::new() }
         })
     }
+    /// Loads the target list from an embedded TSV file.
+    /// The file "templates/ictv_prokaryote_targets.tsv" is embedded at compile time.
+    pub fn gp_cns_bacteria() -> Self {
+        let tsv_data = include_str!("../../templates/cns_prokaryote_targets.tsv");
+        Self::from_tsv_str(tsv_data).unwrap_or_else(|e| {
+            log::error!("Error parsing TSV data: {:?}", e);
+            Self { targets: Vec::new() }
+        })
+    }
 }
 
 
@@ -405,7 +413,7 @@ impl LineageFilterConfig {
             min_alignment_rpm: None,
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(2),
+            min_kmer_tools: Some(3),
             min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }

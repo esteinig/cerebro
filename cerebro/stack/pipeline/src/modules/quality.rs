@@ -9,11 +9,13 @@ use vircov::vircov::{VircovRecord, VircovSummary};
 
 
 use crate::error::WorkflowError;
+use crate::modules::pathogen::PathogenDetection;
 use crate::nextflow::pathogen::PathogenDetectionOutput;
 use crate::nextflow::panviral::PanviralOutput;
 use crate::nextflow::quality::QualityControlOutput;
 use crate::parsers::fastp::FastpReport;
 use crate::parsers::nanoq::NanoqReport;
+use crate::taxa::taxon::Taxon;
 use crate::tools::scan::ScanReport;
 use crate::tools::umi::DeduplicationReport;
 
@@ -1124,6 +1126,131 @@ impl QcConfig {
         }
     }
 }
+
+
+/// Preset configuration for positive controls
+#[derive(Debug, Clone)]
+pub struct PositiveControlConfig {
+    pub bacteria: Vec<String>,
+    pub viruses: Vec<String>,
+    pub eukaryota: Vec<String>
+}
+
+impl PositiveControlConfig {
+    pub fn metagp() -> Self {
+        Self {
+            bacteria: vec![
+                String::from("Truepera radiovictrix"),
+                String::from("Imtechella halotolerans"),
+                String::from("Allobacillus halotolerans"),
+            ],
+            viruses: vec![
+                String::from("Betacoronavirus muris"),
+                String::from("Orthopoxvirus vaccinia"),
+            ],
+            eukaryota: vec![
+                String::from("Saccharomyces cerevisiae"),
+                String::from("Pneumocystis jirovecii")
+            ]
+        }
+    }
+}
+
+/// Trait to extract “detected” names from any source
+pub trait DetectionSource {
+    fn detected_names(&self) -> Vec<&str>;
+}
+
+/// Implement for your two sources:
+impl DetectionSource for PathogenDetection {
+    fn detected_names(&self) -> Vec<&str> {
+        self.profile.iter().map(|rec| rec.name.as_str()).collect()
+    }
+}
+impl DetectionSource for Vec<Taxon> {
+    fn detected_names(&self) -> Vec<&str> {
+        self.iter().map(|tax| tax.name.as_str()).collect()
+    }
+}
+
+/// Our summary struct stays the same:
+#[derive(Debug, Clone)]
+pub struct PositiveControlSummary {
+    pub id:        String,
+    pub bacteria:  HashMap<String, bool>,
+    pub viruses:   HashMap<String, bool>,
+    pub eukaryota: HashMap<String, bool>,
+}
+
+/// Generic builder that now carries an optional `id`
+pub struct PositiveControlSummaryBuilder<'a, S>
+where
+    S: DetectionSource,
+{
+    source: &'a S,
+    config: &'a PositiveControlConfig,
+    id:     Option<String>,
+}
+
+impl<'a, S> PositiveControlSummaryBuilder<'a, S>
+where
+    S: DetectionSource,
+{
+    /// New builder: no id yet
+    pub fn new(source: &'a S, config: &'a PositiveControlConfig) -> Self {
+        Self {
+            source,
+            config,
+            id: None,
+        }
+    }
+
+    /// Supply an explicit id (e.g. for Vec<Taxon> cases)
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    /// Internal helper to pick the right id
+    fn source_id(&self) -> &str {
+        if let Some(ref id) = self.id {
+            id
+        } else {
+            panic!("No ID supplied — call .with_id(...) for this source");
+        }
+    }
+
+    /// Build the actual summary
+    pub fn build(self) -> PositiveControlSummary {
+        let detected = self.source.detected_names();
+
+        let make_map =
+            |controls: &Vec<String>, label: &str| -> HashMap<String, bool> {
+                controls
+                    .iter()
+                    .map(|spec| {
+                        let seen = detected.contains(&spec.as_str());
+                        log::info!(
+                            "[{}] {} control `{}` detected: {}",
+                            self.source_id(),
+                            label,
+                            spec,
+                            seen
+                        );
+                        (spec.clone(), seen)
+                    })
+                    .collect()
+            };
+
+        PositiveControlSummary {
+            id:        self.source_id().to_owned(),
+            bacteria:  make_map(&self.config.bacteria,  "bacteria"),
+            viruses:   make_map(&self.config.viruses,   "virus"),
+            eukaryota: make_map(&self.config.eukaryota, "eukaryote"),
+        }
+    }
+}
+
 
 /// Summary results for each category
 #[derive(Debug, Serialize, Deserialize)]

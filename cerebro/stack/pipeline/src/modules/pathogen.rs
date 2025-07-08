@@ -82,7 +82,7 @@ impl PathogenDetectionTableRecord {
                     Err(_) => (Some(TaxRank::Unspecified), Some(record.name.clone()), Some(String::from("d__;p__;c__;o__;f__;g__;s__")))
                 }
             }
-            None => (None, None, None),
+            None => (Some(TaxRank::Unspecified), Some(record.name.clone()), Some(String::from("d__;p__;c__;o__;f__;g__;s__"))),
         };
 
         // Extract reads and RPM values from the results

@@ -7,7 +7,7 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
 use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
-use cerebro_pipeline::{modules::quality::{QualityControl, QualityControlSummary}, utils::{get_file_component, FileComponent}};
+use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::{client::CerebroClient, error::HttpClientError};
@@ -103,6 +103,21 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.title.as_deref()
             )?;
 
+
+            // Positive controls:
+
+            if !args.pathogen_detection.is_empty() {
+                log::info!(
+                    "Reading pathogen detection models and saving positive control summaries to: {}", 
+                    args.outdir.display()
+                );
+
+                for file in args.pathogen_detection {
+                    let model = PathogenDetection::from_json(&file)?;
+                    
+                }
+
+            }
 
         },
         Commands::PlotReview( args ) => {
