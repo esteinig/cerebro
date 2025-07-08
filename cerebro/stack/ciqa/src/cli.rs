@@ -1,7 +1,7 @@
 
 use std::{fs::create_dir_all, process::exit, sync::Arc};
 
-use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext, TaskConfig},  utils::get_config};
+use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext, TaskConfig, ClinicalContext},  utils::get_config};
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
@@ -415,7 +415,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         
                         // rebuild paths
 
-                        use meta_gpt::gpt::ClinicalContext;
                         let data_file   = args.prefetch.join(format!("{sample_id}.prefetch.json"));
 
                         let result_file = args.outdir.join(format!("{sample_id}.model.json"));
@@ -425,6 +424,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         if !data_file.exists() {
                             log::info!("no prefetch for {}, skipping", sample_id);
                             continue;
+                        }
+
+                        if result_file.exists() && !args.force {
+                            log::warn!("result file exists and force not activated - skipping {}", sample_id)
                         }
                         
                         // load prefetch
