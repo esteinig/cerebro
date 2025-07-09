@@ -257,9 +257,9 @@ impl PostFilterConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TieredFilterConfig {
-    primary: TaxonFilterConfig,
-    secondary: TaxonFilterConfig,
-    target: TaxonFilterConfig
+    pub primary: TaxonFilterConfig,
+    pub secondary: TaxonFilterConfig,
+    pub target: TaxonFilterConfig
 }
 impl TieredFilterConfig {
     pub fn default(ignore_taxstr: Option<Vec<String>>) -> Self {
