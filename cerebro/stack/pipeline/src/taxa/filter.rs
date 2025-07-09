@@ -470,32 +470,6 @@ impl LineageFilterConfig {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PrevalenceContaminationConfig {
-    pub threshold: f64,
-    pub min_rpm: f64,
-    pub sample_type: Option<String>,
-    pub collapse_variants: bool
-}
-impl PrevalenceContaminationConfig {
-    pub fn validation() -> Self {
-        Self {
-            threshold: 0.60,
-            min_rpm: 0.0,
-            sample_type: None,
-            collapse_variants: false
-        }
-    }
-    pub fn gp_default() -> Self {
-        Self {
-            threshold: 0.60,
-            min_rpm: 0.0,
-            sample_type: None,
-            collapse_variants: false
-        }
-    }
-}
-
 type SampleId = String;
 type Tag = String;
 

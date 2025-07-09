@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema, PrevalenceContaminationConfig};
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -9,7 +9,7 @@ use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_pipeline::modules::alignment::Alignment;
 use cerebro_pipeline::modules::pathogen::PathogenDetection;
 use cerebro_pipeline::modules::quality::QualityControl;
-use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig};
+use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;

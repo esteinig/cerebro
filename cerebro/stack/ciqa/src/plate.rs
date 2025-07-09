@@ -1,8 +1,8 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData}};
-use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig}};
+use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig}};
+use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::TaxonFilterConfig};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
@@ -1024,7 +1024,7 @@ impl ReferencePlate {
             &CerebroIdentifierSchema::from_gp_config(config), 
             &config.filter_configs.primary, 
             prevalence_contamination.clone(),
-            config.prevalence_outliers.primary
+            config.contamination.outliers.primary
         )?;
 
         log::info!("Fetching secondary threshold data for sample '{}'", config.sample);
@@ -1034,7 +1034,7 @@ impl ReferencePlate {
             &CerebroIdentifierSchema::from_gp_config(config), 
             &config.filter_configs.secondary, 
             prevalence_contamination.clone(),
-            config.prevalence_outliers.secondary
+            config.contamination.outliers.secondary
         )?;
 
         log::info!("Fetching target threshold data for sample '{}'", config.sample);
@@ -1043,7 +1043,7 @@ impl ReferencePlate {
             &CerebroIdentifierSchema::from_gp_config(config), 
             &config.filter_configs.target, 
             prevalence_contamination.clone(),
-            config.prevalence_outliers.target
+            config.contamination.outliers.target
         )?;
 
         let mut prefetch_data = PrefetchData::new(
