@@ -384,3 +384,100 @@ impl CerebroIdentifierSmallSchema {
         );
     }   
 }
+
+
+use std::{collections::HashSet, fs::File, io::{Write, BufWriter}, path::Path};
+
+use cerebro_pipeline::taxa::{filter::TaxonFilterConfig, taxon::Taxon};
+use serde::{Deserialize, Serialize};
+
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PrefetchData {
+    pub primary: Vec<Taxon>,
+    pub secondary: Vec<Taxon>,
+    pub target: Vec<Taxon>,
+    pub primary_contamination: Vec<Taxon>,
+    pub secondary_contamination: Vec<Taxon>,
+    pub target_contamination: Vec<Taxon>,
+    pub primary_filter: TaxonFilterConfig,
+    pub secondary_filter: TaxonFilterConfig,
+    pub target_filter: TaxonFilterConfig,
+    pub config: MetaGpConfig
+}
+impl PrefetchData {
+    pub fn new(
+        primary: Vec<Taxon>,
+        secondary: Vec<Taxon>,
+        target: Vec<Taxon>,
+        primary_contamination: Vec<Taxon>,
+        secondary_contamination: Vec<Taxon>,
+        target_contamination: Vec<Taxon>,
+        primary_filter: &TaxonFilterConfig,
+        secondary_filter: &TaxonFilterConfig,
+        target_filter: &TaxonFilterConfig,
+        config: &MetaGpConfig
+    ) -> Self {
+        Self {
+            primary,
+            secondary,
+            target,
+            primary_contamination,
+            secondary_contamination,
+            target_contamination,
+            primary_filter: primary_filter.clone(),
+            secondary_filter: secondary_filter.clone(),
+            target_filter: target_filter.clone(),
+            config: config.clone()
+        }
+    }
+    /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
+    /// then remove from `target` any Taxon whose `lineage` also appears in the 
+    /// pruned `secondary` and 'primary'
+    pub fn prune(&mut self) {
+
+        log::info!("Pruning tiered filter categories");
+        
+        // collect all lineages present in primary
+        let primary_lineages: HashSet<_> =
+            self.primary.iter().map(|t| t.lineage.clone()).collect();
+        let primary_contam_lineages: HashSet<_> =
+            self.primary_contamination.iter().map(|t| t.lineage.clone()).collect();
+
+        // drop from secondary anything already in primary
+        self.secondary
+            .retain(|t| !primary_lineages.contains(&t.lineage));
+        self.secondary
+            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
+
+        // now collect lineages in the (pruned) secondary
+        let secondary_lineages: HashSet<_> =
+            self.secondary.iter().map(|t| t.lineage.clone()).collect();
+        let secondary_contam_lineages: HashSet<_> =
+            self.secondary_contamination.iter().map(|t| t.lineage.clone()).collect();
+
+        // drop from target anything already in secondary
+        self.target
+            .retain(|t| !secondary_lineages.contains(&t.lineage));
+        self.target
+            .retain(|t| !secondary_contam_lineages.contains(&t.lineage));
+
+        // drop from target anything already in primary
+        self.target
+            .retain(|t| !primary_lineages.contains(&t.lineage));
+        self.target
+            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
+
+    }
+    pub fn to_json(&self, path: &Path) -> Result<(), ModelError> {
+        let data = serde_json::to_string_pretty(self)?;
+        let mut writer = BufWriter::new(File::create(path)?);
+        write!(writer, "{data}")?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, ModelError> {
+        let data = std::fs::read_to_string(path)?;
+        let result = serde_json::from_str::<PrefetchData>(&data)?;
+        Ok(result)
+    }
+}

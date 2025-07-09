@@ -1,12 +1,14 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
-use cerebro_pipeline::modules::quality::{QcStatus, QualityControlSummary};
+use cerebro_client::client::CerebroClient;
+use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig}, files::model::FileTag};
+use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig}};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
-use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, FileComponent}};
+use crate::{error::CiqaError, prefetch::PrefetchData, terminal::ReviewArgs, utils::{get_file_component, read_tsv, FileComponent}};
 use rand::Rng;
 
 pub trait FromSampleType {
@@ -986,6 +988,82 @@ impl ReferencePlate {
         let data = serde_json::to_string_pretty(&self)?;
         std::fs::write(path, data)?;
         Ok(())
+    }
+
+    pub fn prevalence_contamination(
+        &self, 
+        client: &CerebroClient,
+        contam_config: &PrevalenceContaminationConfig
+    ) -> Result<(), CiqaError> {
+
+        log::info!("Fetching DNA prevalence contamination taxids from database '{}' and project '{}'", client.db.unwrap_or_default(), client.project.unwrap_or_default());
+        client.get_prevalence_contamination(contam_config, vec![FileTag::Dna.to_string()])
+            
+    }
+
+    pub fn prefetch(
+        &self, 
+        client: &CerebroClient,
+        output: &Path, 
+        config: &MetaGpConfig, 
+        prevalence_contamination: HashMap<String, HashSet<String>>
+    ) -> Result<(), CiqaError> {
+        
+        log::info!("Fetching primary threshold data for sample '{}'", config.sample);
+
+            
+        let primary_filter_config = &TaxonFilterConfig::gp_above_threshold(
+            config.ignore_taxstr.clone()
+        );
+
+        let (primary, primary_contamination) = client.get_taxa( 
+            &CerebroIdentifierSchema::from_gp_config(config), 
+            primary_filter_config, 
+            prevalence_contamination.clone(),
+            config.prevalence_outliers.primary
+        )?;
+
+        log::info!("Fetching secondary threshold data for sample '{}'", config.sample);
+
+        let secondary_filter_config = &TaxonFilterConfig::gp_below_threshold(
+            config.ignore_taxstr.clone()
+        );
+
+        let (secondary, secondary_contamination) = client.get_taxa( 
+            &CerebroIdentifierSchema::from_gp_config(config), 
+            secondary_filter_config, 
+            prevalence_contamination.clone(),
+            config.prevalence_outliers.secondary
+        )?;
+
+        log::info!("Fetching target threshold data for sample '{}'", config.sample);
+        let target_filter_config = &TaxonFilterConfig::gp_target_threshold(
+            config.ignore_taxstr.clone()
+        );
+        let (target, target_contamination) = client.get_taxa( 
+            &CerebroIdentifierSchema::from_gp_config(config), 
+            target_filter_config, 
+            prevalence_contamination.clone(),
+            config.prevalence_outliers.target
+        )?;
+
+        let mut prefetch_data = PrefetchData::new(
+            primary, 
+            secondary, 
+            target, 
+            primary_contamination,
+            secondary_contamination,
+            target_contamination,
+            primary_filter_config,
+            secondary_filter_config,
+            target_filter_config,
+            config
+        );
+
+        prefetch_data.prune();
+        prefetch_data.to_json(output)
+        
+
     }
 }
 

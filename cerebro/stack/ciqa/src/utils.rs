@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use cerebro_model::api::cerebro::schema::{MetaGpConfig, PrevalenceOutliers, PrefetchData};
+use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
 use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::Builder;
 use env_logger::fmt::Color;
@@ -199,4 +201,62 @@ pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header
     }
 
     Ok(records)
+}
+
+
+
+pub fn get_config(
+    json: &Option<PathBuf>,
+    sample: Option<String>,
+    controls: &Option<Vec<String>>,
+    tags: &Option<Vec<String>>,
+    ignore_taxstr: &Option<Vec<String>>,
+    prevalence_outliers: Option<bool>,
+    prefetch: Option<PathBuf>,
+) -> Result<(MetaGpConfig, Option<PrefetchData>), CiqaError> {
+
+    // Parse generative practitioner configuration
+    match &json {
+        Some(path) => {
+            // Config from JSON file:
+            Ok((
+                MetaGpConfig::with_json(
+                    sample.ok_or(CiqaError::SampleIdentifierMissing)?, 
+                    path,
+                    ignore_taxstr.clone(),
+                    match prevalence_outliers { 
+                        Some(true) => Some(PrevalenceOutliers::default()),
+                        Some(false) => Some(PrevalenceOutliers::disabled()),
+                        None => None
+                    },
+                )?,
+                None
+            ))
+        },
+        None => {
+            match &prefetch {
+                Some(path) => {
+                    let data = PrefetchData::from_json(path)?;
+                    Ok((data.config.clone(), Some(data)))
+                },
+                None => {
+                    Ok((
+                        MetaGpConfig::new(
+                            sample.ok_or(CiqaError::SampleIdentifierMissing)?, 
+                            controls.clone(), 
+                            tags.clone(),
+                            ignore_taxstr.clone(),
+                            PrevalenceContaminationConfig::gp_default(),
+                            match prevalence_outliers { 
+                                Some(true) => Some(PrevalenceOutliers::default()),
+                                Some(false) => Some(PrevalenceOutliers::disabled()),
+                                None => None
+                            }
+                        ),
+                        None
+                    ))
+                }
+            }
+        }
+    }
 }

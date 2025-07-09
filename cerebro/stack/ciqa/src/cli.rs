@@ -28,9 +28,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             plot_plate()?
         },
         Commands::PlotPrefetch( args ) => {
-        
             let prefetch = PrefetchData::from_json(args.prefetch)?;
-            prefetch.plot_domain_counts_svg(&args.output)?;
         },
         Commands::PlotQc( args ) => {
 
@@ -213,7 +211,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 false
             )?;
 
-            
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
             plate
@@ -231,6 +228,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                     // wrap in a fallible closure so we can log errors
                     let result: anyhow::Result<()> = (|| {
+                        
                         if let Some(ref subset) = subset {
                             if !subset.contains(&sample_id) {
                                 log::warn!("Skipping {} (not in subset)", sample_id);
@@ -239,12 +237,16 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                         }
 
                         let data_file = outdir.join(format!("{sample_id}.prefetch.json"));
+
                         if force || !data_file.exists() {
+
                             let sample_reference = plate
                                 .get_sample_reference(&sample_id)
                                 .ok_or_else(|| anyhow::anyhow!("No reference for {}", sample_id))?;
+
                             let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
-                            let (gp_config, _) = get_config(
+
+                            let (config, _) = get_config(
                                 &None,
                                 Some(sample_reference.sample_id),
                                 &Some(negatives),
@@ -253,8 +255,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 prevalence,
                                 None,
                             )?;
-                            DiagnosticAgent::new(Some(client), TaskConfig::Default)?
-                                .prefetch(&data_file, &gp_config)?;
+
+
+
+                            plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
+
                         } else {
                             log::info!(
                                 "File '{}' exists and force not enabled – skipping",

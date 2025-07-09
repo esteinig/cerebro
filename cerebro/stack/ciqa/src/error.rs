@@ -40,6 +40,8 @@ pub enum CiqaError {
     StripPlotError(String),
     #[error("no columns found for plate plot")]
     NoColumnsFound,
+    #[error("sample identifier must be specified when not using prefetch data")]
+    SampleIdentifierMissing, 
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for CiqaError

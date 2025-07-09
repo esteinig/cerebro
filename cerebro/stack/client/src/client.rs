@@ -1432,7 +1432,6 @@ impl CerebroClient {
                 }
             }
 
-
             // Log the grouped summaries
             for (tag, summaries) in groups {
 
