@@ -216,6 +216,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 &PrevalenceContaminationConfig::gp_default()
             )?;
 
+            log::info!("{prevalence_contamination:#?}");
+
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
             plate
@@ -227,7 +229,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let outdir = args.outdir.clone();
                     let force = args.force;
                     let subset = args.samples.clone();
-                    let prevalence_outliers= args.prevalence_outliers;
+                    let prevalence_outliers = args.prevalence_outliers;
 
                     let sample_id = sample_id.clone();
                     let negatives = plate.negative_controls.clone();
