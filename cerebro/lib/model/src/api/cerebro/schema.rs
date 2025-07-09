@@ -4,7 +4,8 @@ use std::io::BufReader;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-
+use std::io::{Write, BufWriter};
+use cerebro_pipeline::taxa::{taxon::Taxon};
 use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TargetList, TaxonFilterConfig};
 
 use crate::api::users::model::UserId;
@@ -386,12 +387,6 @@ impl CerebroIdentifierSmallSchema {
 }
 
 
-use std::{collections::HashSet, fs::File, io::{Write, BufWriter}, path::Path};
-
-use cerebro_pipeline::taxa::{filter::TaxonFilterConfig, taxon::Taxon};
-use serde::{Deserialize, Serialize};
-
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PrefetchData {
     pub primary: Vec<Taxon>,
@@ -470,14 +465,14 @@ impl PrefetchData {
 
     }
     pub fn to_json(&self, path: &Path) -> Result<(), ModelError> {
-        let data = serde_json::to_string_pretty(self)?;
+        let data = serde_json::to_string_pretty(self).map_err(ModelError::JsonSerialization)?;
         let mut writer = BufWriter::new(File::create(path)?);
         write!(writer, "{data}")?;
         Ok(())
     }
     pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, ModelError> {
         let data = std::fs::read_to_string(path)?;
-        let result = serde_json::from_str::<PrefetchData>(&data)?;
+        let result = serde_json::from_str::<PrefetchData>(&data).map_err(ModelError::JsonDeserialization)?;
         Ok(result)
     }
 }
