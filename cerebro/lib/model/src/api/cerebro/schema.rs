@@ -318,7 +318,9 @@ impl MetaGpConfig {
         // Only replace the values from the config file if specified
 
         if let Some(ignore_taxstr) = ignore_taxstr {
-            config.ignore_taxstr = Some(ignore_taxstr);
+            config.filter_configs.primary.ignore_taxstr = Some(ignore_taxstr.clone());
+            config.filter_configs.secondary.ignore_taxstr = Some(ignore_taxstr.clone());
+            config.filter_configs.target.ignore_taxstr = Some(ignore_taxstr.clone());
         }
 
         if let Some(prevalence_outliers) = prevalence_outliers {
