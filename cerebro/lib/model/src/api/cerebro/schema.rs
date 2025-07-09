@@ -187,8 +187,8 @@ pub struct PrevalenceContaminationConfig {
     pub collapse_variants: bool,
     pub outliers: PrevalenceOutliers
 }
-impl PrevalenceContaminationConfig {
-    pub fn validation() -> Self {
+impl Default for PrevalenceContaminationConfig {
+    fn default() -> Self {
         Self {
             threshold: 0.60,
             min_rpm: 0.0,
@@ -197,14 +197,17 @@ impl PrevalenceContaminationConfig {
             outliers: PrevalenceOutliers::default()
         }
     }
-    pub fn gp_default() -> Self {
-        Self {
-            threshold: 0.60,
-            min_rpm: 0.0,
-            sample_type: None,
-            collapse_variants: false,
-            outliers: PrevalenceOutliers::default()
-        }
+}
+impl PrevalenceContaminationConfig {
+    pub fn to_json<P: AsRef<Path>>(&self, path: P) -> Result<(), ModelError> {
+        let data = serde_json::to_string_pretty(&self).map_err(|err| ModelError::JsonSerialization(err))?;
+        std::fs::write(path, data)?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, ModelError> {
+        let rdr = BufReader::new(File::open(&path)?);
+        let config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
+        Ok(config)
     }
 }
 
@@ -293,6 +296,22 @@ pub struct TieredFilterConfig {
     pub target: TaxonFilterConfig
 }
 impl TieredFilterConfig {
+    pub fn with_ignore_taxstr(&self, ignore_taxstr: Vec<String>) -> Self {
+        let mut config = self.clone();
+        config.primary.ignore_taxstr = match config.primary.ignore_taxstr {
+            Some(v) => Some([v, ignore_taxstr.clone()].concat().to_vec()),
+            None => Some(ignore_taxstr.clone())
+        };
+        config.secondary.ignore_taxstr = match config.secondary.ignore_taxstr {
+            Some(v) => Some([v, ignore_taxstr.clone()].concat().to_vec()),
+            None => Some(ignore_taxstr.clone())
+        };
+        config.target.ignore_taxstr = match config.target.ignore_taxstr {
+            Some(v) => Some([v, ignore_taxstr.clone()].concat().to_vec()),
+            None => Some(ignore_taxstr.clone())
+        };
+        config
+    }
     pub fn default(ignore_taxstr: Option<Vec<String>>) -> Self {
         Self {
             primary: TaxonFilterConfig::gp_above_threshold(

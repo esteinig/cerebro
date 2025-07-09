@@ -6,8 +6,8 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
-use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceOutliers, TieredFilterConfig}};
-use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
+use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig}};
+use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
@@ -211,12 +211,23 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 false
             )?;
 
+            let contam_config = match args.contamination {
+                Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
+                None => PrevalenceContaminationConfig::gp_default()
+            };
+
             let prevalence_contamination = plate.prevalence_contamination(
                 &api_client, 
-                &PrevalenceContaminationConfig::gp_default()
+                &contam_config
             )?;
 
-            log::info!("{prevalence_contamination:#?}");
+            let tiered_filter_config = match args.tiered_filter {
+                Some(path) => TieredFilterConfig::from_json(&path)?,
+                None => TieredFilterConfig::default(None)
+            };
+            
+            log::info!("{contam_config:#?}");
+            log::info!("{tiered_filter_config:#?}");
 
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
@@ -229,7 +240,9 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let outdir = args.outdir.clone();
                     let force = args.force;
                     let subset = args.samples.clone();
-                    let prevalence_outliers = args.prevalence_outliers;
+
+                    let contam_config = contam_config.clone();
+                    let tiered_filter_config = tiered_filter_config.clone();
 
                     let sample_id = sample_id.clone();
                     let negative_controls = plate.negative_controls.clone();
@@ -255,17 +268,17 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                             let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
+                            let tiered_filter_config = match ignore_taxstr {
+                                Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
+                                None => tiered_filter_config
+                            };
+
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id, 
                                 Some(negative_controls), 
                                 Some(tags),
-                                TieredFilterConfig::default(ignore_taxstr),
-                                PrevalenceContaminationConfig::gp_default(),  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination
-                                if prevalence_outliers {
-                                    Some(PrevalenceOutliers::default())
-                                } else {
-                                    None
-                                }
+                                tiered_filter_config,
+                                contam_config,  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination
                             );
 
                             plate.prefetch(&client, &data_file, &config, prevalence_contamination)?;

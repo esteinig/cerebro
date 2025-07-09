@@ -353,9 +353,12 @@ pub struct PrefetchArgs {
     /// Subset of sample identifiers from plate to prefetch only
     #[clap(long, short = 's', num_args(1..))]
     pub samples: Option<Vec<String>>,
-    /// Regression outliers to be removed from prevalence filter (primary filter category)
-    #[clap(long, short='c')]
-    pub prevalence_outliers: bool,
+    /// Prevalence contamination config (.json) otherwise default
+    #[clap(long)]
+    pub contamination: Option<PathBuf>,
+    /// Tiered filter config (.json) otherwise default
+    #[clap(long)]
+    pub tiered_filter: Option<PathBuf>,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 't', default_value="4")]
     pub threads: u64,
