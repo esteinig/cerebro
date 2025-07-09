@@ -1,14 +1,14 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig}, files::model::FileTag};
+use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData}};
 use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::{PrevalenceContaminationConfig, TaxonFilterConfig}};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
-use crate::{error::CiqaError, prefetch::PrefetchData, terminal::ReviewArgs, utils::{get_file_component, read_tsv, FileComponent}};
+use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, FileComponent}};
 use rand::Rng;
 
 pub trait FromSampleType {
@@ -994,11 +994,20 @@ impl ReferencePlate {
         &self, 
         client: &CerebroClient,
         contam_config: &PrevalenceContaminationConfig
-    ) -> Result<(), CiqaError> {
+    ) -> Result<HashMap<String, HashSet<String>>, CiqaError> {
 
-        log::info!("Fetching DNA prevalence contamination taxids from database '{}' and project '{}'", client.db.unwrap_or_default(), client.project.unwrap_or_default());
-        let dna_taxids = client.get_prevalence_contamination(contam_config, vec![format!("{}", FileTag::Dna)])?;
-            
+        log::info!(
+            "Fetching DNA prevalence contamination taxids from database '{}' and project '{}'", 
+            client.db.clone().unwrap_or_default(), client.project.clone().unwrap_or_default()
+        );
+
+        let dna_taxids = client.get_prevalence_contamination(contam_config, vec![String::from("DNA")])?;
+        let rna_taxids = client.get_prevalence_contamination(contam_config, vec![String::from("RNA")])?;
+        
+        Ok(HashMap::from_iter(vec![
+            ("DNA".to_string(), dna_taxids),
+            ("RNA".to_string(), rna_taxids)
+        ]))
     }
 
     pub fn prefetch(
@@ -1061,9 +1070,10 @@ impl ReferencePlate {
         );
 
         prefetch_data.prune();
-        prefetch_data.to_json(output)
-        
+        prefetch_data.to_json(output)?;
 
+        Ok(())
+        
     }
 }
 

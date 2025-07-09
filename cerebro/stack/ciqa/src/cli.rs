@@ -1,15 +1,15 @@
 
 use std::{fs::create_dir_all, process::exit, sync::Arc};
 
-use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, PrefetchData, SampleContext, TaskConfig, ClinicalContext},  utils::get_config};
+use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, SampleContext, TaskConfig, ClinicalContext}};
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
-use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
+use cerebro_model::api::cerebro::{model::Cerebro, schema::{PrefetchData, PostFilterConfig}};
 use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{QualityControl, QualityControlSummary, PositiveControlConfig, PositiveControlSummaryBuilder}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{get_config, init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -256,9 +256,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 None,
                             )?;
 
+                            let prevalence_contamination = plate.prevalence_contamination(
+                                &client, &config.contamination
+                            )?;
 
-
-                            plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
+                            plate.prefetch(&client, &data_file, config, prevalence_contamination)?;
 
                         } else {
                             log::info!(
@@ -437,7 +439,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                         log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
                         // instantiate agent
-                        let mut agent = DiagnosticAgent::new(None, args.task_config.clone())?;
+                        let mut agent = DiagnosticAgent::new(args.task_config.clone())?;
                         
                         // sample context logic
                         let sample_ref = plate.get_sample_reference(&sample_id);
@@ -487,13 +489,12 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                         // run agent
                         let result = agent.run_local(
+                            prefetch_data,
                             &mut text_generator,
                             if args.sample_context.unwrap_or(false) { Some(sample_context) } else { None },
                             if args.clinical_notes { clinical_notes } else { None },
                             args.assay_context.clone(),
                             args.agent_primer.clone(),
-                            &prefetch_data.config.clone(),
-                            Some(prefetch_data),
                             post_filter,
                             args.disable_thinking
                         )?;
