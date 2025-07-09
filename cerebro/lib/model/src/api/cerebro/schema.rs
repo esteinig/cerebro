@@ -254,10 +254,34 @@ impl PostFilterConfig {
     }
 }
 
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TieredFilterConfig {
+    primary: TaxonFilterConfig,
+    secondary: TaxonFilterConfig,
+    target: TaxonFilterConfig
+}
+impl TieredFilterConfig {
+    pub fn default(ignore_taxstr: Option<Vec<String>>) -> Self {
+        Self {
+            primary: TaxonFilterConfig::gp_above_threshold(
+                ignore_taxstr.clone()
+            ),
+            secondary: TaxonFilterConfig::gp_below_threshold(
+                ignore_taxstr.clone()
+            ),
+            target: TaxonFilterConfig::gp_target_threshold(
+                ignore_taxstr.clone()
+            )
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaGpConfig {
     pub sample: String,
     pub identifiers: CerebroIdentifierSmallSchema,
+    pub filter_configs: TieredFilterConfig,
     pub contamination: PrevalenceContaminationConfig,
     pub prevalence_outliers: PrevalenceOutliers,
     pub ignore_taxstr: Option<Vec<String>>
@@ -268,6 +292,7 @@ impl MetaGpConfig {
         controls: Option<Vec<String>>, 
         tags: Option<Vec<String>>, 
         ignore_taxstr: Option<Vec<String>>, 
+        filter_configs: TieredFilterConfig,
         contamination: PrevalenceContaminationConfig, 
         prevalence_outliers: Option<PrevalenceOutliers>
     ) -> Self {
@@ -275,6 +300,7 @@ impl MetaGpConfig {
             sample,
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
             contamination,
+            filter_configs,
             ignore_taxstr,
             prevalence_outliers: prevalence_outliers.unwrap_or(PrevalenceOutliers::default()) , // default no check for new configurations - aligns with terminal inputs
         }
