@@ -284,14 +284,12 @@ pub struct MetaGpConfig {
     pub filter_configs: TieredFilterConfig,
     pub contamination: PrevalenceContaminationConfig,
     pub prevalence_outliers: PrevalenceOutliers,
-    pub ignore_taxstr: Option<Vec<String>>
 }
 impl MetaGpConfig {
     pub fn new(
         sample: String, 
         controls: Option<Vec<String>>, 
         tags: Option<Vec<String>>, 
-        ignore_taxstr: Option<Vec<String>>, 
         filter_configs: TieredFilterConfig,
         contamination: PrevalenceContaminationConfig, 
         prevalence_outliers: Option<PrevalenceOutliers>
@@ -301,7 +299,6 @@ impl MetaGpConfig {
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
             contamination,
             filter_configs,
-            ignore_taxstr,
             prevalence_outliers: prevalence_outliers.unwrap_or(PrevalenceOutliers::default()) , // default no check for new configurations - aligns with terminal inputs
         }
     }

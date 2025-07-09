@@ -6,7 +6,7 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
-use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceOutliers}};
+use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceOutliers, TieredFilterConfig}};
 use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
@@ -260,6 +260,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 Some(negatives), 
                                 Some(tags),
                                 ignore_taxstr.clone(),
+                                TieredFilterConfig::default(),
                                 PrevalenceContaminationConfig::gp_default(),  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination
                                 if prevalence_outliers {
                                     Some(PrevalenceOutliers::default())
