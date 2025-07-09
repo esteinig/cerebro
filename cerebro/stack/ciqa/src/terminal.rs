@@ -126,33 +126,6 @@ pub struct McnemarArgs {
 }
 
 #[derive(Debug, Args)]
-#[clap(group = ArgGroup::new("user")
-    .required(false)
-    .multiple(true)
-    .args(&["controls", "tags"])
-)]
-#[clap(group = ArgGroup::new("file")
-    .args(&["json"])
-)]
-pub struct EvaluateArgs {
-    /// Sample identifier for query
-    #[clap(long, short = 's')]
-    pub sample: String,
-    /// Control sample identifiers associated with sample
-    #[clap(long, short = 'c', num_args(0..), group = "user", help_heading = "Validation Query")]
-    pub controls: Vec<String>,
-    /// Tags for sample and model query
-    #[clap(long, short = 't', num_args(0..), group = "user", help_heading = "Validation Query")]
-    pub tags: Vec<String>,
-    /// JSON file of request schema
-    #[clap(long, short = 'j', group = "file", help_heading = "Schema Query")]
-    pub json: Option<PathBuf>,
-    /// Check for contamination history outliers to be removed from prevalence filter
-    #[clap(long)]
-    pub prevalence_outliers: bool,
-}
-
-#[derive(Debug, Args)]
 pub struct PlotPlateArgs {
     /// File paths for 
     #[clap(long, short = 's')]
