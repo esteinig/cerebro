@@ -483,10 +483,8 @@ impl PrefetchData {
     }
     /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
     /// then remove from `target` any Taxon whose `lineage` also appears in the 
-    /// pruned `secondary` and 'primary'
+    /// pruned `secondary` and 'primary' - including prevalence contamination
     pub fn prune(&mut self) {
-
-        log::info!("Pruning tiered filter categories");
         
         // collect all lineages present in primary
         let primary_lineages: HashSet<_> =
