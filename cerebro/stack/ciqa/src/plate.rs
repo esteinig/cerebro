@@ -997,7 +997,7 @@ impl ReferencePlate {
     ) -> Result<(), CiqaError> {
 
         log::info!("Fetching DNA prevalence contamination taxids from database '{}' and project '{}'", client.db.unwrap_or_default(), client.project.unwrap_or_default());
-        client.get_prevalence_contamination(contam_config, vec![FileTag::Dna.to_string()])
+        let dna_taxids = client.get_prevalence_contamination(contam_config, vec![format!("{}", FileTag::Dna)])?;
             
     }
 
