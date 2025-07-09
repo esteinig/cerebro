@@ -275,6 +275,16 @@ impl TieredFilterConfig {
             )
         }
     }
+    pub fn to_json<P: AsRef<Path>>(&self, path: P) -> Result<(), ModelError> {
+        let data = serde_json::to_string_pretty(&self).map_err(|err| ModelError::JsonSerialization(err))?;
+        std::fs::write(path, data)?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, ModelError> {
+        let rdr = BufReader::new(File::open(&path)?);
+        let config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
+        Ok(config)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

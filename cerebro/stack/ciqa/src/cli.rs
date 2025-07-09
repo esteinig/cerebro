@@ -259,8 +259,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 sample_reference.sample_id, 
                                 Some(negatives), 
                                 Some(tags),
-                                ignore_taxstr.clone(),
-                                TieredFilterConfig::default(),
+                                TieredFilterConfig::default(ignore_taxstr),
                                 PrevalenceContaminationConfig::gp_default(),  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination
                                 if prevalence_outliers {
                                     Some(PrevalenceOutliers::default())
