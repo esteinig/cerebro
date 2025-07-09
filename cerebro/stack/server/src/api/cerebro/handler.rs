@@ -729,8 +729,8 @@ pub fn apply_prevalence_contamination_filter(
 ) -> Vec<String> {
 
     // Check for edge cases
-    if cerebros.is_empty() || taxid_subset.is_empty() {
-        return Vec::new(); // No data or no subset to process
+    if cerebros.is_empty() {
+        return Vec::new(); // No data to process
     }
 
     // Convert taxid_subset to a HashSet for efficient lookups
@@ -807,6 +807,8 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
         Err(error_response) => return error_response
     };
 
+
+    // Obtain all models in this collection with the provided tags
     match project_collection.find(
             doc! { 
                 "sample.tags":  { "$in" : &contam_schema.tags }

@@ -369,7 +369,7 @@ pub struct ReviewArgs {
 }
 
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone)]
 pub struct PrefetchArgs {
     /// Reference plate file (.json)
     #[clap(long, short = 'p')]
@@ -383,6 +383,9 @@ pub struct PrefetchArgs {
     /// Override for prevalence contamination regresision outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
     #[clap(long, short='c', default_value="true")]
     pub prevalence_outliers: Option<bool>,
+    /// Force overwrite output, otherwise skip if exists
+    #[clap(long, short = 't', default_value="4")]
+    pub threads: u64,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,

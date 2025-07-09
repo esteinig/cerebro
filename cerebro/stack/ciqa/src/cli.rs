@@ -10,14 +10,14 @@ use cerebro_model::api::cerebro::{model::Cerebro, schema::PostFilterConfig};
 use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{QualityControl, QualityControlSummary, PositiveControlConfig, PositiveControlSummaryBuilder}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
-use cerebro_client::{client::CerebroClient, error::HttpClientError};
+use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
+use rayon::prelude::*;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<(), anyhow::Error> {
+fn main() -> anyhow::Result<(), anyhow::Error> {
     
     init_logger();
 
@@ -180,99 +180,96 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             };
 
         },
+        // Deconvolute the blocking task spawn in this async context, if not (and if this runs in --release, this may be
+        // the reason for the ongoing dropouts in requests to the server)
+
+        // In Commands::Prefetch, we are blocking IO and sync operations like create_dir_all, ReferencePlate::new, 
+        // and loops with potentially heavy filesystem or network IO inside an async function.
+        // Even though prefetch() appears async-safe, ReferencePlate creation, file checking, and even DiagnosticAgent 
+        // usage might contain sync-blocking behavior, particularly via filesystem or network access.
         Commands::Prefetch( args ) => {
 
-            // Deconvolute the blocking task spawn in this async context, if not (and if this runs in --release, this may be
-            // the reason for the ongoing dropouts in requests to the server)
 
-            // In Commands::Prefetch, we are blocking IO and sync operations like create_dir_all, ReferencePlate::new, 
-            // and loops with potentially heavy filesystem or network IO inside an async function.
-            // Even though prefetch() appears async-safe, ReferencePlate creation, file checking, and even DiagnosticAgent 
-            // usage might contain sync-blocking behavior, particularly via filesystem or network access.
+            let api_client = CerebroClient::new(
+                &cli.url,
+                cli.token,
+                false,
+                cli.danger_invalid_certificate,
+                cli.token_file,
+                cli.team,
+                cli.db,
+                cli.project
+            )?;
 
-            tokio::task::spawn_blocking(move || -> Result<(), anyhow::Error> {
+            log::info!("Checking status of Cerebro API at {}",  &api_client.url);
+            api_client.ping_servers()?;
 
-                let api_client = CerebroClient::new(
-                    &cli.url,
-                    cli.token,
-                    false,
-                    cli.danger_invalid_certificate,
-                    cli.token_file,
-                    cli.team,
-                    cli.db,
-                    cli.project
-                )?;
+            create_dir_all(&args.outdir)?;
 
-                log::info!("Checking status of Cerebro API at {}",  &api_client.url);
-                api_client.ping_servers()?;
+            let plate = ReferencePlate::new(
+                &args.plate, 
+                None,
+                MissingOrthogonal::Indeterminate,
+                false
+            )?;
 
-                create_dir_all(&args.outdir)?;
+            
+            std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
-                let plate = ReferencePlate::new(
-                    &args.plate, 
-                    None,
-                    MissingOrthogonal::Indeterminate,
-                    false
-                )?;
+            plate
+                .samples
+                .par_iter()
+                .for_each(|sample_id| {
 
-                for sample_id in &plate.samples {
+                    let client     = api_client.clone();
+                    let outdir           = args.outdir.clone();
+                    let force               = args.force;
+                    let subset= args.samples.clone();
+                    let prevalence  = args.prevalence_outliers;
+                    let negatives    = plate.negative_controls.clone();
+                    let sample_id         = sample_id.clone();
 
-                    if let Some(ref subset) = args.samples {
-                        if !subset.contains(sample_id) {
-                            log::warn!("Sample subset provided - skipping {}", sample_id);
-                            continue;
+                    // wrap in a fallible closure so we can log errors
+                    let result: anyhow::Result<()> = (|| {
+                        if let Some(ref subset) = subset {
+                            if !subset.contains(&sample_id) {
+                                log::warn!("Skipping {} (not in subset)", sample_id);
+                                return Ok(());
+                            }
                         }
+
+                        let data_file = outdir.join(format!("{sample_id}.prefetch.json"));
+                        if force || !data_file.exists() {
+                            let sample_reference = plate
+                                .get_sample_reference(&sample_id)
+                                .ok_or_else(|| anyhow::anyhow!("No reference for {}", sample_id))?;
+                            let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
+                            let (gp_config, _) = get_config(
+                                &None,
+                                Some(sample_reference.sample_id),
+                                &Some(negatives),
+                                &Some(tags),
+                                &ignore_taxstr,
+                                prevalence,
+                                None,
+                            )?;
+                            DiagnosticAgent::new(Some(client), TaskConfig::Default)?
+                                .prefetch(&data_file, &gp_config)?;
+                        } else {
+                            log::info!(
+                                "File '{}' exists and force not enabled – skipping",
+                                data_file.display()
+                            );
+                        }
+
+                        Ok(())
+                    })();
+
+                    if let Err(e) = result {
+                        log::error!("Error prefetching {}: {:?}", sample_id, e);
                     }
+                });
 
-                    let data_file = args.outdir.join(format!("{sample_id}.prefetch.json"));
-
-                    if args.force || !data_file.exists() {
-
-                        let sample_reference = match plate.get_sample_reference(&sample_id) {
-                            Some(sample_reference) => sample_reference,
-                            None => { 
-                                log::warn!("Failed to find plate reference for sample: {sample_id}");
-                                break
-                            }
-                        };
-
-                        let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
-
-                        let (gp_config, _) = get_config(
-                            &None,
-                            Some(sample_reference.sample_id), 
-                            &Some(plate.negative_controls.clone()), 
-                            &Some(tags), 
-                            &ignore_taxstr,
-                            args.prevalence_outliers,
-                            None
-                        )?;
-
-                        log::info!("{:#?}", gp_config);
-
-                        match DiagnosticAgent::new(Some(api_client.clone()), TaskConfig::Default)?
-                            .prefetch(&data_file, &gp_config) {
-                                Ok(_) => {},
-                                Err(err) => match err {
-                                    meta_gpt::error::GptError::CerebroClientError(HttpClientError::ResponseFailure(status))
-                                     => {
-                                        // Sample not found warning but pass by skipping
-                                        log::warn!("Skipping sample due to failure to prefetch threshold data: {sample_id}")
-                                    }
-                            
-                                    // re-propagate
-                                    other => return Err(other.into()),
-                                },
-                            }
-
-                    } else {
-                        log::info!("File '{}' exists and force not enabled - skipping file", data_file.display());
-                    }
-                }
-
-                Ok(())
-            })
-            .await??;
         }
         Commands::Review( args ) => {
 

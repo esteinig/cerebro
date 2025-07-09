@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema};
 use cerebro_model::api::stage::model::StagedSample;
@@ -432,9 +434,8 @@ fn main() -> anyhow::Result<()> {
             schema.assert_allowed_tags();
 
             let filter_config = TaxonFilterConfig::validation();
-            let mut contam_config = PrevalenceContaminationConfig::validation();
 
-            client.get_taxa(&schema, &filter_config, &mut contam_config, true)?;
+            client.get_taxa(&schema, &filter_config, HashMap::new(), true)?;
 
         },
         // Query sample models for taxon history and taxon vs host regression analysis

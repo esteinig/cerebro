@@ -1363,11 +1363,42 @@ impl CerebroClient {
         
         (sample_taxa, contam_taxa)
     }
+    pub fn get_prevalence_contamination(&self, 
+        contam_config: &PrevalenceContaminationConfig,
+        tags: Vec<String>,
+    ) -> Result<HashSet<String>, HttpClientError> {
+
+        // Obtain the collection's prevalence contamination for this tag
+
+        let url = format!("{}", self.routes.url(Route::DataCerebroTaxaContamination));
+
+        let contamination_schema = ContaminationSchema::from_config(
+            vec![], // not limited to specific taxids present in that sample, obtain all from collection
+            tags, 
+            &contam_config
+        );
+
+        let response = self.send_request_with_team_db_project(
+            self.client
+                .post(url)
+                .json(&contamination_schema)
+        )?;
+
+
+        let contam_response_data = self.handle_response::<ContaminationTaxaResponse>(
+            response,
+            None,
+            "Prevalence contamination retrieval failed",
+        )?;
+
+        Ok(HashSet::from_iter(contam_response_data.data.taxid))
+
+    }
     pub fn get_taxa(
         &self,
         schema: &CerebroIdentifierSchema,
         filter_config: &TaxonFilterConfig,
-        contam_config: &PrevalenceContaminationConfig,
+        contam_taxid_tagged: HashMap<String, HashSet<String>>, // tag: {taxid}
         contam_history: bool
     ) -> Result<(Vec<Taxon>, Vec<Taxon>), HttpClientError> {
 
@@ -1379,9 +1410,6 @@ impl CerebroClient {
         // since the returned 'taxid' from the filter required for the contamination detection may have
         // changed
 
-        let mut contam_config_checked = contam_config.clone();
-        contam_config_checked.collapse_variants = filter_config.collapse_variants;
-        
         let identifier_response = self.get_identifiers(schema)?;
 
         let mut tag_data = HashMap::new();
@@ -1407,6 +1435,15 @@ impl CerebroClient {
 
             // Log the grouped summaries
             for (tag, summaries) in groups {
+
+                let contam_taxids = match contam_taxid_tagged.get(tag) {
+                    Some(contam_taxids) => Some(contam_taxids),
+                    None => {
+                        log::warn!("No prevalence contamination taxonomic identifiers provided for tag: {}", tag);
+                        None
+                    }
+                };
+
                 if !summaries.is_empty() {
 
                     let ids: Vec<String> = summaries.iter().map(|s| s.cerebro_id.clone()).collect();
@@ -1428,67 +1465,47 @@ impl CerebroClient {
                         "Taxon retrieval failed",
                     )?;
 
-                    let url = format!("{}", self.routes.url(Route::DataCerebroTaxaContamination));
+                    if let Some(contam_taxids) = contam_taxids {
 
-                    let contamination_schema = ContaminationSchema::from_config(
-                        taxa_response_data.data.taxa.iter().map(|t| t.taxid.to_string()).collect(),
-                        vec![tag.to_string()], 
-                        &contam_config_checked
-                    );
+                        let contam_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                            .iter()
+                            .filter(|tax| contam_taxids.contains(&tax.taxid))
+                            .cloned()
+                            .collect();
 
-                    let response = self.send_request_with_team_db_project(
-                        self.client
-                            .post(url)
-                            .json(&contamination_schema)
-                    )?;
+                        let mut sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                            .iter()
+                            .filter(|tax| !contam_taxids.contains(&tax.taxid))
+                            .cloned()
+                            .collect();
 
-
-                    let contam_response_data = self.handle_response::<ContaminationTaxaResponse>(
-                        response,
-                        None,
-                        "Prevalence contamination retrieval failed",
-                    )?;
-
-                    let contam_taxids: HashSet<String> = HashSet::from_iter(contam_response_data.data.taxid);
-
-                    let contam_taxa: Vec<Taxon> = taxa_response_data.data.taxa
-                        .iter()
-                        .filter(|tax| contam_taxids.contains(&tax.taxid))
-                        .cloned()
-                        .collect();
-
-                    let mut sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
-                        .iter()
-                        .filter(|tax| !contam_taxids.contains(&tax.taxid))
-                        .cloned()
-                        .collect();
-
-                    let mut clear_contam_taxa = Vec::new();
-                    if contam_history {
-                        'contam: for contam_taxon in &contam_taxa {
-                            let reg = self.get_taxon_history(
-                                format!("s__{}", contam_taxon.name), 
-                                format!("s__Homo sapiens"), // hardcoded for now
-                                true,
-                                false,
-                                None
-                            )?;
-                            if let Some(reg) = reg {
-                                for outlier in reg.outliers {
-                                    if outlier.sample_id == schema.sample {
-                                        sample_control_taxa.push(contam_taxon.to_owned());
-                                        continue 'contam;
+                        let mut clear_contam_taxa = Vec::new();
+                        if contam_history {
+                            'contam: for contam_taxon in &contam_taxa {
+                                let reg = self.get_taxon_history(
+                                    format!("s__{}", contam_taxon.name), 
+                                    format!("s__Homo sapiens"), // hardcoded for now
+                                    true,
+                                    false,
+                                    None
+                                )?;
+                                if let Some(reg) = reg {
+                                    for outlier in reg.outliers {
+                                        if outlier.sample_id == schema.sample {
+                                            sample_control_taxa.push(contam_taxon.to_owned());
+                                            continue 'contam;
+                                        }
                                     }
                                 }
-                            }
-                            clear_contam_taxa.push(contam_taxon.clone())
-                        }    
+                                clear_contam_taxa.push(contam_taxon.clone())
+                            }    
+                        } else {
+                            clear_contam_taxa = contam_taxa.clone();
+                        }
+                        tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), clear_contam_taxa.clone()));
                     } else {
-                        clear_contam_taxa = contam_taxa.clone();
+                        tag_data.insert(tag.to_string(), (taxa_response_data.data.taxa, Vec::new()));
                     }
-
-                    tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), clear_contam_taxa.clone()));
-                    
                 }   
             }
         }   

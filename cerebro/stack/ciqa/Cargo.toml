@@ -48,11 +48,7 @@ env_logger = "0.9.0"
 log = "0.4"
 csv = "1.2"
 colored = "2.0"
-wax = "0.5.0"
-needletail = "0.5.1"
-globwalk = "0.9.1"
 ansi_term = "0.12.1"
-chrono = "0.4.37"
 serde = { version = "1.0", features = ["derive"] }
 tabled = { version = "0.9.0", features = ["color"] }
 notify = { version = "6.1.1", features = ["serde"] }
@@ -64,11 +60,11 @@ actix-web-httpauth = "0.8.0"
 reqwest = { version = "0.12.2", features = ["blocking", "json"] }
 plotters = "0.3.7"
 plotters-bitmap = "0.3.7"
-tokio = "1.44.1"
 taxonomy = "0.10.0"
 rand = "0.9.0"
 statrs = "0.18.0"
 nvml-wrapper = "0.10.0"
+rayon = "1.10.0"
 
 [features]
 default = []
