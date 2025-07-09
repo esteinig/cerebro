@@ -1360,7 +1360,7 @@ export const PATHOGENS: string[] = [
 //     'Mastadenovirus caesari'
 // ]
 
-export const VALIDATION: string[] = [
+export const CNS_BACTERIA: string[] = [
     'Streptococcus pneumoniae',
     'Neisseria meningitidis',
     'Haemophilus influenzae',

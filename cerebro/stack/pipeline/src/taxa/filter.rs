@@ -155,6 +155,12 @@ impl TaxonFilterConfig {
         }
     }
     pub fn gp_target_threshold(taxstr: Option<Vec<String>>) -> Self {
+        
+        let targets = TargetList::combine(&[
+            TargetList::gp_vertebrate_viruses(), 
+            TargetList::gp_cns_bacteria() // no bacteria provided for now!
+        ]).to_vec();
+
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: vec![],
@@ -171,7 +177,7 @@ impl TaxonFilterConfig {
             lineage: Some(vec![
                 LineageFilterConfig::gp_viruses_target_threshold(),
             ]),
-            targets: Some(TargetList::gp_vertebrate_viruses().to_vec()),
+            targets: Some(targets),
             collapse_variants: false,
             ignore_taxstr: taxstr
         }
@@ -362,7 +368,7 @@ impl LineageFilterConfig {
             min_alignment_rpm: Some(10.0),
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(2),
+            min_kmer_tools: Some(3),
             min_kmer_rpm: Some(10.0),
             min_assembly_tools: None
         }
@@ -398,12 +404,12 @@ impl LineageFilterConfig {
         Self {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
-            min_alignment_tools: None,
-            min_alignment_rpm: None,
+            min_alignment_tools: Some(1),
+            min_alignment_rpm: Some(0.0),
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
-            min_kmer_rpm: Some(2.0),
+            min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }
     }
@@ -444,6 +450,20 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: Some(20.0),
             min_kmer_tools: Some(1),
             min_kmer_rpm: Some(0.0),
+            min_assembly_tools: None
+        }
+    }
+    
+    pub fn gp_bacteria_target_threshold() -> Self {
+        Self {
+            lineages: vec!["d__Bacteria".to_string(), "d__Archaea".to_string()],
+            tags: vec!["DNA".to_string()],
+            min_alignment_tools: None,
+            min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
+            min_kmer_tools: Some(3),
+            min_kmer_rpm: Some(0.5),
             min_assembly_tools: None
         }
     }

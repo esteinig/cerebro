@@ -1,5 +1,5 @@
 import { browser } from "$app/environment";
-import { getCurrentDate, PATHOGENS, POSITIVE_CONTROLS, VALIDATION, VERTEBRATE_VIRUSES } from "$lib/utils/helpers";
+import { CNS_BACTERIA, getCurrentDate, PATHOGENS, POSITIVE_CONTROLS, VERTEBRATE_VIRUSES } from "$lib/utils/helpers";
 
 import { 
     ProfileTool, 
@@ -136,7 +136,7 @@ export const primaryThresholdServerFilterConfig: TaxonFilterConfig = {
         min_alignment_rpm: 10.0,
         min_alignment_regions: null,
         min_alignment_regions_coverage: null,
-        min_kmer_tools: 1,
+        min_kmer_tools: 3,
         min_kmer_rpm: 10.0,
         min_assembly_tools: null,
       },
@@ -177,15 +177,15 @@ export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
             min_alignment_rpm: null,
             min_alignment_regions: null,
             min_alignment_regions_coverage: null,
-            min_kmer_tools: 3,
+            min_kmer_tools: 2,
             min_kmer_rpm: 3.0,
             min_assembly_tools: null,
         },
         {
             lineages: ["d__Viruses"],
             tags: ["DNA", "RNA"],
-            min_alignment_tools: null,
-            min_alignment_rpm: null,
+            min_alignment_tools: 1,
+            min_alignment_rpm: 0.0,
             min_alignment_regions: null,
             min_alignment_regions_coverage: null,
             min_kmer_tools: 2,
@@ -260,7 +260,7 @@ const syndromeHighlightConfig: HighlightConfig = {
 }
 
 const validationHighlightConfig: HighlightConfig = {
-    species: VALIDATION,
+    species: CNS_BACTERIA,
     taxid: [],
     color: "secondary"
 }
