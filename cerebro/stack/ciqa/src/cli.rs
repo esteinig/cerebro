@@ -6,10 +6,10 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
-use cerebro_model::api::cerebro::{model::Cerebro, schema::{PrefetchData, PostFilterConfig}};
-use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{QualityControl, QualityControlSummary, PositiveControlConfig, PositiveControlSummaryBuilder}}, utils::{get_file_component, FileComponent}};
+use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceOutliers}};
+use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, taxa::filter::PrevalenceContaminationConfig, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{get_config, init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -211,6 +211,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 false
             )?;
 
+            let prevalence_contamination = plate.prevalence_contamination(
+                &api_client, 
+                &PrevalenceContaminationConfig::gp_default()
+            )?;
+
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
             plate
@@ -218,13 +223,15 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 .par_iter()
                 .for_each(|sample_id| {
 
-                    let client     = api_client.clone();
-                    let outdir           = args.outdir.clone();
-                    let force               = args.force;
-                    let subset= args.samples.clone();
-                    let prevalence  = args.prevalence_outliers;
-                    let negatives    = plate.negative_controls.clone();
-                    let sample_id         = sample_id.clone();
+                    let client = api_client.clone();
+                    let outdir = args.outdir.clone();
+                    let force = args.force;
+                    let subset = args.samples.clone();
+                    let prevalence_outliers= args.prevalence_outliers;
+
+                    let sample_id = sample_id.clone();
+                    let negatives = plate.negative_controls.clone();
+                    let prevalence_contamination = prevalence_contamination.clone();
 
                     // wrap in a fallible closure so we can log errors
                     let result: anyhow::Result<()> = (|| {
@@ -246,21 +253,20 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                             let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
-                            let (config, _) = get_config(
-                                &None,
-                                Some(sample_reference.sample_id),
-                                &Some(negatives),
-                                &Some(tags),
-                                &ignore_taxstr,
-                                prevalence,
-                                None,
-                            )?;
+                            let config = MetaGpConfig::new(
+                                sample_reference.sample_id, 
+                                Some(negatives), 
+                                Some(tags),
+                                ignore_taxstr.clone(),
+                                PrevalenceContaminationConfig::gp_default(),  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination
+                                if prevalence_outliers {
+                                    Some(PrevalenceOutliers::default())
+                                } else {
+                                    None
+                                }
+                            );
 
-                            let prevalence_contamination = plate.prevalence_contamination(
-                                &client, &config.contamination
-                            )?;
-
-                            plate.prefetch(&client, &data_file, config, prevalence_contamination)?;
+                            plate.prefetch(&client, &data_file, &config, prevalence_contamination)?;
 
                         } else {
                             log::info!(

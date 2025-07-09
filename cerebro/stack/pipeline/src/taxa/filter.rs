@@ -403,7 +403,7 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
-            min_kmer_rpm: Some(1.0),
+            min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }
     }
@@ -415,8 +415,8 @@ impl LineageFilterConfig {
             min_alignment_rpm: None,
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(0.5),
+            min_kmer_tools: Some(2),
+            min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }
     }
@@ -795,90 +795,3 @@ pub fn apply_lineage_filters(
         .collect()
 }
 
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PrefetchData {
-    pub primary: Vec<Taxon>,
-    pub secondary: Vec<Taxon>,
-    pub target: Vec<Taxon>,
-    pub primary_contamination: Vec<Taxon>,
-    pub secondary_contamination: Vec<Taxon>,
-    pub target_contamination: Vec<Taxon>,
-    pub primary_filter: TaxonFilterConfig,
-    pub secondary_filter: TaxonFilterConfig,
-    pub target_filter: TaxonFilterConfig
-}
-impl PrefetchData {
-    pub fn new(
-        primary: Vec<Taxon>,
-        secondary: Vec<Taxon>,
-        target: Vec<Taxon>,
-        primary_contamination: Vec<Taxon>,
-        secondary_contamination: Vec<Taxon>,
-        target_contamination: Vec<Taxon>,
-        primary_filter: &TaxonFilterConfig,
-        secondary_filter: &TaxonFilterConfig,
-        target_filter: &TaxonFilterConfig
-    ) -> Self {
-        Self {
-            primary,
-            secondary,
-            target,
-            primary_contamination,
-            secondary_contamination,
-            target_contamination,
-            primary_filter: primary_filter.clone(),
-            secondary_filter: secondary_filter.clone(),
-            target_filter: target_filter.clone()
-        }
-    }
-    /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
-    /// then remove from `target` any Taxon whose `lineage` also appears in the 
-    /// pruned `secondary` and 'primary'
-    pub fn prune(&mut self) {
-
-        log::info!("Pruning tiered filter categories");
-        
-        // collect all lineages present in primary
-        let primary_lineages: HashSet<_> =
-            self.primary.iter().map(|t| t.lineage.clone()).collect();
-        let primary_contam_lineages: HashSet<_> =
-            self.primary_contamination.iter().map(|t| t.lineage.clone()).collect();
-
-        // drop from secondary anything already in primary
-        self.secondary
-            .retain(|t| !primary_lineages.contains(&t.lineage));
-        self.secondary
-            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
-
-        // now collect lineages in the (pruned) secondary
-        let secondary_lineages: HashSet<_> =
-            self.secondary.iter().map(|t| t.lineage.clone()).collect();
-        let secondary_contam_lineages: HashSet<_> =
-            self.secondary_contamination.iter().map(|t| t.lineage.clone()).collect();
-
-        // drop from target anything already in secondary
-        self.target
-            .retain(|t| !secondary_lineages.contains(&t.lineage));
-        self.target
-            .retain(|t| !secondary_contam_lineages.contains(&t.lineage));
-
-        // drop from target anything already in primary
-        self.target
-            .retain(|t| !primary_lineages.contains(&t.lineage));
-        self.target
-            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
-
-    }
-    pub fn to_json(&self, path: &Path) -> Result<(), WorkflowError> {
-        let data = serde_json::to_string_pretty(self).map_err(|err| WorkflowError::SerdeJsonError(err))?;
-        let mut writer = BufWriter::new(File::create(path)?);
-        write!(writer, "{data}")?;
-        Ok(())
-    }
-    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, WorkflowError> {
-        let data = std::fs::read_to_string(path)?;
-        let result = serde_json::from_str::<PrefetchData>(&data)?;
-        Ok(result)
-    }
-}
