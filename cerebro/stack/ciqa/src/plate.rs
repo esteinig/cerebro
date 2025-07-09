@@ -1020,38 +1020,28 @@ impl ReferencePlate {
         
         log::info!("Fetching primary threshold data for sample '{}'", config.sample);
 
-            
-        let primary_filter_config = &TaxonFilterConfig::gp_above_threshold(
-            config.ignore_taxstr.clone()
-        );
-
         let (primary, primary_contamination) = client.get_taxa( 
             &CerebroIdentifierSchema::from_gp_config(config), 
-            primary_filter_config, 
+            &config.filter_configs.primary, 
             prevalence_contamination.clone(),
             config.prevalence_outliers.primary
         )?;
 
         log::info!("Fetching secondary threshold data for sample '{}'", config.sample);
 
-        let secondary_filter_config = &TaxonFilterConfig::gp_below_threshold(
-            config.ignore_taxstr.clone()
-        );
 
         let (secondary, secondary_contamination) = client.get_taxa( 
             &CerebroIdentifierSchema::from_gp_config(config), 
-            secondary_filter_config, 
+            &config.filter_configs.secondary, 
             prevalence_contamination.clone(),
             config.prevalence_outliers.secondary
         )?;
 
         log::info!("Fetching target threshold data for sample '{}'", config.sample);
-        let target_filter_config = &TaxonFilterConfig::gp_target_threshold(
-            config.ignore_taxstr.clone()
-        );
+        
         let (target, target_contamination) = client.get_taxa( 
             &CerebroIdentifierSchema::from_gp_config(config), 
-            target_filter_config, 
+            &config.filter_configs.target, 
             prevalence_contamination.clone(),
             config.prevalence_outliers.target
         )?;
@@ -1063,9 +1053,9 @@ impl ReferencePlate {
             primary_contamination,
             secondary_contamination,
             target_contamination,
-            primary_filter_config,
-            secondary_filter_config,
-            target_filter_config,
+            &config.filter_configs.primary,
+            &config.filter_configs.secondary,
+            &config.filter_configs.target,
             config
         );
 

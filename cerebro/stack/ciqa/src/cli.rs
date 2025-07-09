@@ -232,7 +232,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let prevalence_outliers = args.prevalence_outliers;
 
                     let sample_id = sample_id.clone();
-                    let negatives = plate.negative_controls.clone();
+                    let negative_controls = plate.negative_controls.clone();
                     let prevalence_contamination = prevalence_contamination.clone();
 
                     // wrap in a fallible closure so we can log errors
@@ -257,7 +257,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id, 
-                                Some(negatives), 
+                                Some(negative_controls), 
                                 Some(tags),
                                 TieredFilterConfig::default(ignore_taxstr),
                                 PrevalenceContaminationConfig::gp_default(),  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination

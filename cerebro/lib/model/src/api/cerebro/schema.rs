@@ -6,7 +6,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use std::io::{Write, BufWriter};
 use cerebro_pipeline::taxa::{taxon::Taxon};
-use cerebro_pipeline::taxa::filter::{PrevalenceContaminationConfig, TargetList, TaxonFilterConfig};
+use cerebro_pipeline::taxa::filter::{TargetList, TaxonFilterConfig};
 
 use crate::api::users::model::UserId;
 use crate::api::cerebro::model::{
@@ -177,6 +177,37 @@ impl ContaminationSchema {
     }
 }
 
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrevalenceContaminationConfig {
+    pub threshold: f64,
+    pub min_rpm: f64,
+    pub sample_type: Option<String>,
+    pub collapse_variants: bool,
+    pub outliers: PrevalenceOutliers
+}
+impl PrevalenceContaminationConfig {
+    pub fn validation() -> Self {
+        Self {
+            threshold: 0.60,
+            min_rpm: 0.0,
+            sample_type: None,
+            collapse_variants: false,
+            outliers: PrevalenceOutliers::default()
+        }
+    }
+    pub fn gp_default() -> Self {
+        Self {
+            threshold: 0.60,
+            min_rpm: 0.0,
+            sample_type: None,
+            collapse_variants: false,
+            outliers: PrevalenceOutliers::default()
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PrevalenceOutliers {
     pub primary: bool,
@@ -293,7 +324,6 @@ pub struct MetaGpConfig {
     pub identifiers: CerebroIdentifierSmallSchema,
     pub filter_configs: TieredFilterConfig,
     pub contamination: PrevalenceContaminationConfig,
-    pub prevalence_outliers: PrevalenceOutliers,
 }
 impl MetaGpConfig {
     pub fn new(
@@ -302,42 +332,13 @@ impl MetaGpConfig {
         tags: Option<Vec<String>>, 
         filter_configs: TieredFilterConfig,
         contamination: PrevalenceContaminationConfig, 
-        prevalence_outliers: Option<PrevalenceOutliers>
     ) -> Self {
         Self {
             sample,
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
             contamination,
             filter_configs,
-            prevalence_outliers: prevalence_outliers.unwrap_or(PrevalenceOutliers::default()) , // default no check for new configurations - aligns with terminal inputs
         }
-    }
-    pub fn with_json(
-        sample: String, 
-        path: &Path, 
-        ignore_taxstr: Option<Vec<String>>, 
-        prevalence_outliers: Option<PrevalenceOutliers>
-    ) -> Result<Self, ModelError> {
-        
-        let rdr = BufReader::new(File::open(&path)?);
-        let mut config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
-
-        config.sample = sample;
-        config.identifiers.assert_allowed_tags();
-        
-        // Only replace the values from the config file if specified
-
-        if let Some(ignore_taxstr) = ignore_taxstr {
-            config.filter_configs.primary.ignore_taxstr = Some(ignore_taxstr.clone());
-            config.filter_configs.secondary.ignore_taxstr = Some(ignore_taxstr.clone());
-            config.filter_configs.target.ignore_taxstr = Some(ignore_taxstr.clone());
-        }
-
-        if let Some(prevalence_outliers) = prevalence_outliers {
-            config.prevalence_outliers = prevalence_outliers;
-        }
-        
-        Ok(config)
     }
     pub fn to_json<P: AsRef<Path>>(&self, path: P) -> Result<(), ModelError> {
         let data = serde_json::to_string_pretty(&self).map_err(|err| ModelError::JsonSerialization(err))?;
