@@ -31,16 +31,31 @@ workflow QualityControl {
             ).reads
         }
 
-        if (params.qualityControl.readDeduplication) {
-            reads = Deduplication(
-                reads,
-                params.qualityControl.readDeduplicationHead,
-                params.qualityControl.readDeduplicationDeterministic
-            ).reads
-        }
+        if (params.qualityControl.qualityDeduplication) {
+            // Read quality control before deduplication
+            if (params.qualityControl.readQuality) {
+                reads = ReadQuality(reads).reads
+            }
+            if (params.qualityControl.readDeduplication) {
+                reads = Deduplication(
+                    reads,
+                    params.qualityControl.readDeduplicationHead,
+                    params.qualityControl.readDeduplicationDeterministic
+                ).reads
+            }
+        } else {
+            // Deduplication before read quality control
+            if (params.qualityControl.readDeduplication) {
+                reads = Deduplication(
+                    reads,
+                    params.qualityControl.readDeduplicationHead,
+                    params.qualityControl.readDeduplicationDeterministic
+                ).reads
+            }
 
-        if (params.qualityControl.readQuality) {
-            reads = ReadQuality(reads).reads
+            if (params.qualityControl.readQuality) {
+                reads = ReadQuality(reads).reads
+            }
         }
 
         if (params.qualityControl.hostDepletion) {

@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use memchr::memmem;
-use needletail::Sequence;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
@@ -83,7 +82,7 @@ impl Umi {
         }
         Ok(())
     }
-    /// Cluster sequences naively by their total forward sequence
+    /// Cluster sequences naively by their forward sequence (full length sequence - or trim the sequence to {head} base pairs from the start)
     pub fn naive_dedup(&self, input: &Vec<PathBuf>, output: &Vec<PathBuf>, forward: &PathBuf, clusters: &Option<PathBuf>, prepend_umi: bool, umi_sep: &str, trim_head: Option<usize>) -> Result<DeduplicationReport, WorkflowError> {
 
         if !input.len() == output.len() {
@@ -96,13 +95,13 @@ impl Umi {
         let mut total_reads: usize = 0;
         while let Some(record) = reader.next() {
             let rec = record?;
-            let rec_id = get_id(&rec.id())?;
+            let rec_id = get_id(&rec.id())?; // gets identifier only, discard anything after first whitespace
 
             let seq = match prepend_umi {
                 true => {
-                    let mut umi_seq = match rec_id.split(umi_sep).collect::<Vec<&str>>().split_last() {
+                    let mut umi_seq = match rec_id.split(umi_sep).collect::<Vec<&str>>().split_last() {  // split last component of identifier to get UMI
                         Some((last_field, _)) => last_field.to_string(),
-                        None => "".to_string()
+                        None => "".to_string() // if there are no identifier sequences detected, prepend nothing to sequence - this means data without UMI and data with UMI in the same run can be processed together!
                     };
                     let read_seq = rec.seq();
                     let read_seq = from_utf8(&read_seq)?;

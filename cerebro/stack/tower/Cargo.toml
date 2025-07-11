@@ -1,6 +1,6 @@
 [package]
 name = "cerebro-tower"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
 description = "Cerebro: production run watchtower"
 documentation = "https://github.com/esteinig/cerebro"

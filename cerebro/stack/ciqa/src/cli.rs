@@ -42,11 +42,17 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                 create_dir_all(&args.outdir)?;
 
-                for file in args.cerebro {
-                    let model = Cerebro::from_json(&file)?;
+                for file in &args.cerebro {
+                    let model = Cerebro::from_json(file)?;
     
                     let qc_summary = model.quality.summary_illumina_pe();
     
+                    let pos_summary = PositiveControlSummaryBuilder::new(
+                        &model.taxa, 
+                        &PositiveControlConfig::metagp(),
+                        &model.id
+                    ).build();
+
                     qc_summary.to_json(&args.outdir.join(
                         format!("qc_{}", get_file_component(
                             &file, 
@@ -90,16 +96,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 log::error!("Either Cerebro model files (.json, --cerebro, -c), quality control files (.json, --quality-control, -q) or quality control summary files (.json, --summaries, -s) must be provided!");
                 exit(1);
             };
-    
-            plot_qc_summary_matrix(
-                &qc_summaries, 
-                None, 
-                &args.output, 
-                cerebro_ciqa::plate::CellShape::Circle, 
-                args.width, 
-                args.height, 
-                args.title.as_deref()
-            )?;
+
 
 
             // Positive controls:
@@ -112,14 +109,19 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                 for file in args.pathogen_detection {
                     let model = PathogenDetection::from_json(&file)?;
-                    let summary = PositiveControlSummaryBuilder::new(
-                        &model, 
-                        &PositiveControlConfig::metagp(),
-                        &model.id
-                    ).build();
                 }
 
             }
+    
+            plot_qc_summary_matrix(
+                &qc_summaries, 
+                None, 
+                &args.output, 
+                cerebro_ciqa::plate::CellShape::Circle, 
+                args.width, 
+                args.height, 
+                args.title.as_deref()
+            )?;
 
         },
         Commands::PlotReview( args ) => {
