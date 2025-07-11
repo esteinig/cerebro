@@ -147,6 +147,9 @@ pub struct PlotQcArgs {
     /// Output plot file (.svg)
     #[clap(long, short = 'o', default_value="qc_summary.svg")]
     pub output: PathBuf,
+    /// Output positive controls summary file (.tsv)
+    #[clap(long, short = 'p')]
+    pub positive_controls: Option<PathBuf>,
     /// Output directory for summary files (.json)
     #[clap(long, short = 'd',)]
     pub outdir: Option<PathBuf>,

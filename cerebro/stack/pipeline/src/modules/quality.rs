@@ -1242,7 +1242,7 @@ pub fn write_positive_control_summaries<P: AsRef<Path>>(
     summaries: &[PositiveControlSummary],
     config: &PositiveControlConfig,
     output_path: P,
-) -> std::io::Result<()> {
+) -> Result<(), WorkflowError> {
     // Open the output file
     let file = File::create(output_path)?;
     let mut w = BufWriter::new(file);
@@ -1250,7 +1250,8 @@ pub fn write_positive_control_summaries<P: AsRef<Path>>(
     // Prepare sorted column order
     let mut bacteria   = config.bacteria.clone();
     let mut eukaryota  = config.eukaryota.clone();
-    let mut viruses     = config.viruses.clone();
+    let mut viruses    = config.viruses.clone();
+
     bacteria.sort();
     eukaryota.sort();
     viruses.sort();

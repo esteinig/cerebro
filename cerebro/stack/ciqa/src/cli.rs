@@ -7,7 +7,7 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
 use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig}};
-use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary, write_positive_control_summary}}, utils::{get_file_component, FileComponent}};
+use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary, write_positive_control_summaries}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
@@ -104,7 +104,13 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.title.as_deref()
             )?;
             
-
+            if let Some(path) = args.positive_controls {
+                write_positive_control_summaries(
+                    &pos_summaries, 
+                    &PositiveControlConfig::metagp(), 
+                    path
+                )?;
+            }
 
         },
         Commands::PlotReview( args ) => {
