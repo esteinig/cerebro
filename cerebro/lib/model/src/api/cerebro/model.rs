@@ -14,11 +14,9 @@ use chrono::{TimeZone, SecondsFormat};
 
 use cerebro_pipeline::{
     error::WorkflowError, 
-    modules::quality::QualityControl, 
+    modules::quality::{PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl}, 
     nextflow::sheet::SampleSheet, 
-    taxa::filter::TaxonFilterConfig, 
-    taxa::taxon::Taxon,
-    taxa::taxon::LineageOperations,
+    taxa::{filter::TaxonFilterConfig, taxon::{LineageOperations, Taxon}},
 };
 
 use crate::api::users::model::{UserId, User};
@@ -221,6 +219,14 @@ impl Cerebro {
 
 
         Ok(())
+    }
+    pub fn summary_positive_control(&self) -> PositiveControlSummary {
+
+        PositiveControlSummaryBuilder::new(
+            &self.taxa, 
+            &PositiveControlConfig::metagp(),
+            &self.name
+        ).build()
     }
     pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
         let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;

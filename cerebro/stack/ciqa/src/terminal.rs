@@ -141,9 +141,6 @@ pub struct PlotQcArgs {
     /// Quality control module files (.json) 
     #[clap(long, short = 'q', num_args=0..)]
     pub quality_control: Vec<PathBuf>,
-    /// Pathogen detection module files (.json) 
-    #[clap(long, short = 'p', num_args=0..)]
-    pub pathogen_detection: Vec<PathBuf>,
     /// Quality control summary files (.json) 
     #[clap(long, short = 's', num_args=0..)]
     pub summaries: Vec<PathBuf>,
@@ -151,8 +148,8 @@ pub struct PlotQcArgs {
     #[clap(long, short = 'o', default_value="qc_summary.svg")]
     pub output: PathBuf,
     /// Output directory for summary files (.json)
-    #[clap(long, short = 'd', default_value="qc_summaries")]
-    pub outdir: PathBuf,
+    #[clap(long, short = 'd',)]
+    pub outdir: Option<PathBuf>,
     /// Plot width (px)
     #[clap(long, default_value="800")]
     pub width: u32,

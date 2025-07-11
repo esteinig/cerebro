@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use csv::WriterBuilder;
@@ -1235,6 +1235,68 @@ where
             eukaryota: make_map(&self.config.eukaryota, "eukaryote"),
         }
     }
+}
+
+
+pub fn write_positive_control_summaries<P: AsRef<Path>>(
+    summaries: &[PositiveControlSummary],
+    config: &PositiveControlConfig,
+    output_path: P,
+) -> std::io::Result<()> {
+    // Open the output file
+    let file = File::create(output_path)?;
+    let mut w = BufWriter::new(file);
+
+    // Prepare sorted column order
+    let mut bacteria   = config.bacteria.clone();
+    let mut eukaryota  = config.eukaryota.clone();
+    let mut viruses     = config.viruses.clone();
+    bacteria.sort();
+    eukaryota.sort();
+    viruses.sort();
+
+    // Write header
+    write!(w, "id")?;
+    for name in bacteria.iter().chain(eukaryota.iter()).chain(viruses.iter()) {
+        write!(w, "\t{}", name)?;
+    }
+    w.write_all(b"\n")?;
+
+    // Write each row
+    for summary in summaries {
+        write!(w, "{}", summary.id)?;
+        // Bacteria columns
+        for name in &bacteria {
+            let detected = summary
+                .bacteria
+                .get(name)
+                .copied()
+                .unwrap_or(false);
+            write!(w, "\t{}", detected)?;
+        }
+        // Eukaryota columns
+        for name in &eukaryota {
+            let detected = summary
+                .eukaryota
+                .get(name)
+                .copied()
+                .unwrap_or(false);
+            write!(w, "\t{}", detected)?;
+        }
+        // Virus columns
+        for name in &viruses {
+            let detected = summary
+                .viruses
+                .get(name)
+                .copied()
+                .unwrap_or(false);
+            write!(w, "\t{}", detected)?;
+        }
+        w.write_all(b"\n")?;
+    }
+
+    w.flush()?;
+    Ok(())
 }
 
 
