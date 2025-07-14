@@ -2040,7 +2040,11 @@ pub fn plot_qc_summary_matrix(
     height_px: u32,
     title: Option<&str>,
 ) -> Result<(), CiqaError> {
-    let sample_labels: Vec<_> = summaries.iter().map(|s| s.id.clone()).collect();
+
+    let mut sorted_summaries = summaries.to_vec();
+    sorted_summaries.sort_by_key(|s| s.id.clone());
+
+    let sample_labels: Vec<_> = sorted_summaries.iter().map(|s| s.id.clone()).collect();
     let nrows = sample_labels.len();
 
     let mut categories = vec![
@@ -2050,7 +2054,7 @@ pub fn plot_qc_summary_matrix(
         "Read Quality",
     ];
 
-    if summaries.iter().any(|s| s.phage_coverage.is_some()) {
+    if sorted_summaries.iter().any(|s| s.phage_coverage.is_some()) {
         categories.push("Phage Coverage");
     }
     let has_overall = overall.is_some();
@@ -2090,11 +2094,11 @@ pub fn plot_qc_summary_matrix(
             // pick the right status
             let status = if col < categories.len() {
                 match categories[col] {
-                    "Input Reads"     => &summaries[row].input_reads,
-                    "Output Reads"    => &summaries[row].output_reads,
-                    "ERCC | EDCC"     => &summaries[row].ercc_constructs,
-                    "Read Quality"    => &summaries[row].fastp_status,
-                    "Phage Coverage"  => summaries[row].phage_coverage.as_ref().unwrap(),
+                    "Input Reads"     => &sorted_summaries[row].input_reads,
+                    "Output Reads"    => &sorted_summaries[row].output_reads,
+                    "ERCC | EDCC"     => &sorted_summaries[row].ercc_constructs,
+                    "Read Quality"    => &sorted_summaries[row].fastp_status,
+                    "Phage Coverage"  => sorted_summaries[row].phage_coverage.as_ref().unwrap(),
                     _ => continue,
                 }
             } else {

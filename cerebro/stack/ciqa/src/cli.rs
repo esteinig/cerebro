@@ -7,7 +7,7 @@ use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBench
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
 use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig}};
-use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{PositiveControlConfig, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary, write_positive_control_summaries}}, utils::{get_file_component, FileComponent}};
+use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
 use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SampleType}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
@@ -32,68 +32,34 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
         },
         Commands::PlotQc( args ) => {
 
-            let mut qc_summaries = Vec::new();
-            let mut pos_summaries = Vec::new();
 
-            if !args.cerebro.is_empty() {
 
-                for file in &args.cerebro {
-                    log::info!("Reading model file: {}", file.display());
+            let summaries: Vec<Result<(QualityControlSummary, PositiveControlSummary), anyhow::Error>> = args.cerebro.par_iter().map(|path| -> anyhow::Result<(QualityControlSummary, PositiveControlSummary), anyhow::Error> {
+                log::info!("Reading model file: {}", path.display());
 
-                    let model = Cerebro::from_json(file)?;
-    
-                    let qc_summary = model.quality.summary_illumina_pe();
-                    let pos_summary = model.summary_positive_control();
+                let model = Cerebro::from_json(path)?;
 
-                    if let Some(outdir) = &args.outdir {
-                        create_dir_all(&outdir)?;
+                let qc_summary = model.quality.summary_illumina_pe();
+                let pos_summary = model.summary_positive_control();
 
-                        qc_summary.to_json(&outdir.join(
-                            format!("{}", get_file_component(
-                                &file, 
-                                FileComponent::FileName
-                            )?)
-                        ))?;
-                    } 
-    
-                    
-                    qc_summaries.push(qc_summary);
-                    pos_summaries.push(pos_summary);
+                if let Some(outdir) = &args.outdir {
+                    create_dir_all(&outdir)?;
+                    qc_summary.to_json(&outdir.join(
+                        format!("{}", get_file_component(
+                            &path, 
+                            FileComponent::FileName
+                        )?)
+                    ))?;
+                } 
 
-                }
-            } else if !args.summaries.is_empty() {
-                log::info!("Reading quality control summaries");
+                Ok((qc_summary, pos_summary))
 
-                for file in args.summaries {
-                    let qc_summary = QualityControlSummary::from_json(&file)?;
-                    qc_summaries.push(qc_summary);
-                }
-            } else if !args.quality_control.is_empty() {
+            }).collect();
 
-                for file in args.quality_control {
-                    let model = QualityControl::from_json(&file)?;
-    
-                    let qc_summary = model.summary_illumina_pe();
-                    
-                    if let Some(outdir) = &args.outdir {
-                        create_dir_all(&outdir)?;
+            let (qc_summaries, pos_summaries): (Vec<_>, Vec<_>) = summaries.into_iter()
+                .filter_map(Result::ok)
+                .unzip();
 
-                        qc_summary.to_json(&outdir.join(
-                            format!("{}", get_file_component(
-                                &file, 
-                                FileComponent::FileName
-                            )?)
-                        ))?;
-                    } 
-    
-                    qc_summaries.push(qc_summary);
-                }
-
-            } else {
-                log::error!("Either Cerebro model files (.json, --cerebro, -c), quality control files (.json, --quality-control, -q) or quality control summary files (.json, --summaries, -s) must be provided!");
-                exit(1);
-            };
-    
             plot_qc_summary_matrix(
                 &qc_summaries, 
                 None, 

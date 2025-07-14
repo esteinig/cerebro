@@ -1302,7 +1302,7 @@ pub fn write_positive_control_summaries<P: AsRef<Path>>(
 
 
 /// Summary results for each category
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityControlSummary {
     pub id: String,
     pub input_reads: QcStatus,
