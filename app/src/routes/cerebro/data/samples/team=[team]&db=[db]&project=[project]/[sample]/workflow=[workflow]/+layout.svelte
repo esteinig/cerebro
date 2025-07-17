@@ -85,10 +85,17 @@
     // Initialize selection
     $: {
         if (!isInitialized) {
-            // console.log("Initializing to DNA");
             [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.DNA);
-            selectedLibraryTag = FileTag.DNA;
-            setClientFilterConfigDomainDna();
+            
+            if (selectedLibraryIdentifiers.length > 0) {
+                selectedLibraryTag = FileTag.DNA;
+                setClientFilterConfigDomainDna();
+            } else {
+                [selectedLibraryIdentifiers, selectedNegativeTemplateControlIdentifiers] = getIdentifiersByTag(FileTag.RNA);
+                selectedLibraryTag = FileTag.RNA;
+                setClientFilterConfigDomainRna();
+            }
+
             isInitialized = true;
         }
     }

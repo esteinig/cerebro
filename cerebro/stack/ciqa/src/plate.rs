@@ -1518,11 +1518,9 @@ pub fn plot_stripplot<B: DrawingBackend>(
             .map(|s| s.specificity))
         .fold(0.0_f64, f64::max);
 
-    // 3) pick user‐supplied or default
     let r1 = ref1.unwrap_or(default_ref1);
     let r2 = ref2.unwrap_or(default_ref2);
 
-    // 4) draw dashed ref1 (max sens) line
     chart.draw_series(DashedLineSeries::new(
         vec![(r1, 0.0), (r1, n_cats as f64)],
         5, 10,
@@ -1912,7 +1910,7 @@ pub fn plot_diagnostic_matrix(
         let nrows_chunk = chunk.len();
 
         // Square cell size that fits all columns & rows
-        let cell = (panel_w / total_cols as f64).min(panel_h / nrows_chunk as f64);
+        let cell = (panel_w / total_cols as f64).min(panel_h / chunk_size as f64);
         
         let base = chunk_idx * chunk_size;
         let nrows_chunk = chunk.len();
@@ -2030,14 +2028,94 @@ pub fn plot_diagnostic_matrix(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, clap::ValueEnum)]
+pub enum PanelColumnHeader {
+    Panel,
+    FirstRow,
+}
+impl PanelColumnHeader {
+    pub fn panel_paddings_top(
+        &self,
+        base_padding: usize,
+        header_padding: usize,
+        num_panels_x: usize,
+        num_panels_y: usize,
+    ) -> (Vec<usize>, usize) {
+        let num_panels = num_panels_x * num_panels_y;
+
+        let paddings: Vec<usize> = match self {
+            PanelColumnHeader::Panel => {
+                // every panel gets the header+base
+                vec![base_padding + header_padding; num_panels]
+            }
+            PanelColumnHeader::FirstRow => {
+                // only the *first row* of panels
+                let mut v = Vec::with_capacity(num_panels);
+                // panels_x panels in row 0 get header
+                v.extend(std::iter::repeat(base_padding + header_padding).take(num_panels_x));
+                // the rest get just base
+                v.extend(std::iter::repeat(base_padding).take(num_panels - num_panels_x));
+                v
+            }
+        };
+
+        let total_padding_y = match self {
+            PanelColumnHeader::Panel => (base_padding+header_padding)*num_panels_y,
+            PanelColumnHeader::FirstRow => (base_padding+header_padding)+(base_padding*(num_panels_y-1))
+        };
+
+        (paddings, total_padding_y)
+    }
+    // pub fn panel_paddings_top(&self, base_padding: usize, header_padding: usize, num_panels_x: usize, num_panels_y: usize) -> (Vec<usize>, usize) {
+    //     let num_panels = num_panels_x*num_panels_y;
+    //     match self {
+    //         PanelColumnHeader::Panel => {
+    //             let total_padding_y = (base_padding+header_padding)*num_panels_y;
+    //             (vec![base_padding+header_padding; num_panels], total_padding_y)
+    //         },
+    //         PanelColumnHeader::FirstPanel => {
+    //             let total_padding_y = (base_padding+header_padding)+(base_padding*(num_panels_y-1));
+    //             ([vec![base_padding+header_padding], vec![base_padding; num_panels-1]].concat(), total_padding_y)
+    //         },
+    //         PanelColumnHeader::FirstRow => {
+    //             let total_padding_y = (base_padding+header_padding)+(base_padding*(num_panels_y-1));
+    //             ([vec![base_padding+header_padding; num_panels_x], vec![base_padding; num_panels-num_panels_x]].concat(), total_padding_y)
+    //         }
+    //     }
+    // }
+    pub fn panel_column_header(&self, num_panels_x: usize, num_panels_y: usize) -> Vec<bool>{
+        let num_panels = num_panels_x*num_panels_y;
+        match self {
+            PanelColumnHeader::Panel => vec![true; num_panels],
+            PanelColumnHeader::FirstRow => {
+                [vec![true; num_panels_x], vec![false; num_panels-num_panels_x]].concat()
+            }
+        }
+    }
+}
+
+pub struct PanelConfig {
+    outer_margin: f64,
+    panel_columns: usize,
+    panel_size: usize,
+    panel_padding_left: f64,
+    panel_padding_right: f64,
+    panel_padding_top: f64,
+    panel_padding_header: f64,
+    panel_padding_bottom: f64,
+    panel_column_padding: f64,
+    panel_row_padding: f64,
+    panel_cell_size: i32,
+    panel_cell_shape: CellShape,
+}
+
 
 pub fn plot_qc_summary_matrix(
     summaries: &[QualityControlSummary],
     overall: Option<&[QcStatus]>,
     output: &Path,
     shape: CellShape,
-    width_px: u32,
-    height_px: u32,
+    column_header: PanelColumnHeader,
     title: Option<&str>,
 ) -> Result<(), CiqaError> {
 
@@ -2045,7 +2123,6 @@ pub fn plot_qc_summary_matrix(
     sorted_summaries.sort_by_key(|s| s.id.clone());
 
     let sample_labels: Vec<_> = sorted_summaries.iter().map(|s| s.id.clone()).collect();
-    let nrows = sample_labels.len();
 
     let mut categories = vec![
         "Input Reads",
@@ -2057,30 +2134,74 @@ pub fn plot_qc_summary_matrix(
     if sorted_summaries.iter().any(|s| s.phage_coverage.is_some()) {
         categories.push("Phage Coverage");
     }
-    let has_overall = overall.is_some();
-    let ncols = categories.len() + if has_overall { 1 } else { 0 };
 
-    // margins: left, right, top, bottom
-    let root = SVGBackend::new(output, (width_px, height_px)).into_drawing_area();
+    let has_overall = overall.is_some();
+    let total_cols = categories.len() + if has_overall { 1 } else { 0 };
+
+
+    let nrows = sample_labels.len();
+    let chunk_size = 12;
+    let max_panels_x = 3;
+
+    let num_panels = (nrows + chunk_size - 1) / chunk_size;
+    let panels_x = std::cmp::min(max_panels_x as usize, num_panels);
+    let panels_y = (num_panels + max_panels_x as usize - 1) / max_panels_x as usize;
+
+    
+    let outer_margin = 20.0;         
+    let panel_padding_left = 210.0; 
+    let panel_padding_right = 40.0;
+    let panel_padding_bottom = 10.0;   
+    
+    let col_padding = 4.0;    
+    let row_padding = 4.0;    
+    let cell_px = 24;                                                                   // target pixel height/width per row
+    let font_size = (cell_px as f64).clamp(4.0, 14.0).round() as u32;
+
+    let base_padding_y = 10;
+    let header_padding_y = 100;
+    
+    let (panel_paddings_top, total_padding_top) =
+        column_header.panel_paddings_top(base_padding_y, header_padding_y, panels_x, panels_y);
+
+    let panel_column_headers =
+        column_header.panel_column_header(panels_x, panels_y);
+
+    // let height_px = ((panels_y as f64 * chunk_size as f64) * (cell_px as f64 + row_padding) + (panels_y as f64 * panel_padding_bottom) + total_padding_y as f64 + (2.0*outer_margin)).ceil() as u32;
+    
+    let height_px = (
+        (panels_y as f64 * chunk_size as f64) * (cell_px as f64 + row_padding)
+        + (panels_y as f64 * panel_padding_bottom)
+        + total_padding_top as f64
+        + (2.0 * outer_margin)
+    ).ceil() as u32;
+
+    let width_px = (
+        (panels_x as f64 * total_cols as f64) * (cell_px as f64 + col_padding) 
+        + (panels_x as f64 * (panel_padding_left+panel_padding_right)) 
+        + (2.0 * outer_margin)
+    ).ceil() as u32;
+
+    log::info!("Total: {nrows} Panels X: {panels_x} Panels Y: {panels_y} Outer margin: {outer_margin} Inter-column padding: {col_padding} Cell size in px: {cell_px} Height in px: {height_px}  Width in px: {width_px}");
+
+    let root = SVGBackend::new(
+        output, 
+        (width_px, height_px as u32)
+    ).into_drawing_area();
+
     root.fill(&WHITE)?;
+
     if let Some(t) = title {
         root.draw_text(
             t,
-            &("sans-serif", 16).into_font().into_text_style(&root)
+            &("monospace", 16).into_font().into_text_style(&root)
                 .pos(Pos::new(HPos::Center, VPos::Top)),
-            (width_px as i32/2, 20),
+            ((width_px / 2) as i32, 20),
         )?;
     }
 
-    // give extra top margin for rotated labels
-    let plot_area = root.margin(100, 20, 140, 100);
-
-    let (pw, ph) = plot_area.dim_in_pixel();
-    let cell_w = pw as f64 / (ncols as f64);
-    let cell_h = ph as f64 / (nrows as f64);
-
-    // amount of padding inside each cell
-    let cell_pad = 2.0;
+    let plot_area = root.margin(outer_margin, outer_margin, outer_margin, outer_margin);
+    let panels = plot_area.split_evenly((panels_y, panels_x));
 
     let get_style = |status: &QcStatus| match status {
         QcStatus::Fail => RGBColor(204,  32,  32).filled(),
@@ -2088,83 +2209,260 @@ pub fn plot_qc_summary_matrix(
         QcStatus::Ok   => RGBColor(  0, 153,   0).filled(),
     };
 
-    // draw the matrix
-    for col in 0..ncols {
-        for row in 0..nrows {
-            // pick the right status
-            let status = if col < categories.len() {
-                match categories[col] {
-                    "Input Reads"     => &sorted_summaries[row].input_reads,
-                    "Output Reads"    => &sorted_summaries[row].output_reads,
-                    "ERCC | EDCC"     => &sorted_summaries[row].ercc_constructs,
-                    "Read Quality"    => &sorted_summaries[row].fastp_status,
-                    "Phage Coverage"  => sorted_summaries[row].phage_coverage.as_ref().unwrap(),
+    for (panel, (chunk_idx, chunk)) in panels.iter().zip(sample_labels.chunks(chunk_size).enumerate()) {
+        
+        let panel_padding_top = panel_paddings_top[chunk_idx];
+        log::info!("Panel {chunk_idx} padding top: {panel_padding_top} with total padding (y) {total_padding_top}");
+
+        let panel_area = panel.margin(
+            panel_padding_top as f64, 
+            panel_padding_bottom, 
+            panel_padding_left, 
+            panel_padding_right
+        );
+
+        let nrows_chunk = chunk.len();
+        
+        let stride   = cell_px as f64 + col_padding;
+
+        for (col_idx, category) in categories.iter().enumerate() {
+
+            let x0 = (col_idx as f64) * stride;
+            for row in 0..nrows_chunk {
+                let row_idx = chunk_idx * chunk_size + row;
+                if row_idx >= sorted_summaries.len() {
+                    continue;
+                }
+                let summary = &sorted_summaries[row_idx];
+
+                let status = match *category {
+                    "Input Reads"     => &summary.input_reads,
+                    "Output Reads"    => &summary.output_reads,
+                    "ERCC | EDCC"     => &summary.ercc_constructs,
+                    "Read Quality"    => &summary.fastp_status,
+                    "Phage Coverage"  => summary.phage_coverage.as_ref().unwrap(),
                     _ => continue,
-                }
-            } else {
-                // overall column
-                &overall.unwrap()[row]
-            };
-            let style = get_style(status);
+                };
+                let style = get_style(status);
 
-            // compute a tight box for the shape
-            let x0 = col as f64 * cell_w + cell_pad;
-            let y0 = row as f64 * cell_h + cell_pad;
-            let w  = cell_w - 2.0*cell_pad;
-            let h  = cell_h - 2.0*cell_pad;
-
-            match shape {
-                CellShape::Circle => {
-                    let cx = (x0 + w/2.0) as i32;
-                    let cy = (y0 + h/2.0) as i32;
-                    let r  = (w.min(h)/2.0) as i32;
-                    plot_area.draw(&Circle::new((cx, cy), r, style.clone()))?;
-                }
-                CellShape::Square{ border_width } => {
-                    let rect = [(x0 as i32, y0 as i32), ((x0+w) as i32, (y0+h) as i32)];
-                    plot_area.draw(&Rectangle::new(rect, style.clone()))?;
-                    plot_area.draw(&Rectangle::new(rect, WHITE.stroke_width(border_width)))?;
+                let y0 = row as f64 * (cell_px as f64 + row_padding);
+                match shape {
+                    CellShape::Circle => {
+                        let cx = (x0 + cell_px as f64 / 2.0) as i32;
+                        let cy = (y0 + cell_px as f64 / 2.0) as i32;
+                        panel_area.draw(&Circle::new((cx, cy), (cell_px as f64 / 2.0) as i32, style.clone()))?;
+                    }
+                    CellShape::Square { border_width } => {
+                        let rect = [
+                            ((x0) as i32, y0 as i32),
+                            ((x0 + cell_px as f64) as i32, (y0 + cell_px as f64) as i32),
+                        ];
+                        panel_area.draw(&Rectangle::new(rect, style.clone()))?;
+                        panel_area.draw(&Rectangle::new(rect, WHITE.stroke_width(border_width)))?;
+                    }
                 }
             }
         }
-    }
+        // Sample‐ID labels on the left edge of the panel
+        for (row, label) in chunk.iter().enumerate() {
+            let y0 = row as f64 * (cell_px as f64 + row_padding) + (cell_px as f64 / 2.0) + row_padding;
+            panel_area.draw_text(
+                label,
+                &("monospace", font_size)
+                    .into_font()
+                    .into_text_style(&panel_area)
+                    .pos(Pos::new(HPos::Right, VPos::Center)),
+                (-5, y0 as i32),
+            )?;
+        }
+        if panel_column_headers[chunk_idx] {
+            for (col_idx, category) in categories.iter().enumerate() {
+                let x0 = (col_idx as f64) * stride;
+                panel_area.draw_text(
+                    category,
+                    &("monospace", font_size)
+                        .into_font()
+                        .into_text_style(&panel_area)
+                        .pos(Pos::new(HPos::Left, VPos::Bottom))
+                        .transform(FontTransform::Rotate270),
+                    ((x0 + (cell_px as f64 / 2.0)) as i32, -5), // y = 0 is top of panel_area due to margin
+                )?;
+            }
+        }
+        
+        // Overall column
+        if has_overall {
 
-    // draw row labels
-    for (row, label) in sample_labels.iter().enumerate() {
-        let y = (row as f64 * cell_h + cell_h/2.0) as i32;
-        plot_area.draw_text(
-            label,
-            &("sans-serif", 12).into_font().into_text_style(&plot_area)
-                .pos(Pos::new(HPos::Right, VPos::Center)),
-            (-10, y),
-        )?;
-    }
+            let overall_idx = categories.len();
+            let x0: f64 = (overall_idx as f64) * stride;
 
-    // draw rotated column labels
-    for col in 0..categories.len() {
-        let x = (col as f64 * cell_w + cell_w/2.0) as i32;
-        // place them just above the top of plot_area
-        let y = -5;
-        let style = ("sans-serif", 12)
-            .into_font()
-            .into_text_style(&plot_area)
-            .pos(Pos::new(HPos::Left, VPos::Bottom))
-            .transform(FontTransform::Rotate270);
-        plot_area.draw_text(categories[col], &style, (x, y))?;
-    }
+            for row in 0..nrows_chunk {
+                let row_idx = chunk_idx * chunk_size + row;
+                if row_idx >= sorted_summaries.len() {
+                    continue;
+                }
+                let status = &overall.unwrap()[row_idx];
+                let style = get_style(status);
 
-    // if there's an overall column, label it too
-    if has_overall {
-        let col = categories.len();
-        let x = (col as f64 * cell_w + cell_w/2.0) as i32;
-        let y = -5;
-        let style = ("sans-serif", 12)
-            .into_font()
-            .into_text_style(&plot_area)
-            .pos(Pos::new(HPos::Left, VPos::Bottom))
-            .transform(FontTransform::Rotate270);
-        plot_area.draw_text("Overall", &style, (x, y))?;
+                let y0 = row as f64 * (cell_px as f64 + row_padding);
+                match shape {
+                    CellShape::Circle => {
+                        let cx = (x0 + cell_px as f64 / 2.0) as i32;
+                        let cy = (y0 + cell_px as f64 / 2.0) as i32;
+                        panel_area.draw(&Circle::new((cx, cy), (cell_px as f64 / 2.0) as i32, style.clone()))?;
+                    }
+                    CellShape::Square { border_width } => {
+                        let rect = [
+                            ((x0) as i32, y0 as i32),
+                            ((x0 + cell_px as f64) as i32, (y0 + cell_px as f64) as i32),
+                        ];
+                        panel_area.draw(&Rectangle::new(rect, style.clone()))?;
+                        panel_area.draw(&Rectangle::new(rect, WHITE.stroke_width(border_width)))?;
+                    }
+                }
+            }
+        }
+
+        
     }
 
     Ok(())
 }
+
+// pub fn plot_qc_summary_matrix(
+//     summaries: &[QualityControlSummary],
+//     overall: Option<&[QcStatus]>,
+//     output: &Path,
+//     shape: CellShape,
+//     width_px: u32,
+//     height_px: u32,
+//     title: Option<&str>,
+// ) -> Result<(), CiqaError> {
+
+//     let mut sorted_summaries = summaries.to_vec();
+//     sorted_summaries.sort_by_key(|s| s.id.clone());
+
+//     let sample_labels: Vec<_> = sorted_summaries.iter().map(|s| s.id.clone()).collect();
+//     let nrows = sample_labels.len();
+
+//     let mut categories = vec![
+//         "Input Reads",
+//         "Output Reads",
+//         "ERCC | EDCC",
+//         "Read Quality",
+//     ];
+
+//     if sorted_summaries.iter().any(|s| s.phage_coverage.is_some()) {
+//         categories.push("Phage Coverage");
+//     }
+//     let has_overall = overall.is_some();
+//     let ncols = categories.len() + if has_overall { 1 } else { 0 };
+
+//     // margins: left, right, top, bottom
+//     let root = SVGBackend::new(output, (width_px, height_px)).into_drawing_area();
+//     root.fill(&WHITE)?;
+//     if let Some(t) = title {
+//         root.draw_text(
+//             t,
+//             &("sans-serif", 16).into_font().into_text_style(&root)
+//                 .pos(Pos::new(HPos::Center, VPos::Top)),
+//             (width_px as i32/2, 20),
+//         )?;
+//     }
+
+//     // give extra top margin for rotated labels
+//     let plot_area = root.margin(100, 20, 140, 100);
+
+//     let (pw, ph) = plot_area.dim_in_pixel();
+//     let cell_w = pw as f64 / (ncols as f64);
+//     let cell_h = ph as f64 / (nrows as f64);
+
+//     // amount of padding inside each cell
+//     let cell_pad = 2.0;
+
+//     let get_style = |status: &QcStatus| match status {
+//         QcStatus::Fail => RGBColor(204,  32,  32).filled(),
+//         QcStatus::Pass => RGBColor(  0, 102, 204).filled(),
+//         QcStatus::Ok   => RGBColor(  0, 153,   0).filled(),
+//     };
+
+//     // draw the matrix
+//     for col in 0..ncols {
+//         for row in 0..nrows {
+//             // pick the right status
+//             let status = if col < categories.len() {
+//                 match categories[col] {
+//                     "Input Reads"     => &sorted_summaries[row].input_reads,
+//                     "Output Reads"    => &sorted_summaries[row].output_reads,
+//                     "ERCC | EDCC"     => &sorted_summaries[row].ercc_constructs,
+//                     "Read Quality"    => &sorted_summaries[row].fastp_status,
+//                     "Phage Coverage"  => sorted_summaries[row].phage_coverage.as_ref().unwrap(),
+//                     _ => continue,
+//                 }
+//             } else {
+//                 // overall column
+//                 &overall.unwrap()[row]
+//             };
+//             let style = get_style(status);
+
+//             // compute a tight box for the shape
+//             let x0 = col as f64 * cell_w + cell_pad;
+//             let y0 = row as f64 * cell_h + cell_pad;
+//             let w  = cell_w - 2.0*cell_pad;
+//             let h  = cell_h - 2.0*cell_pad;
+
+//             match shape {
+//                 CellShape::Circle => {
+//                     let cx = (x0 + w/2.0) as i32;
+//                     let cy = (y0 + h/2.0) as i32;
+//                     let r  = (w.min(h)/2.0) as i32;
+//                     plot_area.draw(&Circle::new((cx, cy), r, style.clone()))?;
+//                 }
+//                 CellShape::Square{ border_width } => {
+//                     let rect = [(x0 as i32, y0 as i32), ((x0+w) as i32, (y0+h) as i32)];
+//                     plot_area.draw(&Rectangle::new(rect, style.clone()))?;
+//                     plot_area.draw(&Rectangle::new(rect, WHITE.stroke_width(border_width)))?;
+//                 }
+//             }
+//         }
+//     }
+
+//     // draw row labels
+//     for (row, label) in sample_labels.iter().enumerate() {
+//         let y = (row as f64 * cell_h + cell_h/2.0) as i32;
+//         plot_area.draw_text(
+//             label,
+//             &("sans-serif", 12).into_font().into_text_style(&plot_area)
+//                 .pos(Pos::new(HPos::Right, VPos::Center)),
+//             (-10, y),
+//         )?;
+//     }
+
+//     // draw rotated column labels
+//     for col in 0..categories.len() {
+//         let x = (col as f64 * cell_w + cell_w/2.0) as i32;
+//         // place them just above the top of plot_area
+//         let y = -5;
+//         let style = ("sans-serif", 12)
+//             .into_font()
+//             .into_text_style(&plot_area)
+//             .pos(Pos::new(HPos::Left, VPos::Bottom))
+//             .transform(FontTransform::Rotate270);
+//         plot_area.draw_text(categories[col], &style, (x, y))?;
+//     }
+
+//     // if there's an overall column, label it too
+//     if has_overall {
+//         let col = categories.len();
+//         let x = (col as f64 * cell_w + cell_w/2.0) as i32;
+//         let y = -5;
+//         let style = ("sans-serif", 12)
+//             .into_font()
+//             .into_text_style(&plot_area)
+//             .pos(Pos::new(HPos::Left, VPos::Bottom))
+//             .transform(FontTransform::Rotate270);
+//         plot_area.draw_text("Overall", &style, (x, y))?;
+//     }
+
+//     Ok(())
+// }

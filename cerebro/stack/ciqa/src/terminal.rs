@@ -5,7 +5,7 @@ use meta_gpt::model::GeneratorModel;
 use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
-use crate::plate::{MissingOrthogonal, SampleType, StatsMode};
+use crate::plate::{PanelColumnHeader, MissingOrthogonal, SampleType, StatsMode};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
@@ -138,12 +138,6 @@ pub struct PlotQcArgs {
     /// Cerebro model files from DB (.json)
     #[clap(long, short = 'i', num_args=0..)]
     pub cerebro: Vec<PathBuf>,
-    /// Quality control module files (.json) 
-    #[clap(long, short = 'q', num_args=0..)]
-    pub quality_control: Vec<PathBuf>,
-    /// Quality control summary files (.json) 
-    #[clap(long, short = 's', num_args=0..)]
-    pub summaries: Vec<PathBuf>,
     /// Output plot file (.svg)
     #[clap(long, short = 'o', default_value="qc_summary.svg")]
     pub output: PathBuf,
@@ -153,12 +147,12 @@ pub struct PlotQcArgs {
     /// Output directory for summary files (.json)
     #[clap(long, short = 'd',)]
     pub outdir: Option<PathBuf>,
-    /// Plot width (px)
-    #[clap(long, default_value="800")]
-    pub width: u32,
-    /// Plot height (px)
-    #[clap(long, default_value="600")]
-    pub height: u32,
+    /// Threads to use for reading models
+    #[clap(long, short = 't', default_value="4")]
+    pub threads: u64,
+    /// Column header format
+    #[clap(long, default_value="panel")]
+    pub column_header: PanelColumnHeader,
     /// Set plot title
     #[clap(long)]
     pub title: Option<String>,
@@ -359,7 +353,7 @@ pub struct PrefetchArgs {
     /// Tiered filter config (.json) otherwise default
     #[clap(long)]
     pub tiered_filter: Option<PathBuf>,
-    /// Force overwrite output, otherwise skip if exists
+    /// Threads to use for fetching data
     #[clap(long, short = 't', default_value="4")]
     pub threads: u64,
     /// Force overwrite output, otherwise skip if exists

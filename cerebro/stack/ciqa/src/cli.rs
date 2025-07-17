@@ -33,6 +33,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::PlotQc( args ) => {
 
 
+            std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
             let summaries: Vec<Result<(QualityControlSummary, PositiveControlSummary), anyhow::Error>> = args.cerebro.par_iter().map(|path| -> anyhow::Result<(QualityControlSummary, PositiveControlSummary), anyhow::Error> {
                 log::info!("Reading model file: {}", path.display());
@@ -65,8 +66,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 None, 
                 &args.output, 
                 cerebro_ciqa::plate::CellShape::Circle, 
-                args.width, 
-                args.height, 
+                args.column_header,
                 args.title.as_deref()
             )?;
             
