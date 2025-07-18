@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 #[cfg(feature = "local")]
-use meta_gpt::model::GeneratorModel;
+use meta_gpt::{gpt::TreeConfig, model::GeneratorModel};
 use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
@@ -91,6 +91,8 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Open TUI for inspecting output from reference plate evaluations
+    Tui(TuiArgs),
     /// Prefetch tiered data with filter settings for a sample and save to file
     Prefetch(PrefetchArgs),
     /// Plot the tiered prefetch taxa composition
@@ -105,11 +107,9 @@ pub enum Commands {
     Review(ReviewArgs),
     /// Compare two diagnostic consensus reviews using McNemar's test statistic
     Mcnemar(McnemarArgs),
-
     #[cfg(feature = "local")]
     /// Diagnose samples on the reference plate using the generative practitioner
     DiagnoseLocal(DiagnoseLocalArgs),
-    
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
 }
@@ -266,6 +266,9 @@ pub struct DiagnoseLocalArgs {
     /// Task configuration sets for the tiered decision tree
     #[clap(long, default_value="default")]
     pub task_config: TaskConfig,
+    /// Task configuration sets for the tiered decision tree
+    #[clap(long, default_value="tiered")]
+    pub tree_config: TreeConfig,
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="true")]
     pub post_filter: Option<bool>,
@@ -359,6 +362,11 @@ pub struct PrefetchArgs {
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,
+}
+
+
+#[derive(Debug, Args, Clone)]
+pub struct TuiArgs {
 }
 
 #[derive(Debug, Args)]

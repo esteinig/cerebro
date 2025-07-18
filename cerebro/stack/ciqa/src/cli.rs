@@ -16,6 +16,7 @@ use plotters_bitmap::BitMapBackend;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
+use cerebro_ciqa::tui::start_tui;
 
 fn main() -> anyhow::Result<(), anyhow::Error> {
     
@@ -417,7 +418,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                         log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
                         // instantiate agent
-                        let mut agent = DiagnosticAgent::new(args.task_config.clone())?;
+                        let mut agent = DiagnosticAgent::new(args.task_config.clone(), args.tree_config.clone())?;
                         
                         // sample context logic
                         let sample_ref = plate.get_sample_reference(&sample_id);
@@ -585,6 +586,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
             }            
             write_tsv(&records, &args.output, false)?;
+
+        }
+        Commands::Tui( args ) => {
+
+            start_tui()?;
 
         }
     }
