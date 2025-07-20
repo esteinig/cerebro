@@ -332,16 +332,6 @@ fn synthesize_matrix(m: &mut Model, samples: usize, replicates: usize, seed: u64
     m.replicate_classes = replicate_classes;
 }
 
-/* ---------- CLI ---------- */
-#[derive(Parser)]
-#[command(author, version, about)]
-struct Cli { #[command(subcommand)] command: Option<Commands>, }
-#[derive(Subcommand)] enum Commands { Run, }
-
-fn main()->io::Result<()>{
-    let cli=Cli::parse();
-    match cli.command.unwrap_or(Commands::Run){ Commands::Run=>start_tui(), }
-}
 
 pub fn start_tui()->io::Result<()>{
     let mut app=App::new();
@@ -385,6 +375,7 @@ fn handle_key(app:&mut App, key:KeyEvent)->io::Result<bool>{
 fn ui(f:&mut ratatui::Frame, app:&App){
     let area=f.area();
     let theme=app.theme();
+    
     let main=Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
@@ -394,6 +385,11 @@ fn ui(f:&mut ratatui::Frame, app:&App){
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(main[0]);
+
+    let upper_split = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(left[0]);
 
     let lower_split=Layout::default()
         .direction(Direction::Horizontal)
@@ -405,9 +401,10 @@ fn ui(f:&mut ratatui::Frame, app:&App){
         .constraints([Constraint::Percentage(100)])
         .split(main[1]);
 
-    draw_models_table(f,left[0],app,theme);
+    draw_models_table(f,upper_split[0],app,theme);
     draw_statistics(f,lower_split[0],app,theme);
     draw_detail(f,lower_split[1],app,theme);
+    draw_detail(f,upper_split[1],app,theme);
     draw_performance(f,right[0],app,theme);
 }
 
