@@ -1,4 +1,4 @@
-use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, SampleSummaryResponse, SampleSummary, TaxonHistoryResponse, TaxonHistoryResult};
+use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, RetrieveModelResponse, SampleSummary, SampleSummaryResponse, TaxonHistoryResponse, TaxonHistoryResult};
 use futures::StreamExt;
 use mongodb::bson::{from_document, Document};
 use mongodb::gridfs::GridFsBucket;
@@ -156,21 +156,17 @@ async fn retrieve_model_handler(data: web::Data<AppState>, auth_query: web::Quer
                         match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
                             Ok(taxa) => {
                                 model.taxa = taxa;
-                                models.push(model)
+                                models.push(model.clone())
                             }
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(format!("GridFS download error: {}", err));
+                                return HttpResponse::InternalServerError().json(RetrieveModelResponse::server_error(err.to_string()));
                             }
                         };
                     }
                     
-                    HttpResponse::Ok().json(
-                        serde_json::json!({"status": "success", "message": "Documents found", "data": models})
-                    )
+                    HttpResponse::Ok().json(RetrieveModelResponse::success(models))
                 },
-                true => HttpResponse::Ok().json(
-                    serde_json::json!({"status": "fail", "message": "No document found", "data": []})
-                )
+                true =>  HttpResponse::NotFound().json(RetrieveModelResponse::not_found())
             }
         },
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),

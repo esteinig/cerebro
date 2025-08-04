@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema, PrevalenceContaminationConfig};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema};
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -212,6 +213,9 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::DownloadModels( args ) => {
+
+            create_dir_all(&args.outdir)?;
+            
             client.download_models(&args.outdir)?;
         }
         Commands::Tower(subcommand) => {

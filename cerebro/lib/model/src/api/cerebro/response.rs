@@ -1,6 +1,8 @@
 use cerebro_pipeline::{modules::quality::QualityControl, taxa::taxon::Taxon};
 use serde::{Deserialize, Serialize};
 
+use crate::api::cerebro::model::Cerebro;
+
 use super::model::{CerebroId, RunConfig, SampleConfig, WorkflowConfig};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -77,6 +79,37 @@ impl FilteredTaxaResponse {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
             data: FilteredTaxaData::default()
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RetrieveModelResponse {
+    pub status: String,
+    pub message: String,
+    pub data: Vec<Cerebro>
+}
+impl RetrieveModelResponse {
+    pub fn success(models: Vec<Cerebro>) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Models retrieved"),
+            data: models
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("No models could not be found in database"),
+            data: vec![]
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in model retrieval query: {}", error_message),
+            data: vec![]
         }
     }
 }

@@ -10,6 +10,7 @@ use cerebro_model::api::cerebro::response::CerebroIdentifierResponse;
 use cerebro_model::api::cerebro::response::CerebroIdentifierSummary;
 use cerebro_model::api::cerebro::response::ContaminationTaxaResponse;
 use cerebro_model::api::cerebro::response::FilteredTaxaResponse;
+use cerebro_model::api::cerebro::response::RetrieveModelResponse;
 use cerebro_model::api::cerebro::response::SampleSummary;
 use cerebro_model::api::cerebro::response::SampleSummaryResponse;
 use cerebro_model::api::cerebro::response::TaxonHistoryResponse;
@@ -1178,11 +1179,23 @@ impl CerebroClient {
             self.client.get(url)
         )?;
 
-        self.handle_response::<serde_json::Value>(
+        let model_response = self.handle_response::<RetrieveModelResponse>(
             response,
             None,
             "Model download failed for this project",
         )?;
+
+        if model_response.data.is_empty() {
+            log::warn!("No models found for this query")
+        } else {
+            for model in model_response.data {
+                model.write_json(
+                    &outdir.join(
+                        format!("{}.json", model.name)
+                    )
+                )?
+            }
+        }
 
         Ok(())
     }

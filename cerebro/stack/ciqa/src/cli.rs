@@ -415,7 +415,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                         
                         // load prefetch
                         let prefetch_data = PrefetchData::from_json(&data_file)?;
-                        log::info!("prefetch.config = {:#?}", prefetch_data.config);
 
                         // instantiate agent
                         let mut agent = DiagnosticAgent::new(args.task_config.clone(), args.tree_config.clone())?;
