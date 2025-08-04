@@ -1,4 +1,3 @@
-// (Same imports as before)
 use std::{
     io::{self, Stdout},
     time::{Duration, Instant},
@@ -24,7 +23,6 @@ use ratatui::{
 };
 use rand::{SeedableRng, rngs::StdRng, Rng};
 
-// ---------- Classification Cell Types ----------
 #[derive(Copy, Clone)]
 enum CellClass { TP, FP, TN, FN, Excluded, Control }
 
@@ -41,7 +39,6 @@ impl CellClass {
     }
 }
 
-// ---------- App Domain Types ----------
 #[derive(Clone)]
 struct Model {
     name: String,
@@ -81,7 +78,6 @@ impl Model {
     }
 }
 
-// ---------- Metrics ----------
 #[derive(Clone, Debug)]
 struct Perf {
     name: String,
@@ -174,18 +170,17 @@ fn make_themes()->Vec<PastelTheme>{
     let alt = PastelTheme { header_models: Style::default().fg(hex_rgb(0xFF75D1)).add_modifier(Modifier::BOLD), ..base.clone() };
     vec![base, alt]
 }
-
-// ---------- App State ----------
 struct App {
-    models: Vec<Model>,
-    selected: TableState,
-    themes: Vec<PastelTheme>,
-    theme_index: usize,
-    strand_a: SinSignal,
-    strand_b: SinSignal,
-    dna_a: Vec<(f64,f64)>,
-    dna_b: Vec<(f64,f64)>,
-    window: [f64;2],
+   pub models: Vec<Model>,
+   pub selected: TableState,
+   pub themes: Vec<PastelTheme>,
+   pub theme_index: usize,
+   pub strand_a: SinSignal,
+   pub strand_b: SinSignal,
+   pub dna_a: Vec<(f64,f64)>,
+   pub dna_b: Vec<(f64,f64)>,
+   pub window: [f64;2],
+   pub perf_mode: PerfMode,
 }
 
 impl App {
@@ -244,6 +239,7 @@ impl App {
             dna_a,
             dna_b,
             window:[0.0,30.0],
+            perf_mode: PerfMode::Both
         }
     }
     fn selected_model(&self)->&Model{
@@ -358,7 +354,6 @@ pub fn start_tui()->io::Result<()>{
     res
 }
 
-/* ---------- Input Handling ---------- */
 fn handle_key(app:&mut App, key:KeyEvent)->io::Result<bool>{
     if key.modifiers.contains(KeyModifiers::CONTROL) { return Ok(false); }
     match key.code {
@@ -371,7 +366,6 @@ fn handle_key(app:&mut App, key:KeyEvent)->io::Result<bool>{
     Ok(false)
 }
 
-/* ---------- UI Composition ---------- */
 fn ui(f:&mut ratatui::Frame, app:&App){
     let area=f.area();
     let theme=app.theme();
@@ -393,7 +387,7 @@ fn ui(f:&mut ratatui::Frame, app:&App){
 
     let lower_split=Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([Constraint::Percentage(100)])
         .split(left[1]);
 
     let right=Layout::default()
@@ -403,12 +397,10 @@ fn ui(f:&mut ratatui::Frame, app:&App){
 
     draw_models_table(f,upper_split[0],app,theme);
     draw_statistics(f,lower_split[0],app,theme);
-    draw_detail(f,lower_split[1],app,theme);
     draw_detail(f,upper_split[1],app,theme);
     draw_performance(f,right[0],app,theme);
 }
 
-/* ----- Models Table ----- */
 fn draw_models_table(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
     let header=Row::new(vec![
         Cell::from(Span::styled("Model", theme.header_models)),
@@ -433,38 +425,25 @@ fn draw_models_table(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTh
     let table=Table::new(rows, [Constraint::Percentage(50), Constraint::Length(10), Constraint::Length(10)])
         .header(header)
         .block(Block::default().borders(Borders::ALL)
-            .title(Span::styled("Models (↑/↓ select, m theme)", theme.header_models)))
+            .title(Span::styled("Models", theme.header_models)))
         .highlight_symbol("▶ ")
         .row_highlight_style(Style::default().fg(Color::Black).bg(Color::Rgb(255,235,205)).add_modifier(Modifier::BOLD));
     f.render_stateful_widget(table, area, &mut state);
 }
-
-/* ----- Statistics Panel ----- */
 fn draw_statistics(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
     
     let chunks=Layout::default().direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)]).split(area);
+        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)]).split(area);
     
-    // draw_dna_chart(f,chunks[0],app,theme);
-
     // Classification matrix
     let class_inner=Rect{ x:chunks[0].x+1, y:chunks[0].y+1, width:chunks[0].width.saturating_sub(2), height:chunks[0].height.saturating_sub(2) };
     draw_class_matrix(f, class_inner, app.selected_model(), theme);
 
-    let bottom=Layout::default().direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(chunks[1]);
+    // Dna helix animation
+    draw_dna_chart(f,chunks[1], app, theme);
 
-    // Confusion
-
-    let conf_inner=Rect{ x:bottom[0].x+1, y:bottom[0].y+1, width:bottom[0].width.saturating_sub(2), height:bottom[0].height.saturating_sub(2) };
-    draw_confusion_matrix(f, conf_inner, app.selected_model(), theme);
-
-    // draw_line_demo(f,bottom[0]);
-    // draw_bar_demo(f,bottom[1]);
-    // draw_scatter_demo(f,bottom[2]);
     f.render_widget(Block::default().borders(Borders::ALL)
-        .title(Span::styled("Statistics", theme.header_stats)), area);
+        .title(Span::styled("Reference Plate", theme.header_stats)), area);
 }
 
 fn draw_dna_chart(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
@@ -475,7 +454,7 @@ fn draw_dna_chart(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme
             .style(theme.dna_b).graph_type(GraphType::Line).data(&app.dna_b),
     ];
     let chart=Chart::new(datasets)
-        .block(Block::default().borders(Borders::ALL).title(Span::styled("Interweaving Strands (Animated)", theme.header_stats)))
+        .block(Block::default().borders(Borders::ALL))
         .x_axis(Axis::default().title("t").style(Style::default().fg(Color::Gray)).bounds(app.window).labels([
             Span::raw(format!("{:.0}", app.window[0])),
             Span::raw(format!("{:.0}", (app.window[0]+app.window[1])/2.0)),
@@ -526,53 +505,160 @@ fn draw_scatter_demo(f:&mut ratatui::Frame, area:Rect){
     f.render_widget(chart, area);
 }
 
-/* ----- Performance Chart (Right Column) ----- */
-fn build_performance_barchart(app:&App, theme:&PastelTheme)->BarChart<'static>{
-    let mut perfs=perf_for_models(&app.models);
-    perfs.sort_by(|a,b| b.sensitivity.partial_cmp(&a.sensitivity).unwrap());
-    let selected=app.selected_model().name.as_str();
-    let mut bars=Vec::with_capacity(perfs.len()*2);
-    for p in perfs {
-        let sens=(p.sensitivity*100.0).round() as u64;
-        let spec=(p.specificity*100.0).round() as u64;
-        let sel=p.name==selected;
-        let sens_style=theme.perf_sens.add_modifier(if sel {Modifier::BOLD}else{Modifier::DIM});
-        let spec_style=theme.perf_spec.add_modifier(if sel {Modifier::BOLD}else{Modifier::DIM});
-        let maxl=9usize;
-        let short=if p.name.len()>maxl { format!("{}…",&p.name[..maxl.saturating_sub(1)]) } else { p.name.clone() };
-        bars.push(Bar::default().value(sens).label(Line::from(format!("{short} S"))).text_value(format!("{sens}%")).style(sens_style).value_style(sens_style.reversed()));
-        bars.push(Bar::default().value(spec).label(Line::from(format!("{short} P"))).text_value(format!("{spec}%")).style(spec_style).value_style(spec_style.reversed()));
-    }
-    BarChart::default()
-        .block(Block::default().borders(Borders::ALL)
-            .title(Line::from("Diagnostic Performance").centered().add_modifier(Modifier::BOLD)))
-        .data(BarGroup::default().bars(&bars))
-        .direction(Direction::Horizontal)
-        .bar_width(1)
-        .bar_gap(1)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PerfMode {
+    Both,
+    SensOnly,
+    SpecOnly,
 }
+impl PerfMode {
+    pub fn cycle(self) -> Self {
+        match self {
+            PerfMode::Both => PerfMode::SensOnly,
+            PerfMode::SensOnly => PerfMode::SpecOnly,
+            PerfMode::SpecOnly => PerfMode::Both,
+        }
+    }
+}
+
+fn build_performance_barchart(app: &App, theme: &PastelTheme) -> BarChart<'static> {
+    // Get & sort model performances
+    let mut perfs = perf_for_models(&app.models);
+    perfs.sort_by(|a, b| b.sensitivity.partial_cmp(&a.sensitivity).unwrap());
+
+    let selected = app.selected_model().name.as_str();
+    let maxl = 9usize;
+
+    // Build groups: one group per model
+    let groups: Vec<BarGroup<'static>> = perfs
+        .into_iter()
+        .map(|p| {
+            let short = if p.name.len() > maxl {
+                format!("{}…", &p.name[..maxl.saturating_sub(1)])
+            } else {
+                p.name.clone()
+            };
+
+            let sel = p.name == selected;
+            let sens = (p.sensitivity * 100.0).round() as u64;
+            let spec = (p.specificity * 100.0).round() as u64;
+
+            let sens_style = theme
+                .perf_sens
+                .add_modifier(if sel { Modifier::BOLD } else { Modifier::DIM });
+            let spec_style = theme
+                .perf_spec
+                .add_modifier(if sel { Modifier::BOLD } else { Modifier::DIM });
+
+            // Bars inside the group, depending on current mode
+            let mut bars = Vec::with_capacity(2);
+            if matches!(app.perf_mode, PerfMode::Both | PerfMode::SensOnly) {
+                bars.push(
+                    Bar::default()
+                        .label(Line::from("S"))
+                        .value(sens)
+                        .text_value(format!("{sens}%"))
+                        .style(sens_style)
+                        .value_style(sens_style.reversed()),
+                );
+            }
+            if matches!(app.perf_mode, PerfMode::Both | PerfMode::SpecOnly) {
+                bars.push(
+                    Bar::default()
+                        .label(Line::from("P"))
+                        .value(spec)
+                        .text_value(format!("{spec}%"))
+                        .style(spec_style)
+                        .value_style(spec_style.reversed()),
+                );
+            }
+
+            BarGroup::default()
+                .label(Line::from(short))
+                .bars(&bars)
+        })
+        .collect();
+
+    let title = match app.perf_mode {
+        PerfMode::Both => "Model Comparison (Sens & Spec)",
+        PerfMode::SensOnly => "Model Comparison (Sensitivity)",
+        PerfMode::SpecOnly => "Model Comparison (Specificity)",
+    };
+
+    let mut chart = BarChart::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(Line::from(title).centered().add_modifier(Modifier::BOLD)),
+        )
+        .direction(Direction::Horizontal)
+        .bar_width(1)   // width of each bar
+        .bar_gap(0)     // gap between bars inside a group
+        .group_gap(2);   // gap between groups (requires ratatui >= 0.26)
+
+    for group in groups {
+        chart = chart.data(group);
+    }
+
+    chart
+        
+}
+
+// fn build_performance_barchart(app:&App, theme:&PastelTheme)->BarChart<'static>{
+//     let mut perfs=perf_for_models(&app.models);
+//     perfs.sort_by(|a,b| b.sensitivity.partial_cmp(&a.sensitivity).unwrap());
+//     let selected=app.selected_model().name.as_str();
+//     let mut bars=Vec::with_capacity(perfs.len()*2);
+//     for p in perfs {
+//         let sens=(p.sensitivity*100.0).round() as u64;
+//         let spec=(p.specificity*100.0).round() as u64;
+//         let sel=p.name==selected;
+//         let sens_style=theme.perf_sens.add_modifier(if sel {Modifier::BOLD}else{Modifier::DIM});
+//         let spec_style=theme.perf_spec.add_modifier(if sel {Modifier::BOLD}else{Modifier::DIM});
+//         let maxl=9usize;
+//         let short=if p.name.len()>maxl { format!("{}…",&p.name[..maxl.saturating_sub(1)]) } else { p.name.clone() };
+//         bars.push(Bar::default().value(sens).label(Line::from(format!("{short} S"))).text_value(format!("{sens}%")).style(sens_style).value_style(sens_style.reversed()));
+//         bars.push(Bar::default().value(spec).label(Line::from(format!("{short} P"))).text_value(format!("{spec}%")).style(spec_style).value_style(spec_style.reversed()));
+//     }
+//     BarChart::default()
+//         .block(Block::default().borders(Borders::ALL)
+//             .title(Line::from("Model Comparison").centered().add_modifier(Modifier::BOLD)))
+//         .data(BarGroup::default().bars(&bars))
+//         .direction(Direction::Horizontal)
+//         .bar_width(1)
+//         .bar_gap(1)
+// }
 
 fn draw_performance(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
     f.render_widget(build_performance_barchart(app, theme), area);
 }
 
-/* ----- Confusion Matrix ----- */
 fn draw_confusion_matrix(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&PastelTheme){
-    let inner=Rect{ x:area.x+1, y:area.y+1, width:area.width.saturating_sub(2), height:area.height.saturating_sub(2) };
-    let rows=Layout::default().direction(Direction::Vertical)
+    
+    let inner= Rect{ x:area.x+1, y:area.y+1, width:area.width.saturating_sub(2), height:area.height.saturating_sub(2) };
+
+    let rows= Layout::default().direction(Direction::Vertical)
         .constraints([Constraint::Length(1),Constraint::Length(1),Constraint::Length(1),Constraint::Min(0)])
         .split(inner);
+
     if rows.len()<3 { return; }
+
     let header_cols=Layout::default().direction(Direction::Horizontal)
         .constraints([Constraint::Length(7),Constraint::Percentage(50),Constraint::Percentage(50)]).split(rows[0]);
-    let mut render=|r:Rect,s:&str,st:Style|{ f.render_widget(Paragraph::new(s).style(st), r); };
+
+    let mut render=|r:Rect,s:&str,st:Style| { 
+        f.render_widget(Paragraph::new(s).style(st), r); 
+    };
+
     if header_cols.len()>=3 {
         render(header_cols[0],"", theme.matrix_header);
         render(header_cols[1],"True", theme.matrix_header);
         render(header_cols[2],"False", theme.matrix_header);
     }
+
     let tcols=Layout::default().direction(Direction::Horizontal)
         .constraints([Constraint::Length(7),Constraint::Percentage(50),Constraint::Percentage(50)]).split(rows[1]);
+
     let fcols=Layout::default().direction(Direction::Horizontal)
         .constraints([Constraint::Length(7),Constraint::Percentage(50),Constraint::Percentage(50)]).split(rows[2]);
 
@@ -581,17 +667,16 @@ fn draw_confusion_matrix(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&
 
     if tcols.len()>=3 {
         render(tcols[0],"True", Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
-        render(tcols[1], &format!("TP {tp} ({:.1}%)", sens*100.0), theme.matrix_tp);
-        render(tcols[2], &format!("FN {fn_} ({:.1}%)", (1.0-sens)*100.0), theme.matrix_fn);
+        render(tcols[1], &format!("TP {tp}"), theme.matrix_tp);
+        render(tcols[2], &format!("FN {fn_}"), theme.matrix_fn);
     }
     if fcols.len()>=3 {
         render(fcols[0],"False", Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
-        render(fcols[1], &format!("FP {fp} ({:.1}%)", (1.0-spec)*100.0), theme.matrix_fp);
-        render(fcols[2], &format!("TN {tn} ({:.1}%)", spec*100.0), theme.matrix_tn);
+        render(fcols[1], &format!("FP {fp}"), theme.matrix_fp);
+        render(fcols[2], &format!("TN {tn}"), theme.matrix_tn);
     }
 }
 
-/* ----- Classification Matrix (2x4 Panels) ----- */
 fn draw_class_matrix(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&PastelTheme){
     
     // Panels layout 2 rows x 4 cols
@@ -605,6 +690,7 @@ fn draw_class_matrix(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&Past
         .constraints([Constraint::Percentage(25),Constraint::Percentage(25),
                       Constraint::Percentage(25),Constraint::Percentage(25)])
         .split(panel_rows[0]);
+
     let bottom_panels = Layout::default().direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(25),Constraint::Percentage(25),
                       Constraint::Percentage(25),Constraint::Percentage(25)])
@@ -621,20 +707,22 @@ fn draw_class_matrix(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&Past
 }
 
 fn draw_class_panel(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&PastelTheme, panel_idx:usize){
+    
     // Panel border (thin)
-    f.render_widget(Block::default().borders(Borders::ALL), area);
+    f.render_widget(Block::default().borders(Borders::NONE), area);
+
     if area.width < 6 || area.height < 4 { return; }
 
     let start = panel_idx * 12;
     let end = ((panel_idx + 1)*12).min(96);
+
     if start >= end { return; }
 
     let inner = Rect{ x:area.x+1, y:area.y+1, width:area.width.saturating_sub(2), height:area.height.saturating_sub(2) };
 
-    // Build lines
-    let mut lines: Vec<Line> = Vec::new();
+    let replicates = model.replicates.min(10); // limit width
 
-    let replicates = model.replicates.min(7); // limit width
+    let mut lines: Vec<Line> = Vec::new();
     for sample in start..end {
         let consensus = model.sample_classes[sample];
         let consensus_style = style_for_cell(consensus, theme).patch(theme.matrix_consensus);
@@ -674,16 +762,21 @@ fn style_for_cell(c:CellClass, theme:&PastelTheme)->Style {
     }
 }
 
-/* ----- Detail Panel ----- */
 fn draw_detail(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
     
-    let chunks=Layout::default().direction(Direction::Vertical)
+    let chunks=Layout::default().direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(100),
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
         ]).split(area);
 
     f.render_widget(Block::default().borders(Borders::ALL)
         .title(Span::styled("Detail", theme.header_detail)), area);
+
+    // Confusion
+
+    let conf_inner=Rect{ x:chunks[1].x+1, y:chunks[1].y+1, width:chunks[1].width.saturating_sub(2), height:chunks[1].height.saturating_sub(2) };
+    draw_confusion_matrix(f, conf_inner, app.selected_model(), theme);
 
     // Text summary
     let m=app.selected_model();
@@ -692,19 +785,20 @@ fn draw_detail(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
     let sens=m.sensitivity()*100.0;
     let spec=m.specificity()*100.0;
     let text=Text::from(vec![
-        Line::from(format!("Name: {}  Params: {}  Size: {:.1}GB", m.name, m.parameters, m.size_gb)),
-        Line::from(format!("Sensitivity: {:.2}% (TP {}/TP+FN {})", sens, m.tp, m.tp+m.fn_)),
-        Line::from(format!("Specificity: {:.2}% (TN {}/TN+FP {})", spec, m.tn, m.tn+m.fp)),
+        Line::from(format!("Name: {}", m.name)),
+        Line::from(""),
+        Line::from(format!("Sensitivity: {:.2}%", sens,)),
+        Line::from(format!("Specificity: {:.2}%", spec,)),
+        Line::from(""),
         Line::from(format!("GPU {gmin}/{gmed:.1}/{gmax}  RUN {rmin}/{rmed:.1}/{rmax}")),
-        Line::from(format!("Counts TP:{} FP:{} TN:{} FN:{}  Total:{}", m.tp,m.fp,m.tn,m.fn_, m.tp+m.fp+m.tn+m.fn_)),
+        Line::from(""),
         Line::from("Keys: ↑/↓ select | m theme | q quit"),
-        Line::from("Legend: ■ consensus ● replicate  ◆ control  · excluded"),
     ]);
+
     let text_inner=Rect{ x:chunks[0].x+1, y:chunks[0].y+1, width:chunks[0].width.saturating_sub(2), height:chunks[0].height.saturating_sub(2) };
     f.render_widget(Paragraph::new(text), text_inner);
+
 }
 
-/* ----- Performance Panel Footer Replaced (kept earlier performance chart) ----- */
 fn draw_footer(_f:&mut ratatui::Frame, _size:Rect, _theme:&PastelTheme){
-    // (Removed in this layout since right column already used fully; re-add if needed)
 }
