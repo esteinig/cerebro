@@ -248,6 +248,15 @@ pub struct DiagnoseLocalArgs {
     /// The temperature used to generate samples, use 0 for greedy sampling
     #[arg(long, short='t', default_value_t = 0.8)]
     pub temperature: f64,
+    /// Nucleus sampling probability cutoff.
+    #[arg(long, short='s')]
+    pub top_p: Option<f64>,
+    /// Only sample among the top K samples.
+    #[arg(long, short='k')]
+    pub top_k: Option<usize>,
+    /// Minimum probability threshold for sampling (min_p sampling).
+    #[arg(long)]
+    pub min_p: Option<f64>,
     /// Number of GPUs to batch sample evaluations on (each must support model)
     #[arg(long, short='g', default_value_t=1)]
     pub num_gpu: usize,

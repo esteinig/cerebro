@@ -47,7 +47,7 @@ workflow PathogenDetection {
         
         /* Metagenome assembly and taxonomic profiling module */
 
-        if (params.pathogenDetection.metagenomeAssembly.enabled && !params.skipAssembly) {
+        if (params.pathogenDetection.metagenomeAssembly.enabled) {
             MetagenomeAssembly(
                 QualityControl.out.reads,
                 metagenomeAssemblyDatabases
@@ -197,10 +197,14 @@ workflow MetagenomeAssembly {
     
         magParams = params.pathogenDetection.metagenomeAssembly
 
+        filteredReads = reads.filter { read_id, fq1, fq2 ->
+            !params.skipAssembly.any { skip -> read_id.contains(skip) }
+        }
+
         if (magParams.assemblyMethod.contains("metaspades")) {
             
             metaspadesAssemblyCoverage = MetaSpades(
-                reads,
+                filteredReads,
                 magParams.assemblyKmerList,
                 magParams.assemblyMinContigLength,
                 magParams.assemblyArgs
@@ -245,7 +249,7 @@ workflow MetagenomeAssembly {
         if (magParams.assemblyMethod.contains("megahit")) {
             
             megahitAssemblyCoverage = Megahit(
-                reads,
+                filteredReads,
                 magParams.assemblyKmerList,
                 magParams.assemblyMinContigLength,
                 magParams.assemblyArgs
