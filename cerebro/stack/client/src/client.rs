@@ -1264,8 +1264,6 @@ impl CerebroClient {
             "Cerebro identifiers retrieval failed",
         )?;
 
-        log::info!("Response data contains {} models for '{}'", response.data.iter().len(), schema.sample);
-
         Ok(response.data)
     } 
     pub fn get_aneuploidy(&self, sample: &str) -> Result<Option<&str>, HttpClientError> {
