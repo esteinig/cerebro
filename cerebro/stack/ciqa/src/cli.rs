@@ -195,6 +195,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let outdir = args.outdir.clone();
                     let force = args.force;
                     let subset = args.samples.clone();
+                    let additional_tags = args.tags.clone();
 
                     let contam_config = contam_config.clone();
                     let tiered_filter_config = tiered_filter_config.clone();
@@ -221,12 +222,16 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 .get_sample_reference(&sample_id)
                                 .ok_or_else(|| anyhow::anyhow!("No reference for {}", sample_id))?;
 
-                            let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
+                            let (mut tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
                             let tiered_filter_config = match ignore_taxstr {
                                 Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
                                 None => tiered_filter_config
                             };
+
+                            if let Some(add_tags) = additional_tags {
+                                tags.extend_from_slice(&add_tags);
+                            }
 
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id, 

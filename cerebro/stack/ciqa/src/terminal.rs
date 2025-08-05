@@ -359,6 +359,9 @@ pub struct PrefetchArgs {
     /// Subset of sample identifiers from plate to prefetch only
     #[clap(long, short = 's', num_args(1..))]
     pub samples: Option<Vec<String>>,
+    /// Additional tags to subset the samples (e.g. if replicates are present)
+    #[clap(long, num_args(1..))]
+    pub tags: Option<Vec<String>>,
     /// Prevalence contamination config (.json) otherwise default
     #[clap(long)]
     pub contamination: Option<PathBuf>,
