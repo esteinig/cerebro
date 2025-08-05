@@ -47,7 +47,7 @@ workflow PathogenDetection {
         
         /* Metagenome assembly and taxonomic profiling module */
 
-        if (params.pathogenDetection.metagenomeAssembly.enabled) {
+        if (params.pathogenDetection.metagenomeAssembly.enabled && !params.skipAssembly) {
             MetagenomeAssembly(
                 QualityControl.out.reads,
                 metagenomeAssemblyDatabases

@@ -183,9 +183,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 Some(path) => TieredFilterConfig::from_json(&path)?,
                 None => TieredFilterConfig::default(None)
             };
-            
-            log::info!("{contam_config:#?}");
-            log::info!("{tiered_filter_config:#?}");
 
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
@@ -215,7 +212,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 return Ok(());
                             }
                         }
-
+                        
                         let data_file = outdir.join(format!("{sample_id}.prefetch.json"));
 
                         if force || !data_file.exists() {
@@ -352,8 +349,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             
             for gpu_id in 0..num_gpus {
 
-                let args= Arc::clone(&args);
-                let plate  = Arc::clone(&plate);
+                let args = Arc::clone(&args);
+                let plate = Arc::clone(&plate);
                 let nvml_clone = Arc::clone(&nvml);
 
                 let start  = gpu_id * batch_size;
@@ -598,6 +595,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
 }
 
+
 fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Option<Vec<String>>) {
 
     let tags = match sample_reference.note {
@@ -605,6 +603,10 @@ fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Op
             if note.contains("ignore_rna") {
                 vec![String::from("DNA")]
             } else if note.contains("ignore_dna") {
+                vec![String::from("RNA")]
+            } else if note.contains("only_dna") {
+                vec![String::from("DNA")]
+            } else if note.contains("only_rna") {
                 vec![String::from("RNA")]
             } else {
                 vec![String::from("DNA"), String::from("RNA")]

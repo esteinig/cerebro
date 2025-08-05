@@ -1,0 +1,655 @@
+[
+    {
+        "sample_id": "DW-63-V97",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V98",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=28",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V99",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=31",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V100",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=34",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V101",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Streptococcus pneumoniae"],
+                        "result": "positive",
+                        "taxa": ["s__Streptococcus pneumoniae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V102",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V103",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=28",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V104",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=31",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V105",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=34",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V106",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=37",
+                "tests": [
+                    {
+                        "test": ["s__Haemophilus influenzae"],
+                        "result": "positive",
+                        "taxa": ["s__Haemophilus influenzae"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V107",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Cryptococcus neoformans"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus neoformans"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+
+    {
+        "sample_id": "DW-63-V108",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=28",
+                "tests": [
+                    {
+                        "test": ["s__Cryptococcus neoformans"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus neoformans"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+
+
+    {
+        "sample_id": "DW-63-V109",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=31",
+                "tests": [
+                    {
+                        "test": ["s__Cryptococcus neoformans"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus neoformans"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+
+
+    {
+        "sample_id": "DW-63-V110",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=34",
+                "tests": [
+                    {
+                        "test": ["s__Cryptococcus neoformans"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus neoformans"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V111",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=37",
+                "tests": [
+                    {
+                        "test": ["s__Cryptococcus neoformans"],
+                        "result": "positive",
+                        "taxa": ["s__Cryptococcus neoformans"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V112",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V113",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=28",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V114",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=31",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+
+    {
+        "sample_id": "DW-63-V115",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=34",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+
+    {
+        "sample_id": "DW-63-V116",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=37",
+                "tests": [
+                    {
+                        "test": ["s__Toxoplasma gondii"],
+                        "result": "positive",
+                        "taxa": ["s__Toxoplasma gondii"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V117",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V118",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=28",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V119",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=31",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V120",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=34",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V121",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_dna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=37",
+                "tests": [
+                    {
+                        "test": ["s__Simplexvirus humanalpha1"],
+                        "result": "positive",
+                        "taxa": ["s__Simplexvirus humanalpha1"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V122",
+        "sample_type": "NTC",
+        "result": null,
+        "note": "Extraction",
+        "clinical": null,
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V124",
+        "sample_type": "NTC",
+        "result": null,
+        "note": "Library",
+        "clinical": null,
+        "orthogonal": []
+    },
+    {
+        "sample_id": "DW-63-V125",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_rna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=25",
+                "tests": [
+                    {
+                        "test": ["s__Enterovirus betacoxsackie"],
+                        "result": "positive",
+                        "taxa": ["s__Enterovirus betacoxsackie"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V126",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_rna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=28",
+                "tests": [
+                    {
+                        "test": ["s__Enterovirus betacoxsackie"],
+                        "result": "positive",
+                        "taxa": ["s__Enterovirus betacoxsackie"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V127",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_rna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=31",
+                "tests": [
+                    {
+                        "test": ["s__Enterovirus betacoxsackie"],
+                        "result": "positive",
+                        "taxa": ["s__Enterovirus betacoxsackie"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V128",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_rna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=34",
+                "tests": [
+                    {
+                        "test": ["s__Enterovirus betacoxsackie"],
+                        "result": "positive",
+                        "taxa": ["s__Enterovirus betacoxsackie"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "sample_id": "DW-63-V129",
+        "sample_type": "LOD",
+        "result": "positive",
+        "note": "only_rna",
+        "clinical": null,
+        "orthogonal": [
+            {
+                "method": "spike",
+                "detail": "ct=37",
+                "tests": [
+                    {
+                        "test": ["s__Enterovirus betacoxsackie"],
+                        "result": "positive",
+                        "taxa": ["s__Enterovirus betacoxsackie"],
+                        "note": null
+                    }
+                ]
+            }
+        ]
+    }
+]

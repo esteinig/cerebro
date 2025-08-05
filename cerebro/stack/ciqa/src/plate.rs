@@ -20,6 +20,7 @@ impl FromSampleType for SampleContext {
         match sample_type {
             SampleType::Csf => SampleContext::Csf,
             SampleType::Eye => SampleContext::Eye,
+            SampleType::Lod => SampleContext::Spike,
             _ => unimplemented!("Variant of sample type not implemented for FromSampleType -> Clinical Context")
         }
     }
@@ -135,6 +136,7 @@ pub enum SampleType {
     Eye,
     Ntc,
     Pos,
+    Lod,
     Env
 }
 
