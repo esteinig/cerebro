@@ -1,5 +1,5 @@
 import { browser } from "$app/environment";
-import { CNS_BACTERIA, getCurrentDate, PATHOGENS, POSITIVE_CONTROLS, VERTEBRATE_VIRUSES } from "$lib/utils/helpers";
+import { CNS_BACTERIA, getCurrentDate, PATHOGENS, POSITIVE_CONTROLS, VERTEBRATE_VIRUSES, CNS_PATHOGENS } from "$lib/utils/helpers";
 
 import { 
     ProfileTool, 
@@ -234,7 +234,7 @@ export const validationThresholdServerFilterConfig: TaxonFilterConfig = {
             min_assembly_tools: null,
         },
     ],
-    targets: VERTEBRATE_VIRUSES,
+    targets: CNS_PATHOGENS, // VERTEBRATE_VIRUSES,
     collapse_variants: false
 };
 

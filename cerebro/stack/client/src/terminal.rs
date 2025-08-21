@@ -76,23 +76,25 @@ pub enum Commands {
     PingServer(PingArgs),
     /// Ping the server as unauthenticated user
     PingStatus(StatusArgs),
-    /// Process and upload pipeline outputs to database
+    /// Process pathogen-detection pipeline outputs for upload to database
     CreatePathogen(CreatePathogenArgs),
-    /// Process and upload pipeline outputs to database
+    /// Process panviral-enrichment pipeline outputs for upload to database
     CreatePanviral(CreatePanviralArgs),
-    /// Process and upload pipeline outputs to database
+
+    /// Upload pipeline outputs to database (production from staged files)
     UploadPathogen(UploadPathogenArgs),
-    /// Process and upload pipeline outputs to database
+    /// Upload pipeline outputs to database (production from staged files)
     UploadPanviral(UploadPanviralArgs),
+    
     /// Upload processed model to database
     UploadModels(UploadModelsArgs),
     /// Upload processed model to database
     DownloadModels(DownloadModelsArgs),
 
-    /// Summary of taxa evidence for requested models
-    GetTaxa(TaxaArgs),
     /// Summary of quality control for requested models or samples
-    GetQuality(QualityArgs),
+    GetQualityControlTable(QualityControlTableArgs),
+    /// Summary of pathogen detection for requested models or samples
+    GetPathogenDetectionTable(PathogenDetectionTableArgs),
     
     /// Taxon history query for data and host regression
     GetTaxonHistory(TaxonHistoryArgs),
@@ -292,7 +294,7 @@ pub struct DownloadModelsArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct QualityArgs {
+pub struct QualityControlTableArgs {
     /// Output summary table (.csv)
     #[clap(long, short = 'o')]
     pub output: Option<PathBuf>,
@@ -301,30 +303,17 @@ pub struct QualityArgs {
     pub sample_ids: Option<Vec<String>>
 }
 
+
 #[derive(Debug, Args)]
-#[clap(group = ArgGroup::new("user")
-    .required(false)
-    .multiple(true)
-    .args(&["sample", "controls", "tags"])
-)]
-#[clap(group = ArgGroup::new("json")
-    .required(false)
-    .args(&["json"])
-)]
-pub struct TaxaArgs {
-    /// Sample identifier for query
-    #[clap(long, short = 's', group = "user", help_heading = "User Query")]
-    pub sample: String,
-    /// Control sample identifiers associated with sample, otherwise uses query for run controls (ENV, NTC) processed with same workflow
-    #[clap(long, short = 'c', num_args(0..), group = "user", help_heading = "User Query")]
-    pub controls: Vec<String>,
-    /// Tags for sample and model query
-    #[clap(long, short = 't', num_args(0..), group = "user", help_heading = "User Query")]
-    pub tags: Vec<String>,
-    /// JSON file of request schema
-    #[clap(long, short = 'j', group = "json", help_heading = "JSON Query")]
-    pub json: Option<PathBuf>,
+pub struct PathogenDetectionTableArgs {
+    /// Output summary table (.csv)
+    #[clap(long, short = 'o')]
+    pub output: Option<PathBuf>,
+    /// Sample identifiers to limit query
+    #[clap(long, short = 's', num_args(1..))]
+    pub sample_ids: Option<Vec<String>>
 }
+
 
 #[derive(Debug, Args)]
 pub struct TaxonHistoryArgs {

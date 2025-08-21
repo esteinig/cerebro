@@ -32,4 +32,3 @@ pub enum AdminCollection {
     Teams,
     Logs
 }
-

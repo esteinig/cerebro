@@ -55,20 +55,37 @@ pub struct SampleDeleteSchema {
 
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SampleSummarySchema {
+pub struct QualityControlTableSchema {
     pub sample_ids: Vec<String>,
     pub cerebro_ids: Vec<String>,
 }
-impl SampleSummarySchema {
-    pub fn new(sample_ids: Option<Vec<String>>) -> Self {
+impl QualityControlTableSchema {
+    pub fn new(sample_ids: Vec<String>) -> Self {
         Self {
-            sample_ids: if let Some(sample_ids) = sample_ids { sample_ids } else { vec![] },
+            sample_ids,
             cerebro_ids: vec![]
         }
     }
 }
 
-
+#[derive(Deserialize, Serialize, Debug)]
+pub struct PathogenDetectionTableSchema {
+    pub sample_ids: Vec<String>,
+    pub cerebro_ids: Vec<String>
+}
+impl PathogenDetectionTableSchema {
+    pub fn new(sample_ids: Vec<String>) -> Self {
+        Self {
+            sample_ids,
+            cerebro_ids: vec![]
+        }
+    }
+}
+impl Default for PathogenDetectionTableSchema {
+    fn default() -> Self {
+        PathogenDetectionTableSchema { sample_ids: vec![], cerebro_ids: vec![] }
+    }
+}
 
 #[derive(Deserialize)]
 pub struct SampleDescriptionSchema {

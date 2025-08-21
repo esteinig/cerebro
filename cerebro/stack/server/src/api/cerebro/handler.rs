@@ -1,4 +1,4 @@
-use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, RetrieveModelResponse, SampleSummary, SampleSummaryResponse, TaxonHistoryResponse, TaxonHistoryResult};
+use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse, QualityControlTableResponse, RetrieveModelResponse, SampleSummary, SampleSummaryResponse, TaxonHistoryResponse, TaxonHistoryResult};
 use futures::StreamExt;
 use mongodb::bson::{from_document, Document};
 use mongodb::gridfs::GridFsBucket;
@@ -31,13 +31,13 @@ use cerebro_model::api::cerebro::model::{
     RunConfig
 };
 use cerebro_model::api::cerebro::schema::{
-    CerebroIdentifierSchema, ContaminationSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleSummarySchema, SampleTypeSchema, TaxaSummarySchema
+    CerebroIdentifierSchema, ContaminationSchema, PathogenDetectionTableSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, QualityControlTableSchema, SampleTypeSchema, TaxaSummarySchema
 };
 
 use mongodb::options::{UpdateManyModel, WriteModel};
 
 use cerebro_pipeline::taxa::filter::*;
-use cerebro_pipeline::modules::quality::{QualityControl, ReadQualityControl, ModelConfig};
+use cerebro_pipeline::modules::quality::{ModelConfig, ReadQualityControl};
 use cerebro_pipeline::taxa::taxon::{aggregate, collapse_taxa, Taxon};
 
 type CerebroIds = String;
@@ -169,7 +169,7 @@ async fn retrieve_model_handler(data: web::Data<AppState>, auth_query: web::Quer
                 true =>  HttpResponse::NotFound().json(RetrieveModelResponse::not_found())
             }
         },
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => HttpResponse::InternalServerError().json(RetrieveModelResponse::server_error(err.to_string())),
     }
 }
 
@@ -1039,74 +1039,142 @@ async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, que
 
 
 #[derive(Deserialize, Serialize)]
-struct CerebroSampleSummaryQuery {
-    // Aggregation pipelines to get specific overviews
-    workflow: Option<WorkflowId>,
+struct CerebroQualityControlTableQuery {
     // Return data in comma-separated table format (string)
     csv: Option<bool>,
-    // Include ERCC biomass estimates if ERCC input mass is provided (picogram)
-    ercc: Option<f64>
 }
 
-#[post("/cerebro/samples/summary/qc")]
-async fn sample_qc_summary_handler(data: web::Data<AppState>, samples: web::Json<SampleSummarySchema>, query: web::Query<CerebroSampleSummaryQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+#[post("/cerebro/table/qc")]
+async fn sample_qc_summary_handler(data: web::Data<AppState>, schema: web::Json<QualityControlTableSchema>, query: web::Query<CerebroQualityControlTableQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
 
-    let pipeline = get_matched_samples_cerebro_notaxa_pipeline(&samples.sample_ids, &samples.cerebro_ids, &query.workflow);
+    let mut filter = Document::new();
 
-    if pipeline.is_empty() {
-        return HttpResponse::BadRequest().json(
-            SampleSummaryResponse::server_error("Must specify one of sample or model identifiers".to_string())
-        );
+    if !schema.sample_ids.is_empty() {
+        filter.insert("name", doc! { "$in": &schema.sample_ids });
+    }
+    if !schema.cerebro_ids.is_empty() {
+        filter.insert("id",   doc! { "$in": &schema.cerebro_ids });
     }
 
-    match project_collection.aggregate(pipeline).await {
+    match project_collection
+        .find(filter)
+        .await
+    {
         Ok(cursor) => {
-            let matched_docs: Vec<Document> = match cursor.try_collect().await {
-                Ok(docs) => docs,
-                Err(e) => {
-                    return HttpResponse::InternalServerError().json(
-                        SampleSummaryResponse::server_error(e.to_string())
-                    );
-                }
-            };
 
-            if matched_docs.is_empty() {
-                return HttpResponse::Ok().json(SampleSummaryResponse::not_found());
-            }
+            let mut samples = cursor
+                .try_collect()
+                .await
+                .unwrap_or_else(|_| vec![]);
 
-            let mut matched_data: Vec<SampleSummary> = Vec::new();
-            for doc in matched_docs {
-                let result: SampleSummary = match mongodb::bson::from_bson(doc.into()) {
-                    Ok(res) => res,
-                    Err(e) => {
-                        return HttpResponse::InternalServerError().json(
-                            SampleSummaryResponse::server_error(e.to_string())
+            match samples.is_empty() {
+                false => {
+
+                    let mut records = Vec::new();
+                    for model in samples.iter_mut() {
+                        let qc = model.quality.reads.with_model(
+                            &model.id, qc_config_from_model(
+                                Some(model.sample.clone()), 
+                                Some(model.run.clone()), 
+                                Some(model.workflow.clone())
+                            )
                         );
+                        records.push(qc)
                     }
-                };
-                matched_data.push(result);
+
+                    // Optionally convert the summaries to CSV table (string) if requested.
+                    let csv_output = if let Some(true) = query.csv {
+                        match as_csv_string(&records) {
+                            Ok(s) => s,
+                            Err(response) => return response
+                        }
+                    } else {
+                        "".to_string()
+                    };
+                    HttpResponse::Ok().json(QualityControlTableResponse::success(records, csv_output))
+                },
+                true => HttpResponse::NotFound().json(QualityControlTableResponse::not_found())
             }
-
-            // Optionally convert the summaries to CSV table (string) if requested.
-            let csv_output = if let Some(true) = query.csv {
-                match as_csv_string(&matched_data) {
-                    Ok(s) => s,
-                    Err(response) => return response
-                }
-            } else {
-                "".to_string()
-            };
-
-            HttpResponse::Ok().json(SampleSummaryResponse::success(matched_data, csv_output))
         },
-        Err(e) => HttpResponse::InternalServerError().json(
-            SampleSummaryResponse::server_error(e.to_string())
-        ),
+        Err(err) => HttpResponse::InternalServerError().json(QualityControlTableResponse::server_error(err.to_string())),
+    }
+}
+
+
+#[derive(Deserialize, Serialize)]
+struct CerebroPathogenDetectionTableQuery {
+    // Return data in comma-separated table format (string)
+    csv: Option<bool>
+}
+
+#[post("/cerebro/table/pathogen")]
+async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<PathogenDetectionTableSchema>, query: web::Query<CerebroPathogenDetectionTableQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+
+    let mut filter = Document::new();
+
+    if !schema.sample_ids.is_empty() {
+        filter.insert("name", doc! { "$in": &schema.sample_ids });
+    }
+    if !schema.cerebro_ids.is_empty() {
+        filter.insert("id",   doc! { "$in": &schema.cerebro_ids });
+    }
+
+    match project_collection
+        .find(filter)
+        .await
+    {
+        Ok(cursor) => {
+
+            let mut samples = cursor
+                .try_collect()
+                .await
+                .unwrap_or_else(|_| vec![]);
+
+            match samples.is_empty() {
+                false => {
+
+                    let mut records = Vec::new();
+                    for model in samples.iter_mut() {
+                        
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+                            Ok(taxa) => {
+                                model.taxa = taxa;
+                                records.extend(
+                                    model.into_pathogen_detection_table_records()
+                                )
+                            }
+                            Err(err) => {
+                                return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()));
+                            }
+                        };
+                    }
+
+                    // Optionally convert the summaries to CSV table (string) if requested.
+                    let csv_output = if let Some(true) = query.csv {
+                        match as_csv_string(&records) {
+                            Ok(s) => s,
+                            Err(response) => return response
+                        }
+                    } else {
+                        "".to_string()
+                    };
+                    HttpResponse::Ok().json(PathogenDetectionTableResponse::success(records, csv_output))
+                },
+                true => HttpResponse::NotFound().json(PathogenDetectionTableResponse::not_found())
+            }
+        },
+        Err(err) => HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string())),
     }
 }
 
@@ -1588,12 +1656,12 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(sample_handler)
        .service(delete_sample_handler)
        .service(sample_qc_summary_handler)
+       .service(sample_pd_table_handler)
        .service(sample_description_handler)
        .service(sample_type_handler)
        .service(sample_group_handler)
        .service(history_taxa_handler)
        .service(contamination_taxa_handler_project)
-    //    .service(filtered_taxa_summary_handler)
        .service(status_handler);
 
 

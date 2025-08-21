@@ -579,7 +579,7 @@ impl ReadQualityControl {
         &mut self,
         model_id: &str, 
         model_config: ModelConfig
-    ) -> Result<Self, WorkflowError> {
+    ) -> Self {
 
         self.model_id = Some(model_id.to_string());
         self.run_id = model_config.run_id;
@@ -591,7 +591,7 @@ impl ReadQualityControl {
         self.workflow_id = model_config.workflow_id;
         self.workflow_date = model_config.workflow_date;
 
-        Ok(self.clone())
+        self.clone()
     }
     pub fn from(
         id: &str, 

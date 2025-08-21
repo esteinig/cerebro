@@ -4161,3 +4161,38 @@ export const VERTEBRATE_VIRUSES = [
     "Thogotovirus upoluense",
     "African swine fever virus"
 ]
+
+export const CNS_PATHOGENS: string[] = [
+    "Neisseria meningitidis",
+    "Streptococcus pneumoniae",
+    "Haemophilus influenzae",
+    "Listeria monocytogenes",
+    "Streptococcus agalactiae",
+    "Escherichia coli",
+    "Mycobacterium tuberculosis",
+    "Cryptococcus neoformans",
+    "Cryptococcus gattii",
+    "Coccidioides immitis",
+    "Coccidioides posadasii",
+    "Taenia solium",
+    "Toxoplasma gondii",
+    "Plasmodium falciparum",
+    "Naegleria fowleri",
+    "Acanthamoeba castellanii",
+    "Balamuthia mandrillaris",
+    "Angiostrongylus cantonensis",
+    "Simplexvirus humanalpha1",
+    "Simplexvirus humanalpha2",
+    "Varicellovirus humanalpha3",
+    "Morbillivirus hominis",
+    "Orthorubulavirus parotitidis",
+    "Lyssavirus rabies",
+    "Mammarenavirus choriomeningitidis",
+    "Henipavirus nipahense",
+    "Orthoflavivirus murrayense",
+    "Orthoflavivirus japonicum",
+    "Orthoflavivirus nilense",
+    "Orthoflavivirus encephalitidis",
+    "Orthoflavivirus zikaense",
+    "Betapolyomavirus secuhominis"
+  ];

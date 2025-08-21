@@ -95,6 +95,8 @@ pub enum Commands {
     Tui(TuiArgs),
     /// Prefetch tiered data with filter settings for a sample and save to file
     Prefetch(PrefetchArgs),
+    /// Write the plate to a tab-delimited table 
+    WriteTable(WriteTableArgs),
     /// Plot the tiered prefetch taxa composition
     PlotPrefetch(PlotPrefetchArgs),
     /// Plot the reference plate layout
@@ -112,6 +114,19 @@ pub enum Commands {
     DiagnoseLocal(DiagnoseLocalArgs),
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct WriteTableArgs {
+    /// Reference plate file (.json)
+    #[clap(long, short = 'p')]
+    pub plate: PathBuf,
+    /// Output plot file (plate.tsv)
+    #[clap(long, short = 'o', default_value="plate.tsv")]
+    pub output: PathBuf,
+    /// Include only positive taxa if test included detection at species rank
+    #[clap(long, short = 's')]
+    pub species_rank: bool,
 }
 
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, SampleSummarySchema};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, PathogenDetectionTableSchema, QualityControlTableSchema};
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -424,24 +424,6 @@ fn main() -> anyhow::Result<()> {
             }
                         
         },
-        // Query sample models for taxon summary
-        Commands::GetTaxa( args ) => {
-
-            // TEST IMPLEMENTATION
-
-            let schema = CerebroIdentifierSchema::new(
-                args.sample.clone(),
-                (!args.controls.is_empty()).then(|| args.controls.clone()),
-                (!args.tags.is_empty()).then(|| args.tags.clone()),
-            );
-
-            schema.assert_allowed_tags();
-
-            let filter_config = TaxonFilterConfig::validation();
-
-            client.get_taxa(&schema, &filter_config, HashMap::new(), true)?;
-
-        },
         // Query sample models for taxon history and taxon vs host regression analysis
         Commands::GetTaxonHistory( args ) => {
 
@@ -455,10 +437,10 @@ fn main() -> anyhow::Result<()> {
 
         },
         // Query sample summaries for quality control data and run/sample/workflow configs
-        Commands::GetQuality( args ) => {
+        Commands::GetQualityControlTable( args ) => {
 
-            let schema = SampleSummarySchema::new(
-                args.sample_ids.clone()
+            let schema = QualityControlTableSchema::new(
+                args.sample_ids.clone().unwrap_or_default()
             );
 
             let sample_summaries = client.get_quality_control(
@@ -469,6 +451,20 @@ fn main() -> anyhow::Result<()> {
             for sample_summary in sample_summaries {
                 log::info!("{sample_summary:#?}")
             }
+
+        },
+
+        // Query sample summaries for quality control data and run/sample/workflow configs
+        Commands::GetPathogenDetectionTable( args ) => {
+
+            let schema = PathogenDetectionTableSchema::new(
+                args.sample_ids.clone().unwrap_or_default()
+            );
+
+            client.get_pathogen_detection(
+                &schema,
+                args.output.clone()
+            )?;
 
         },
         // Modify (create-delete-update) a project

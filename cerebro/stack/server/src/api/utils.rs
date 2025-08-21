@@ -9,14 +9,6 @@ use crate::api::server::AppState;
 
 use serde::{Deserialize, Deserializer};
 
-// Generic error response
-#[derive(Debug, Deserialize)]
-pub struct ErrorResponse {
-    pub status: String,
-    pub message: String,
-}
-
-
 // Get administrative database collection from admin database
 pub fn get_cerebro_db_collection<T: Send + Sync>(data: &Data<AppState>, collection: AdminCollection) -> Collection<T> {
     let db = data.db.database(&data.env.database.names.admin_database_name);

@@ -58,7 +58,7 @@ pub struct QualityControlTableArgs {
 
 #[derive(Debug, Args)]
 pub struct PathogenDetectionTableArgs {
-    /// Pathogen detection summaries (.json)
+    /// Pathogen detection summaries (.pd.json)
     #[clap(long, short = 'j', num_args(0..))]
     pub json: Vec<PathBuf>,
     /// Reference taxonomy to extract rank and name for taxonomic identifiers
@@ -67,9 +67,6 @@ pub struct PathogenDetectionTableArgs {
     /// Output table for aggregated taxon reads per million
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-    /// Provide filters as JSON
-    #[clap(long, short = 'f')]
-    pub filter_json: Option<PathBuf>
 }
 
 

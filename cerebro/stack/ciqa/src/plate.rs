@@ -8,7 +8,7 @@ use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
-use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, FileComponent}};
+use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, write_tsv, FileComponent}};
 use rand::Rng;
 
 pub trait FromSampleType {
@@ -156,6 +156,12 @@ pub struct Orthogonal {
     pub detail: String,
     pub tests: Vec<Test>,
 }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum OrganismDomain {
+    Bacteria,
+    Eukaryota,
+    Viruses
+}
 
 // Represents a single sample from the plate.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -165,6 +171,7 @@ pub struct SampleReference {
     pub result: Option<TestResult>,
     pub note: Option<String>,
     pub clinical: Option<String>,
+    pub domain: Option<OrganismDomain>,
     pub orthogonal: Vec<Orthogonal>,
 }
 
@@ -229,7 +236,6 @@ impl SampleReview {
 }
 
 
-// Ensure CiqaError implements From<std::io::Error> or change the error handling accordingly.
 pub fn read_all_sample_reviews(directory: &Path) -> Result<Vec<SampleReview>, CiqaError> {
     let mut sample_reviews = Vec::new();
 
@@ -820,7 +826,25 @@ pub struct ReferencePlate {
 impl ReferencePlate {
 
     /// Create a new PlateReference by reading the reference from a JSON file and the optional review from a TSV file.
-    pub fn new(reference_path: &Path, review_path: Option<&Path>, missing_orthogonal: MissingOrthogonal, diagnostic_agent: bool) -> Result<Self, CiqaError> {
+    pub fn from_path(reference_path: &Path) -> Result<Self, CiqaError> {
+
+        let reference_data = std::fs::read_to_string(reference_path)?;
+        let reference: Vec<SampleReference> = serde_json::from_str(&reference_data)?;
+
+        let negative_controls = Self::get_negative_controls(&reference);
+        let samples = Self::get_samples(&reference);
+
+        
+        Ok(ReferencePlate { 
+            reference, 
+            review: None, 
+            negative_controls,
+            samples,
+            missing_orthogonal: MissingOrthogonal::Indeterminate
+        })
+    }
+    /// Create a new PlateReference by reading the reference from a JSON file and the optional review from file (TSV or META-GPT).
+    pub fn from_review(reference_path: &Path, review_path: Option<&Path>, missing_orthogonal: MissingOrthogonal, diagnostic_agent: bool) -> Result<Self, CiqaError> {
 
         // Read the JSON file to get the vector of SampleReference.
         let reference_data = std::fs::read_to_string(reference_path)?;
@@ -1078,6 +1102,62 @@ impl ReferencePlate {
         Ok(())
         
     }
+
+    pub fn write_tsv(&self, output: &Path, species_rank: bool) -> Result<(), CiqaError> {
+        let rows = reference_plate_to_tsv_rows(&self, species_rank);
+        write_tsv(&rows, output, true)
+    }
+}
+
+
+#[derive(Serialize)]
+struct PlateTsvRow {
+    /// sample identifier
+    sample_id: String,
+    /// sample type
+    sample_type: SampleType,
+    /// overall result from reference
+    result: Option<TestResult>,
+    /// semicolon-separated list of taxa seen in any positive orthogonal test
+    taxa: String,
+    /// domain of positive taxa if provided (single one only for now)
+    domain: Option<OrganismDomain>
+}
+
+// Build the TSV rows from a ReferencePlate
+fn reference_plate_to_tsv_rows(plate: &ReferencePlate, species_rank: bool) -> Vec<PlateTsvRow> {
+    plate.reference.iter().map(|r| {
+        // collect unique taxa across ALL orthogonal tests (only those with Positive result)
+        let mut taxa_vec: Vec<String> = Vec::new();
+        for ortho in &r.orthogonal {
+            'tests: for test in &ortho.tests {
+                if let Some(note) = &test.note {
+                    if note.contains("exclude_test") {
+                        continue 'tests;
+                    }
+                }
+                if test.result == TestResult::Positive {
+                    'taxa: for t in &test.taxa {
+                        if species_rank && !t.starts_with("s__") {  
+                            continue 'taxa;
+                        }
+                        if !taxa_vec.iter().any(|x| x == t) {
+                            taxa_vec.push(t.clone());
+                        }
+                    }
+                }
+            }
+        }
+        let taxa_joined = taxa_vec.join(";");
+
+        PlateTsvRow {
+            sample_id: r.sample_id.clone(),
+            sample_type: r.sample_type.clone(),
+            result: r.result.clone(),
+            taxa: taxa_joined,
+            domain: r.domain.clone()
+        }
+    }).collect()
 }
 
 

@@ -1,4 +1,4 @@
-use cerebro_pipeline::{modules::quality::QualityControl, taxa::taxon::Taxon};
+use cerebro_pipeline::{modules::{pathogen::PathogenDetectionTableRecord, quality::{QualityControl, ReadQualityControl}}, taxa::taxon::Taxon};
 use serde::{Deserialize, Serialize};
 
 use crate::api::cerebro::model::Cerebro;
@@ -110,6 +110,80 @@ impl RetrieveModelResponse {
             status: String::from("error"),
             message: format!("Error in model retrieval query: {}", error_message),
             data: vec![]
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PathogenDetectionTableData {
+    pub records: Vec<PathogenDetectionTableRecord>,
+    pub csv: String
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PathogenDetectionTableResponse {
+    pub status: String,
+    pub message: String,
+    pub data: PathogenDetectionTableData
+}
+impl PathogenDetectionTableResponse {
+    pub fn success(records: Vec<PathogenDetectionTableRecord>, csv: String) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Pathogen detection table data retrieved"),
+            data: PathogenDetectionTableData { records, csv }
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("No models could not be found in database"),
+            data: PathogenDetectionTableData { records: Vec::new(), csv: String::new() }
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in pathogen detection table query: {}", error_message),
+            data: PathogenDetectionTableData { records: Vec::new(), csv: String::new() }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct QualityControlTableData {
+    pub records: Vec<ReadQualityControl>,
+    pub csv: String
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct QualityControlTableResponse {
+    pub status: String,
+    pub message: String,
+    pub data: QualityControlTableData 
+
+}
+impl QualityControlTableResponse {
+    pub fn success(records: Vec<ReadQualityControl>, csv: String) -> Self {
+        Self {
+            status: String::from("success"),
+            message: String::from("Quality control table data retrieved"),
+            data: QualityControlTableData { records, csv }
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: String::from("fail"),
+            message: String::from("No models could not be found in database"),
+            data: QualityControlTableData { records: Vec::new(), csv: String::new() }
+        }
+    }
+    pub fn server_error(error_message: String) -> Self {
+        Self {
+            status: String::from("error"),
+            message: format!("Error in quality control table query: {}", error_message),
+            data: QualityControlTableData { records: Vec::new(), csv: String::new() }
         }
     }
 }

@@ -780,10 +780,13 @@ fn draw_detail(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
 
     // Text summary
     let m=app.selected_model();
+
     let (gmin,gmed,gmax)=m.gpu_stats();
     let (rmin,rmed,rmax)=m.run_stats();
+
     let sens=m.sensitivity()*100.0;
     let spec=m.specificity()*100.0;
+    
     let text=Text::from(vec![
         Line::from(format!("Name: {}", m.name)),
         Line::from(""),

@@ -31,6 +31,10 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::PlotPrefetch( args ) => {
             let prefetch = PrefetchData::from_json(args.prefetch)?;
         },
+        Commands::WriteTable( args ) => {
+            let plate = ReferencePlate::from_path(&args.plate)?;
+            plate.write_tsv(&args.output, args.species_rank)?;
+        },
         Commands::PlotQc( args ) => {
 
 
@@ -162,7 +166,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
             create_dir_all(&args.outdir)?;
 
-            let plate = ReferencePlate::new(
+            let plate = ReferencePlate::from_review(
                 &args.plate, 
                 None,
                 MissingOrthogonal::Indeterminate,
@@ -267,7 +271,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 )?;
                 log::info!("Review: {}", review_name);
 
-                let mut reference_plate = ReferencePlate::new(
+                let mut reference_plate = ReferencePlate::from_review(
                     &args.plate, 
                     Some(&review_path),
                     args.missing_orthogonal.clone(),

@@ -10,6 +10,8 @@ use cerebro_model::api::cerebro::response::CerebroIdentifierResponse;
 use cerebro_model::api::cerebro::response::CerebroIdentifierSummary;
 use cerebro_model::api::cerebro::response::ContaminationTaxaResponse;
 use cerebro_model::api::cerebro::response::FilteredTaxaResponse;
+use cerebro_model::api::cerebro::response::PathogenDetectionTableResponse;
+use cerebro_model::api::cerebro::response::QualityControlTableResponse;
 use cerebro_model::api::cerebro::response::RetrieveModelResponse;
 use cerebro_model::api::cerebro::response::SampleSummary;
 use cerebro_model::api::cerebro::response::SampleSummaryResponse;
@@ -17,7 +19,8 @@ use cerebro_model::api::cerebro::response::TaxonHistoryResponse;
 use cerebro_model::api::cerebro::response::TaxonHistoryResult;
 use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
 use cerebro_model::api::cerebro::schema::ContaminationSchema;
-use cerebro_model::api::cerebro::schema::SampleSummarySchema;
+use cerebro_model::api::cerebro::schema::PathogenDetectionTableSchema;
+use cerebro_model::api::cerebro::schema::QualityControlTableSchema;
 use cerebro_model::api::cerebro::schema::PrevalenceContaminationConfig;
 use cerebro_model::api::files::model::FileTag;
 use cerebro_model::api::files::model::SeaweedFile;
@@ -43,6 +46,8 @@ use cerebro_model::api::watchers::response::ListWatchersResponse;
 use cerebro_model::api::watchers::response::PingWatcherResponse;
 use cerebro_model::api::watchers::response::RegisterWatcherResponse;
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
+use cerebro_pipeline::modules::pathogen::PathogenDetectionTableRecord;
+use cerebro_pipeline::modules::quality::ReadQualityControl;
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::LineageOperations;
 use cerebro_pipeline::taxa::taxon::Taxon;
@@ -68,7 +73,6 @@ use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 
 use crate::error::HttpClientError;
-use crate::regression;
 use crate::regression::RpmAnalysisResult;
 use crate::regression::RpmAnalyzer;
 use crate::regression::RpmConfigBuilder;
@@ -88,6 +92,7 @@ pub enum Route {
     DataCerebroRetrieveModel,
     DataCerebroIdentifiers,
     DataCerebroQualityControl,
+    DataCerebroPathogenDetection,
     DataCerebroTaxaSummary,
     DataCerebroTaxaHistory,
     DataCerebroTaxaFiltered,
@@ -123,7 +128,8 @@ impl Route {
             Route::DataCerebroInsertModel => "cerebro",
             Route::DataCerebroRetrieveModel => "cerebro",
             Route::DataCerebroIdentifiers => "cerebro/ids",
-            Route::DataCerebroQualityControl => "cerebro/samples/summary/qc",
+            Route::DataCerebroQualityControl => "cerebro/table/qc",
+            Route::DataCerebroPathogenDetection => "cerebro/table/pathogen",
             Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
             Route::DataCerebroTaxaHistory => "cerebro/taxa/history",
             Route::DataCerebroTaxaContamination => "cerebro/taxa/contamination",
@@ -1181,7 +1187,7 @@ impl CerebroClient {
 
         let model_response = self.handle_response::<RetrieveModelResponse>(
             response,
-            None,
+            Some("Models retrieved for this project"),
             "Model download failed for this project",
         )?;
 
@@ -1189,6 +1195,7 @@ impl CerebroClient {
             log::warn!("No models found for this query")
         } else {
             for model in model_response.data {
+                log::info!("Writing model to file: {}.json", model.name);
                 model.write_json(
                     &outdir.join(
                         format!("{}.json", model.name)
@@ -1266,7 +1273,7 @@ impl CerebroClient {
 
         Ok(response.data)
     } 
-    pub fn get_aneuploidy(&self, sample: &str) -> Result<Option<&str>, HttpClientError> {
+    pub fn _get_aneuploidy(&self, sample: &str) -> Result<Option<&str>, HttpClientError> {
 
         self.log_team_warning();
         self.log_db_warning();
@@ -1274,7 +1281,7 @@ impl CerebroClient {
 
         Ok(None)
     }
-    pub fn get_quality_control(&self, schema: &SampleSummarySchema, csv: Option<PathBuf>) -> Result<Vec<SampleSummary>, HttpClientError> {
+    pub fn get_quality_control(&self, schema: &QualityControlTableSchema, csv: Option<PathBuf>) -> Result<Vec<ReadQualityControl>, HttpClientError> {
 
         let url = self.build_request_url(
             format!("{}", self.routes.url(Route::DataCerebroQualityControl)), 
@@ -1285,7 +1292,7 @@ impl CerebroClient {
             self.client.post(url).json(schema)
         )?;
 
-        let sample_summary_response = self.handle_response::<SampleSummaryResponse>(
+        let qc_table_response = self.handle_response::<QualityControlTableResponse>(
             response,
             None,
             "Sample summary (quality control) retrieval failed",
@@ -1293,11 +1300,37 @@ impl CerebroClient {
 
         if let Some(path) = csv {
             let mut writer = BufWriter::new(File::create(path)?);
-            write!(&mut writer, "{}", sample_summary_response.data.csv)?;
+            write!(&mut writer, "{}", qc_table_response.data.csv)?;
             writer.flush()?;
         }
 
-        Ok(sample_summary_response.data.summary)
+        Ok(qc_table_response.data.records)
+    }
+
+    pub fn get_pathogen_detection(&self, schema: &PathogenDetectionTableSchema, csv: Option<PathBuf>) -> Result<Vec<PathogenDetectionTableRecord>, HttpClientError> {
+
+        let url = self.build_request_url(
+            format!("{}", self.routes.url(Route::DataCerebroPathogenDetection)), 
+            &[("csv", if let Some(_) = csv { true.to_string() } else { false.to_string() })]
+        );
+
+        let response = self.send_request_with_team_db_project(
+            self.client.post(url).json(schema)
+        )?;
+
+        let pathogen_detection_table_response = self.handle_response::<PathogenDetectionTableResponse>(
+            response,
+            None,
+            "Sample summary (pathogen detection table) retrieval failed",
+        )?;
+
+        if let Some(path) = csv {
+            let mut writer = BufWriter::new(File::create(path)?);
+            write!(&mut writer, "{}", pathogen_detection_table_response.data.csv)?;
+            writer.flush()?;
+        }
+
+        Ok(pathogen_detection_table_response.data.records)
     }
     pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool, print_regression: bool, plot: Option<PathBuf>) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
 

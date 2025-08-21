@@ -307,7 +307,7 @@ process BackgroundDepletion {
     alignmentIndex = aligner == "bowtie2" ? indexName : index[0]
 
     """
-    vircov coverage -i $forward -i $reverse -o ${sampleID}.background.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --zero --read-id reads.txt
+    vircov coverage -i $forward -i $reverse -o ${sampleID}.background.tsv --aligner $aligner --index $alignmentIndex --reference vircov__reference --threads $task.cpus --workdir data/ --read-id reads.txt
     scrubby alignment -i $forward -i $reverse -a reads.txt -o ${sampleID}__background__R1.fq.gz -o ${sampleID}__background__R2.fq.gz --json ${sampleID}.controls.json
     """
     

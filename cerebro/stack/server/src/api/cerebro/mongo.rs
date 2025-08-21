@@ -478,9 +478,9 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                         }
                     }
                 },
-                // If neither, return empty aggregate pipeline
+                // If neither, match all documents
                 (true, true) => {
-                    return vec![]
+                    doc! { "$match": {} }
                 },
                 // If both use more specific model identifiers
                 (false, false) => {

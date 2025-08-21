@@ -11,34 +11,36 @@ use super::{alignment::Alignment, assembly::{MetagenomeAssembly, ContigRecord}, 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathogenDetectionTableRecord {
-    id: String,
-    taxid: String,
-    rank: Option<TaxRank>,
-    name: Option<String>,
-    lineage: Option<String>,
-    vircov_reads: Option<u64>,
-    vircov_rpm: Option<f64>,
-    kraken_reads: Option<u64>,
-    kraken_rpm: Option<f64>,
-    bracken_reads: Option<u64>,
-    bracken_rpm: Option<f64>,
-    metabuli_reads: Option<u64>,
-    metabuli_rpm: Option<f64>,
-    ganon_reads: Option<u64>,
-    ganon_rpm: Option<f64>,
-    kmcp_reads: Option<u64>,
-    kmcp_rpm: Option<f64>,
-    sylph_reads: Option<u64>,
-    sylph_rpm: Option<f64>,
-    blast_contigs: Option<u64>,
-    blast_bases: Option<u64>,
-    blast_bpm: Option<f64>,
+    pub id: String,
+    pub taxid: String,
+    pub rank: Option<TaxRank>,
+    pub name: Option<String>,
+    pub lineage: Option<String>,
+    pub vircov_reads: Option<u64>,
+    pub vircov_rpm: Option<f64>,
+    pub vircov_coverage: Option<f64>,  
+    pub kraken_reads: Option<u64>,
+    pub kraken_rpm: Option<f64>,
+    pub bracken_reads: Option<u64>,
+    pub bracken_rpm: Option<f64>,
+    pub metabuli_reads: Option<u64>,
+    pub metabuli_rpm: Option<f64>,
+    pub ganon_reads: Option<u64>,
+    pub ganon_rpm: Option<f64>,
+    pub kmcp_reads: Option<u64>,
+    pub kmcp_rpm: Option<f64>,
+    pub sylph_reads: Option<u64>,
+    pub sylph_rpm: Option<f64>,
+    pub blast_contigs: Option<u64>,
+    pub blast_bases: Option<u64>,
+    pub blast_bpm: Option<f64>,
 }
 impl PathogenDetectionTableRecord {
     pub fn from_record(
         id: &str,
         record: &PathogenDetectionRecord,
         taxonomy: Option<&GeneralTaxonomy>,
+        alignment: &[VircovRecord],         // pass in all VircovRecords
     ) -> Result<Self, WorkflowError> {
         let taxid = record.taxid.as_str();
 
@@ -144,6 +146,11 @@ impl PathogenDetectionTableRecord {
             }
         }
 
+        let vircov_coverage = alignment
+            .iter()
+            .find(|v| v.taxid.as_deref() == Some(&record.taxid))
+            .and_then(|v| v.remap_coverage);
+
         Ok(Self {
             id: id.to_string(),
             taxid: record.taxid.clone(),
@@ -152,6 +159,7 @@ impl PathogenDetectionTableRecord {
             lineage,
             vircov_reads,
             vircov_rpm,
+            vircov_coverage,
             kraken_reads,
             kraken_rpm,
             bracken_reads,
@@ -173,7 +181,7 @@ impl PathogenDetectionTableRecord {
 }
 
 // Write the evidence table for multiple samples
-pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory: Option<PathBuf>, filter_json: Option<PathBuf>) -> Result<(), WorkflowError> {
+pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory: Option<PathBuf>) -> Result<(), WorkflowError> {
 
     let taxonomy = match taxonomy_directory {
         Some(dir) => {
@@ -183,26 +191,19 @@ pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory
         None => None
     };
 
-    let pd_filter = match filter_json {
-        Some(path) => Some(PathogenDetectionFilter::from_json(&path)?),
-        None => None
-    };
-
     let mut table_records = Vec::new();
     for file in json {
         let pd = PathogenDetection::from_json(file)?;
-        let records = match pd_filter {
-            Some(ref f) => pd.filter_by_taxonomy(f.taxids.clone(), f.names.clone(), f.ranks.clone()),
-            None => pd.profile,
-        };
-        for record in records {
+        
+        for record in pd.profile {
             table_records.push(
                 PathogenDetectionTableRecord::from_record(
                     &pd.id, 
                     &record, 
-                    taxonomy.as_ref()
-                )
-            ?)
+                    taxonomy.as_ref(),
+                    &pd.alignment, 
+                )?
+            )
         }
     }
 

@@ -184,11 +184,11 @@ fn main() -> anyhow::Result<()> {
                 },
 
                 TableCommands::PathogenDetection(args) => {
+                    
                     write_pathogen_table(
-                        &args.json, 
+                        &args.json,
                         &args.output, 
-                        args.taxonomy.clone(), 
-                        args.filter_json.clone()
+                        args.taxonomy.clone(),
                     )?
                 }
 

@@ -186,6 +186,7 @@ pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Resu
 
     // Flush and complete writing
     writer.flush()?;
+    
     Ok(())
 }
 

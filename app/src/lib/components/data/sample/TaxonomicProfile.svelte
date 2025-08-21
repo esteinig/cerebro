@@ -2,7 +2,7 @@
 	import { AbundanceMode, DisplayData, DisplayVisualisation } from "$lib/utils/types";
 	import SpeciesOverviewTable from "./taxa/SpeciesOverviewTable.svelte";
 	import VisualisationSelection from "./taxa/visualisations/VisualisationSelection.svelte";
-	import { primaryThresholdServerFilterConfig, secondaryThresholdServerFilterConfig, selectedModels, selectedTaxa, validationThresholdServerFilterConfig } from "$lib/stores/stores";
+	import { primaryThresholdServerFilterConfig, secondaryThresholdServerFilterConfig, selectedModels, selectedTaxa, validationThresholdServerFilterConfig, selectedServerFilterConfig } from "$lib/stores/stores";
 	import TableDataSelection from "./taxa/visualisations/TableDataSelection.svelte";
 	import TableModeSelection from "./taxa/visualisations/TableModeSelection.svelte";
 	import TaxonHistory from "$lib/components/visualisations/taxa/history/TaxonHistory.svelte";
@@ -46,6 +46,8 @@
         {:else}
             <p class="flex justify-center py-12 opacity-60">Select taxa from the table for historical comparison</p>
         {/if}
+
+        <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={$selectedServerFilterConfig}></SpeciesOverviewTable>
     {:else if selectedVisualisation === DisplayVisualisation.Threshold}
     {#if $selectedTaxa.length > 0}
             {#each $selectedTaxa as selectedTaxon}
