@@ -1121,14 +1121,16 @@ struct PlateTsvRow {
     /// semicolon-separated list of taxa seen in any positive orthogonal test
     taxa: String,
     /// domain of positive taxa if provided (single one only for now)
-    domain: Option<OrganismDomain>
+    domain: Option<OrganismDomain>,
+    /// organisms any of the orthogonal tested for 
+    tested: String
 }
 
 // Build the TSV rows from a ReferencePlate
 fn reference_plate_to_tsv_rows(plate: &ReferencePlate, species_rank: bool) -> Vec<PlateTsvRow> {
     plate.reference.iter().map(|r| {
-        // collect unique taxa across ALL orthogonal tests (only those with Positive result)
         let mut taxa_vec: Vec<String> = Vec::new();
+        let mut taxa_ref: Vec<String> = Vec::new();
         for ortho in &r.orthogonal {
             'tests: for test in &ortho.tests {
                 if let Some(note) = &test.note {
@@ -1136,6 +1138,7 @@ fn reference_plate_to_tsv_rows(plate: &ReferencePlate, species_rank: bool) -> Ve
                         continue 'tests;
                     }
                 }
+                // Collect positives
                 if test.result == TestResult::Positive {
                     'taxa: for t in &test.taxa {
                         if species_rank && !t.starts_with("s__") {  
@@ -1146,16 +1149,27 @@ fn reference_plate_to_tsv_rows(plate: &ReferencePlate, species_rank: bool) -> Ve
                         }
                     }
                 }
+                // Collect references
+                for tested in &test.test {
+                    if species_rank && !tested.starts_with("s__")  {
+                        continue 'tests;
+                    }
+                    if !taxa_ref.iter().any(|x| x == tested) {
+                        taxa_ref.push(tested.clone());
+                    }
+                }
             }
         }
         let taxa_joined = taxa_vec.join(";");
+        let refs_joined = taxa_ref.join(";");
 
         PlateTsvRow {
             sample_id: r.sample_id.clone(),
             sample_type: r.sample_type.clone(),
             result: r.result.clone(),
             taxa: taxa_joined,
-            domain: r.domain.clone()
+            domain: r.domain.clone(),
+            tested: refs_joined
         }
     }).collect()
 }
