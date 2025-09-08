@@ -11,17 +11,13 @@ redis_auth_onetime_uri          = 'redis://cerebro-auth-onetime:6380'
 
 [database.names]
 
-admin_database_name                 = 'cerebro'  # fixed for docker env init
-admin_database_user_collection      = 'users'    # fixed for docker env init
+admin_database_name                 = 'cerebro'       # fixed for docker env init
+admin_database_user_collection      = 'users'         # fixed for docker env init
 admin_database_team_collection      = 'teams'
 admin_database_logs_collection      = 'logs'    
-
-team_database_logs_collection       = 'logs'
-team_database_reports_collection    = 'reports'
-team_database_files_collection      = 'files'
-team_database_stage_collection      = 'stage'
-team_database_watchers_collection   = 'watchers'
-team_database_pipelines_collection  = 'pipelines'
+admin_database_scheduler_collection = 'scheduler'     # faktory scheduled jobs
+admin_database_jobs_collection      = 'jobs'          # faktory jobs status log
+admin_database_locks_collection     = 'locks'         # faktory locks
 
 [security.components]
 email                           = false

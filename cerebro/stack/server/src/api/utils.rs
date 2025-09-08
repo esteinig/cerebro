@@ -16,7 +16,9 @@ pub fn get_cerebro_db_collection<T: Send + Sync>(data: &Data<AppState>, collecti
     let collection_name = match collection {
         AdminCollection::Teams => &data.env.database.names.admin_database_team_collection,
         AdminCollection::Users => &data.env.database.names.admin_database_user_collection,
-        AdminCollection::Logs => &data.env.database.names.admin_database_logs_collection
+        AdminCollection::Logs => &data.env.database.names.admin_database_logs_collection,
+        AdminCollection::Scheduler => &data.env.database.names.admin_database_scheduler_collection,
+        AdminCollection::Jobs => &data.env.database.names.admin_database_jobs_collection
     };
     
     db.collection(collection_name)

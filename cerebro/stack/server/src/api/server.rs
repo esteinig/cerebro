@@ -6,17 +6,19 @@ use redis::Client as RedisClient;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use mongodb::{bson::doc, Client as MongoClient};
+use uuid::Uuid;
 
 use crate::api::logs::handler::logs_config;
 use crate::api::auth::handler::auth_config;
+use crate::api::training::handler::training_config;
 use crate::api::users::handler::user_config;
 use crate::api::teams::handler::team_config;
 use crate::api::files::handler::files_config;
 use crate::api::cerebro::handler::cerebro_config;
 use crate::api::watchers::handler::watchers_config;
 use crate::api::towers::handler::towers_config;
-
-
+use crate::api::jobs::handler::jobs_config;
+use crate::api::scheduler::Scheduler;
 use crate::terminal::{App as Cli, Commands};
 
 use super::stage::handler::stage_config;
@@ -41,6 +43,7 @@ pub struct AppState {
     pub db: MongoClient,
     pub auth_session: RedisClient,
     pub auth_onetime: RedisClient,
+    pub scheduler: Scheduler,
     pub env: cerebro_model::api::config::Config,
 }
 
@@ -50,7 +53,7 @@ pub struct AppState {
 /// which is why we are re-parse the arguments - allows
 /// for the main asynchronous routine to be run through 
 /// the iniutial synchronous main routine.
-#[actix_web::main]
+#[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> std::io::Result<()> {
 
     let cli = Cli::parse();
@@ -75,7 +78,6 @@ pub async fn main() -> std::io::Result<()> {
                     std::process::exit(1);
                 }
             };
-
 
             // URI validation and client creation
             let mongo_client = match MongoClient::with_uri_str(&config.database.connections.mongodb_uri).await  {
@@ -110,6 +112,16 @@ pub async fn main() -> std::io::Result<()> {
                     std::process::exit(1);
                 }
             };
+
+            let faktory_scheduler = Scheduler::new(
+                &mongo_client,
+                config.database.names.admin_database_name.clone(),
+                config.database.names.admin_database_jobs_collection.clone(), 
+                config.database.names.admin_database_locks_collection.clone()
+            );
+
+            log::info!("Running Faktory job scheduler");
+            faktory_scheduler.clone().spawn();
 
             // Database connection checks
             match mongo_client.list_database_names().await {
@@ -160,6 +172,7 @@ pub async fn main() -> std::io::Result<()> {
                         db: mongo_client.clone(),
                         auth_session: redis_client_auth_session.clone(),
                         auth_onetime: redis_client_auth_onetime.clone(),
+                        scheduler: faktory_scheduler.clone(),
                         env: config.clone(),
                     }))
                     .configure(app_config)
@@ -173,6 +186,8 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(towers_config)
                     .configure(watchers_config)
                     .configure(stage_config)
+                    .configure(jobs_config)
+                    .configure(training_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
                     .wrap(Logger::default())

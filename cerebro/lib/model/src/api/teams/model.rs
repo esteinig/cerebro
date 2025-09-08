@@ -10,7 +10,8 @@ pub enum TeamAdminCollection {
     Reports,
     Files,
     Watchers,
-    Towers
+    Towers,
+    Training
 }
 impl TeamAdminCollection {
     pub fn name(&self) -> String {
@@ -19,7 +20,8 @@ impl TeamAdminCollection {
             TeamAdminCollection::Reports => String::from("reports"),
             TeamAdminCollection::Files => String::from("files"),
             TeamAdminCollection::Watchers => String::from("watchers"),
-            TeamAdminCollection::Towers => String::from("towers")
+            TeamAdminCollection::Towers => String::from("towers"),
+            TeamAdminCollection::Training => String::from("training")
         }
     }
 }
@@ -125,6 +127,7 @@ impl TeamDatabase {
                 ProjectCollection::team_pipelines(),
                 ProjectCollection::team_logs(),
                 ProjectCollection::team_reports(),
+                ProjectCollection::team_training(),
             ]
         }
     }
@@ -200,6 +203,14 @@ impl ProjectCollection {
             name: String::from("Reports"),
             description: String::from("Report storage for team independent of database"),
             collection: TeamAdminCollection::Reports.name()
+        }
+    }
+    pub fn team_training() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("Training"),
+            description: String::from("Training prefetch data collection"),
+            collection: TeamAdminCollection::Training.name()
         }
     }
 }

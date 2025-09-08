@@ -36,19 +36,14 @@ pub struct DatabaseConnectionConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseNameConfig {
-    // Administative database names and default collections 
+    // Administrative database collections 
     pub admin_database_name: String,
     pub admin_database_user_collection: String,
     pub admin_database_team_collection: String,
     pub admin_database_logs_collection: String,
-    // Teams database logging collection
-    pub team_database_logs_collection: String,
-    pub team_database_reports_collection: String,
-    // Teams database production collection
-    pub team_database_files_collection: String,
-    pub team_database_stage_collection: String,
-    pub team_database_watchers_collection: String,
-    pub team_database_pipelines_collection: String
+    pub admin_database_scheduler_collection: String,
+    pub admin_database_jobs_collection: String,
+    pub admin_database_locks_collection: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

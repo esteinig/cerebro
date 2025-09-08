@@ -80,4 +80,7 @@ pub enum HttpClientError {
     PlottersError(#[from] DrawingAreaErrorKind<plotters_bitmap::BitMapBackendError>), 
     #[error(transparent)]
     StudentsError(#[from] StudentsTError),
+
+    #[error("response failed (status code: {0}) with error message: {1}")]
+    ResponseFailureWithMessage(StatusCode, String)
 }

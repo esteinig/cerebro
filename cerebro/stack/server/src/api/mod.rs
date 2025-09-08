@@ -10,3 +10,6 @@ pub mod files;
 pub mod towers;
 pub mod watchers;
 pub mod stage;
+pub mod jobs;
+pub mod scheduler;
+pub mod training;

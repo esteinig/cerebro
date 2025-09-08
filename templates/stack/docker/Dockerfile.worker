@@ -1,0 +1,13 @@
+FROM rust:1.79-slim AS build
+WORKDIR /app
+# Cache deps
+COPY ./Cargo.toml Cargo.toml
+# Build app
+COPY ./cerebro cerebro
+RUN cargo build --release -p cerebro-worker
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV RUST_LOG=info
+COPY --from=build /app/target/release/cerebro-worker /usr/local/bin/cerebro-worker
+ENTRYPOINT ["/usr/local/bin/cerebro-worker"]

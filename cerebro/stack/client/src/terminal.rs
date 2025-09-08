@@ -99,6 +99,10 @@ pub enum Commands {
     /// Taxon history query for data and host regression
     GetTaxonHistory(TaxonHistoryArgs),
 
+    /// Admin job scheduler for service tasks
+    #[clap(subcommand)]
+    Jobs(JobsCommands),
+
     /// CRUD operations for production watchers
     #[clap(subcommand)]
     Watcher(WatcherCommands),
@@ -330,6 +334,68 @@ pub struct TaxonHistoryArgs {
     #[clap(long, short = 'p')]
     pub plot: Option<PathBuf>,
 }
+
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum JobsCommands {
+    /// Enqueue a job to run ASAP
+    LaunchJob {
+        /// Worker type, e.g. "gridfs_process"
+        #[arg(long)]
+        kind: String,
+        /// JSON string for object-form args (e.g. '{"db":"...","project":"..."}')
+        #[arg(long)]
+        args: String,
+        /// Faktory queue (default: "default")
+        #[arg(long)]
+        queue: Option<String>,
+        /// Retry count
+        #[arg(long)]
+        retry: Option<i32>,
+        /// Reserve-for seconds
+        #[arg(long, alias="ttr")]
+        reserve_for_seconds: Option<u64>,
+    },
+    /// Schedule a one-shot or recurring job
+    ScheduleJob {
+        #[arg(long)]
+        kind: String,
+        /// JSON string for object-form args
+        #[arg(long)]
+        args: String,
+        /// First run time in RFC3339 (UTC), e.g. "2025-08-25T09:00:00Z"
+        #[arg(long)]
+        run_at: String,
+        /// Optional: recurrence period in seconds
+        #[arg(long)]
+        interval_seconds: Option<i64>,
+        #[arg(long)]
+        queue: Option<String>,
+        #[arg(long)]
+        retry: Option<i32>,
+        #[arg(long, alias="ttr")]
+        reserve_for_seconds: Option<u64>,
+        #[arg(long)]
+        enabled: Option<bool>,
+    },
+
+    /// Show the scheduler summary (next/previous 10)
+    ScheduleSummary,
+
+    /// Show a one-line status summary for a job id (UUID or Faktory JID)
+    JobStatus {
+        /// Job id: your UUID or Faktory JID
+        #[arg(long)]
+        id: String,
+    },
+
+    /// Print "yes"/"no" if the job is complete
+    JobComplete {
+        /// Job id: your UUID or Faktory JID
+        #[arg(long)]
+        id: String,
+    },
+}
+
 
 #[derive(Debug, Args)]
 pub struct TeamArgs {

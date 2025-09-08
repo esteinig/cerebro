@@ -28,6 +28,13 @@ use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::DeleteFilesResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
+use cerebro_model::api::jobs::response::CreateScheduleResponse;
+use cerebro_model::api::jobs::response::EnqueueJobResponse;
+use cerebro_model::api::jobs::response::JobCompletionResponse;
+use cerebro_model::api::jobs::response::JobsStatusResponse;
+use cerebro_model::api::jobs::response::ScheduleJobSummary;
+use cerebro_model::api::jobs::schema::EnqueueJobRequest;
+use cerebro_model::api::jobs::schema::ScheduleJobRequest;
 use cerebro_model::api::teams::schema::RegisterDatabaseSchema;
 use cerebro_model::api::teams::schema::RegisterTeamSchema;
 use cerebro_model::api::towers::model::ProductionTower;
@@ -114,6 +121,10 @@ pub enum Route {
     TeamStagedSamplesList,
     TeamStagedSamplesDelete,
     TeamStagedSamplesPull,
+    JobsEnqueue,
+    JobsEnqueueStatus,
+    JobsSchedule,
+    JobsScheduleStatus,
 }
 
 impl Route {
@@ -151,6 +162,10 @@ impl Route {
             Route::TeamStagedSamplesList => "stage",
             Route::TeamStagedSamplesDelete => "stage",
             Route::TeamStagedSamplesPull => "stage",
+            Route::JobsEnqueue => "jobs/enqueue",
+            Route::JobsEnqueueStatus => "jobs/enqueue",
+            Route::JobsSchedule => "jobs/schedule",
+            Route::JobsScheduleStatus => "jobs/schedule/status",
         }
     }
 }
@@ -516,7 +531,6 @@ impl CerebroClient {
 
         url
     }
-
     pub fn create_project(
         &self,
         name: &str,
@@ -542,7 +556,185 @@ impl CerebroClient {
         )?;
         Ok(())
     }
+    // Schedule status summary (GET /jobs/schedule/status)
+    // Returns a single pretty line-per-item string for "next" and "previous".
+    pub fn schedule_status(&self) -> Result<String, HttpClientError> {
+        let response = self.client
+            .get(self.routes.url(Route::JobsScheduleStatus))
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
 
+        // Parse standard success / error
+        let status = response.status();
+        if !status.is_success() {
+            let err: ErrorResponse = response.json().map_err(|_| {
+                HttpClientError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse error response"),
+                )
+            })?;
+            return Err(HttpClientError::ResponseFailureWithMessage(status, err.message));
+        }
+
+        let res: JobsStatusResponse = response.json().map_err(|_| {
+            HttpClientError::DataResponseFailure(
+                status,
+                String::from("failed to parse schedule status response"),
+            )
+        })?;
+
+        // Format summary
+        if let Some(data) = res.data {
+            let mut out = String::new();
+
+            if !data.next.is_empty() {
+                out.push_str("Next:\n");
+                for j in &data.next {
+                    // ScheduleJobSummary typically has: id, kind, queue, run_at, last_run_at (optional)
+                    out.push_str(&format!(
+                        "  {}  kind={}  queue={}\n",
+                        j.run_at, j.kind, j.queue
+                    ));
+                }
+            }
+
+            if !data.previous.is_empty() {
+                if !out.is_empty() { out.push('\n'); }
+                out.push_str("Previous:\n");
+                for j in &data.previous {
+                    let last = j.last_run_at
+                        .as_ref()
+                        .map(|d| d.to_string())
+                        .unwrap_or_else(|| "-".into());
+                    out.push_str(&format!(
+                        "  last_run_at={}  kind={}  queue={}\n",
+                        last, j.kind, j.queue
+                    ));
+                }
+            }
+
+            if out.is_empty() {
+                Ok(String::from("No scheduled jobs found"))
+            } else {
+                Ok(out.trim_end().to_string())
+            }
+        } else {
+            Ok(String::from("No scheduled jobs found"))
+        }
+    }
+
+    // Job status summary (GET /jobs/enqueue/{id})
+    // Returns a compact one-line summary with completed/status and optional result/error.
+    pub fn job_status(&self, id: &str) -> Result<String, HttpClientError> {
+        let url = format!("{}/{}", self.routes.url(Route::JobsEnqueueStatus), id);
+        let response = self.client
+            .get(&url)
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let err: ErrorResponse = response.json().map_err(|_| {
+                HttpClientError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse error response"),
+                )
+            })?;
+            return Err(HttpClientError::ResponseFailureWithMessage(status, err.message));
+        }
+
+        let res: JobCompletionResponse = response.json().map_err(|_| {
+            HttpClientError::DataResponseFailure(
+                status,
+                String::from("failed to parse job completion response"),
+            )
+        })?;
+
+        let mut line = format!("completed={} status={}", res.completed, res.status.unwrap_or_else(|| "unknown".into()));
+
+        if let Some(err) = res.error {
+            line.push_str(&format!(" error={}", err));
+        } else if let Some(val) = res.result {
+            line.push_str(&format!(" result={}", val));
+        }
+
+        Ok(line)
+    }
+
+    // Job complete? (GET /jobs/enqueue/{id})
+    // Returns "yes" or "no"
+    pub fn job_complete(&self, id: &str) -> Result<String, HttpClientError> {
+        let url = format!("{}/{}", self.routes.url(Route::JobsEnqueueStatus), id);
+        let response = self.client
+            .get(&url)
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let err: ErrorResponse = response.json().map_err(|_| {
+                HttpClientError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse error response"),
+                )
+            })?;
+            return Err(HttpClientError::ResponseFailureWithMessage(status, err.message));
+        }
+
+        let res: JobCompletionResponse = response.json().map_err(|_| {
+            HttpClientError::DataResponseFailure(
+                status,
+                String::from("failed to parse job completion response"),
+            )
+        })?;
+
+        Ok(if res.completed { "yes".into() } else { "no".into() })
+    }
+    /// Fire-and-forget enqueue to Faktory via API
+    pub fn enqueue_job(
+        &self,
+        req: &EnqueueJobRequest,
+    ) -> Result<Option<String>, HttpClientError> {
+        let response = self.client
+            .post(self.routes.url(Route::JobsEnqueue))
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .json(req)
+            .send()?;
+
+        let res = self.handle_response::<EnqueueJobResponse>(
+            response,
+            Some("Job enqueued"),
+            "Job enqueue failed",
+        )?;
+
+        Ok(res.data)
+    }
+
+    /// Create a schedule (one-shot or recurring)
+    pub fn schedule_job(
+        &self,
+        req: &ScheduleJobRequest,
+    ) -> Result<String, HttpClientError> {
+        
+        let response = self.client
+            .post(self.routes.url(Route::JobsSchedule))
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .json(req)
+            .send()?;
+
+        let res = self.handle_response::<CreateScheduleResponse>(
+            response,
+            Some("Schedule created"),
+            "Schedule creation failed",
+        )?;
+
+        res.data.ok_or_else(|| {
+            HttpClientError::DataResponseFailure(
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                String::from("Server did not return schedule id"),
+            )
+        })
+    }
     pub fn create_database(
         &self,
         name: &str,

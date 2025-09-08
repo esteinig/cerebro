@@ -10,3 +10,5 @@ pub mod towers;
 pub mod watchers;
 pub mod stage;
 pub mod settings;
+pub mod jobs;
+pub mod training;

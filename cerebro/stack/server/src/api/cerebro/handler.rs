@@ -1,7 +1,5 @@
-use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse, QualityControlTableResponse, RetrieveModelResponse, SampleSummary, SampleSummaryResponse, TaxonHistoryResponse, TaxonHistoryResult};
-use futures::StreamExt;
+use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse, QualityControlTableResponse, RetrieveModelResponse, TaxonHistoryResponse, TaxonHistoryResult};
 use mongodb::bson::{from_document, Document};
-use mongodb::gridfs::GridFsBucket;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use futures::stream::TryStreamExt;
@@ -9,6 +7,7 @@ use mongodb::{bson::doc, Collection, Database};
 use actix_web::{get, post, web, HttpResponse, patch, delete, HttpRequest};
 
 use crate::api::auth::jwt::{self, TeamProjectAccessQuery};
+use crate::api::cerebro::gridfs::delete_from_gridfs;
 use cerebro_model::api::config::Config;
 use cerebro_model::api::users::model::Role;
 use crate::api::utils::as_csv_string;
@@ -16,7 +15,7 @@ use crate::api::server::AppState;
 use crate::api::cerebro::{gridfs, mongo::*};
 use crate::api::logs::utils::log_database_change;
 use cerebro_model::api::logs::model::{LogModule, Action, RequestLog, AccessDetails};
-use cerebro_model::api::teams::model::{DatabaseId, ProjectCollection, ProjectId, Team, TeamAdminCollection, TeamDatabase};
+use cerebro_model::api::teams::model::{DatabaseId, ProjectCollection, ProjectId, TeamDatabase};
 use cerebro_model::api::cerebro::model::{
     Cerebro, 
     PriorityTaxon,
@@ -37,7 +36,7 @@ use cerebro_model::api::cerebro::schema::{
 use mongodb::options::{UpdateManyModel, WriteModel};
 
 use cerebro_pipeline::taxa::filter::*;
-use cerebro_pipeline::modules::quality::{ModelConfig, ReadQualityControl};
+use cerebro_pipeline::modules::quality::ModelConfig;
 use cerebro_pipeline::taxa::taxon::{aggregate, collapse_taxa, Taxon};
 
 type CerebroIds = String;
@@ -105,8 +104,11 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
 
     let mut model = cerebro.into_inner();
 
-    match gridfs::upload_taxa_to_gridfs(db.gridfs_bucket(None), &model.taxa, &model.id).await {
-        Ok(_) => model.taxa.clear(), // Set taxa to empty since we uploaded to GridFS
+    let gridfs_id = match gridfs::upload_taxa_to_gridfs(db.gridfs_bucket(None), &model.taxa, &model.id).await {
+        Ok(gridfs_id) => {
+            model.taxa.clear(); // Set taxa to empty since we uploaded to GridFS
+            gridfs_id
+        }
         Err(err) => {
             return HttpResponse::InternalServerError().json(serde_json::json!({
                 "status": "fail",
@@ -114,17 +116,22 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
                 "data": []
             }));
         }
-    }
+    };
 
-    let result = project_collection.insert_one(model).await;
+    let result = project_collection.insert_one(&model).await;
 
     match result {
         Ok(_) => HttpResponse::Ok().json(
             serde_json::json!({"status": "success", "message": format!("Sample {} from workflow {} with tags ({}) added to database", &sample_name, &sample_workflow, &sample_tags.join(", ")), "data": []})
         ),
-        Err(err) => HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail", "message": format!("{}", err.to_string()), "data": []})
-        ),
+        Err(err) => {
+            // Try to remove from GridFS if insert fails:
+            let _ = delete_from_gridfs(&db.gridfs_bucket(None), gridfs_id).await;
+            
+            HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "fail", "message": format!("{}", err.to_string()), "data": []})
+            )
+        }
     }
 }
 
@@ -794,7 +801,7 @@ pub fn apply_prevalence_contamination_filter(
         .collect()
 }
 
-// Prevalence contamination identification
+// Prevalence contamination identification - TODO: stratify by sample type (already in ContaminationSchema)
 #[post("/cerebro/taxa/contamination")]
 async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_schema: web::Json<ContaminationSchema>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     

@@ -9,5 +9,6 @@ members = [
     "cerebro/stack/pipeline",
     "cerebro/stack/report-wasm",
     "cerebro/stack/ciqa",
+    "cerebro/stack/worker"
 ]
 resolver = "2"

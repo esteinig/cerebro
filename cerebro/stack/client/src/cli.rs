@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use std::fs::create_dir_all;
 
 use cerebro_client::error::HttpClientError;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, PathogenDetectionTableSchema, QualityControlTableSchema};
+use cerebro_model::api::cerebro::schema::{PathogenDetectionTableSchema, QualityControlTableSchema};
+use cerebro_model::api::jobs::schema::{EnqueueJobRequest, ScheduleJobRequest};
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
@@ -10,12 +10,11 @@ use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_pipeline::modules::alignment::Alignment;
 use cerebro_pipeline::modules::pathogen::PathogenDetection;
 use cerebro_pipeline::modules::quality::QualityControl;
-use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{App, Commands, DatabaseCommands, ProjectCommands, StageCommands, TowerCommands, WatcherCommands};
+use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, WatcherCommands};
 
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipeline::taxa::taxon::TaxonExtraction;
@@ -493,6 +492,77 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         },
+        Commands::Jobs(sub) => {
+            match sub {
+                JobsCommands::LaunchJob { kind, args, queue, retry, reserve_for_seconds } => {
+                    
+                    // parse JSON string to Value
+                    let args_json: serde_json::Value = serde_json::from_str(args)
+                        .map_err(|e| HttpClientError::DataResponseFailure(
+                            reqwest::StatusCode::BAD_REQUEST, format!("Invalid --args JSON: {e}")
+                        ))?;
+
+                    let req = EnqueueJobRequest {
+                        kind: kind.clone(),
+                        args: args_json,
+                        queue: queue.clone(),
+                        retry: *retry,
+                        reserve_for_seconds: *reserve_for_seconds,
+                    };
+                    let id = client.enqueue_job(&req)?;
+                    println!("{}", id.unwrap_or("error".to_string()));
+                }
+                JobsCommands::ScheduleJob {
+                    kind, 
+                    args, 
+                    queue, 
+                    run_at, 
+                    interval_seconds, 
+                    retry, 
+                    reserve_for_seconds, 
+                    enabled
+                } => {
+
+                    let args_json: serde_json::Value = serde_json::from_str(args)
+                        .map_err(|e| HttpClientError::DataResponseFailure(
+                            reqwest::StatusCode::BAD_REQUEST, format!("Invalid --args JSON: {e}")
+                        ))?;
+
+                    let run_at_dt = chrono::DateTime::parse_from_rfc3339(run_at)
+                        .map_err(|e| HttpClientError::DataResponseFailure(
+                            reqwest::StatusCode::BAD_REQUEST, format!("Invalid --run-at RFC3339: {e}")
+                        ))?
+                        .with_timezone(&chrono::Utc);
+
+                    let req = ScheduleJobRequest {
+                        kind: kind.clone(),
+                        args: args_json,
+                        queue: queue.clone(),
+                        run_at: run_at_dt,
+                        interval_seconds: *interval_seconds,
+                        retry: *retry,
+                        reserve_for_seconds: *reserve_for_seconds,
+                        enabled: *enabled,
+                    };
+                    
+                    let schedule_id = client.schedule_job(&req)?;
+                    println!("{schedule_id}");
+                }
+
+                JobsCommands::ScheduleSummary => {
+                    let s = client.schedule_status()?;
+                    println!("{s}");
+                }
+                JobsCommands::JobStatus { id } => {
+                    let s = client.job_status(id)?;
+                    println!("{s}");
+                }
+                JobsCommands::JobComplete { id } => {
+                    let yn = client.job_complete(id)?;
+                    println!("{yn}");
+                }
+            }
+        }
     }
 
     Ok(())

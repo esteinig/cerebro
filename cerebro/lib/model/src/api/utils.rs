@@ -30,5 +30,7 @@ impl std::fmt::Display for HttpMethod {
 pub enum AdminCollection {
     Users,
     Teams,
-    Logs
+    Logs,
+    Scheduler,
+    Jobs
 }
