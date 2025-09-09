@@ -1678,7 +1678,4 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
         cfg.service(sample_comment_handler)
            .service(delete_sample_comment_handler);
     }
-
-    
-
 }

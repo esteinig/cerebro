@@ -70,12 +70,14 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    
     /// Login user for authentication token 
     Login(LoginArgs),
     /// Ping the server as authenticated user 
     PingServer(PingArgs),
     /// Ping the server as unauthenticated user
     PingStatus(StatusArgs),
+
     /// Process pathogen-detection pipeline outputs for upload to database
     CreatePathogen(CreatePathogenArgs),
     /// Process panviral-enrichment pipeline outputs for upload to database
@@ -99,9 +101,10 @@ pub enum Commands {
     /// Taxon history query for data and host regression
     GetTaxonHistory(TaxonHistoryArgs),
 
-    /// Admin job scheduler for service tasks
+
+    /// CRUD operations for training collections
     #[clap(subcommand)]
-    Jobs(JobsCommands),
+    Training(TrainingCommands),
 
     /// CRUD operations for production watchers
     #[clap(subcommand)]
@@ -112,6 +115,7 @@ pub enum Commands {
     /// CRUD operations for staging production files
     #[clap(subcommand)]
     Stage(StageCommands),
+
     /// CRUD operations for teams
     #[clap(subcommand)]
     Team(TeamCommands),
@@ -121,6 +125,10 @@ pub enum Commands {
     #[clap(subcommand)]
     /// CRUD operations for team database projects
     Project(ProjectCommands),
+
+    /// Faktory job scheduler
+    #[clap(subcommand)]
+    Jobs(JobsCommands),
 }
 
 #[derive(Debug, Args)]
@@ -396,6 +404,45 @@ pub enum JobsCommands {
     },
 }
 
+
+#[derive(Debug, Subcommand)]
+pub enum TrainingCommands {
+    /// Upload and register prefetch data in the team database
+    Upload(TrainingUploadArgs),
+    /// List registered prefetch data by training collection
+    List(TrainingListArgs),
+    /// Delete registered prefetch data 
+    Delete(TrainingDeleteArgs),
+}
+
+
+#[derive(Debug, Args)]
+pub struct TrainingUploadArgs {
+    /// Prefetch data to upload
+    #[clap(short, long, short = 'p', num_args(1..))]
+    pub prefetch: Vec<PathBuf>,
+    /// Training collection
+    #[clap(short, long)]
+    pub collection: String,
+}
+
+#[derive(Debug, Args)]
+pub struct TrainingListArgs {
+    /// Training collection
+    #[clap(short, long)]
+    pub collection: Option<String>,
+}
+
+
+#[derive(Debug, Args)]
+pub struct TrainingDeleteArgs {
+    /// Training collection
+    #[clap(short, long)]
+    pub collection: String,
+    /// Training name
+    #[clap(short, long)]
+    pub name: Option<String>,
+}
 
 #[derive(Debug, Args)]
 pub struct TeamArgs {

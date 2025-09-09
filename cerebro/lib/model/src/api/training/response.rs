@@ -1,29 +1,29 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use crate::api::{cerebro::schema::PrefetchData, training::model::TrainingPrefetchRecord};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrainingResponse<T> {
-    pub success: bool,
+    pub status: String,
     pub message: String,
     pub data: Option<T>,
 }
 
 impl<T> TrainingResponse<T> {
     pub fn ok(data: T) -> Self {
-        Self { success: true, message: "ok".into(), data: Some(data) }
+        Self { status: "ok".to_string(), message: "ok".into(), data: Some(data) }
     }
     pub fn created(message: &str) -> Self {
-        Self { success: true, message: message.into(), data: None }
+        Self { status: "ok".to_string(), message: message.into(), data: None }
     }
     pub fn error(message: &str) -> Self {
-        Self { success: false, message: message.into(), data: None }
+        Self { status: "fail".to_string(), message: message.into(), data: None }
     }
     pub fn not_found(message: &str) -> Self {
-        Self { success: false, message: message.into(), data: None }
+        Self { status: "fail".to_string(), message: message.into(), data: None }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrainingPrefetchData {
     pub id: String,
     pub collection: String,

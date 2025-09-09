@@ -56,11 +56,11 @@
         {:else}
             <p class="flex justify-center py-12 opacity-60">Select taxa from the table for historical comparison</p>
         {/if}
-        <p class="text-lg opacity-60 py-12">Threshold taxonomic profiling</p>
+        <p class="text-lg opacity-60 py-12">Above-threshold</p>
         <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={primaryThresholdServerFilterConfig}></SpeciesOverviewTable>
-        <p class="text-lg opacity-60 py-12">Sub-threshold taxonomic profiling</p>
+        <p class="text-lg opacity-60 py-12">Sub-threshold</p>
         <SpeciesOverviewTable displayData={selectedTableData} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={secondaryThresholdServerFilterConfig}></SpeciesOverviewTable>
-        <p class="text-lg opacity-60 py-12">Validation plate</p>
+        <p class="text-lg opacity-60 py-12">Target threshold</p>
         <SpeciesOverviewTable displayData={DisplayData.Rpm} displayMode={selectedTableMode} selectedVisualisation={selectedVisualisation} serverFilterConfig={validationThresholdServerFilterConfig} disablePrevalenceContamination={true}></SpeciesOverviewTable>
     {:else}
 

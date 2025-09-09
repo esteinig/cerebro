@@ -2230,4 +2230,52 @@ export type RegisterStagedSampleSchema = {
     run_id: string | null
 }
 
+export type CerebroIdentifierSmallSchema = {
+    controls: string[] | null;
+    tags: string[] | null;
+};
 
+export type PrevalenceOutliers = {
+    primary: boolean;
+    secondary: boolean;
+    target: boolean;
+};
+  
+export type MetaGpContaminationConfig = PrevalenceContaminationConfig & {
+    outliers: PrevalenceOutliers;
+};
+
+export type TieredFilterConfig = {
+    primary: TaxonFilterConfig;
+    secondary: TaxonFilterConfig;
+    target: TaxonFilterConfig;
+};
+
+  
+export type MetaGpConfig = {
+    sample: string;
+    identifiers: CerebroIdentifierSmallSchema;
+    filter_configs: TieredFilterConfig;
+    contamination: MetaGpContaminationConfig;
+};
+  
+export type PrefetchData = {
+    primary: Taxon[];
+    secondary: Taxon[];
+    target: Taxon[];
+    primary_contamination: Taxon[];
+    secondary_contamination: Taxon[];
+    target_contamination: Taxon[];
+    primary_filter: TaxonFilterConfig;
+    secondary_filter: TaxonFilterConfig;
+    target_filter: TaxonFilterConfig;
+    config: MetaGpConfig;
+};
+
+export type TrainingPrefetchData = {
+    id: string;
+    collection: string;
+    identifier: string;
+    name: string;
+    prefetch: PrefetchData;
+};

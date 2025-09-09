@@ -22,7 +22,7 @@
                         </svelte:fragment> 
                             Pipeline Deployment
                     </ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="taxdb" active='variant-soft' rounded='rounded-token'>
+                    <ListBoxItem bind:group={selectedView} name="medium" value="taxdb" active='variant-soft' rounded='rounded-token' disabled>
                         <svelte:fragment slot="lead">
                             <div class="w-4 h-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-database"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
@@ -30,7 +30,7 @@
                         </svelte:fragment> 
                           Databases and Taxonomy
                     </ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="qa" active='variant-soft' rounded='rounded-token'>
+                    <ListBoxItem bind:group={selectedView} name="medium" value="qa" active='variant-soft' rounded='rounded-token' disabled>
                         <svelte:fragment slot="lead">
                             <div class="w-4 h-4">
                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open-check"><path d="M8 3H2v15h7c1.7 0 3 1.3 3 3V7c0-2.2-1.8-4-4-4Z"/><path d="m16 12 2 2 4-4"/><path d="M22 6V3h-6c-2.2 0-4 1.8-4 4v14c0-1.7 1.3-3 3-3h7v-2.3"/></svg>
@@ -38,7 +38,7 @@
                         </svelte:fragment> 
                         Quality Assurance Reports
                     </ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value="train" active='variant-soft' rounded='rounded-token'>
+                    <ListBoxItem bind:group={selectedView} name="medium" value="train" active='variant-soft' rounded='rounded-token'  on:click={() => goto("./cerebro/training/team=0")}>
                         <svelte:fragment slot="lead">
                             <div class="w-4 h-4">
                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open-check"><path d="M8 3H2v15h7c1.7 0 3 1.3 3 3V7c0-2.2-1.8-4-4-4Z"/><path d="m16 12 2 2 4-4"/><path d="M22 6V3h-6c-2.2 0-4 1.8-4 4v14c0-1.7 1.3-3 3-3h7v-2.3"/></svg>

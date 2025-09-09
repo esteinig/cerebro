@@ -1,10 +1,8 @@
-use cerebro_model::api::{cerebro::schema::PrefetchData, teams::model::TeamAdminCollection, training::{model::TrainingPrefetchRecord, response::{TrainingPrefetchData, TrainingResponse}, schema::{CreateTrainingPrefetch, QueryTrainingPrefetch}}};
-use mongodb::bson::{from_document, Document};
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use cerebro_model::api::{teams::model::TeamAdminCollection, training::{model::TrainingPrefetchRecord, response::{TrainingPrefetchData, TrainingResponse}, schema::{CreateTrainingPrefetch, QueryTrainingPrefetch}}};
+
 use futures::stream::TryStreamExt;
-use mongodb::{bson::doc, Collection, Database};
-use actix_web::{get, post, web, HttpResponse, patch, delete, HttpRequest};
+use mongodb::{bson::doc, Collection};
+use actix_web::{get, post, web, HttpResponse, delete};
 
 use crate::api::{auth::jwt::{self, TeamAccessQuery}, server::AppState, training::gridfs::{delete_from_gridfs, download_prefetch_from_gridfs, find_unique_gridfs_id_by_filename, upload_prefetch_to_gridfs}, utils::get_teams_db_collection};
 
@@ -22,7 +20,7 @@ async fn insert_training_handler(data: web::Data<AppState>, body: web::Json<Crea
         .await
     {
         return HttpResponse::Conflict()
-            .json(TrainingResponse::<()>::error("A prefetch with this collection+identifier already exists"));
+            .json(TrainingResponse::<()>::error("A prefetch with this collection and identifier already exists"));
     }
 
     let bucket = data.db.database(&auth_guard.team.admin.database).gridfs_bucket(None);
@@ -64,6 +62,9 @@ async fn retrieve_training_handler(data: web::Data<AppState>, filter: web::Query
     }
     if let Some(i) = &filter.identifier {
         query.insert("identifier", i.clone());
+    }
+    if let Some(n) = &filter.name {
+        query.insert("name", n.clone());
     }
 
     let mut cursor = match training_collection.find(query).await {
@@ -118,7 +119,6 @@ async fn delete_training_handler(data: web::Data<AppState>, id: web::Path<Prefet
         _ => return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A prefetch with this identifier does not exist"))
     };
 
-
     // Delete metadata
     if let Err(e) = training_collection.delete_one(doc! { "id": &doc.id }).await {
         return HttpResponse::InternalServerError()
@@ -131,7 +131,7 @@ async fn delete_training_handler(data: web::Data<AppState>, id: web::Path<Prefet
     let gridfs_id = match find_unique_gridfs_id_by_filename(&bucket, &doc.id).await {
         Ok(id) => id,
         Err(err) => return HttpResponse::InternalServerError().json(
-            TrainingResponse::<()>::error(&format!("Failed to find unqiue GridFS identifier {}: {}", doc.id, err.to_string()))
+            TrainingResponse::<()>::error(&format!("Failed to find unique GridFS identifier {}: {}", doc.id, err.to_string()))
         )
     };
 

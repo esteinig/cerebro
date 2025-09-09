@@ -13,16 +13,12 @@ use cerebro_model::api::cerebro::response::FilteredTaxaResponse;
 use cerebro_model::api::cerebro::response::PathogenDetectionTableResponse;
 use cerebro_model::api::cerebro::response::QualityControlTableResponse;
 use cerebro_model::api::cerebro::response::RetrieveModelResponse;
-use cerebro_model::api::cerebro::response::SampleSummary;
-use cerebro_model::api::cerebro::response::SampleSummaryResponse;
 use cerebro_model::api::cerebro::response::TaxonHistoryResponse;
-use cerebro_model::api::cerebro::response::TaxonHistoryResult;
 use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
 use cerebro_model::api::cerebro::schema::ContaminationSchema;
 use cerebro_model::api::cerebro::schema::PathogenDetectionTableSchema;
 use cerebro_model::api::cerebro::schema::QualityControlTableSchema;
 use cerebro_model::api::cerebro::schema::PrevalenceContaminationConfig;
-use cerebro_model::api::files::model::FileTag;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
@@ -32,11 +28,9 @@ use cerebro_model::api::jobs::response::CreateScheduleResponse;
 use cerebro_model::api::jobs::response::EnqueueJobResponse;
 use cerebro_model::api::jobs::response::JobCompletionResponse;
 use cerebro_model::api::jobs::response::JobsStatusResponse;
-use cerebro_model::api::jobs::response::ScheduleJobSummary;
 use cerebro_model::api::jobs::schema::EnqueueJobRequest;
 use cerebro_model::api::jobs::schema::ScheduleJobRequest;
 use cerebro_model::api::teams::schema::RegisterDatabaseSchema;
-use cerebro_model::api::teams::schema::RegisterTeamSchema;
 use cerebro_model::api::towers::model::ProductionTower;
 use cerebro_model::api::towers::response::DeleteTowerResponse;
 use cerebro_model::api::towers::response::ListTowersResponse;
@@ -47,6 +41,9 @@ use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::stage::response::DeleteStagedSampleResponse;
 use cerebro_model::api::stage::response::ListStagedSamplesResponse;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
+use cerebro_model::api::training::response::TrainingPrefetchData;
+use cerebro_model::api::training::response::TrainingResponse;
+use cerebro_model::api::training::schema::CreateTrainingPrefetch;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::watchers::response::DeleteWatcherResponse;
 use cerebro_model::api::watchers::response::ListWatchersResponse;
@@ -56,7 +53,6 @@ use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_pipeline::modules::pathogen::PathogenDetectionTableRecord;
 use cerebro_pipeline::modules::quality::ReadQualityControl;
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
-use cerebro_pipeline::taxa::taxon::LineageOperations;
 use cerebro_pipeline::taxa::taxon::Taxon;
 use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
@@ -125,6 +121,9 @@ pub enum Route {
     JobsEnqueueStatus,
     JobsSchedule,
     JobsScheduleStatus,
+    TrainingRegister,
+    TrainingList,
+    TrainingDelete
 }
 
 impl Route {
@@ -166,6 +165,9 @@ impl Route {
             Route::JobsEnqueueStatus => "jobs/enqueue",
             Route::JobsSchedule => "jobs/schedule",
             Route::JobsScheduleStatus => "jobs/schedule/status",
+            Route::TrainingRegister => "training/prefetch",
+            Route::TrainingList => "training/prefetch",
+            Route::TrainingDelete => "training/prefetch",
         }
     }
 }
@@ -1435,6 +1437,134 @@ impl CerebroClient {
                 )),
                 "Upload failed",
             )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn upload_training_prefetch(
+        &self, 
+        prefetch: &Vec<PathBuf>,
+        collection: &str
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        for file in prefetch {
+
+            let schema = CreateTrainingPrefetch::from_file(file, collection)?;
+            let url = format!("{}", self.routes.url(Route::TrainingRegister));
+
+            log::info!("Uploading prefetch data '{}' to collection '{}'", schema.name, collection);
+
+            let response = self.send_request_with_team(
+                self.client
+                    .post(url)
+                    .json(&schema)
+            )?;
+
+            let _ = self.handle_response::<TrainingResponse<String>>(
+                response,
+                None,
+                "Prefetch data upload failed",
+            )?;
+        }
+
+
+        Ok(())
+    }
+
+    pub fn list_training_collections(
+        &self, 
+        collection: Option<String>
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = if let Some(c) = collection {
+            self.build_request_url(
+                format!("{}", self.routes.url(Route::TrainingList)), 
+                &[("collection", c)]
+            )
+        } else {
+            self.routes.url(Route::TrainingList)
+        };
+        
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(url)
+        )?;
+
+        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingPrefetchData>>>(
+            response,
+            None,
+            "Prefetch data retrieval failed",
+        )?;
+
+        if let Some(data) = training_response.data {
+            for training_prefetch in data  {
+                log::info!("collection={} name={} identifier={} id={}", training_prefetch.collection, training_prefetch.name, training_prefetch.name, training_prefetch.id);
+            }
+        }
+
+        Ok(())
+    }
+
+
+    pub fn delete_training_data(
+        &self, 
+        collection: String,
+        name: Option<String>
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        
+        let url = self.build_request_url(
+            format!("{}", self.routes.url(Route::TrainingList)), 
+            &[("collection", collection.clone())]
+        );
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(url)
+        )?;
+
+        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingPrefetchData>>>(
+            response,
+            None,
+            "Prefetch data retrieval failed",
+        )?;
+
+
+        if let Some(data) = training_response.data {
+            log::info!("{} entries in training collection '{}'", data.len(), &collection);
+            for training_prefetch in data  {
+
+                if let Some(ref name) = name {
+                    if name.as_str() != training_prefetch.name {
+                        continue 
+                    }
+                }
+
+                let url = format!("{}/{}", self.routes.url(Route::TrainingDelete), training_prefetch.id);
+
+                log::info!("Deleting entry '{}' from collection '{collection}'", training_prefetch.name);
+
+                let response = self.send_request_with_team(
+                    self.client
+                        .delete(url)
+                )?;
+                
+                let _ = self.handle_response::<TrainingResponse<String>>(
+                    response,
+                    None,
+                    "Deletion failed",
+                )?;
+            }
+        } else {
+            log::warn!("No data was returned for this collection")
         }
 
         Ok(())

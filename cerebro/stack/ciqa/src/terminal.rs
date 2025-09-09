@@ -380,6 +380,10 @@ pub struct PrefetchArgs {
     /// Tiered filter config (.json) otherwise default
     #[clap(long)]
     pub tiered_filter: Option<PathBuf>,
+    /// Disable any filters or contamination controls, simply prefetch 
+    /// the raw data into the primary filter category
+    #[clap(long)]
+    pub disable_filter: bool,
     /// Threads to use for fetching data
     #[clap(long, short = 't', default_value="4")]
     pub threads: u64,

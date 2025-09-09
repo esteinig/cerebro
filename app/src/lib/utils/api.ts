@@ -247,6 +247,9 @@ interface StageRoutes {
     registerSamples: string
 }
 
+interface TrainingRoutes {
+    getCollection: string
+}
 
 /**
  * Cerebro API Routes
@@ -267,6 +270,7 @@ export class Routes {
     watchers: WatcherRoutes;
     stage: StageRoutes;
     cerebro: CerebroRoutes;
+    training: TrainingRoutes;
 
     constructor(apiUrl: string) {
 
@@ -279,6 +283,7 @@ export class Routes {
         let watcherRoute = `${apiUrl}/watcher`;
         let stageRoute = `${apiUrl}/stage`;
         let cerebroRoute = `${apiUrl}/cerebro`;
+        let trainingRoute = `${apiUrl}/training`;
 
         this.auth = {
             login: `${authRoute}/login`,
@@ -348,6 +353,9 @@ export class Routes {
         }
         this.stage = {
             registerSamples: `${stageRoute}/register`
+        }
+        this.training = {
+            getCollection: `${trainingRoute}/prefetch`
         }
     }
 }

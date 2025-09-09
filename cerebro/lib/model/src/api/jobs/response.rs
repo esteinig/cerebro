@@ -4,8 +4,6 @@ use bson::serde_helpers::chrono_datetime_as_bson_datetime_optional;
 use bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use super::model::ScheduleJob;
 
-// ---------- Enqueue (fire-and-forget) ----------
-
 #[derive(Serialize, Deserialize)]
 pub struct EnqueueJobResponse {
     pub status: String,
@@ -29,8 +27,6 @@ impl EnqueueJobResponse {
         }
     }
 }
-
-// ---------- Create schedule ----------
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateScheduleResponse {
@@ -75,8 +71,6 @@ pub struct JobCompletionResponse {
     pub status: Option<String>,
 }
 
-// ---------- List schedules ----------
-
 #[derive(Serialize, Deserialize)]
 pub struct ListSchedulesResponse {
     pub status: String,
@@ -107,8 +101,6 @@ impl ListSchedulesResponse {
     }
 }
 
-// ---------- Delete schedule ----------
-
 #[derive(Serialize, Deserialize)]
 pub struct DeleteScheduleResponse {
     pub status: String,
@@ -138,8 +130,6 @@ impl DeleteScheduleResponse {
         }
     }
 }
-
-// ---------- Trigger-now / Enable / Disable ----------
 
 #[derive(Serialize, Deserialize)]
 pub struct SimpleScheduleActionResponse {

@@ -179,10 +179,11 @@
     
 <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-4 gap-16 pt-10">
     <div class="gap-y-4 md:mt-5 col-span-1 text-lg">
-        <div class="mb-4">
+        <p class="opacity-80">Database collections</p>
+        <div class="mb-4 p-4 border border-primary-500">
             <SampleViewSelection bind:selectedView={selectedView}></SampleViewSelection>
         </div>
-        <div class="mb-4 p-4 pl-6 border-token border-primary-500">
+        <div class="mb-4 p-4 pl-6 border border-primary-500">
             <div class="mb-4">
                 <ol class="breadcrumb justify-lstart">
                     <li class="crumb opacity-70">Team {selectedTeam.name}</li>

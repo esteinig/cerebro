@@ -14,7 +14,7 @@ use clap::Parser;
 
 use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, WatcherCommands};
+use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, TrainingCommands, WatcherCommands};
 
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipeline::taxa::taxon::TaxonExtraction;
@@ -465,6 +465,42 @@ fn main() -> anyhow::Result<()> {
                 args.output.clone()
             )?;
 
+        },
+        // Training collections for prefetch data
+        Commands::Training( subcommand ) => {
+            match subcommand {
+
+                // Upload a prefetch entry into the team training database
+                TrainingCommands::Upload( args ) => {
+                    client.upload_training_prefetch(&args.prefetch, &args.collection)?;
+                },
+                // List prefetch data in a team training database
+                TrainingCommands::List( args ) => {
+                    client.list_training_collections(args.collection.clone())?;
+                },
+                // Delete prefetch data from the team training database
+                TrainingCommands::Delete( args ) => {
+                    
+                    if args.name.is_none() {
+                        let confirmation = dialoguer::Confirm::new()
+                            .with_prompt("Do you want to delete ALL entries for this training collection?")
+                            .interact()
+                            .unwrap();
+
+                        if confirmation {
+                            client.delete_training_data(
+                                args.collection.clone(), 
+                                args.name.clone()
+                            )?;
+                        }
+                    } else {
+                        client.delete_training_data(
+                            args.collection.clone(), 
+                            args.name.clone()
+                        )?;
+                    }
+                }
+            }
         },
         // Modify (create-delete-update) a project
         Commands::Project( subcommand ) => {

@@ -5,10 +5,9 @@
  
 </script>
 
-<p class="opacity-80 p-2">Database collections</p>
-<ListBox class="border-token p-4 border-primary-500">
+<ListBox>
 	<ListBoxItem bind:group={selectedView} name="medium" value="samples" active='variant-soft' rounded='rounded-token'>Samples & Libraries</ListBoxItem>
-	<ListBoxItem bind:group={selectedView} name="medium" value="runs", active='variant-soft' rounded='rounded-token'>Sequencing Runs</ListBoxItem>
-	<ListBoxItem bind:group={selectedView} name="medium" value="reports", active='variant-soft' rounded='rounded-token'>Clinical Reports</ListBoxItem>
-	<ListBoxItem bind:group={selectedView} name="medium" value="reports", active='variant-soft' rounded='rounded-token'>Pathogens</ListBoxItem>
+	<ListBoxItem bind:group={selectedView} name="medium" value="runs", active='variant-soft' rounded='rounded-token' disabled>Sequencing Runs</ListBoxItem>
+	<ListBoxItem bind:group={selectedView} name="medium" value="reports", active='variant-soft' rounded='rounded-token' disabled>Clinical Reports</ListBoxItem>
+	<ListBoxItem bind:group={selectedView} name="medium" value="reports", active='variant-soft' rounded='rounded-token' disabled>Pathogens</ListBoxItem>
 </ListBox>

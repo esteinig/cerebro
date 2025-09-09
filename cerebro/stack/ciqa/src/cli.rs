@@ -1,5 +1,5 @@
 
-use std::{fs::create_dir_all, process::exit, sync::Arc};
+use std::{collections::HashMap, fs::create_dir_all, process::exit, sync::Arc};
 
 use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, SampleContext, TaskConfig, ClinicalContext}};
 
@@ -173,19 +173,36 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 false
             )?;
 
+
             let contam_config = match args.contamination {
                 Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
-                None => PrevalenceContaminationConfig::default()
+                None => {
+                    if args.disable_filter {
+                        PrevalenceContaminationConfig::none()
+                    } else {
+                        PrevalenceContaminationConfig::default()
+                    }
+                }
             };
 
-            let prevalence_contamination = plate.prevalence_contamination(
-                &api_client, 
-                &contam_config
-            )?;
+            let prevalence_contamination = if args.disable_filter {
+                HashMap::new()
+            } else {
+                plate.prevalence_contamination(
+                    &api_client, 
+                    &contam_config
+                )?
+            };
 
             let tiered_filter_config = match args.tiered_filter {
                 Some(path) => TieredFilterConfig::from_json(&path)?,
-                None => TieredFilterConfig::default(None)
+                None => {
+                    if args.disable_filter {
+                        TieredFilterConfig::default(None)
+                    } else {
+                        TieredFilterConfig::none()
+                    }
+                }
             };
 
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
@@ -225,7 +242,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 .get_sample_reference(&sample_id)
                                 .ok_or_else(|| anyhow::anyhow!("No reference for {}", sample_id))?;
 
-                            let (mut tags, ignore_taxstr) = get_note_instructions(&sample_reference);
+                            let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
                             let tiered_filter_config = match ignore_taxstr {
                                 Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
