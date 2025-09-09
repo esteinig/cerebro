@@ -192,9 +192,9 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 Some(path) => TieredFilterConfig::from_json(&path)?,
                 None => {
                     if args.disable_filter {
-                        TieredFilterConfig::default(None)
-                    } else {
                         TieredFilterConfig::none()
+                    } else {
+                        TieredFilterConfig::default(None)
                     }
                 }
             };
@@ -218,7 +218,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let negative_controls = plate.negative_controls.clone();
                     let prevalence_contamination = prevalence_contamination.clone();
 
-                    // wrap in a fallible closure so we can log errors
+                    // Wrap in a fallible closure so we can log errors
                     let result: anyhow::Result<()> = (|| {
                         
                         if let Some(ref subset) = subset {
