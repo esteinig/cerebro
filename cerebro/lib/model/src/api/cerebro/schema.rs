@@ -371,7 +371,7 @@ impl TieredFilterConfig {
 }
 
 
-// This enum represents the possible test results.
+// This enum represents the possible sample types for Cerebro CIQA.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, clap::ValueEnum)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum SampleType {
@@ -386,6 +386,7 @@ pub enum SampleType {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaGpConfig {
     pub sample: String,
+    pub sample_type: SampleType,
     pub identifiers: CerebroIdentifierSmallSchema,
     pub filter_configs: TieredFilterConfig,
     pub contamination: PrevalenceContaminationConfig,
@@ -401,6 +402,7 @@ impl MetaGpConfig {
     ) -> Self {
         Self {
             sample,
+            sample_type,
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
             contamination,
             filter_configs,

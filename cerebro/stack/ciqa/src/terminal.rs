@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use meta_gpt::{gpt::TreeConfig, model::GeneratorModel};
 use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
-use clap::{ArgGroup, Args, Parser, Subcommand};
-use crate::plate::{PanelColumnHeader, MissingOrthogonal, SampleType, StatsMode};
+use clap::{Args, Parser, Subcommand};
+use cerebro_model::api::cerebro::schema::SampleType;
+use crate::plate::{PanelColumnHeader, MissingOrthogonal, StatsMode};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]

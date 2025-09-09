@@ -1,7 +1,7 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig}};
+use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType}};
 use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::TaxonFilterConfig};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};

@@ -88,7 +88,13 @@
       </div>
     
       <span class="mx-2 h-5 w-px bg-gray-300" />
+
+
+      <div class="text-sm opacity-70">
+        Sample type: {current?.prefetch.config.sample_type}
+      </div>
   
+      <span class="mx-2 h-5 w-px bg-gray-300" />
       <button
         class={`px-3 py-1 border rounded
                 ${hasSelection
