@@ -15,7 +15,7 @@ async fn insert_training_handler(data: web::Data<AppState>, body: web::Json<Crea
     if let Ok(Some(_)) = training_collection
         .find_one(doc! {
             "collection": &body.collection,
-            "identifier": &body.identifier
+            "name": &body.name
         })
         .await
     {
@@ -59,9 +59,6 @@ async fn retrieve_training_handler(data: web::Data<AppState>, filter: web::Query
     let mut query = doc! {};
     if let Some(c) = &filter.collection {
         query.insert("collection", c.clone());
-    }
-    if let Some(i) = &filter.identifier {
-        query.insert("identifier", i.clone());
     }
     if let Some(n) = &filter.name {
         query.insert("name", n.clone());

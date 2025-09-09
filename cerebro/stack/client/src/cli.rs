@@ -472,7 +472,7 @@ fn main() -> anyhow::Result<()> {
 
                 // Upload a prefetch entry into the team training database
                 TrainingCommands::Upload( args ) => {
-                    client.upload_training_prefetch(&args.prefetch, &args.collection)?;
+                    client.upload_training_prefetch(&args.prefetch, &args.collection, &args.description)?;
                 },
                 // List prefetch data in a team training database
                 TrainingCommands::List( args ) => {

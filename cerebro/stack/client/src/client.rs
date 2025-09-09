@@ -1445,14 +1445,15 @@ impl CerebroClient {
     pub fn upload_training_prefetch(
         &self, 
         prefetch: &Vec<PathBuf>,
-        collection: &str
+        collection: &str,
+        description: &str
     ) -> Result<(), HttpClientError> {
 
         self.log_team_warning();
 
         for file in prefetch {
 
-            let schema = CreateTrainingPrefetch::from_file(file, collection)?;
+            let schema = CreateTrainingPrefetch::from_file(file, collection, description)?;
             let url = format!("{}", self.routes.url(Route::TrainingRegister));
 
             log::info!("Uploading prefetch data '{}' to collection '{}'", schema.name, collection);
@@ -1504,7 +1505,7 @@ impl CerebroClient {
 
         if let Some(data) = training_response.data {
             for training_prefetch in data  {
-                log::info!("collection={} name={} identifier={} id={}", training_prefetch.collection, training_prefetch.name, training_prefetch.name, training_prefetch.id);
+                log::info!("collection={} description='{}' name={} ", training_prefetch.collection, training_prefetch.description, training_prefetch.name);
             }
         }
 

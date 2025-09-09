@@ -2251,9 +2251,19 @@ export type TieredFilterConfig = {
     target: TaxonFilterConfig;
 };
 
+// This enum represents the possible sampel types from Cerebro CIQA
+export enum CiqaSampleType {
+    Csf = "CSF",
+    Eye = "EYE",
+    Ntc = "NTC",
+    Pos = "POS",
+    Lod = "LOD",
+    Env = "ENV"
+  }
   
 export type MetaGpConfig = {
     sample: string;
+    sample_type: CiqaSampleType;
     identifiers: CerebroIdentifierSmallSchema;
     filter_configs: TieredFilterConfig;
     contamination: MetaGpContaminationConfig;

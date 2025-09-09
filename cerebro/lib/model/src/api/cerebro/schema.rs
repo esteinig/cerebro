@@ -370,6 +370,19 @@ impl TieredFilterConfig {
     }
 }
 
+
+// This enum represents the possible test results.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, clap::ValueEnum)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum SampleType {
+    Csf,
+    Eye,
+    Ntc,
+    Pos,
+    Lod,
+    Env
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaGpConfig {
     pub sample: String,
@@ -380,6 +393,7 @@ pub struct MetaGpConfig {
 impl MetaGpConfig {
     pub fn new(
         sample: String, 
+        sample_type: SampleType,
         controls: Option<Vec<String>>, 
         tags: Option<Vec<String>>, 
         filter_configs: TieredFilterConfig,

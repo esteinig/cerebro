@@ -128,18 +128,6 @@ pub enum TestResult {
     Negative,
 }
 
-// This enum represents the possible test results.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, clap::ValueEnum)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum SampleType {
-    Csf,
-    Eye,
-    Ntc,
-    Pos,
-    Lod,
-    Env
-}
-
 // Represents a single test within an orthogonal method.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Test {

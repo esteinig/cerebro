@@ -1,16 +1,14 @@
 <script lang="ts">
 	import { page } from "$app/stores";
-	import { InputChip, getModalStore, type ToastSettings, type ModalSettings } from "@skeletonlabs/skeleton";
+	import { InputChip, getModalStore,type ModalSettings } from "@skeletonlabs/skeleton";
 	import SampleOverviewTable from "./SampleOverviewTable.svelte";
     import { Role } from "$lib/utils/types";
-	import type { ProjectCollection, SampleDeleteSchema, SampleOverviewData, SampleSummarySchema, Team, TeamDatabase } from "$lib/utils/types";
-	import SampleOverviewCard from "./SampleOverviewCard.svelte";
+	import type { SampleDeleteSchema, SampleOverviewData, SampleSummarySchema } from "$lib/utils/types";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
     import { ProgressRadial, getToastStore } from '@skeletonlabs/skeleton';
 	import { getDateTimeString } from "$lib/utils/helpers";
 	import SampleViewSelection from "./SampleViewSelection.svelte";
 	import { goto } from "$app/navigation";
-	import WellMap from "$lib/components/visualisations/samples/wellmap/WellMap.svelte";
 
     const modalStore = getModalStore();
     const toastStore = getToastStore();
@@ -367,7 +365,7 @@
                     selectedProject={selectedProject}
                 ></SampleOverviewTable>
                 {:else if selectedView === "runs"}
-                    <WellMap></WellMap>
+                    
                 {:else}
 
                 {/if}

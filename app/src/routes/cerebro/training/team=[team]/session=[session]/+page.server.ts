@@ -1,6 +1,10 @@
+import { env as private_env } from "$env/dynamic/private";
+import CerebroApi from "$lib/utils/api";
 import type { Team } from "$lib/utils/types";
 import { error } from "@sveltejs/kit";
-import type { PageServerLoad } from "../$types";
+import type { PageServerLoad } from "./$types";
+
+let api = new CerebroApi(private_env.PRIVATE_CEREBRO_API_URL_DOCKER);
 
 export const load: PageServerLoad = async ({ params, locals, fetch }) => { 
 

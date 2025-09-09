@@ -8,19 +8,19 @@ use crate::api::cerebro::{model::ModelError, schema::PrefetchData};
 pub struct CreateTrainingPrefetch {
     pub id: String,
     pub collection: String,
-    pub identifier: String,
+    pub description: String,
     pub name: String,
     pub prefetch: PrefetchData,
 }
 impl CreateTrainingPrefetch {
-    pub fn from_file(path: &Path, collection: &str) -> Result<Self, ModelError> {
+    pub fn from_file(path: &Path, collection: &str, description: &str) -> Result<Self, ModelError> {
 
         let prefetch_data = PrefetchData::from_json(path)?;
 
         Ok(Self {
             id: Uuid::new_v4().to_string(),
             collection: collection.to_string(),
-            identifier: prefetch_data.config.sample.clone(),
+            description: description.to_string(),
             name: prefetch_data.config.sample.clone(),
             prefetch: prefetch_data
         })

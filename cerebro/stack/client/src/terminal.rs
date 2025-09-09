@@ -424,6 +424,9 @@ pub struct TrainingUploadArgs {
     /// Training collection
     #[clap(short, long)]
     pub collection: String,
+    /// Training collection description
+    #[clap(short, long)]
+    pub description: String,
 }
 
 #[derive(Debug, Args)]

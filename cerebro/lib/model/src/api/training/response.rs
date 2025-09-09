@@ -27,7 +27,7 @@ impl<T> TrainingResponse<T> {
 pub struct TrainingPrefetchData {
     pub id: String,
     pub collection: String,
-    pub identifier: String,
+    pub description: String,
     pub name: String,
     pub prefetch: PrefetchData,
 }
@@ -37,7 +37,7 @@ impl TrainingPrefetchData {
         Self {
             id: record.id,
             collection: record.collection,
-            identifier: record.identifier,
+            description: record.description,
             name: record.name,
             prefetch: prefetch
         }

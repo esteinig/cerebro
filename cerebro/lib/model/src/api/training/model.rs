@@ -8,8 +8,8 @@ pub struct TrainingPrefetchRecord {
     pub id: String,
     /// Name of a training collection
     pub collection: String,
-    /// Unique identifier within the collection
-    pub identifier: String,
+    /// Description of the training collection
+    pub description: String,
     /// Human readable label
     pub name: String,
 }
@@ -18,7 +18,7 @@ impl TrainingPrefetchRecord {
         Self {
             id: req.id.clone(),
             collection: req.collection.clone(),
-            identifier: req.identifier.clone(),
+            description: req.description.clone(),
             name: req.name.clone()
         }
     }
