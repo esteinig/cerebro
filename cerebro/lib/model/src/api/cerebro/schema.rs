@@ -226,6 +226,15 @@ impl PrevalenceContaminationConfig {
         let config: Self = serde_json::from_reader(rdr).map_err(|err| ModelError::JsonDeserialization(err))?;
         Ok(config)
     }
+    pub fn none() -> Self {
+        Self {
+            threshold: 0.0,
+            min_rpm: 0.0,
+            sample_type: None,
+            collapse_variants: false,
+            outliers: PrevalenceOutliers::disabled()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -340,6 +349,13 @@ impl TieredFilterConfig {
             target: TaxonFilterConfig::gp_target_threshold(
                 ignore_taxstr.clone()
             )
+        }
+    }
+    pub fn none() -> Self {
+        Self {
+            primary: TaxonFilterConfig::default(),
+            secondary: TaxonFilterConfig::default(),
+            target: TaxonFilterConfig::default()
         }
     }
     pub fn to_json<P: AsRef<Path>>(&self, path: P) -> Result<(), ModelError> {

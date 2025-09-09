@@ -176,13 +176,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
             let contam_config = match args.contamination {
                 Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
-                None => {
-                    if args.disable_filter {
-                        PrevalenceContaminationConfig::none()
-                    } else {
-                        PrevalenceContaminationConfig::default()
-                    }
-                }
+                None => PrevalenceContaminationConfig::default()
             };
 
             let prevalence_contamination = if args.disable_filter {
