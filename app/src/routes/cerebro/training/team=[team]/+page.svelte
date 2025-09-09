@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { getModalStore, getToastStore, type ModalSettings } from "@skeletonlabs/skeleton";
+    import { getModalStore, getToastStore, ProgressRadial, type ModalSettings } from "@skeletonlabs/skeleton";
     import type { TrainingPrefetchData } from "$lib/utils/types";
     import { page } from "$app/stores";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
@@ -47,11 +47,15 @@
         console.log(index, item, label)
     }
 
+    function getRandomOneToThree(): number {
+        return Math.floor(Math.random() * 3) + 1;
+    }
 
     async function openInfo() {
 
         let body = `
-        <p class="opacity-60 mt-2">Your task is to select a (single) pathogen candidate from the provided taxonomic profiling/classification data.</p>
+
+        <p class="opacity-60 mt-2">Your task is to select a (single) pathogen candidate species from the provided taxonomic profiling data.</p>
 
         <p class="opacity-60 mt-2"> Click on the threshold categories to see a filtered selection of organisms in this training dataset. Click on any organism to select a positive identification;
         if you believe the sample is negative, simply click 'Next'. Once you move on to the next slide, you are unable to change your decisions.</p> 
@@ -61,6 +65,7 @@
 
         const modal: ModalSettings = {
             type: 'confirm',
+            image: `/bughuntress_${getRandomOneToThree()}.png`,
             title: 'Information',
             body: body,
             response: async(confirmed: boolean) => {
@@ -80,7 +85,12 @@
 
 </script>
 
-
-<PrefetchSlides items={prefetch}
-  on:classify={onClassify}
-/>
+{#if loading}
+<div class="flex justify-center pt-36">
+    <ProgressRadial width="sm:w-12 md:w-24" stroke={100} meter="stroke-tertiary-500" track="stroke-tertiary-500/30" />
+</div>
+{:else}
+    <PrefetchSlides items={prefetch}
+    on:classify={onClassify}
+    />
+{/if}

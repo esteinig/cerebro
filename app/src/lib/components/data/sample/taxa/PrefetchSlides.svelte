@@ -1,8 +1,9 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from 'svelte';
     import PrefetchTable from './PrefetchTable.svelte';
-	import { type TaxonOverviewRecord, type TrainingPrefetchData } from '$lib/utils/types';
+	import { type TrainingPrefetchData } from '$lib/utils/types';
 	import { getUuidShort } from '$lib/utils/helpers';
+	import { navigationLoading } from '$lib/stores/stores';
   
   
     export let items: TrainingPrefetchData[] = [];
@@ -74,6 +75,7 @@
   
   {#if hasData}
     <div class="w-full flex items-center justify-center gap-3 py-3 sticky top-0 bg-base-100/80 backdrop-blur z-10">
+      
       <!-- <button class="px-3 py-1 border rounded disabled:opacity-40"
               on:click={prev}
               disabled={index === 0}>
@@ -81,7 +83,7 @@
       </button> -->
   
       <div class="text-sm opacity-70">
-        Slide {index + 1} / {items.length}
+        Sample {index + 1} / {items.length}
         {#if current?.id}<span class="ml-2">• ID: {getUuidShort(current.id)}</span>{/if}
       </div>
     
@@ -137,7 +139,7 @@
       
         <section>
           <p class="flex items-center justify-between text-lg opacity-60 py-4">
-            <span on:click={() => (showSecondary = !showSecondary)} class="cursor-pointer">Below-threshold taxonomic profile</span>
+            <span on:click={() => {  (showSecondary = !showSecondary)}} class="cursor-pointer">Below-threshold taxonomic profile</span>
            
             <button class="text-xs px-2 py-1 border rounded"
               on:click={() => (showSecondary = !showSecondary)}>
@@ -163,7 +165,7 @@
         </section>
       </div>
   {:else}
-    <div class="py-12 opacity-60 text-center">No slides.</div>
+    <div class="py-12 opacity-60 text-center">No samples.</div>
   {/if}
   
   <style>
