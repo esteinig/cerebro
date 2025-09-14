@@ -383,10 +383,20 @@ pub enum SampleType {
     Env
 }
 
+// This enum represents the possible test results.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum TestResult {
+    Positive,
+    Negative,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaGpConfig {
     pub sample: String,
     pub sample_type: SampleType,
+    pub test_result: TestResult,
+    pub candidates: Vec<String>,
     pub identifiers: CerebroIdentifierSmallSchema,
     pub filter_configs: TieredFilterConfig,
     pub contamination: PrevalenceContaminationConfig,
@@ -395,6 +405,8 @@ impl MetaGpConfig {
     pub fn new(
         sample: String, 
         sample_type: SampleType,
+        test_result: TestResult,
+        candidates: Vec<String>,
         controls: Option<Vec<String>>, 
         tags: Option<Vec<String>>, 
         filter_configs: TieredFilterConfig,
@@ -403,6 +415,8 @@ impl MetaGpConfig {
         Self {
             sample,
             sample_type,
+            test_result,
+            candidates,
             identifiers: CerebroIdentifierSmallSchema { controls, tags },
             contamination,
             filter_configs,

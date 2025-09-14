@@ -203,7 +203,7 @@
                                         <div class="text-right">{overview.contigs > 0 ? overview.contigs.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
                                     {/if}
                                         <!-- <div class="text-right">{overview.kmcp > 0 ? overview.kmcp.toFixed(getNumberPrecision(displayData)) : "-"}</div> -->
-                                    <div class="flex justify-end items-center pt-1">
+                                    <div class="flex justify-center items-center pt-1">
 
                                         <div class="grid grid-cols-8 sm:grid-cols-8 md:grid-cols-8 text-sm">
 

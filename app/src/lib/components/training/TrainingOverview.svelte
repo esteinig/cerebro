@@ -28,7 +28,8 @@
                 <tr>
                     <th>Training Dataset</th>
                     <th>Training Samples</th>
-                    <th>Training Session</th>
+                    <th>Dataset Description</th>
+                    <th>Operations</th>
                 </tr>
             </thead>
             <tbody>

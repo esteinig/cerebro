@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from 'svelte';
     import PrefetchTable from './PrefetchTable.svelte';
-	import { type TrainingPrefetchData } from '$lib/utils/types';
+	import { CiqaSampleType, type TrainingPrefetchData } from '$lib/utils/types';
 	import { getUuidShort } from '$lib/utils/helpers';
 	import { navigationLoading } from '$lib/stores/stores';
   
@@ -49,6 +49,16 @@
       if (!hasData) return;
       dispatch('classify', { index, item: items[index], label });
     }
+
+    function getSampleTypeName(sample_type: CiqaSampleType): string {
+      if (sample_type == CiqaSampleType.Eye) {
+        return "Vitreous fluid"
+      } else if (sample_type == CiqaSampleType.Csf) {
+        return "Cerebrospinal fluid"
+      } else {
+        return sample_type as string
+      }
+    }
   
     // Optional: arrow-key navigation
     function onKey(e: KeyboardEvent) {
@@ -76,23 +86,18 @@
   {#if hasData}
     <div class="w-full flex items-center justify-center gap-3 py-3 sticky top-0 bg-base-100/80 backdrop-blur z-10">
       
-      <!-- <button class="px-3 py-1 border rounded disabled:opacity-40"
+      <button class="px-3 py-1 border rounded disabled:opacity-40"
               on:click={prev}
               disabled={index === 0}>
         ◀ Prev
-      </button> -->
+      </button>
   
-      <div class="text-sm opacity-70">
-        Sample {index + 1} / {items.length}
-        {#if current?.id}<span class="ml-2">• ID: {getUuidShort(current.id)}</span>{/if}
+      <div class="text-xl opacity-70">
+        Sample {index + 1} / {items.length} • 
+        {#if current?.id}<span class="ml-1 chip variant-filled-primary">{getSampleTypeName(current?.prefetch.config.sample_type)}</span>{/if}
+        {#if current?.id}<span class="ml-1">• {getUuidShort(current.id)}</span>{/if}
       </div>
-    
-      <span class="mx-2 h-5 w-px bg-gray-300" />
 
-
-      <div class="text-sm opacity-70">
-        Sample type: {current?.prefetch.config.sample_type}
-      </div>
   
       <span class="mx-2 h-5 w-px bg-gray-300" />
       <button

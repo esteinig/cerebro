@@ -9,7 +9,7 @@ use mongodb::{bson::{doc, Bson}, gridfs::GridFsBucket};
 /// # Arguments
 /// * `bucket` - A GridFsBucket instance to perform the upload.
 /// * `data` - A reference to the PrefetchData to be stored.
-/// * `filename` - A string slice for the filename to be stored in GridFS.
+/// * `filename` - A string slice for the Cerebro UUID under which the taxa are to be stored in GridFS.
 ///
 /// # Returns
 /// * On success, returns the filename
@@ -41,7 +41,7 @@ pub async fn upload_prefetch_to_gridfs(
 ///
 /// # Arguments
 /// * `bucket` - A GridFsBucket instance to perform the download.
-/// * `taxa_id` - The ObjectId referencing the stored taxa data in GridFS.
+/// * `filename` - The Cerebro UUID referencing the stored taxa data in GridFS.
 ///
 /// # Returns
 /// * On success, returns the PrefetchData.

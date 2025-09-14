@@ -1,7 +1,7 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType}};
+use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult}};
 use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::TaxonFilterConfig};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
@@ -119,15 +119,6 @@ fn draw_plate<DB: DrawingBackend>(
 
 }
 
-
-// This enum represents the possible test results.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum TestResult {
-    Positive,
-    Negative,
-}
-
 // Represents a single test within an orthogonal method.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Test {
@@ -162,6 +153,25 @@ pub struct SampleReference {
     pub domain: Option<OrganismDomain>,
     pub orthogonal: Vec<Orthogonal>,
 }
+impl SampleReference {
+    pub fn positive_taxa(&self) -> Option<Vec<String>> {
+        let taxa: Vec<String> = self.orthogonal
+            .iter()
+            .flat_map(|orth| {
+                orth.tests.iter()
+                    .filter(|t| t.result == TestResult::Positive)
+                    .flat_map(|t| t.taxa.clone())
+            })
+            .collect();
+
+        if taxa.is_empty() {
+            None
+        } else {
+            Some(taxa)
+        }
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SampleReview {

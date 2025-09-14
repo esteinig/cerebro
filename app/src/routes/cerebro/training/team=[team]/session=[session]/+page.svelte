@@ -41,26 +41,26 @@
     }
 
 
-    async function startTrainingSession(collection: string) {
-        loading = true;
-        let response: ApiResponse = await publicApi.fetchWithRefresh(
-        `${publicApi.routes.training.startSession}?team=${data.selectedTeam.name}&collection=${collection}`,
-        {
-            method: "POST",
-            mode: "cors",
-            credentials: "include",
-        } as RequestInit,
-        $page.data.refreshToken,
-        toastStore,
-        "Training data loaded"
-        );
+    // async function startTrainingSession(collection: string) {
+    //     loading = true;
+    //     let response: ApiResponse = await publicApi.fetchWithRefresh(
+    //     `${publicApi.routes.training.startSession}?team=${data.selectedTeam.name}&collection=${collection}`,
+    //     {
+    //         method: "POST",
+    //         mode: "cors",
+    //         credentials: "include",
+    //     } as RequestInit,
+    //     $page.data.refreshToken,
+    //     toastStore,
+    //     "Training data loaded"
+    //     );
 
-        loading = false;
+    //     loading = false;
 
-        if (response.ok) {
-            prefetch = response.json.data as TrainingPrefetchData[];
-        }
-    }
+    //     if (response.ok) {
+    //         prefetch = response.json.data as TrainingPrefetchData[];
+    //     }
+    // }
 
     function onClassify(e: any) {
         const { index, item, label } = e.detail;
@@ -76,19 +76,20 @@
     async function openInfo() {
 
         let body = `
-
+        <div class="text-large">
         <p class="opacity-60 mt-2">Your task is to select a (single) pathogen candidate species from the provided taxonomic profiling data.</p>
 
-        <p class="opacity-60 mt-2"> Click on the threshold categories to see a filtered selection of organisms in this training dataset. Click on any organism to select a positive identification;
-        if you believe the sample is negative, simply click 'Next'. Once you move on to the next slide, you are unable to change your decisions.</p> 
+        <p class="opacity-60 mt-2">Click on the threshold categories to see a filtered selection of organisms in this training dataset.</p> 
+        <p class="opacity-60 mt-2">Click on any organism to select a positive identification, click on it again to deselect it. If you believe the sample is negative, simply click 'Next'.</p> 
+        <p class="opacity-60 mt-2">Once you move on to the next slide, your decision cannot be changed.</p> 
 
-        <p class="opacity-60 mt-4">Good luck, bug hunter! 𖢥 </p>
+        </div>
         `
 
         const modal: ModalSettings = {
             type: 'confirm',
             image: `/bughuntress_${getRandomOneToThree()}.png`,
-            title: 'Welcome',
+            title: 'Good luck, bug hunter!',
             body: body,
             response: async(confirmed: boolean) => {
                 if (confirmed) {

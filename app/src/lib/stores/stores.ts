@@ -234,7 +234,7 @@ export const validationThresholdServerFilterConfig: TaxonFilterConfig = {
             min_assembly_tools: null,
         },
     ],
-    targets: CNS_PATHOGENS, // VERTEBRATE_VIRUSES,
+    targets: VERTEBRATE_VIRUSES, // VERTEBRATE_VIRUSES,
     collapse_variants: false
 };
 
@@ -260,7 +260,7 @@ const syndromeHighlightConfig: HighlightConfig = {
 }
 
 const validationHighlightConfig: HighlightConfig = {
-    species: CNS_BACTERIA,
+    species: VERTEBRATE_VIRUSES,
     taxid: [],
     color: "secondary"
 }

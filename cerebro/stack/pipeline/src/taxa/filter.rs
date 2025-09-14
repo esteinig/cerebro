@@ -82,35 +82,11 @@ impl Default for TaxonFilterConfig {
 }
 
 impl TaxonFilterConfig {
-    pub fn validation() -> Self {
-        Self {
-            rank: Some(PathogenDetectionRank::Species),
-            domains: Vec::new(),
-            tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
-            modes: vec![AbundanceMode::Mixed],
-            min_bases: 200,
-            max_bases: None,
-            min_bpm: 0.0,
-            min_reads: 0,
-            min_rpm: 5.0,
-            max_rpm: None,
-            min_abundance: 0.0,
-            ntc_ratio: Some(3.0),
-            lineage: Some(vec![
-                LineageFilterConfig::validation_bacteria(),
-                LineageFilterConfig::validation_viruses(),
-                LineageFilterConfig::validation_eukaryota()
-            ]),
-            targets: None,
-            collapse_variants: false,
-            ignore_taxstr: None
-        }
-    }
     pub fn gp_above_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
-            tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -119,7 +95,7 @@ impl TaxonFilterConfig {
             min_rpm: 0.0,
             max_rpm: None,
             min_abundance: 0.0,
-            ntc_ratio: Some(1.0),
+            ntc_ratio: None,
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_above_threshold(),
                 LineageFilterConfig::gp_viruses_above_threshold(),
@@ -134,7 +110,7 @@ impl TaxonFilterConfig {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
-            tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -143,7 +119,7 @@ impl TaxonFilterConfig {
             min_rpm: 0.0,
             max_rpm: None,
             min_abundance: 0.0,
-            ntc_ratio: Some(1.0),
+            ntc_ratio: None,
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_below_threshold(),
                 LineageFilterConfig::gp_viruses_below_threshold(),
@@ -164,7 +140,7 @@ impl TaxonFilterConfig {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: vec![],
-            tools: vec![ProfileTool::Bracken, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -320,46 +296,6 @@ impl LineageFilterConfig {
         }
         true
     }
-    pub fn validation_viruses() -> Self {
-        Self {
-            lineages: vec!["d__Viruses".to_string()],
-            tags: vec!["DNA".to_string(), "RNA".to_string()],
-            min_alignment_tools: Some(1),
-            min_alignment_rpm: Some(10.0),
-            min_alignment_regions: None,
-            min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(1),
-            min_kmer_rpm: Some(10.0),
-            min_assembly_tools: None
-        }
-    }
-    pub fn validation_bacteria() -> Self {
-        Self {
-            lineages: vec!["d__Bacteria".to_string(), "d__Archaea".to_string()],
-            tags: vec!["DNA".to_string()],
-            min_alignment_tools: None,
-            min_alignment_rpm: None,
-            min_alignment_regions: None,
-            min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
-            min_assembly_tools: None
-        }
-    }
-    pub fn validation_eukaryota() -> Self {
-        Self {
-            lineages: vec!["d__Eukaryota".to_string()],
-            tags: vec!["DNA".to_string()],
-            min_alignment_tools: None,
-            min_alignment_rpm: None,
-            min_alignment_regions: None,
-            min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
-            min_assembly_tools: Some(1)
-        }
-    }
-
     pub fn gp_viruses_above_threshold() -> Self {
         Self {
             lineages: vec!["d__Viruses".to_string()],
@@ -603,24 +539,6 @@ pub fn apply_evidence_filters(
                         let key = (record.tool.clone(), record.mode.clone(), tag.clone());
                         if let Some(ntc_rpm) = ntc_rpms.get(&key) {
                             let retain = (ntc_rpm / record.rpm) <= ratio_threshold; // Retain evidence if the NTC RPM / Library RPM ratio is larger than the provided threshold
-                            
-                            if retain {
-                                if taxon.name == "Aquabacterium sp001770725" {
-                                    log::info!(
-                                        "Retaining: taxon.name = {}, record.rpm = {:.2}, ntc_rpm = {:.2}, ratio = {:.2}, threshold = {}, retained = {} tool={:?} mode={:?} id={}",
-                                        taxon.name,
-                                        record.rpm,
-                                        ntc_rpm,
-                                        (ntc_rpm / record.rpm),
-                                        ratio_threshold,
-                                        retain,
-                                        record.tool,
-                                        record.mode,
-                                        record.id
-                                    );
-                                }
-                                
-                            }
 
                             return retain; 
                             
