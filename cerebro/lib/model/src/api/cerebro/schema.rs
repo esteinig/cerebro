@@ -395,8 +395,8 @@ pub enum TestResult {
 pub struct MetaGpConfig {
     pub sample: String,
     pub sample_type: SampleType,
-    pub test_result: TestResult,
-    pub candidates: Vec<String>,
+    pub test_result: Option<TestResult>,
+    pub candidates: Option<Vec<String>>,
     pub identifiers: CerebroIdentifierSmallSchema,
     pub filter_configs: TieredFilterConfig,
     pub contamination: PrevalenceContaminationConfig,
@@ -405,8 +405,8 @@ impl MetaGpConfig {
     pub fn new(
         sample: String, 
         sample_type: SampleType,
-        test_result: TestResult,
-        candidates: Vec<String>,
+        test_result: Option<TestResult>,
+        candidates: Option<Vec<String>>,
         controls: Option<Vec<String>>, 
         tags: Option<Vec<String>>, 
         filter_configs: TieredFilterConfig,

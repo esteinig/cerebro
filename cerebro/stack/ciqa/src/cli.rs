@@ -246,6 +246,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id, 
                                 sample_reference.sample_type,
+                                sample_reference.
                                 Some(negative_controls), 
                                 Some(tags),
                                 tiered_filter_config,

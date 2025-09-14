@@ -2,7 +2,7 @@
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult}};
-use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}, taxa::filter::TaxonFilterConfig};
+use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
@@ -153,24 +153,29 @@ pub struct SampleReference {
     pub domain: Option<OrganismDomain>,
     pub orthogonal: Vec<Orthogonal>,
 }
+
 impl SampleReference {
     pub fn positive_taxa(&self) -> Option<Vec<String>> {
-        let taxa: Vec<String> = self.orthogonal
-            .iter()
-            .flat_map(|orth| {
-                orth.tests.iter()
-                    .filter(|t| t.result == TestResult::Positive)
-                    .flat_map(|t| t.taxa.clone())
-            })
-            .collect();
+        let mut set = HashSet::new();
 
-        if taxa.is_empty() {
+        for orth in &self.orthogonal {
+            for test in &orth.tests {
+                if matches!(test.result, TestResult::Positive) {
+                    for t in &test.taxa {
+                        set.insert(t.clone());
+                    }
+                }
+            }
+        }
+
+        if set.is_empty() {
             None
         } else {
-            Some(taxa)
+            Some(set.into_iter().collect())
         }
     }
 }
+
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
