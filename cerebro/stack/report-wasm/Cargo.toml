@@ -49,4 +49,5 @@ uuid = { version = "1.13.1", features = ["v4"], optional = true }
 [features]
 default = []
 cli = ["clap", "anstyle", "toml", "uuid"]
+lib = ["uuid"]
 local = []

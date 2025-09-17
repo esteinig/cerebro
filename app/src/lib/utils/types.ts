@@ -63,7 +63,7 @@ export type FetchRequestParams = {
  * @file lib/utils/types
  * @param {string} status - Response status indicator
  * @param {string} message - Status response message from authentication server
- * @param {string} refresh - If token could not be verified an optional refresh field may be 
+ * @param {string} refresh - If token could not be verified an optional refresh field may be included
  */
 export type ErrorResponseData = {
     status: string,                       
@@ -2264,6 +2264,8 @@ export enum CiqaSampleType {
 export type MetaGpConfig = {
     sample: string;
     sample_type: CiqaSampleType;
+    test_result: TestResult;
+    candidates: string[];
     identifiers: CerebroIdentifierSmallSchema;
     filter_configs: TieredFilterConfig;
     contamination: MetaGpContaminationConfig;
@@ -2289,3 +2291,93 @@ export type TrainingPrefetchData = {
     name: string;
     prefetch: PrefetchData;
 };
+
+// Enum from #[serde(rename_all = "lowercase")]
+export type TestResult = 'positive' | 'negative';
+
+export type TrainingRecord = {
+  /** Unique record identifier */
+  id: string;
+  /** Source collection name */
+  collection: string;
+  /** Test result */
+  result: TestResult;
+  /** Candidates list; null means explicitly none */
+  candidates: string[] | null;
+};
+
+export type CreateTrainingSession = {
+  /** Session collection */
+  collection: string;
+  shuffle: boolean;
+};
+
+export type PatchTrainingRecord = {
+  /**TrianingSession.id to update */
+  session_id: string;
+  /** TrainingRecord.id to update */
+  record_id: string;
+  /** New test result */
+  result: TestResult;
+  /** Candidates list; null to clear */
+  candidates: string[] | null;
+};
+
+export type TrainingSessionRecord = {
+  /** Unique identifier for the training session */
+  id: string;
+  /** Session collection */
+  collection: string;
+  /** User display name */
+  user_name: string;
+  /** User unique identifier */
+  user_id: string;
+  /** ISO timestamp when training started */
+  started: string;
+  /** ISO timestamp when training completed; null if not completed */
+  completed: string | null;
+  /** Records in the session */
+  records: TrainingRecord[];
+};
+
+export type TrainingPrefetchOverview = {
+    /** Name of the training collection */
+    collection: string;
+    /** Description of the training collection */
+    description: string;
+    /** Number of samples in the collection */
+    samples: number;
+};
+
+export type TrainingResponse<T> = {
+    status: string;
+    message: string;
+    data: T | null;
+};
+
+
+export type Decision = 'TP' | 'TN' | 'FP' | 'FN' | 'EXCLUDED';
+
+
+export interface TrainingResultRecord {
+    record_id: string;
+    data_id: string;
+    result: TestResult;
+    reference_result: TestResult | null;
+    candidates: string[] | null;
+    reference_candidates: string[] | null;
+    matched_any_candidate: boolean | null;
+    decision: Decision;
+    exclude_reason: string | null;
+  }
+  
+  export interface TrainingResult {
+    sensitivity: number | null;
+    specificity: number | null;
+    total: number;
+    true_positive: number;
+    true_negative: number;
+    false_positive: number;
+    false_negative: number;
+    data: TrainingResultRecord[];
+  }

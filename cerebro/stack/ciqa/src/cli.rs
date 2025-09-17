@@ -244,9 +244,10 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             };
 
                             let config = MetaGpConfig::new(
-                                sample_reference.sample_id, 
-                                sample_reference.sample_type,
-                                sample_reference.
+                                sample_reference.sample_id.clone(), 
+                                sample_reference.sample_type.clone(),
+                                sample_reference.result.clone(),
+                                sample_reference.positive_taxa(),
                                 Some(negative_controls), 
                                 Some(tags),
                                 tiered_filter_config,

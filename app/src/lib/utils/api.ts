@@ -248,7 +248,12 @@ interface StageRoutes {
 }
 
 interface TrainingRoutes {
-    getCollection: string
+    getData: string,
+    getCollection: string,
+    getOverview: string,
+    registerSession: string,
+    updateRecord: string,
+    completeSession: string
 }
 
 /**
@@ -355,7 +360,12 @@ export class Routes {
             registerSamples: `${stageRoute}/register`
         }
         this.training = {
-            getCollection: `${trainingRoute}/prefetch`
+            getData: `${trainingRoute}/prefetch`,
+            getCollection: `${trainingRoute}/prefetch`,
+            getOverview: `${trainingRoute}/overview`,
+            registerSession: `${trainingRoute}/session`,
+            updateRecord: `${trainingRoute}/session`,
+            completeSession: `${trainingRoute}/session`,
         }
     }
 }

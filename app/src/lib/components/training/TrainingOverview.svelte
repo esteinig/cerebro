@@ -1,28 +1,14 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/stores";
-	import CerebroApi from "$lib/utils/api";
+	import { type TrainingPrefetchOverview } from "$lib/utils/types";
 
-    const publicApi = new CerebroApi();
+    export let data: TrainingPrefetchOverview[] = [];
 
-    $: selectedTeamName = $page.data.selectedTeam.name;
-
-    async function changeTeam() {
-        await goto(`/cerebro/training/team=${selectedTeamName}`, { invalidateAll: true })
-    }
 </script>
 
 <div>
-    <div class="w-1/4">
-        <p class="mb-1"><span class="opacity-60">Team</span></p>
-        <select id="teamSelect" class="select" bind:value={selectedTeamName} on:change={changeTeam}>
-            {#each $page.data.userTeams as team}
-                <option value={team.name}>{team.name}</option>
-            {/each}
-        </select>
-    </div>
-
-    <div class="table-container pt-8">
+    <div class="table-container pt-8 text-xl align-center">
         <table class="table table-hover table-compact">
             <thead>
                 <tr>
@@ -33,7 +19,30 @@
                 </tr>
             </thead>
             <tbody>
-                
+                {#if data.length === 0}
+					<tr>
+						<td colspan="4" class="text-center opacity-60">No datasets available</td>
+					</tr>
+				{:else}
+					{#each data as overview}
+						<tr>
+							<td class="">{overview.collection}</td>
+							<td>{overview.samples}</td>
+							<td class="opacity-80">{overview.description}</td>
+							<td class="">
+                                <button type="button" class="btn btn-md variant-outline-primary" on:click={() => goto(`${$page.url}/collection=${overview.collection}&session=0&record=0`)}>
+
+                                    <div class="w-5 h-5 mr-2">
+                                        <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                    </div>            
+                                    New Session     
+                                </button>
+							</td>
+						</tr>
+					{/each}
+				{/if}
             </tbody>
         </table>
     </div>

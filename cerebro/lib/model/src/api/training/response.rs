@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::api::{cerebro::schema::PrefetchData, training::model::TrainingPrefetchRecord};
+use crate::api::{cerebro::schema::PrefetchData, training::{model::{TrainingPrefetchRecord, TrainingSessionRecord}, schema::TrainingRecord}};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TrainingResponse<T> {
@@ -40,6 +40,36 @@ impl TrainingPrefetchData {
             description: record.description,
             name: record.name,
             prefetch: prefetch
+        }
+    }
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TrainingSessionData {
+    /// Unique identifier for the training session
+    pub id: String,
+    /// User display name
+    pub user_name: String,
+    /// User unique identifier
+    pub user_id: String,
+    /// Timestamp when training started
+    pub started: String,
+    /// Timestamp when training completed (if any)
+    pub completed: Option<String>,
+    /// Number of records in the session
+    pub records: Vec<TrainingRecord>,
+}
+
+impl TrainingSessionData {
+    pub fn from_query(session: TrainingSessionRecord) -> Self {
+        Self {
+            id: session.id.clone(),
+            user_name: session.user_name.clone(),
+            user_id: session.user_id.clone(),
+            started: session.started.clone(),
+            completed: session.completed.clone(),
+            records: session.records.clone(),
         }
     }
 }

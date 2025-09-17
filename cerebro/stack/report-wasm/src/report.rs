@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
 #[cfg(feature = "cli")]
+#[cfg(feature = "lib")]
 use uuid::Uuid;
 #[cfg(feature = "cli")]
 use std::path::Path;
@@ -15,6 +16,7 @@ use wasm_bindgen::JsValue;
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum ReportType {
     PathogenDetection,
+    TrainingCompletion
 }
 
 
@@ -39,7 +41,8 @@ pub enum TemplateFormat {
 impl ReportType {
     pub fn to_string(&self) -> String {
         match self {
-            ReportType::PathogenDetection => String::from("PathogenDetection")
+            ReportType::PathogenDetection => String::from("PathogenDetection"),
+            ReportType::TrainingCompletion => String::from("TrainingCompletion")
         }
     }
 }
@@ -99,6 +102,7 @@ impl Default for ReportAuthorisation {
         }
     }
     #[cfg(feature = "cli")]
+    #[cfg(feature = "lib")]
     fn default() -> Self {
         Self {
             laboratory: String::new(),
@@ -223,6 +227,7 @@ impl Default for PathogenDetectionReport {
 }
 
 #[cfg(feature = "cli")]
+#[cfg(feature = "lib")]
 impl PathogenDetectionReport {
     pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
         let json_str = serde_json::to_string_pretty(self)
@@ -347,6 +352,83 @@ impl ReportConfig for PathogenDetectionReport {
 }
 
 
+// Certificate
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TrainingCompletionReport {
+    pub recipient: String,
+    pub course: String,
+    pub date: String,
+    pub dataset: String
+}
+
+impl Default for TrainingCompletionReport {
+    fn default() -> Self {
+        TrainingCompletionReport {
+            recipient: String::from("Jane Doe"),
+            course: String::from("Cerebro Training"),
+            date: String::from("01-01-2000"),
+            dataset: String::from("Cerebro Training Dataset")
+        }
+    }
+}
+
+
+#[cfg(feature = "cli")]
+impl TrainingCompletionReport {
+    pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
+        let json_str = serde_json::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
+        
+        std::fs::write(path, json_str)
+            .map_err(|e| anyhow::anyhow!("failed to write JSON to file: {}", e))
+    }
+    pub fn from_json(config: &Path) -> Result<Self, anyhow::Error> {
+        let file_content = std::fs::read_to_string(config)
+            .map_err(|e| anyhow::anyhow!("failed to read file: {}", e))?;
+
+        let report: Self = serde_json::from_str(&file_content)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize JSON: {}", e))?;
+
+        Ok(report)
+    }
+    pub fn to_toml(&self, path: &Path) -> Result<(), anyhow::Error> {
+        let toml_str = toml::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("failed to serialize to TOML: {}", e))?;
+
+        std::fs::write(path, toml_str)
+            .map_err(|e| anyhow::anyhow!("failed to write TOML to file: {}", e))
+    }
+    pub fn from_toml(config: &Path) -> Result<Self, anyhow::Error> {
+        let file_content = std::fs::read_to_string(config)
+            .map_err(|e| anyhow::anyhow!("failed to read file: {}", e))?;
+
+        let report: Self = toml::from_str(&file_content)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize TOML: {}", e))?;
+
+        Ok(report)
+    }
+}
+
+
+impl ReportConfig for TrainingCompletionReport {
+
+    #[cfg(target_arch = "wasm32")]
+    fn from_js(config: JsValue) -> Result<Self, JsValue> {
+        Ok(serde_wasm_bindgen::from_value(config).map_err(|e| {
+            JsValue::from(format!("Failed to deserialize config: {}", e))
+        })?)
+    }
+    fn build_context(&self, context: &mut Context) {
+        
+        context.insert("recipient", &self.recipient);
+        context.insert("course", &self.course);
+        context.insert("date", &self.date);
+        context.insert("dataset", &self.dataset);
+
+    }
+}
+
 
 impl ReportType {
 
@@ -357,6 +439,7 @@ impl ReportType {
         // Parse the report type
         match report_type {
             "PathogenDetection" => Ok(ReportType::PathogenDetection),
+            "TrainingCompletion" => Ok(ReportType::TrainingCompletion),
             _ => return Err(JsValue::from("invalid report type")),
         }
     }
@@ -364,6 +447,7 @@ impl ReportType {
     fn template_name(&self) -> &'static str {
         match self {
             ReportType::PathogenDetection => "pathogen_detection",
+            ReportType::TrainingCompletion => "training_completion",
         }
     }
     // Configure a report templating context
@@ -394,6 +478,12 @@ impl TemplateManager {
             include_str!("../templates/pathogen_detection.typ"),
         )
         .expect("failed to load pathogen detection template");
+
+        tera.add_raw_template(
+            "training_completion",
+            include_str!("../templates/training_completion.typ"),
+        )
+        .expect("failed to load training completion template");
 
         Self { tera }
     }

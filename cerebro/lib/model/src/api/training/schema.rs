@@ -29,36 +29,52 @@ impl CreateTrainingPrefetch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TrainingResult {
-    Positive,
-    Negative
+pub struct TrainingPrefetchOverview {
+    pub collection: String,
+    pub description: String,
+    pub samples: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingRecord {
-    pub id: String,
-    pub collection: String,
+    pub id: String, 
+    pub data_id: String, // matches identifier of TrainingPrefetchData
     pub result: TestResult,
-    pub candidates: Option<Vec<String>>
+    pub candidates: Option<Vec<String>>,
+    pub reference_result: Option<TestResult>,
+    pub reference_candidates: Option<Vec<String>>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTrainingSession {
-    pub id: String,
-    pub user_name: String,
-    pub user_id: String,
-    pub started: String,
-    pub completed: Option<String>,
-    pub records: Vec<TrainingRecord>
+    pub collection: String,
+    pub shuffle: bool
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct PatchTrainingRecord {
+    /// TrainingSession.id to update
+    pub session_id: String,
+    /// TrainingRecord.id to update
+    pub record_id: String,
+    /// New test result
+    pub result: TestResult,
+    /// Optional candidates list (None clears the field)
+    pub candidates: Option<Vec<String>>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryTrainingPrefetch {
     /// Optional filter by collection
     pub collection: Option<String>,
     /// Optional filter by identifier
-    pub identifier: Option<String>,
+    pub id: Option<String>,
     /// Optional filter by name
     pub name: Option<String>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryTrainingData {
+    /// Record index in the current session
+    pub record: u64,
 }

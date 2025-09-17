@@ -13,7 +13,7 @@ use clap::{Args, Parser, Subcommand};
 #[cfg(feature = "cli")]
 use report::TemplateFormat;
 #[cfg(feature = "cli")]
-use report::{ReportFormat, ReportType, PathogenDetectionReport};
+use report::{ReportFormat, ReportType, PathogenDetectionReport, TrainingCompletionReport};
 #[cfg(feature = "cli")]
 use compiler::CommandLineReportCompiler;
 
@@ -120,7 +120,7 @@ fn main() -> anyhow::Result<()> {
                 ReportType::PathogenDetection => {
                     match args.template {
                         TemplateFormat::Json => PathogenDetectionReport::default().to_json(&args.output)?,
-                        TemplateFormat::Toml => PathogenDetectionReport::default().to_toml(&args.output)?,
+                        TemplateFormat::Toml => TrainingCompletionReport::default().to_toml(&args.output)?,
                     }
                 }
             }

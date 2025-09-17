@@ -3,25 +3,24 @@
 	import SpeciesOverviewTableHeader from "$lib/general/tables/SpeciesOverviewTableHeader.svelte";
 	import { selectedClientFilterConfig, selectedTaxa, selectedTaxonHighlightConfig } from "$lib/stores/stores";
 	import { transformTaxonOverview } from "$lib/utils/helpers";
-	import { AbundanceMode, DisplayData, DisplayTotal, DisplayVisualisation, ProfileTool, type Taxon, type TaxonEvidence, type TaxonOverviewRecord } from "$lib/utils/types";
+	import { AbundanceMode, DisplayData, DisplayTotal, ProfileTool, type Taxon, type TaxonEvidence, type TaxonOverviewRecord } from "$lib/utils/types";
 	import { ListBox, ListBoxItem, ProgressRadial } from "@skeletonlabs/skeleton";
 	import { createEventDispatcher, onMount } from "svelte";
 	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
 
     export let taxa: Taxon[] | null = [];
+    export let selectedName: string = "";
+
     export let displayMode: AbundanceMode = AbundanceMode.Mixed;
     export let displayData: DisplayData = DisplayData.Rpm;
     export let displayTotal: DisplayTotal = DisplayTotal.Average;
-    export let selectedVisualisation: DisplayVisualisation = DisplayVisualisation.Table;
 
     // Container for filtered table row data
     let tableData: TaxonOverviewRecord[] = [];
+    
 
     let selectedTaxon: string = "";
-
-    // Taxon evidence for drawer
-    let taxonEvidence: TaxonEvidence | null = null;
-
+    $: selectedTaxon = selectedName; 
 
     // Handler for clicking a header.
     function sortByColumn(column: keyof TaxonOverviewRecord) {
@@ -72,7 +71,6 @@
     }
 
 
-
     function selectTaxon(overview: TaxonOverviewRecord) {
 
         if (selectedTaxon === overview.name) {
@@ -94,7 +92,7 @@
 
 <div>
 
-    {#if !taxa}
+    {#if tableData.length === 0}
         <div class="flex justify-center py-16 "><ErrorAnimation /></div>
         <p class="flex justify-center text-lg pb-4">No taxa available for this category</p>
     {:else}

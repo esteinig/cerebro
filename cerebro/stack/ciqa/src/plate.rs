@@ -160,7 +160,12 @@ impl SampleReference {
 
         for orth in &self.orthogonal {
             for test in &orth.tests {
-                if matches!(test.result, TestResult::Positive) {
+                if let Some(note) = &test.note {
+                    if note.contains("exclude_test") {
+                        continue;
+                    }
+                }
+                if test.result == TestResult::Positive {
                     for t in &test.taxa {
                         set.insert(t.clone());
                     }

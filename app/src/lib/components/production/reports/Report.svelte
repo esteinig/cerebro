@@ -200,7 +200,7 @@
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-6 w-5/6 pb-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-6 w-5/6 pb-6">
                         <div class="flex items-center pt-6">
                         <SlideToggle name="sliderPathogenDetected" bind:checked={reportSchema.patient_result.pathogen_detected} active="bg-primary-500" size="sm"><span class="opacity-60 text-sm">Pathogen detected</span></SlideToggle>
                         </div>
@@ -322,7 +322,7 @@
         justify-content: center;
         align-items: center;
         width: 100%;
-        height: calc(100vh - 18vh); /* Adjust height based on layout */
+        height: 100%; /* Adjust height based on layout */
         overflow: auto;
       }
   </style>

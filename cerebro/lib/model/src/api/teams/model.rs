@@ -11,7 +11,8 @@ pub enum TeamAdminCollection {
     Files,
     Watchers,
     Towers,
-    Training
+    TrainingData,
+    TrainingSessions
 }
 impl TeamAdminCollection {
     pub fn name(&self) -> String {
@@ -21,7 +22,8 @@ impl TeamAdminCollection {
             TeamAdminCollection::Files => String::from("files"),
             TeamAdminCollection::Watchers => String::from("watchers"),
             TeamAdminCollection::Towers => String::from("towers"),
-            TeamAdminCollection::Training => String::from("training")
+            TeamAdminCollection::TrainingData => String::from("training_data"),
+            TeamAdminCollection::TrainingSessions => String::from("training_sessions")
         }
     }
 }
@@ -127,7 +129,8 @@ impl TeamDatabase {
                 ProjectCollection::team_pipelines(),
                 ProjectCollection::team_logs(),
                 ProjectCollection::team_reports(),
-                ProjectCollection::team_training(),
+                ProjectCollection::team_training_data(),
+                ProjectCollection::team_training_sessions(),
             ]
         }
     }
@@ -205,12 +208,20 @@ impl ProjectCollection {
             collection: TeamAdminCollection::Reports.name()
         }
     }
-    pub fn team_training() -> ProjectCollection {
+    pub fn team_training_data() -> ProjectCollection {
         ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
-            name: String::from("Training"),
+            name: String::from("TrainingData"),
             description: String::from("Training prefetch data collection"),
-            collection: TeamAdminCollection::Training.name()
+            collection: TeamAdminCollection::TrainingData.name()
+        }
+    }
+    pub fn team_training_sessions() -> ProjectCollection {
+        ProjectCollection {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: String::from("TrainingRecords"),
+            description: String::from("Training session records collection"),
+            collection: TeamAdminCollection::TrainingSessions.name()
         }
     }
 }

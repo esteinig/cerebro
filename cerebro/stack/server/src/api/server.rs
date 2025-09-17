@@ -6,7 +6,6 @@ use redis::Client as RedisClient;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use mongodb::{bson::doc, Client as MongoClient};
-use uuid::Uuid;
 
 use crate::api::logs::handler::logs_config;
 use crate::api::auth::handler::auth_config;
@@ -27,7 +26,7 @@ use super::stage::handler::stage_config;
 
 /*
 =============================
-MAIN ASYNC LAUNCH THROUCH CLI
+MAIN ASYNC LAUNCH THROUGH CLI
 =============================
 */
 

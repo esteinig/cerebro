@@ -63,7 +63,7 @@ const defaultClientFilterConfig: ClientFilterConfig = {
     domains: [],
     genera: [],
     species: [],
-    tools: [ProfileTool.Vircov, ProfileTool.Bracken, ProfileTool.Metabuli, ProfileTool.Ganon2, ProfileTool.Blast],
+    tools: [ProfileTool.Vircov, ProfileTool.Kraken2, ProfileTool.Metabuli, ProfileTool.Ganon2, ProfileTool.Blast],
     contam: {
         display: true,
         opacity: 20
