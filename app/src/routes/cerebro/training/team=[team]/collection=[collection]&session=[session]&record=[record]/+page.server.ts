@@ -67,22 +67,21 @@ const fetchTrainingData = async(fetch: Function, team_param: string, params: Rou
     return data
 }
 
-export const load: PageServerLoad = async ({ params, locals, fetch, depends, parent }) => { 
+export const load: PageServerLoad = async ({ params, fetch, depends }) => { 
 
     depends("training:data")
 
-    const { selectedTeam } = await parent();
 
     let data: [TrainingRecord, TrainingPrefetchData] | null = null;
 
     // Special case on initial load of the page for default values
     if (params.session === "0") {
         // Start a new session by registering it with the team database
-        let sessionIdentifier = await registerTrainingSession(fetch, selectedTeam.name, params);
-        throw redirect(302, `/cerebro/training/team=${selectedTeam.name}/collection=${params.collection}&session=${sessionIdentifier}&record=0`)
+        let sessionIdentifier = await registerTrainingSession(fetch, params.team, params);
+        throw redirect(302, `/cerebro/training/team=${params.team}/collection=${params.collection}&session=${sessionIdentifier}&record=0`)
     } else {
         // Try and load training data from the team database
-        data = await fetchTrainingData(fetch, selectedTeam.name, params)
+        data = await fetchTrainingData(fetch, params.team, params)
     }
 
     return { 

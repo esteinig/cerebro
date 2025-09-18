@@ -2,7 +2,7 @@ use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use rand::{seq::SliceRandom, rng};
-use crate::api::{cerebro::schema::TestResult, training::{response::TrainingPrefetchData, schema::{CreateTrainingPrefetch, CreateTrainingSession, TrainingRecord}}};
+use crate::api::{cerebro::schema::{SampleType, TestResult}, training::{response::TrainingPrefetchData, schema::{CreateTrainingPrefetch, CreateTrainingSession, TrainingRecord}}};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingPrefetchRecord {
@@ -40,6 +40,8 @@ pub struct TrainingSessionRecord {
     pub started: String,
     /// Timestamp when training completed (if any)
     pub completed: Option<String>,
+    /// Training result data
+    pub result: Option<TrainingResult>,
     /// Last training record updated identifier
     pub last_updated: Option<String>,
     /// Number of records in the session
@@ -56,6 +58,8 @@ impl TrainingSessionRecord {
                 data_id: r.id,
                 result: TestResult::Negative,
                 candidates: None,
+                sample_name: Some(r.prefetch.config.sample),
+                sample_type: Some(r.prefetch.config.sample_type),
                 reference_result: r.prefetch.config.test_result,
                 reference_candidates: r.prefetch.config.candidates
             })
@@ -72,6 +76,7 @@ impl TrainingSessionRecord {
             user_id: user_id.to_string(),
             started: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
             completed: None,
+            result: None,
             last_updated: None,
             records: recs,
         }
@@ -81,8 +86,8 @@ impl TrainingSessionRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingResult {
-    pub sensitivity: Option<f64>,
-    pub specificity: Option<f64>,
+    pub sensitivity: f64,
+    pub specificity: f64,
     pub total: usize,
     pub true_positive: usize,
     pub true_negative: usize,
@@ -95,6 +100,8 @@ pub struct TrainingResult {
 pub struct TrainingResultRecord {
     pub record_id: String,
     pub data_id: String,
+    pub sample_name: Option<String>,
+    pub sample_type: Option<SampleType>,
     pub result: TestResult,
     pub reference_result: Option<TestResult>,
     pub candidates: Option<String>,
@@ -179,6 +186,8 @@ impl TrainingSessionRecord {
             rows.push(TrainingResultRecord {
                 record_id: r.id.clone(),
                 data_id: r.data_id.clone(),
+                sample_name: r.sample_name.clone(),
+                sample_type: r.sample_type.clone(),
                 result: r.result.clone(),
                 reference_result: r.reference_result.clone(),
                 candidates: r.candidates.as_ref().map(|c| c.join(";")),
@@ -191,14 +200,14 @@ impl TrainingSessionRecord {
 
         let total = tp + tn + fp + fn_;
         let sensitivity = if tp + fn_ > 0 {
-            Some((tp as f64 / (tp + fn_) as f64)*100.)
+            (tp as f64 / (tp + fn_) as f64)*100.
         } else {
-            None
+            0.0
         };
         let specificity = if tn + fp > 0 {
-            Some((tn as f64 / (tn + fp) as f64)*100.)
+            (tn as f64 / (tn + fp) as f64)*100.
         } else {
-            None
+            0.0
         };
 
         TrainingResult {

@@ -100,7 +100,7 @@
 
 #let logo = [
   #if report_header_logo_enabled {
-    image("logo.png", width: 11%, fit: "stretch")
+    image("logo.png", width: {{ report_header_logo_width }}, fit: "stretch")
   } else {
     logo_title
   }

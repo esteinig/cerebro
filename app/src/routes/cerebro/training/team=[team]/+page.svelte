@@ -4,12 +4,11 @@
 
 	import TrainingOverview from "$lib/components/training/TrainingOverview.svelte";
 
-    $: selectedTeamName = $page.data.selectedTeam.name;
+    $: selectedTeamName = $page.params.team;
 
     async function changeTeam() {
         await goto(`/cerebro/training/team=${selectedTeamName}`, { invalidateAll: true })
     }
-
 </script>
 
 <div>
@@ -21,5 +20,5 @@
 			{/each}
 		</select>
 	</div>
-	<TrainingOverview data={$page.data.trainingOverview}></TrainingOverview>
+	<TrainingOverview data={$page.data.trainingOverview} userName={$page.data.userData.name}></TrainingOverview>
 </div>

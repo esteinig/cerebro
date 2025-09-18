@@ -1820,7 +1820,7 @@ export type PathogenDetectionReport = {
 
 export type ReportHeader = {
     logo_enabled: boolean,
-    logo: string | null
+    logo_width: string
 }
 
 export type ReportFooter = {
@@ -2347,6 +2347,8 @@ export type TrainingPrefetchOverview = {
     description: string;
     /** Number of samples in the collection */
     samples: number;
+    /** Session identifier of last completed session for this user */
+    session_id: string | null
 };
 
 export type TrainingResponse<T> = {
@@ -2372,8 +2374,8 @@ export interface TrainingResultRecord {
   }
   
   export interface TrainingResult {
-    sensitivity: number | null;
-    specificity: number | null;
+    sensitivity: number;
+    specificity: number;
     total: number;
     true_positive: number;
     true_negative: number;

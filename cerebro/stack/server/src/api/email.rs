@@ -108,7 +108,7 @@ impl Email {
         let template_data = TemplateData::new(
             "Account verification", 
             &self.user.name, 
-            match dev_version { true => "This is a development version. Use at your own peril.", false => ""},
+            match dev_version { true => "Features may be unstable.", false => ""},
             verification_url,
             "(no signature provided)"
         );
@@ -123,7 +123,7 @@ impl Email {
         let template_data = TemplateData::new(
             "Password reset", 
             &self.user.name, 
-            "The link is valid for two hours. Please contact the system administrator if you need another link.",
+            "This link is valid for two hours - please contact your system administrator if you need a replacement.",
             password_reset_url,
             "(no signature provided)"
         );

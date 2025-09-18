@@ -19,7 +19,7 @@ initializeStores();
 <AppShell>
 	<svelte:fragment slot="header">
         <Header />
-		<div class="h-1 { $navigating || $navigationLoading ? 'opacity-100' : 'opacity-0' } transition-opacity ease-in duration-300 delay-100">
+		<div class="h-1 { $navigating || $navigationLoading ? 'opacity-100' : 'opacity-0' } transition-opacity ease-in duration-300 delay-150">
 			<ProgressBar height="h-full"/>
 		</div>
 	</svelte:fragment>

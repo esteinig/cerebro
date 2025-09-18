@@ -1,14 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
-#[cfg(feature = "cli")]
-#[cfg(feature = "lib")]
+#[cfg(any(feature = "cli", feature = "lib"))]
 use uuid::Uuid;
-#[cfg(feature = "cli")]
+#[cfg(any(feature = "cli", feature = "lib"))]
 use std::path::Path;
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
@@ -53,7 +51,7 @@ pub trait ReportConfig {
     #[cfg(target_arch = "wasm32")]
     fn from_js(config: JsValue) -> Result<Self, JsValue> where Self: Sized;
 
-    fn build_context(&self, context: &mut Context);
+    fn build_context(&self, context: &mut Context, logo_width: Option<String>);
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -93,7 +91,7 @@ pub struct ReportAuthorisation {
     pub signatures: Vec<AuthorisationSignature>,
 }
 impl Default for ReportAuthorisation {
-    #[cfg(not(feature = "cli"))]
+    #[cfg(target_arch = "wasm32")]
     fn default() -> Self {
         Self {
             laboratory: String::new(),
@@ -101,8 +99,7 @@ impl Default for ReportAuthorisation {
             signatures: vec![AuthorisationSignature::default()]
         }
     }
-    #[cfg(feature = "cli")]
-    #[cfg(feature = "lib")]
+    #[cfg(any(feature = "cli", feature = "lib"))]
     fn default() -> Self {
         Self {
             laboratory: String::new(),
@@ -119,10 +116,16 @@ pub struct AuthorisationSignature {
     pub institution: String
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReportHeader {
-    pub logo_enabled: bool,
-    pub logo: Option<String>, // base64 encoded string
+    pub logo_enabled: bool
+}
+impl Default for ReportHeader {
+    fn default() -> Self {
+        Self {
+            logo_enabled: true
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -226,9 +229,9 @@ impl Default for PathogenDetectionReport {
     }
 }
 
-#[cfg(feature = "cli")]
-#[cfg(feature = "lib")]
-impl PathogenDetectionReport {
+
+#[cfg(any(feature = "cli", feature = "lib"))]
+impl TrainingCompletionReport {
     pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
         let json_str = serde_json::to_string_pretty(self)
             .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
@@ -272,9 +275,15 @@ impl ReportConfig for PathogenDetectionReport {
             JsValue::from(format!("Failed to deserialize config: {}", e))
         })?)
     }
-    fn build_context(&self, context: &mut Context) {
+    fn build_context(&self, context: &mut Context, logo_width: Option<String>) {
         
         context.insert("report_header_logo_enabled", &self.header.logo_enabled);
+
+        if let Some(logo_width) = logo_width {
+            context.insert("report_header_logo_width", &logo_width);
+        } else {
+            context.insert("report_header_logo_width", &String::from("11%"));
+        }
 
         context.insert("report_footer_patient_id", &self.patient_header.patient_urn);
         context.insert("report_footer_date_collected", &self.patient_header.date_collected);
@@ -359,7 +368,9 @@ pub struct TrainingCompletionReport {
     pub recipient: String,
     pub course: String,
     pub date: String,
-    pub dataset: String
+    pub dataset: String,
+    pub sensitivity: Option<f64>,
+    pub specificity: Option<f64>,
 }
 
 impl Default for TrainingCompletionReport {
@@ -368,14 +379,53 @@ impl Default for TrainingCompletionReport {
             recipient: String::from("Jane Doe"),
             course: String::from("Cerebro Training"),
             date: String::from("01-01-2000"),
-            dataset: String::from("Cerebro Training Dataset")
+            dataset: String::from("Cerebro Training Dataset"),
+            sensitivity: None,
+            specificity: None,
         }
     }
 }
 
 
-#[cfg(feature = "cli")]
-impl TrainingCompletionReport {
+impl ReportConfig for TrainingCompletionReport {
+
+    #[cfg(target_arch = "wasm32")]
+    fn from_js(config: JsValue) -> Result<Self, JsValue> {
+        Ok(serde_wasm_bindgen::from_value(config).map_err(|e| {
+            JsValue::from(format!("Failed to deserialize config: {}", e))
+        })?)
+    }
+    fn build_context(&self, context: &mut Context, logo_width: Option<String>) {
+        
+        if let Some(logo_width) = logo_width {
+            context.insert("logo_width", &logo_width);
+        } else {
+            context.insert("logo_width", &String::from("5%"));
+        }
+
+        let sensitivity = match self.sensitivity {
+            Some(v) => format!("{v:.1}%"),
+            None => format!("N/A")
+        };
+
+        let specificity = match self.specificity {
+            Some(v) => format!("{v:.1}%"),
+            None => format!("N/A")
+        };
+
+        context.insert("recipient", &self.recipient);
+        context.insert("course", &self.course);
+        context.insert("date", &self.date);
+        context.insert("dataset", &self.dataset);
+        context.insert("sensitivity", &sensitivity);
+        context.insert("specificity", &specificity);
+
+    }
+}
+
+
+#[cfg(any(feature = "cli", feature = "lib"))]
+impl PathogenDetectionReport {
     pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
         let json_str = serde_json::to_string_pretty(self)
             .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
@@ -411,25 +461,6 @@ impl TrainingCompletionReport {
 }
 
 
-impl ReportConfig for TrainingCompletionReport {
-
-    #[cfg(target_arch = "wasm32")]
-    fn from_js(config: JsValue) -> Result<Self, JsValue> {
-        Ok(serde_wasm_bindgen::from_value(config).map_err(|e| {
-            JsValue::from(format!("Failed to deserialize config: {}", e))
-        })?)
-    }
-    fn build_context(&self, context: &mut Context) {
-        
-        context.insert("recipient", &self.recipient);
-        context.insert("course", &self.course);
-        context.insert("date", &self.date);
-        context.insert("dataset", &self.dataset);
-
-    }
-}
-
-
 impl ReportType {
 
     #[cfg(target_arch = "wasm32")]
@@ -451,9 +482,9 @@ impl ReportType {
         }
     }
     // Configure a report templating context
-    fn context(&self, config: &dyn ReportConfig) -> Context {
+    fn context(&self, config: &dyn ReportConfig, logo_width: Option<String>) -> Context {
         let mut context = Context::new();
-        config.build_context(&mut context); // trait function configures context for each individual report type
+        config.build_context(&mut context, logo_width); // trait function configures context for each individual report type
         context
     }
 }
@@ -463,8 +494,6 @@ impl ReportType {
 pub struct TemplateManager {
     tera: Tera,
 }
-
-
 
 impl TemplateManager {
     /// Initialize the manager with all available templates
@@ -492,11 +521,12 @@ impl TemplateManager {
     pub fn render(
         &self,
         report_type: &ReportType,
-        report_config: &dyn ReportConfig
+        report_config: &dyn ReportConfig,
+        logo_width: Option<String>
     ) -> Result<String, tera::Error> {
         self.tera.render(
             report_type.template_name(), 
-            &report_type.context(report_config)
+            &report_type.context(report_config, logo_width)
         )
     }
 }

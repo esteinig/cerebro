@@ -1,6 +1,6 @@
 {
     "header": {
-      "logo": null
+      "logo_enabled": true
     },
     "footer": {
       "reporting_location": "Melbourne"

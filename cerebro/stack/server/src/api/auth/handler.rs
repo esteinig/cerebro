@@ -344,7 +344,7 @@ async fn refresh_access_token_handler(
 async fn logout_handler(
     req: HttpRequest,
     data: web::Data<AppState>,
-    auth_guard: jwt::JwtDataMiddleware,
+    auth_guard: jwt::JwtUserMiddleware,
 ) -> impl Responder {
 
     let message = "Token is invalid or session has expired";
@@ -550,7 +550,7 @@ async fn verification_check_handler(
 }
 
 
-// Send a password resret email as admin
+// Send a password reset email as admin
 #[get("/auth/password-email/{id}")]
 async fn password_email_handler(
     data: web::Data<AppState>,
@@ -652,9 +652,9 @@ async fn reset_password_email_handler(
                                 serde_json::json!({"status": "success", "message": "Sent password reset email"}), 
                             )
                         },
-                        Err(err) => {
+                        Err(_) => {
                             HttpResponse::InternalServerError().json(
-                                serde_json::json!({"status": "fail", "message": format!("Failed to send email: {}", err.to_string())}), 
+                                serde_json::json!({"status": "fail", "message": "Failed to send password reset email"}), 
                             )
                         }
                     }

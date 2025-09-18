@@ -253,7 +253,8 @@ interface TrainingRoutes {
     getOverview: string,
     registerSession: string,
     updateRecord: string,
-    completeSession: string
+    completeSession: string,
+    downloadCertificate: string
 }
 
 /**
@@ -366,6 +367,7 @@ export class Routes {
             registerSession: `${trainingRoute}/session`,
             updateRecord: `${trainingRoute}/session`,
             completeSession: `${trainingRoute}/session`,
+            downloadCertificate: `${trainingRoute}/session`,
         }
     }
 }

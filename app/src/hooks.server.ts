@@ -2,6 +2,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import { env as public_env } from '$env/dynamic/public';
 import { env as private_env } from '$env/dynamic/private';
+import { parseSameSite, parseBool } from '$lib/server/api';
 
 import {
     Role,
@@ -39,7 +40,7 @@ export async function handle({ event, resolve }) {
         return response;
     }
 
-    let accessToken: string = cookies.get("access_token");
+    let accessToken: string | undefined = cookies.get("access_token");
     
     let userRequestInitOptions: RequestInit = {
         method: 'GET',
@@ -90,8 +91,8 @@ export async function handle({ event, resolve }) {
                     path: '/',
                     httpOnly: true,
                     domain: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_DOMAIN,
-                    secure: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE === "true" ? true : false,          // check this on insecure deployment (http that is not localhost)
-                    sameSite: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE,                               // check this on insecure deployment (http that is not localhost)
+                    secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE),          // check this on insecure deployment (http that is not localhost)
+                    sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE),                               // check this on insecure deployment (http that is not localhost)
                     maxAge: parseInt(private_env.PRIVATE_CEREBRO_API_ACCESS_MAX_AGE) * 60
                 });
 

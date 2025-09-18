@@ -12,6 +12,9 @@ impl<T> TrainingResponse<T> {
     pub fn ok(data: T) -> Self {
         Self { status: "ok".to_string(), message: "ok".into(), data: Some(data) }
     }
+    pub fn completed() -> Self {
+        Self { status: "ok".to_string(), message: "ok".into(), data: None }
+    }
     pub fn created(message: &str) -> Self {
         Self { status: "ok".to_string(), message: message.into(), data: None }
     }

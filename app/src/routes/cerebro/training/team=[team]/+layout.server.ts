@@ -1,5 +1,5 @@
 import type { ErrorResponseData, Team, TrainingPrefetchOverview, TrainingResponse } from "$lib/utils/types";
-import { error } from "@sveltejs/kit";
+import { error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "../$types";
 import { env as private_env } from "$env/dynamic/private";
 import CerebroApi from "$lib/utils/api";
@@ -29,7 +29,7 @@ const fetchOverview = async(fetch: Function, requestInit: RequestInit, team_para
 
 
 
-export const load: PageServerLoad = async ({ params, locals, fetch, depends }) => { 
+export const load: PageServerLoad = async ({ params, fetch, depends }) => { 
 
     depends("training:overview")
 
@@ -39,30 +39,11 @@ export const load: PageServerLoad = async ({ params, locals, fetch, depends }) =
         credentials: 'include'
     };
 
-    let team: Team;
-    let currentUserTeams: Team[] = locals.teams;
-
-    if (!currentUserTeams.length){
-        throw error(404, `You are not a member of any teams - ${locals.admin ? "create a team for data upload first." : "please contact your administrator."}`)
-    }
-
-    // Special case on initial load of the page for default values
-    if (params.team === "0") {
-        team = currentUserTeams[0];
-    } else {
-        let selectedTeam = currentUserTeams.find(team => team.id === params.team || team.name === params.team);
-        
-        if (selectedTeam) { 
-            team = selectedTeam 
-        } else { 
-            throw error(403, "You are not a member of this team") 
-        }
-    }
+    console.log(params)
     
-    let trainingOverview: TrainingPrefetchOverview[] = await fetchOverview(fetch, fetchDataRequestInit, team.name);
+    let trainingOverview: TrainingPrefetchOverview[] = await fetchOverview(fetch, fetchDataRequestInit, params.team);
 
     return { 
-        selectedTeam: team,
         trainingOverview: trainingOverview
     };
 

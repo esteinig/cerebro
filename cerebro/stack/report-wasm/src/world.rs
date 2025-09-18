@@ -187,11 +187,7 @@ impl SystemWorld {
 
     pub fn default_logo() -> Vec<u8> {
         include_bytes!("../logos/vidrl.png").to_vec()
-    }
-    pub fn certificate_logo() -> Vec<u8> {
-        include_bytes!("../logos/cert.png").to_vec()
-    }
-    
+    }    
     pub fn add_logo(&mut self, data: Vec<u8>) -> Result<(), SystemWorldError> {
 
         let logo_id = FileId::new(

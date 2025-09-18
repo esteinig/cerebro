@@ -1,8 +1,9 @@
 use cerebro_model::api::{teams::model::TeamAdminCollection, training::{model::{TrainingPrefetchRecord, TrainingResult, TrainingSessionRecord}, response::{TrainingPrefetchData, TrainingResponse, TrainingSessionData}, schema::{CreateTrainingPrefetch, CreateTrainingSession, PatchTrainingRecord, QueryTrainingData, QueryTrainingPrefetch, TrainingPrefetchOverview}}};
 
+use cerebro_report::{LibraryReportCompiler, ReportType, TrainingCompletionReport};
 use chrono::{SecondsFormat, Utc};
 use futures::stream::TryStreamExt;
-use mongodb::{bson::{doc, from_document, to_bson, Bson}, Collection};
+use mongodb::{bson::{doc, from_document, to_bson, Bson}, options::FindOneOptions, Collection};
 use actix_web::{delete, get, patch, post, web, HttpResponse};
 
 use crate::api::{auth::jwt::{self, TeamAccessQuery}, server::AppState, training::gridfs::{delete_from_gridfs, download_prefetch_from_gridfs, find_unique_gridfs_id_by_filename, upload_prefetch_to_gridfs}, utils::get_teams_db_collection};
@@ -182,6 +183,7 @@ async fn retrieve_training_session_data_handler(data: web::Data<AppState>, sessi
 #[get("/training/overview")]
 async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
     
+    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
     let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
 
     // Pipeline: group, project, sort
@@ -213,21 +215,45 @@ async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Q
         }
     };
 
+    
     let mut results: Vec<TrainingPrefetchOverview> = Vec::new();
+    
+    let find_opts = FindOneOptions::builder()
+        .sort(doc! { "completed": -1 }) // assumes date sortable string
+        .build();
+
     while let Some(doc) = match cursor.try_next().await {
         Ok(d) => d,
         Err(e) => {
-            return HttpResponse::InternalServerError().json(
-                TrainingResponse::<()>::error(&format!("Cursor error: {}", e)),
-            )
+            return HttpResponse::InternalServerError()
+                .json(TrainingResponse::<()>::error(&format!("Cursor error: {}", e)))
         }
     } {
         match from_document::<TrainingPrefetchOverview>(doc) {
-            Ok(item) => results.push(item),
+            Ok(mut item) => {
+
+                // last completed session for this user in this collection
+                let filter = doc! {
+                    "user_id": &auth_guard.user.id,
+                    "collection": &item.collection,
+                    "completed": { "$ne": Bson::Null },
+                };
+
+                match training_session_collection.find_one(filter).with_options(find_opts.clone()).await {
+                    Ok(maybe_session) => {
+                        item.session_id = maybe_session.map(|s| s.id);
+                        results.push(item);
+                    }
+                    Err(e) => {
+                        return HttpResponse::InternalServerError().json(
+                            TrainingResponse::<()>::error(&format!("Session lookup error: {}", e)),
+                        )
+                    }
+                }
+            }
             Err(e) => {
-                return HttpResponse::InternalServerError().json(
-                    TrainingResponse::<()>::error(&format!("Decode error: {}", e)),
-                )
+                return HttpResponse::InternalServerError()
+                    .json(TrainingResponse::<()>::error(&format!("Decode error: {}", e)))
             }
         }
     }
@@ -467,23 +493,44 @@ async fn complete_training_session_handler(
         ));
     }
 
-    let filter = doc! {
-        "id": &session_id
-    };
-    let update = doc! { 
-        "$set": doc! { "completed": Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true) } 
-    };
+    // Evaluate the session:
+    let training_result = session.evaluate();
 
-    match training_records_collections.update_one(filter, update).await {
-        Ok(res) if res.matched_count == 0 => return HttpResponse::NotFound().json(
-            TrainingResponse::<()>::not_found("No matching record identifier in this session"),
-        ),
-        Err(err) => return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to update record: {}", err))),
-        Ok(_) => {}
+    // Only update the training session and results if the training has not been completed yet
+    if let None = session.completed {
+
+
+       let training_result_bson = match to_bson(&training_result) {
+            Ok(bson_val) => bson_val,
+            Err(err) => {
+                return HttpResponse::InternalServerError().json(
+                    TrainingResponse::<()>::error(&format!("Failed to encode training result: {}", err)),
+                )
+            }
+        };
+
+        let filter = doc! {
+            "id": &session_id
+        };
+
+        let update = doc! { 
+            "$set": doc! { 
+                "completed": Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true), 
+                "result": training_result_bson 
+            } 
+        };
+
+
+        match training_records_collections.update_one(filter, update).await {
+            Ok(res) if res.matched_count == 0 => return HttpResponse::NotFound().json(
+                TrainingResponse::<()>::not_found("No matching record identifier in this session"),
+            ),
+            Err(err) => return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to update record: {}", err))),
+            Ok(_) => return HttpResponse::Ok().json(TrainingResponse::<()>::completed())    
+        }
+    } else {
+        HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(training_result))
     }
-
-    // Compute result and return response
-    HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(session.evaluate()))
 
 }
 
@@ -524,6 +571,83 @@ async fn get_training_session_result_handler(
 
 }
 
+
+#[get("/training/session/{session_id}/certificate")]
+async fn get_training_session_certificate_handler(
+    data: web::Data<AppState>,
+    session_id: web::Path<String>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware
+) -> HttpResponse {
+
+    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+
+    let session_id = session_id.into_inner();
+
+    // Retrieve session and enforce user guard
+    let session = match training_records_collections.find_one(doc! { "id": &session_id }).await {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            return HttpResponse::NotFound()
+                .json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist"))
+        }
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err)))
+        }
+    };
+
+    if session.user_id != auth_guard.user.id {
+        return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+            "A training session with this identifier does not exist for this user",
+        ));
+    }
+
+    let date_completed = match session.completed {
+        None => return HttpResponse::Conflict().json(TrainingResponse::<()>::error(
+            "The training session has not been completed",
+        )),
+        Some(date) => date
+    };
+
+    let mut report_compiler = match LibraryReportCompiler::new(
+        String::from("/"), ReportType::TrainingCompletion
+    ) {
+        Ok(compiler) => compiler,
+        Err(err) => return HttpResponse::InternalServerError()
+            .json(TrainingResponse::<()>::error(&format!("Failed to initiate report compiler: {}", err)))
+    };
+
+    report_compiler.set_logo_from_bytes(LibraryReportCompiler::training_logo());
+    report_compiler.set_logo_width("60mm".to_string());
+
+    let report_config = TrainingCompletionReport {
+        recipient: session.user_name,
+        course: "Cerebro Training: Pathogen Identification".to_string(),
+        date: date_completed.split("T").next().unwrap_or(&date_completed).to_string(),
+        dataset: session.collection.clone(),
+        sensitivity: None, // session.result.as_ref().map(|r| r.sensitivity),
+        specificity: None, // session.result.as_ref().map(|r| r.specificity)
+    };
+
+    let report_template = match report_compiler.report(&report_config)
+    {
+        Ok(text) => text,
+        Err(err) => return HttpResponse::InternalServerError()
+            .json(TrainingResponse::<()>::error(&format!("Failed to compile report template: {}", err)))
+    };
+
+    let pdf_data = match report_compiler.pdf_data(&report_template, String::from("/report")) 
+    {
+        Ok(data) => data,
+        Err(err) => return HttpResponse::InternalServerError()
+            .json(TrainingResponse::<()>::error(&format!("Failed to compile report PDF: {}", err)))
+    };
+
+    HttpResponse::Ok().json(TrainingResponse::<Vec<u8>>::ok(pdf_data))
+
+}
+
 pub fn training_config(cfg: &mut web::ServiceConfig) {
     
     cfg.service(insert_training_data_handler)
@@ -535,6 +659,7 @@ pub fn training_config(cfg: &mut web::ServiceConfig) {
        .service(complete_training_session_handler)
        .service(retrieve_training_session_data_handler)
        .service(get_training_session_result_handler)
+       .service(get_training_session_certificate_handler)
        .service(update_training_record_handler);
 
 }

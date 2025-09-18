@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::api::cerebro::{model::ModelError, schema::{PrefetchData, TestResult}};
+use crate::api::cerebro::{model::ModelError, schema::{PrefetchData, SampleType, TestResult}};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTrainingPrefetch {
@@ -33,13 +33,16 @@ pub struct TrainingPrefetchOverview {
     pub collection: String,
     pub description: String,
     pub samples: i64,
+    pub session_id: Option<String>, // last completed session for this user in this collection
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingRecord {
     pub id: String, 
-    pub data_id: String, // matches identifier of TrainingPrefetchData
+    pub data_id: String,    // matches identifier of TrainingPrefetchData
     pub result: TestResult,
+    pub sample_name: Option<String>,
+    pub sample_type: Option<SampleType>,
     pub candidates: Option<Vec<String>>,
     pub reference_result: Option<TestResult>,
     pub reference_candidates: Option<Vec<String>>
@@ -59,7 +62,7 @@ pub struct PatchTrainingRecord {
     pub record_id: String,
     /// New test result
     pub result: TestResult,
-    /// Optional candidates list (None clears the field)
+    /// Optional candidates list
     pub candidates: Option<Vec<String>>,
 }
 

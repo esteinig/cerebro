@@ -6,15 +6,16 @@
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
 	import PrefetchSlide from "$lib/components/data/sample/taxa/PrefetchSlide.svelte";
 	import { navigationLoading } from "$lib/stores/stores.js";
-	import { goto } from "$app/navigation";
+	import { goto, invalidate } from "$app/navigation";
 	import { formatAsPercentage } from "$lib/utils/helpers.js";
+	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 
     export let data;
 
     const publicApi = new CerebroApi();
 
-    const modalStore = getModalStore();
     const toastStore = getToastStore();
+    const modalStore = getModalStore();
 
     async function updateTrainingRecord(sample_index: number, record_id: string, test_result: TestResult, candidate: string | null) {
 
@@ -63,7 +64,7 @@
         $navigationLoading = false;
 
         if (response.ok) {
-            let trainingResult: TrainingResult = response.json.data;
+            let trainingResult: TrainingResult | null = response.json.data;
             openCompletion(trainingResult)
         }
     }
@@ -120,30 +121,34 @@
         modalStore.trigger(modal);
     }
 
-    async function openCompletion(trainingResult: TrainingResult) {
+    async function openCompletion(trainingResult: TrainingResult | null) {
+
+        let results: string = ""; 
+
+        if (trainingResult) {
+            results = `
+            <p class="mt-2">
+                <span class="opacity-80 mr-4">
+                    Sensitivity: ${formatAsPercentage(trainingResult.sensitivity)}
+                </span> 
+                <span class="opacity-80 mr-4">
+                    Specificity: ${formatAsPercentage(trainingResult.specificity)}
+                </span> 
+                <span class="opacity-80 mr-4">
+                    Positives: ${trainingResult.true_positive} / ${trainingResult.true_positive+trainingResult.false_negative} 
+                </span>  
+                <span class="opacity-80 mr-4">
+                    Negatives: ${trainingResult.true_negative} / ${trainingResult.true_negative+trainingResult.false_positive} 
+                </span> 
+            </p>   
+            `
+        }
 
         let body = `
         <div class="text-large">  
-        <p class="mt-2">
-            <span class="opacity-80 mr-4">
-                Sensitivity: ${trainingResult.sensitivity ? `${formatAsPercentage(trainingResult.sensitivity)}`: '0%'} 
-            </span> 
-            <span class="opacity-80 mr-4">
-                Specificity: ${trainingResult.specificity ? `${formatAsPercentage(trainingResult.specificity)}`: '0%'}
-            </span> 
-            <span class="opacity-80 mr-4">
-                Positives: ${trainingResult.true_positive} / ${trainingResult.true_positive+trainingResult.false_negative} 
-            </span>  
-            <span class="opacity-80 mr-4">
-                Negatives: ${trainingResult.true_negative} / ${trainingResult.true_negative+trainingResult.false_positive} 
-            </span> 
-        </p>   
-
-        <p class="opacity-60 mt-4">Thank you for your time and effort, no bug is safe from you in these lands...</p> 
-        
-        <p class="opacity-60 mt-4">You can download a certificate of completion for </p> 
-        
-   
+        ${results}        
+        <p class="opacity-60 mt-4">You can download a certificate of completion for your last training session in the overview table.</p> 
+        <p class="opacity-60 mt-4"></p>    
         </div>
         `
 
@@ -153,7 +158,7 @@
             title: 'Well done, bug slayer!',
             body: body,
             response: async(confirmed: boolean) => {
-                goto(`/cerebro/training/team=${$page.params.team}`)
+                goto(`/cerebro/training/team=${$page.params.team}`, { invalidateAll: true })
             }
         };
         modalStore.trigger(modal);
@@ -169,6 +174,18 @@
 
 </script>
 
-{#if data.trainingData}
+{#if data.trainingData && data.trainingRecord}
     <PrefetchSlide trainingData={data.trainingData} trainingRecord={data.trainingRecord} trainingSlides={getSampleNumber()} on:next={onNext} on:previous={onPrevious} on:complete={completeTrainingSession}/>
+
+{:else}
+    <div class="mt-[10%] flex justify-center items-center">
+        <div class="text-center space-y-4">
+            <div class="flex justify-center">
+                <ErrorAnimation />
+            </div>
+            <h3 class="h3">
+                Failed to fetch training data from server
+            </h3>
+        </div>
+    </div>
 {/if}

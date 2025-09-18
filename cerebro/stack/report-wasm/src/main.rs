@@ -15,7 +15,7 @@ use report::TemplateFormat;
 #[cfg(feature = "cli")]
 use report::{ReportFormat, ReportType, PathogenDetectionReport, TrainingCompletionReport};
 #[cfg(feature = "cli")]
-use compiler::CommandLineReportCompiler;
+use compiler::LibraryReportCompiler;
 
 #[cfg(feature = "cli")]
 /// Cerebro: clinical report compiler for production
@@ -44,10 +44,10 @@ pub struct CompileArgs {
     /// Report output file
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-    /// Report configuration
+    /// Report configuration template
     #[clap(long, short = 'c')]
     pub config: PathBuf,
-    /// Report template format
+    /// Report configuration template format
     #[clap(long, short = 't', default_value="json")]
     pub template: TemplateFormat,
     /// Output format
@@ -56,6 +56,12 @@ pub struct CompileArgs {
     /// Report type 
     #[clap(long, short = 'r', default_value="pathogen-detection")]
     pub report: ReportType,
+    /// Optional logo file (PNG) to replace default logo
+    #[clap(long, short = 'l')]
+    pub logo: Option<PathBuf>,
+    /// Logo width as string compatible with Typst 'png(width: ...)' function otherwise value from configuration template (e.g. 10% or 60mm) 
+    #[clap(long, short = 'w')]
+    pub width: Option<String>,
 }
 
 #[cfg(feature = "cli")]
@@ -64,7 +70,7 @@ pub struct TemplateArgs {
     /// Report template output (.json | .toml)
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-    /// Report template format
+    /// Report configuration template format
     #[clap(long, short = 't', default_value="json")]
     pub template: TemplateFormat,
     /// Report type
@@ -97,11 +103,19 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Compile( args ) => {
 
-            let mut compiler = CommandLineReportCompiler::new(
+            let mut compiler = LibraryReportCompiler::new(
                 String::from("/"), args.report
             )?;
             
-            let report = compiler.report(&args.config, args.template)?;
+            if let Some(logo_path) = args.logo {
+                compiler.set_logo_from_path(&logo_path)?;
+            }
+
+            if let Some(logo_width) = args.width {
+                compiler.set_logo_width(logo_width);
+            }
+
+            let report = compiler.report_from_path(&args.config, args.template)?;
 
             match args.format {
                 ReportFormat::Pdf => {
@@ -120,6 +134,12 @@ fn main() -> anyhow::Result<()> {
                 ReportType::PathogenDetection => {
                     match args.template {
                         TemplateFormat::Json => PathogenDetectionReport::default().to_json(&args.output)?,
+                        TemplateFormat::Toml => PathogenDetectionReport::default().to_toml(&args.output)?,
+                    }
+                },
+                ReportType::TrainingCompletion => {
+                    match args.template {
+                        TemplateFormat::Json => TrainingCompletionReport::default().to_json(&args.output)?,
                         TemplateFormat::Toml => TrainingCompletionReport::default().to_toml(&args.output)?,
                     }
                 }

@@ -22,14 +22,9 @@ name = "cerebro-server"
 path = "src/cli.rs"
 
 [dependencies]
-# Workflow library dependency to access module structs and definitions
-# to use in endpoints e.g. to generate quality control summary tables  
-# for the user from models in the database
 cerebro-pipeline = { path = "../pipeline" }
-
-# Model library dependency to access shared module structs and definitions
-# to use in endpoints and client responses
 cerebro-model = { path = "../../lib/model" }
+cerebro-report = { path = "../report-wasm", default-features = false, features = ["lib"] }
 
 anyhow = "1.0"
 thiserror = "1.0"

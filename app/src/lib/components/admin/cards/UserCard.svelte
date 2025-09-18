@@ -185,7 +185,7 @@
                 </div>
                 <div class="px-10 pt-4 space-y-2">
                     {#if update}
-                        <p class="opacity-60 text-sm">Changing email address forces re-verification by email or manual verification check by an administator. Please note the security implications of manually verifying users.</p>
+                        <p class="opacity-60 text-sm">Changing email address forces re-verification by email or manual verification check by an administrator. Please note the security implications of manually verifying users.</p>
                         <p class="opacity-60 text-sm">Passwords can be changed by users on their profile pages or manually by the stack administrator in the database itself.</p>
                     {:else}
                         <p><span class="opacity-60">Registered</span></p>

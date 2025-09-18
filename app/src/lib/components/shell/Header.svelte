@@ -22,7 +22,7 @@
         };
 
         try {
-            let requestResponse: Response = await fetch(env.PUBLIC_CEREBRO_API_URL+"/auth/logout", requestInitOptions);
+            let requestResponse: Response = await fetch(`${env.PUBLIC_CEREBRO_API_URL}/auth/logout`, requestInitOptions);
             if (requestResponse.ok) {
                 goto('/login');
             } else {
