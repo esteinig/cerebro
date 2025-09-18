@@ -268,38 +268,6 @@ services:
   
   {{/if}}
 
-  faktory:
-    image: contribsys/faktory:1.7.0
-    restart: unless-stopped
-    environment:
-      FAKTORY_PASSWORD: devpass
-    expose:
-      - 7419   # TCP (workers)
-      - 7420   # Web UI
-    volumes:
-      - cerebro_faktory:/var/lib/faktory
-    networks:
-      - cerebro
-    # Optional: forward UI for local inspection
-    ports:
-      - "7420:7420"
-  
-  cerebro-worker:
-    build:
-      context: /home/apollo/dev/projects/cerebro # parent of 'cerebro-worker' folder
-      dockerfile: /home/apollo/dev/projects/cerebro/docker/Dockerfile.worker
-    restart: unless-stopped
-    depends_on:
-      - faktory
-      - cerebro-database
-    networks:
-      - cerebro
-    environment:
-      # Point to Faktory in the compose network
-      FAKTORY_URL: tcp://:devpass@faktory:7419
-      # NOT SECURE FOR NOW
-      MONGODB_URI: mongodb://admin:admin@cerebro-database:27017/?authSource=admin
-      RUST_LOG: info
 
 volumes:
   {{#unless fs.fs_only}}
@@ -314,8 +282,6 @@ volumes:
   cerebro_auth_session:
     driver: local
   cerebro_auth_onetime:
-    driver: local
-  cerebro_faktory:
     driver: local
   {{/unless}}
   {{#if fs.enabled }}

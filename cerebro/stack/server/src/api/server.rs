@@ -42,7 +42,7 @@ pub struct AppState {
     pub db: MongoClient,
     pub auth_session: RedisClient,
     pub auth_onetime: RedisClient,
-    pub scheduler: Scheduler,
+    pub scheduler: Option<Scheduler>,
     pub env: cerebro_model::api::config::Config,
 }
 
@@ -112,15 +112,15 @@ pub async fn main() -> std::io::Result<()> {
                 }
             };
 
-            let faktory_scheduler = Scheduler::new(
-                &mongo_client,
-                config.database.names.admin_database_name.clone(),
-                config.database.names.admin_database_jobs_collection.clone(), 
-                config.database.names.admin_database_locks_collection.clone()
-            );
+            // let faktory_scheduler = Scheduler::new(
+            //     &mongo_client,
+            //     config.database.names.admin_database_name.clone(),
+            //     config.database.names.admin_database_jobs_collection.clone(), 
+            //     config.database.names.admin_database_locks_collection.clone()
+            // );
 
-            log::info!("Running Faktory job scheduler");
-            faktory_scheduler.clone().spawn();
+            // log::info!("Running Faktory job scheduler");
+            // faktory_scheduler.clone().spawn();
 
             // Database connection checks
             match mongo_client.list_database_names().await {
@@ -171,7 +171,7 @@ pub async fn main() -> std::io::Result<()> {
                         db: mongo_client.clone(),
                         auth_session: redis_client_auth_session.clone(),
                         auth_onetime: redis_client_auth_onetime.clone(),
-                        scheduler: faktory_scheduler.clone(),
+                        scheduler: None,
                         env: config.clone(),
                     }))
                     .configure(app_config)
@@ -185,7 +185,7 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(towers_config)
                     .configure(watchers_config)
                     .configure(stage_config)
-                    .configure(jobs_config)
+                    // .configure(jobs_config)
                     .configure(training_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
