@@ -123,7 +123,7 @@ impl Email {
         let template_data = TemplateData::new(
             "Password reset", 
             &self.user.name, 
-            "This link is valid for two hours - please contact your system administrator if you need a replacement.",
+            "",
             password_reset_url,
             "(no signature provided)"
         );

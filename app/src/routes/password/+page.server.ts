@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
         sameSite: 'lax', // redirect from email provider
         secure: COOKIE_SECURE,
         path: '/password',
-        maxAge: COOKIE_MAX_AGE*60
+        maxAge: 10*60
     });
 
     // Remove token from the URL.
