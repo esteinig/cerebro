@@ -6,11 +6,9 @@ import { env as private_env } from "$env/dynamic/private";
 type ResetCheckOK = { status: string; message: string; access_token: string };
 
 const COOKIE = 'reset_token';
-const COOKIE_MAX_AGE = Number(private_env.PRIVATE_CEREBRO_API_ACCESS_MAX_AGE);
-const COOKIE_SECURE = parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE);
 
-if (Number.isNaN(COOKIE_MAX_AGE)) {
-    throw new Error('Invalid Configuration');
+function cookieSecure() {
+  return parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE ?? 'true');
 }
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
@@ -34,7 +32,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
     cookies.set(COOKIE, access_token, {
         httpOnly: true,
         sameSite: 'lax', // redirect from email provider
-        secure: COOKIE_SECURE,
+        secure: cookieSecure(),
         path: '/password',
         maxAge: 10*60
     });
