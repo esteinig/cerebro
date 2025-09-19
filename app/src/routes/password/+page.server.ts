@@ -39,9 +39,9 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 
     // idempotent fallbacks
     if (check.status === 'already_used') {
-      return { step: 'request_new' as const };
+      throw redirect(303, '/password');
     }
-    
+
     return { step: 'invalid_request' as const };
   }
 
