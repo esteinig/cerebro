@@ -24,6 +24,7 @@ export async function handle({ event, resolve }) {
     const requestedPath = event.url.pathname;
     const cookies = event.cookies;
 
+
     let hookExceptions = requestedPath === "/" || 
         requestedPath.startsWith('/login') ||
         requestedPath.startsWith('/password') ||
@@ -39,6 +40,7 @@ export async function handle({ event, resolve }) {
         });
         return response;
     }
+    console.log(requestedPath)
 
     let accessToken: string | undefined = cookies.get("access_token");
     
