@@ -38,8 +38,6 @@ export const load: PageServerLoad = async ({ params, fetch, depends }) => {
         mode: 'cors',
         credentials: 'include'
     };
-
-    console.log(params)
     
     let trainingOverview: TrainingPrefetchOverview[] = await fetchOverview(fetch, fetchDataRequestInit, params.team);
 
