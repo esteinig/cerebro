@@ -5,6 +5,7 @@ use cerebro_model::api::users::model::{User, UserId, Role};
 
 use cerebro_model::api::config::Config;
 use cerebro_model::api::utils::AdminCollection;
+use sha2::{Digest, Sha256};
 
 use crate::api::utils::get_cerebro_db_collection;
 use crate::api::email::Email;
@@ -672,22 +673,36 @@ async fn reset_password_check_handler(
     // Unprotected route - critical to review policies! 
 ) -> impl Responder {
 
-    let ok_already = || HttpResponse::Ok().json(serde_json::json!({
-        "status": "already_used",
-        "message": "Token already used or invalid"
-    }));
+    
+    let check_tok = &body.access_token;
 
-    let user_collection: Collection<User> =
-        get_cerebro_db_collection(&data, AdminCollection::Users);
+    // 1) Fast path: same link retried -> return same reset token
+    if let Some(existing) = get_cached_reset_for_check(&data, check_tok).await {
+        return HttpResponse::Ok().json(serde_json::json!({
+            "status": "already_used",
+            "message": "Re-issued reset token",
+            "access_token": existing
+        }));
+    }
+
+    let user_collection = get_cerebro_db_collection(&data, AdminCollection::Users);
 
     let (token_type, access_token_details, _user) =
-        match check_one_time_token_and_user(&data, &user_collection, &body.access_token).await {
+        match check_one_time_token_and_user(&data, &user_collection, check_tok).await {
             Ok(v) => v,
-            Err(_e) => return ok_already(), // map all failures to 200
+            Err(_e) => {
+                return HttpResponse::Ok().json(serde_json::json!({
+                    "status": "already_used",
+                    "message": "Token already used or invalid"
+                }))
+            }
         };
 
     if token_type != OneTimeTokenType::PasswordResetCheck {
-        return ok_already();
+        return HttpResponse::Ok().json(serde_json::json!({
+            "status": "already_used",
+            "message": "Token already used or invalid"
+        }));
     }
 
     match create_one_time_token(
@@ -696,12 +711,67 @@ async fn reset_password_check_handler(
         &OneTimeTokenType::PasswordReset,
         &data.env.security.token.expiration.onetime_max_age_reset,
     ).await {
-        Ok(one_time_token_details) => HttpResponse::Ok().json(serde_json::json!({
-            "status": "ok",
-            "message": "Password reset check passed",
-            "access_token": one_time_token_details.token.unwrap()
+        Ok(tok) => {
+            let reset = tok.token.unwrap();
+            let ttl = data.env.security.token.expiration.onetime_max_age_reset as u64;
+            let _ = cache_reset_for_check(&data, check_tok, &reset, ttl).await;
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "status": "ok",
+                "message": "Password reset check passed",
+                "access_token": reset
+            }))
+        }
+        Err(_e) => HttpResponse::Ok().json(serde_json::json!({
+            "status": "already_used",
+            "message": "Token already used or invalid"
         })),
-        Err(_e) => ok_already(),
+    }
+}
+
+
+fn resetchk_key(check_tok: &str) -> String {
+    let mut h = Sha256::new();
+    h.update(check_tok.as_bytes());
+    format!("resetchk:{}", hex::encode(h.finalize()))
+}
+
+/// Return previously issued reset token for this *check* token, if cached.
+pub async fn get_cached_reset_for_check(data: &AppState, check_tok: &str) -> Option<String> {
+    let key = resetchk_key(check_tok);
+
+    let mut conn = match data.auth_onetime.get_async_connection().await {
+        Ok(c) => c,
+        Err(_) => return None, // don’t fail the flow on cache miss
+    };
+
+    // None if not set or on error
+    match conn.get::<_, Option<String>>(key).await {
+        Ok(v) => v,
+        Err(_) => None,
+    }
+}
+
+/// Cache the reset token for this *check* token with TTL. First writer wins.
+pub async fn cache_reset_for_check(
+    data: &AppState,
+    check_tok: &str,
+    reset_tok: &str,
+    ttl_secs: u64,
+) {
+    let key = resetchk_key(check_tok);
+
+    if let Ok(mut conn) = data.auth_onetime.get_async_connection().await {
+        // SET key value EX ttl NX  - only set if not exists
+        let _ = redis::cmd("SET")
+            .arg(&key)
+            .arg(reset_tok)
+            .arg("EX")
+            .arg(ttl_secs)
+            .arg("NX")
+            .query_async::<_, redis::Value>(&mut conn)
+            .await;
+        // ignore errors; cache is best-effort
     }
 }
 

@@ -5,7 +5,7 @@ import { env as private_env } from "$env/dynamic/private";
 
 type ResetCheck =
   | { status: 'ok'; access_token: string; message?: string }
-  | { status: 'already_used'; message?: string };
+  | { status: 'already_used'; access_token?: string; message?: string };
 
 const COOKIE = 'reset_token';
 
@@ -13,8 +13,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
   const token = url.searchParams.get('token');
 
   if (token) {
+    
     let check: ResetCheck;
-
     try {
       check = await postJSON<ResetCheck>(
         '/auth/password-reset-check',
@@ -25,8 +25,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
       return { step: 'invalid_request' as const };
     }
 
-    if (check.status === 'ok') {
-      cookies.set(COOKIE, check.access_token, {
+    if (check.status === 'ok' || (check.status === 'already_used' && check.access_token)) {
+      cookies.set(COOKIE, check.access_token!, {
         httpOnly: true,
         sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE ?? 'strict'),
         secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE ?? 'true'),
@@ -37,12 +37,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
       throw redirect(303, '/password');
     }
 
-    // idempotent fallbacks
-    if (check.status === 'already_used') {
-      throw redirect(303, '/password');
-    }
-
-    return { step: 'invalid_request' as const };
+    return { step: 'needs_token' as const };
   }
 
   const hasCookie = Boolean(cookies.get(COOKIE));
