@@ -12,7 +12,7 @@ export async function postJSON<T>(
     signal
   });
   if (!res.ok) {
-    throw new Error(`Request failed with  status: ${res.status}`);
+    throw new Error(`Request failed with status: ${res.status}`);
   }
   return (await res.json()) as T;
 }

@@ -46,9 +46,10 @@ fn login_rate_limiter_factory() -> Governor<PeerIpKeyExtractor, NoOpMiddleware<Q
 fn refresh_rate_limiter_factory() -> Governor<PeerIpKeyExtractor, NoOpMiddleware<QuantaInstant>> {
     Governor::new(&GovernorConfigBuilder::default().per_second(4).burst_size(2).finish().unwrap())
 }
-    
+
+// Accoutns for scanners e.g. after emai lprovider links
 fn one_time_token_rate_limiter_factory() -> Governor<PeerIpKeyExtractor, NoOpMiddleware<QuantaInstant>> {
-    Governor::new(&GovernorConfigBuilder::default().per_second(4).burst_size(2).finish().unwrap())
+    Governor::new(&GovernorConfigBuilder::default().per_second(8).burst_size(6).finish().unwrap())
 }
 
 

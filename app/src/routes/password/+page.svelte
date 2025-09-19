@@ -3,7 +3,8 @@
       | { step: 'needs_token' }
       | { step: 'request_new' }
       | { step: 'form' }
-      | { step: 'invalid' };
+      | { step: 'invalid' }
+      | { step: 'invalid_request' };
     export let form:
       | { error?: string }
       | undefined;
@@ -20,6 +21,9 @@
     {/if}
     {#if data.step === 'invalid'}
         <p class="h2">Link expired or invalid</p>
+    {/if}
+    {#if data.step === 'invalid_request'}
+        <p class="h2">Request to server failed - please try again</p>
     {/if}
 
     {#if data.step === 'form'}
