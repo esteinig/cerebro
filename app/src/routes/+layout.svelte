@@ -22,7 +22,6 @@
 		if (!browser) return;
 		document.body.setAttribute('data-theme', $storeTheme);
 	}
-
 	storeTheme.subscribe(setBodyThemeAttribute);
 
 
