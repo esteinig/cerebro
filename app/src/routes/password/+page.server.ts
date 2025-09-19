@@ -13,30 +13,36 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
   const token = url.searchParams.get('token');
 
   if (token) {
+    let check: ResetCheck;
+
     try {
-      const check = await postJSON<ResetCheck>(
+      check = await postJSON<ResetCheck>(
         '/auth/password-reset-check',
         { access_token: token },
         private_env.PRIVATE_CEREBRO_API_URL_DOCKER
       );
-
-      if (check.status === 'ok') {
-        cookies.set(COOKIE, check.access_token, {
-          httpOnly: true,
-          sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE ?? 'strict'),
-          secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE ?? 'true'),
-          domain: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_DOMAIN,
-          path: '/password',
-          maxAge: 10 * 60
-        });
-        throw redirect(303, '/password');
-      }
     } catch {
       return { step: 'invalid_request' as const };
     }
-    
 
-    return { step: 'request_new' as const };
+    if (check.status === 'ok') {
+      cookies.set(COOKIE, check.access_token, {
+        httpOnly: true,
+        sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE ?? 'strict'),
+        secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE ?? 'true'),
+        domain: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_DOMAIN,
+        path: '/password',
+        maxAge: 10 * 60
+      });
+      throw redirect(303, '/password');
+    }
+
+    // idempotent fallbacks
+    if (check.status === 'already_used') {
+      return { step: 'request_new' as const };
+    }
+    
+    return { step: 'invalid_request' as const };
   }
 
   const hasCookie = Boolean(cookies.get(COOKIE));
