@@ -16,7 +16,7 @@
 
 	storePopup.set({ computePosition, autoUpdate, flip, shift, offset, arrow });
 
-	$storeTheme = "%skeletonTheme%";
+	$storeTheme = "dali";
 
 	const setBodyThemeAttribute = (): void => {
 		if (!browser) return;
