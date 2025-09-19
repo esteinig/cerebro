@@ -14,11 +14,9 @@
 	import { browser } from '$app/environment';
 	import { storeTheme } from '$lib/stores/stores';
 
-	export let data;
-
 	storePopup.set({ computePosition, autoUpdate, flip, shift, offset, arrow });
 
-	$storeTheme = data.theme ?? "%skeletonTheme%";
+	$storeTheme = "%skeletonTheme%";
 
 	const setBodyThemeAttribute = (): void => {
 		if (!browser) return;

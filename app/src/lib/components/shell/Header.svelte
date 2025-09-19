@@ -56,13 +56,9 @@
 	];
 
 	const setTheme: SubmitFunction = ({ formData }) => {
-		const theme = formData.get('theme')?.toString();
-
-		if (theme) {
-			$storeTheme = theme;
-		}
-        invalidateAll()
-	};
+        const t = formData.get('theme')?.toString();
+        if (t) $storeTheme = t; // layout subscriber updates body attr
+    };
 
 </script>
 
