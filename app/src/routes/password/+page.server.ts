@@ -28,11 +28,10 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
     if (check.status === 'ok' || (check.status === 'already_used' && check.access_token)) {
       cookies.set(COOKIE, check.access_token!, {
         httpOnly: true,
-        sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE ?? 'strict'),
+        sameSite: 'lax',
         secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE ?? 'true'),
-        domain: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_DOMAIN,
         path: '/password',
-        maxAge: 10 * 60
+        maxAge: 180
       });
       throw redirect(303, '/password');
     }

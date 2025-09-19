@@ -91,9 +91,8 @@ export async function handle({ event, resolve }) {
                     path: '/',
                     httpOnly: true,
                     domain: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_DOMAIN,
-                    secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE),          // check this on insecure deployment (http that is not localhost)
-                    sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE),                               // check this on insecure deployment (http that is not localhost)
-                    maxAge: parseInt(private_env.PRIVATE_CEREBRO_API_ACCESS_MAX_AGE) * 60
+                    secure: parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE),          
+                    sameSite: parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE),                               
                 });
 
                 // Pass on the now valid access token
@@ -163,7 +162,6 @@ export async function handleFetch({ event, request, fetch }) {
         );
     }
 
-    
     request.headers.set('cookie', `refresh_token=${event.cookies.get("refresh_token")}; access_token=${event.cookies.get("access_token")}`);
 
     return fetch(request);
