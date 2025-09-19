@@ -13,14 +13,8 @@
 
 <div class="container h-full mx-auto flex justify-center items-center">
 
-    {#if data.step === 'needs_token'}
-        <p class="h2">Open the reset link from your email</p>
-    {/if}
     {#if data.step === 'request_new'}
         <p class="h2">Please request a new link</p>
-    {/if}
-    {#if data.step === 'invalid'}
-        <p class="h2">Link expired or invalid</p>
     {/if}
     {#if data.step === 'invalid_request'}
         <p class="h2">Request to server failed - please try again</p>

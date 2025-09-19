@@ -24,6 +24,7 @@ export async function handle({ event, resolve }) {
     const requestedPath = event.url.pathname;
     const cookies = event.cookies;
 
+    let isAsset = requestedPath === '/favicon.ico';
 
     let hookExceptions = requestedPath === "/" || 
         requestedPath.startsWith('/login') ||
@@ -31,7 +32,7 @@ export async function handle({ event, resolve }) {
         requestedPath.startsWith('/verify') ||    
         requestedPath.startsWith('/public')
         
-    if (hookExceptions){
+    if (hookExceptions || isAsset){
         // If the user requests the home, login, account confirmation, 
         // or password reset pages, or any public pages, don't modify 
         // the request and return response
@@ -40,7 +41,6 @@ export async function handle({ event, resolve }) {
         });
         return response;
     }
-    console.log(requestedPath)
 
     let accessToken: string | undefined = cookies.get("access_token");
     

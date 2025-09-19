@@ -36,11 +36,11 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
       throw redirect(303, '/password');
     }
 
-    return { step: 'needs_token' as const };
+    return { step: 'request_new' as const };
   }
 
   const hasCookie = Boolean(cookies.get(COOKIE));
-  return hasCookie ? { step: 'form' as const } : { step: 'needs_token' as const };
+  return hasCookie ? { step: 'form' as const } : { step: 'request_new' as const };
 };
 
 export const actions: Actions = {
