@@ -11,6 +11,10 @@ function cookieSecure() {
   return parseBool(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SECURE ?? 'true');
 }
 
+function cookieSameSite() {
+  return parseSameSite(private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_SAME_SITE ?? 'strict')
+}
+
 export const load: PageServerLoad = async ({ url, cookies }) => {
   const token = url.searchParams.get('token');
 
@@ -31,8 +35,9 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
     // HttpOnly so JS cannot read it. Tight scope and lifetime.
     cookies.set(COOKIE, access_token, {
         httpOnly: true,
-        sameSite: 'lax', // redirect from email provider
+        sameSite: cookieSameSite(),
         secure: cookieSecure(),
+        domain: private_env.PRIVATE_CEREBRO_API_ACCESS_COOKIE_DOMAIN,
         path: '/password',
         maxAge: 10*60
     });
