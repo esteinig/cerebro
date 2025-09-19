@@ -3,6 +3,9 @@ import { postJSON } from '$lib/server/api';
 import { env as private_env } from "$env/dynamic/private";
 import { redirect } from '@sveltejs/kit';
 
+export const ssr = true;
+export const csr = false;
+
 type VerificationCheckOK = { status: string; message: string; access_token: string };
 
 export const load: PageServerLoad = async ({ url, fetch }) => {
@@ -36,7 +39,7 @@ export const load: PageServerLoad = async ({ url, fetch }) => {
     // Treat any error as invalid/expired
     return { step: 'invalid' as const };
   }
-  
+
   // Remove token, add complete=true, then redirect on successful password reset
   let clean = new URL(url);
 
