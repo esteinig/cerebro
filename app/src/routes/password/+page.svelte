@@ -1,6 +1,7 @@
 <script lang="ts">
     export let data:
       | { step: 'needs_token' }
+      | { step: 'request_new' }
       | { step: 'form' }
       | { step: 'invalid' };
     export let form:
@@ -14,7 +15,9 @@
     {#if data.step === 'needs_token'}
         <p class="h2">Open the reset link from your email</p>
     {/if}
-
+    {#if data.step === 'request_new'}
+        <p class="h2">Please request a new link</p>
+    {/if}
     {#if data.step === 'invalid'}
         <p class="h2">Link expired or invalid</p>
     {/if}

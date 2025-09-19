@@ -671,45 +671,36 @@ async fn reset_password_check_handler(
     // Unprotected route - critical to review policies! 
 ) -> impl Responder {
 
-    let error_response = HttpResponse::Forbidden().json(
-        serde_json::json!({"status": "error", "message": "Token is invalid or session has expired"})
-    );
+    let ok_already = || HttpResponse::Ok().json(serde_json::json!({
+        "status": "already_used",
+        "message": "Token already used or invalid"
+    }));
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);
+    let user_collection: Collection<User> =
+        get_cerebro_db_collection(&data, AdminCollection::Users);
 
-     // Check the access token, user in database from access token, delete the access token and return its details and type
-     let (token_type, access_token_details, _) = match check_one_time_token_and_user(
-        &data, &user_collection, &body.access_token
-    ).await 
-    {
-        Ok((token_type, access_token_details, _user)) => {
-            (token_type, access_token_details, _user)
-        },
-        Err(error_response) => { return error_response }
-    };
-    
-    match token_type {
-        OneTimeTokenType::PasswordResetCheck => {
+    let (token_type, access_token_details, _user) =
+        match check_one_time_token_and_user(&data, &user_collection, &body.access_token).await {
+            Ok(v) => v,
+            Err(_e) => return ok_already(), // map all failures to 200
+        };
 
-            match create_one_time_token(
-                &access_token_details.user_id,
-                &data, 
-                &OneTimeTokenType::PasswordReset, 
-                &data.env.security.token.expiration.onetime_max_age_reset  // short because user setting password
-            ).await
-            {   
-                Ok(one_time_token_details) => {
-                    HttpResponse::Ok()
-                        .json(serde_json::json!({
-                            "status": "fail",
-                            "message": "Password reset check passed",
-                            "access_token": one_time_token_details.token.unwrap() 
-                        }))
-                },
-                Err(error_response) => error_response
-            }
-        },
-        _ => error_response  
+    if token_type != OneTimeTokenType::PasswordResetCheck {
+        return ok_already();
+    }
+
+    match create_one_time_token(
+        &access_token_details.user_id,
+        &data,
+        &OneTimeTokenType::PasswordReset,
+        &data.env.security.token.expiration.onetime_max_age_reset,
+    ).await {
+        Ok(one_time_token_details) => HttpResponse::Ok().json(serde_json::json!({
+            "status": "ok",
+            "message": "Password reset check passed",
+            "access_token": one_time_token_details.token.unwrap()
+        })),
+        Err(_e) => ok_already(),
     }
 }
 
@@ -745,7 +736,11 @@ async fn reset_password_handler(
 
             // Hash the password for storage
             let salt = SaltString::generate(&mut OsRng);
-            let hashed_password = match Argon2::default().hash_password(&body.password.as_bytes(), &salt) {
+            
+            let hashed_password = match Argon2::default().hash_password(
+                &body.password.as_bytes(), 
+                &salt
+            ) {
                 Ok(password_hash) => password_hash.to_string(),
                 Err(_) => { return error_response }
             };
@@ -759,7 +754,7 @@ async fn reset_password_handler(
                 Ok(None) => return error_response,
                 Ok(Some(_)) => {
                     return HttpResponse::Ok().json(serde_json::json!({
-                        "status": "success", "message": "Verified user and reset password",
+                        "status": "ok", "message": "Verified user and reset password",
                     }))
                 }
                 Err(_) => return error_response
