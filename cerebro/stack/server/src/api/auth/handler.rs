@@ -713,7 +713,7 @@ async fn reset_password_check_handler(
     ).await {
         Ok(tok) => {
             let reset = tok.token.unwrap();
-            let ttl = data.env.security.token.expiration.onetime_max_age_reset as u64;
+            let ttl = data.env.security.token.expiration.onetime_max_age_reset as u64*60;
             let _ = cache_reset_for_check(&data, check_tok, &reset, ttl).await;
 
             HttpResponse::Ok().json(serde_json::json!({

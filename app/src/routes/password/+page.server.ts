@@ -36,8 +36,6 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
       throw redirect(303, '/password');
     }
 
-    console.log(check)
-
     return { step: 'request_new' as const };
   }
 
