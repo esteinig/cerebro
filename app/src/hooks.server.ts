@@ -25,10 +25,10 @@ export async function handle({ event, resolve }) {
     const cookies = event.cookies;
 
     let hookExceptions = requestedPath === "/" || 
-        requestedPath === "/login" || 
-        requestedPath === "/password" || 
-        requestedPath === "/verify" || 
-        requestedPath === "/public"
+        requestedPath.startsWith('/login') ||
+        requestedPath.startsWith('/password') ||
+        requestedPath.startsWith('/verify') ||    
+        requestedPath.startsWith('/public')
         
     if (hookExceptions){
         // If the user requests the home, login, account confirmation, 

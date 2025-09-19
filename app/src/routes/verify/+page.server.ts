@@ -6,28 +6,35 @@ import { redirect } from '@sveltejs/kit';
 type VerificationCheckOK = { status: string; message: string; access_token: string };
 
 export const ssr = true;
-export const csr = false;
+export const csr = false;           // no client re-run
+
+const COOKIE = 'vtoken';
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
   const token = url.searchParams.get('token');
-  const step = url.searchParams.get('step');
+  const step  = url.searchParams.get('step');
 
-  // step=done renders success without side effects
+  // Render-only success page
   if (step === 'done') return { step: 'email_sent' as const };
 
-  // First hit with token: stash to cookie and move to a clean URL
+  // First hit: stash token and move to clean URL. No side-effects here.
   if (token) {
-    cookies.set('vtoken', token, { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 300 });
+    cookies.set(COOKIE, token, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      maxAge: 300
+    });
     const clean = new URL(url);
     clean.searchParams.delete('token');
     clean.searchParams.set('step', 'process');
     throw redirect(303, `${clean.pathname}?${clean.searchParams}`);
   }
 
-  // Only this URL performs side effects. Bots that just GET the token URL won’t reach here.
+  // Only the process step performs network calls.
   if (step === 'process') {
-    
-    const handed = cookies.get('vtoken');
+    const handed = cookies.get(COOKIE);
     if (!handed) return { step: 'invalid' as const };
 
     try {
@@ -43,16 +50,17 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
         private_env.PRIVATE_CEREBRO_API_URL_DOCKER
       );
 
-      cookies.delete('vtoken', { path: '/' });
+      cookies.delete(COOKIE, { path: '/' });
+
       const done = new URL(url);
+      done.searchParams.delete('step');
       done.searchParams.set('step', 'done');
       throw redirect(303, `${done.pathname}?${done.searchParams}`);
     } catch {
-      cookies.delete('vtoken', { path: '/' });
+      cookies.delete(COOKIE, { path: '/' });
       return { step: 'invalid' as const };
     }
   }
 
-  // No token and not processing
   return { step: 'needs_token' as const };
 };
