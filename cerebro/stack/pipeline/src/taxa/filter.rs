@@ -421,8 +421,6 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
-
-
     // Filter by domain
     if !filter_config.domains.is_empty() {
         taxa = taxa
@@ -434,11 +432,6 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
                 }
             })
             .collect();
-    }
-
-    // Collapse taxon variant names
-    if filter_config.collapse_variants {
-        taxa = collapse_taxa(taxa).expect("FAILED TO COLLAPSE TAXA"); // TODO
     }
 
     // Apply target filter if specified - this is really slow at the moment because of the String checks?
@@ -469,7 +462,6 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     if let Some(lineage_filters) = &filter_config.lineage {
         taxa = apply_lineage_filters(taxa, lineage_filters, sample_tags);
     }
-
 
     taxa
 }
