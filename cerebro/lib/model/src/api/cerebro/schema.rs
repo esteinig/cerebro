@@ -340,6 +340,11 @@ impl TieredFilterConfig {
         };
         config
     }
+    pub fn set_collapse_variants(&mut self) {
+        self.primary.collapse_variants = true;
+        self.secondary.collapse_variants = true;
+        self.target.collapse_variants = true;
+    }
     pub fn default(ignore_taxstr: Option<Vec<String>>) -> Self {
         Self {
             primary: TaxonFilterConfig::gp_above_threshold(
