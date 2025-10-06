@@ -177,7 +177,106 @@ impl PathogenDetectionTableRecord {
             blast_bpm
         })
     }
+    /// Build a table row directly from a `Taxon` produced by prefetch.
+    /// Uses evidence from `taxon.evidence.profile` and lineage from `taxon.lineage`.
+    pub fn from_taxon(
+        id: &str,
+        taxon: &Taxon,
+        alignment: &[VircovRecord], // pass all VircovRecords to pick coverage for this taxid
+    ) -> Result<Self, WorkflowError> {
 
+        // Start with Nones for all numeric fields
+        let mut kraken_reads = None;
+        let mut kraken_rpm = None;
+        let mut bracken_reads = None;
+        let mut bracken_rpm = None;
+        let mut metabuli_reads = None;
+        let mut metabuli_rpm = None;
+        let mut ganon_reads = None;
+        let mut ganon_rpm = None;
+        let mut kmcp_reads = None;
+        let mut kmcp_rpm = None;
+        let mut sylph_reads = None;
+        let mut sylph_rpm = None;
+        let mut vircov_reads = None;
+        let mut vircov_rpm = None;
+        let mut blast_contigs = None;
+        let mut blast_bases = None;
+        let mut blast_bpm = None;
+
+        // Map profile evidence into the same fields as `from_record`
+        for result in &taxon.evidence.profile {
+            match (result.tool.clone(), result.mode.clone()) {
+                (ProfileTool::Kraken2, AbundanceMode::Sequence) => {
+                    kraken_reads = Some(result.reads);
+                    kraken_rpm = Some(result.rpm);
+                }
+                (ProfileTool::Bracken, AbundanceMode::Profile) => {
+                    bracken_reads = Some(result.reads);
+                    bracken_rpm = Some(result.rpm);
+                }
+                (ProfileTool::Metabuli, AbundanceMode::Sequence) => {
+                    metabuli_reads = Some(result.reads);
+                    metabuli_rpm = Some(result.rpm);
+                }
+                (ProfileTool::Ganon2, AbundanceMode::Sequence) => {
+                    ganon_reads = Some(result.reads);
+                    ganon_rpm = Some(result.rpm);
+                }
+                (ProfileTool::Kmcp, AbundanceMode::Sequence) => {
+                    kmcp_reads = Some(result.reads);
+                    kmcp_rpm = Some(result.rpm);
+                }
+                (ProfileTool::Sylph, AbundanceMode::Sequence) => {
+                    sylph_reads = Some(result.reads);
+                    sylph_rpm = Some(result.rpm);
+                }
+                (ProfileTool::Vircov, AbundanceMode::Sequence) => {
+                    vircov_reads = Some(result.reads);
+                    vircov_rpm = Some(result.rpm);
+                }
+                // Assembly evidence can appear multiple times; aggregate if you prefer.
+                (ProfileTool::Blast, AbundanceMode::Bases) => {
+                    blast_contigs = Some(result.contigs);
+                    blast_bases = Some(result.bases);
+                    blast_bpm = Some(result.bpm);
+                }
+                _ => {}
+            }
+        }
+
+        // Coverage from the per-read alignment table for this taxid
+        let vircov_coverage = alignment
+            .iter()
+            .find(|v| v.taxid.as_deref() == Some(&taxon.taxid))
+            .and_then(|v| v.remap_coverage);
+
+        Ok(Self {
+            id: id.to_string(),
+            taxid: taxon.taxid.clone(),
+            rank: Some(taxon.rank),                                      // already a TaxRank
+            name: Some(taxon.name.clone()),                              // already present
+            lineage: Some(taxon.lineage.clone()),                        // GTDB-like string
+            vircov_reads,
+            vircov_rpm,
+            vircov_coverage,
+            kraken_reads,
+            kraken_rpm,
+            bracken_reads,
+            bracken_rpm,
+            metabuli_reads,
+            metabuli_rpm,
+            ganon_reads,
+            ganon_rpm,
+            kmcp_reads,
+            kmcp_rpm,
+            sylph_reads,
+            sylph_rpm,
+            blast_contigs,
+            blast_bases,
+            blast_bpm,
+        })
+    }
 }
 
 // Write the evidence table for multiple samples

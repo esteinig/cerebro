@@ -71,19 +71,21 @@ impl QualityControlTableSchema {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct PathogenDetectionTableSchema {
     pub sample_ids: Vec<String>,
-    pub cerebro_ids: Vec<String>
+    pub cerebro_ids: Vec<String>,
+    pub collapse_variants: bool
 }
 impl PathogenDetectionTableSchema {
-    pub fn new(sample_ids: Vec<String>) -> Self {
+    pub fn new(sample_ids: Vec<String>, collapse_variants: bool) -> Self {
         Self {
             sample_ids,
-            cerebro_ids: vec![]
+            cerebro_ids: vec![],
+            collapse_variants
         }
     }
 }
 impl Default for PathogenDetectionTableSchema {
     fn default() -> Self {
-        PathogenDetectionTableSchema { sample_ids: vec![], cerebro_ids: vec![] }
+        PathogenDetectionTableSchema { sample_ids: vec![], cerebro_ids: vec![], collapse_variants: false}
     }
 }
 

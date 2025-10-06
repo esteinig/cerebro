@@ -1,15 +1,16 @@
 
-use std::{collections::HashMap, fs::create_dir_all, process::exit, sync::Arc};
+use std::{collections::{HashMap, HashSet}, fs::create_dir_all, process::exit, sync::Arc};
 
+use cerebro_fs::client::{FileSystemClient, UploadConfig};
 use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, SampleContext, TaskConfig, ClinicalContext}};
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{GeneratorConfig, TextGenerator};
 
-use cerebro_model::api::cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}};
-use cerebro_pipeline::{modules::{pathogen::PathogenDetection, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
+use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
+use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -17,6 +18,9 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
 use cerebro_ciqa::tui::start_tui;
+
+use std::fs::File;
+use std::io::BufReader;
 
 fn main() -> anyhow::Result<(), anyhow::Error> {
     
@@ -174,7 +178,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             )?;
 
 
-            let contam_config = match args.contamination {
+            let contam_config: PrevalenceContaminationConfig = match args.contamination {
                 Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
                 None => PrevalenceContaminationConfig::default()
             };
@@ -201,76 +205,254 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
-            plate
+            let results: Vec<(PerSampleSummary, Option<MissedDetectionRow>)> = plate
                 .samples
                 .par_iter()
-                .for_each(|sample_id| {
-
+                .filter_map(|sid| {
                     let client = api_client.clone();
                     let outdir = args.outdir.clone();
                     let force = args.force;
                     let subset = args.samples.clone();
+                    let collapse_variants = args.collapse_variants.clone();
 
                     let contam_config = contam_config.clone();
                     let tiered_filter_config = tiered_filter_config.clone();
 
-                    let sample_id = sample_id.clone();
+                    let sample_id = sid.clone();
                     let negative_controls = plate.negative_controls.clone();
                     let prevalence_contamination = prevalence_contamination.clone();
 
-                    // Wrap in a fallible closure so we can log errors
-                    let result: anyhow::Result<()> = (|| {
-                        
+                    let result: anyhow::Result<Option<(PerSampleSummary, Option<MissedDetectionRow>)>> = (|| {
                         if let Some(ref subset) = subset {
                             if !subset.contains(&sample_id) {
                                 log::warn!("Skipping {} (not in subset)", sample_id);
-                                return Ok(());
+                                return Ok(None);
                             }
                         }
-                        
+
                         let data_file = outdir.join(format!("{sample_id}.prefetch.json"));
 
-                        if force || !data_file.exists() {
-
+                        // Get PrefetchData either by computing or reading
+                        let data: PrefetchData = if force || !data_file.exists() {
                             let sample_reference = plate
                                 .get_sample_reference(&sample_id)
                                 .ok_or_else(|| anyhow::anyhow!("No reference for {}", sample_id))?;
 
                             let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
-                            let tiered_filter_config = match ignore_taxstr {
+                            let mut tiered_filter_config = match ignore_taxstr {
                                 Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
-                                None => tiered_filter_config
+                                None => tiered_filter_config,
                             };
 
+                            if collapse_variants { tiered_filter_config.set_collapse_variants() };
+
                             let config = MetaGpConfig::new(
-                                sample_reference.sample_id.clone(), 
+                                sample_reference.sample_id.clone(),
                                 sample_reference.sample_type.clone(),
                                 sample_reference.result.clone(),
                                 sample_reference.positive_taxa(),
-                                Some(negative_controls), 
+                                Some(negative_controls),
                                 Some(tags),
                                 tiered_filter_config,
-                                contam_config,  // for recording config in outputs only - not applied to prefetch, uses prefetched prevalence contamination
+                                contam_config.clone(),
                             );
 
-                            plate.prefetch(&client, &data_file, &config, prevalence_contamination)?;
-
+                            plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
                         } else {
-                            log::info!(
-                                "File '{}' exists and force not enabled – skipping",
-                                data_file.display()
-                            );
-                        }
+                            let fh = std::fs::File::open(&data_file)?;
+                            serde_json::from_reader(fh)?
+                        };
 
-                        Ok(())
+                        // Build JSON summary item
+                        let counts = counts_by_category(&data);
+                        let contam_counts = counts_by_category_contam(&data);
+                        let (positive, positive_match) = positive_candidate_match(&data);
+
+                        let summary = PerSampleSummary {
+                            sample: data.config.sample.clone(),
+                            counts,
+                            contamination_counts: contam_counts,
+                            positive,
+                            positive_match,
+                        };
+
+                        // Build missed-detection row if applicable
+                        let missed = if is_missed_detection(&data) {
+                            Some(MissedDetectionRow {
+                                sample: data.config.sample.clone(),
+                                reference: reference_names_from_config(&data.config),
+                                status: PrefetchStatus::NotDetected,
+                            })
+                        } else {
+                            None
+                        };
+
+                        Ok(Some((summary, missed)))
                     })();
 
-                    if let Err(e) = result {
+                    if let Err(e) = &result {
                         log::error!("Error prefetching {}: {:?}", sample_id, e);
                     }
-                });
+                    result.unwrap_or(None)
+                })
+                .collect();
 
+            // Split vectors
+            let mut summaries: Vec<PerSampleSummary> = Vec::with_capacity(results.len());
+            let mut missed_rows: Vec<MissedDetectionRow> = Vec::new();
+            for (s, m) in results {
+                summaries.push(s);
+                if let Some(row) = m {
+                    missed_rows.push(row);
+                }
+            }
+
+            // Write JSON summary if requested
+            if let Some(summary_path) = &args.summary {
+                let total_positive = summaries.iter().filter(|s| s.positive).count();
+                let total_positive_with_candidate_match = summaries.iter().filter(|s| s.positive_match).count();
+
+                let overall = OverallSummary {
+                    total_samples: summaries.len(),
+                    total_positive,
+                    total_positive_with_candidate_match,
+                    per_sample: summaries,
+                };
+
+                if let Some(parent) = summary_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                let mut fh = std::fs::File::create(summary_path)?;
+                serde_json::to_writer_pretty(&mut fh, &overall)?;
+                log::info!("Wrote summary JSON to {}", summary_path.display());
+            }
+
+            // Write TSV of missed detections if requested
+            if let Some(missed_path) = &args.summary_missed {
+                if let Some(parent) = missed_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                write_tsv(&missed_rows, missed_path, true)?;
+                log::info!("Wrote missed-detections TSV to {}", missed_path.display());
+            }
+
+            if !missed_rows.is_empty() {
+                if let (Some(pd_table_path), Some(pd_out_path)) =
+                    (&args.pathogen_detection_table, &args.pathogen_missed)
+                {
+            
+                    let mut missed_map: HashMap<String, HashSet<String>> = HashMap::new();
+                    for row in &missed_rows {
+                        let refs = row
+                            .reference
+                            .split(';')
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .collect::<HashSet<_>>();
+                        missed_map
+                            .entry(row.sample.clone())
+                            .and_modify(|set| set.extend(refs.clone()))
+                            .or_insert(refs);
+                    }
+            
+                    // Read PD table TSV
+                    let file = File::open(pd_table_path).map_err(|e| {
+                        anyhow::anyhow!("Failed to open pathogen detection table {}: {e}", pd_table_path.display())
+                    })?;
+                    let mut rdr = csv::ReaderBuilder::new()
+                        .delimiter(b',')
+                        .has_headers(true)
+                        .from_reader(BufReader::new(file));
+            
+                    let mut subset: Vec<PathogenDetectionTableRecord> = Vec::new();
+            
+                    for rec in rdr.deserialize::<PathogenDetectionTableRecord>() {
+                        match rec {
+                            Ok(row) => {
+                                let lineage_str = match &row.lineage {
+                                    Some(l) => l,
+                                    None => continue,
+                                };
+                    
+                                let mut keep = false;
+                                for (sample, refs) in missed_map.iter() {
+                                    if row.id.starts_with(sample)
+                                        && refs.iter().any(|r| lineage_str.contains(r))
+                                    {
+                                        keep = true;
+                                        break;
+                                    }
+                                }
+                    
+                                if keep {
+                                    subset.push(row);
+                                }
+                            }
+                            Err(err) => {
+                                log::warn!("Skipping malformed PD table row: {err}");
+                            }
+                        }
+                    }
+            
+                    // Write subset if requested
+                    if !subset.is_empty() {
+                        if let Some(parent) = pd_out_path.parent() {
+                            std::fs::create_dir_all(parent)?;
+                        }
+                        write_tsv(&subset, pd_out_path, true)?;
+                        log::info!(
+                            "Wrote pathogen-missed subset (n={}) to {}",
+                            subset.len(),
+                            pd_out_path.display()
+                        );
+                    } else {
+                        log::info!("No pathogen detection rows matched missed detections; no subset written.");
+                    }
+                }
+            }
+        }
+        Commands::UploadCiqaDataset( args ) => {
+
+            let api_client = CerebroClient::new(
+                &cli.url,
+                cli.token,
+                false,
+                cli.danger_invalid_certificate,
+                cli.token_file,
+                cli.team,
+                cli.db,
+                cli.project,
+            )?;
+            let fs_client = FileSystemClient::new(
+                &api_client, 
+                &cli.fs_url, 
+                &cli.fs_port
+            );
+
+            for file in args.fastq_pe {
+                let sample_id = get_file_component(&file, FileComponent::FileStem);
+                fs_client.upload_files(
+                    &Vec::from([file.to_path_buf()]), Some(
+                        format!(
+                            "ciqa-{}", 
+                            args.run_id
+                                .clone()
+                                .unwrap_or(
+                                    uuid::Uuid::new_v4().to_string()
+                                )
+                            )
+                        ),
+                        sample_id.ok(),
+                        args.pipeline_id.clone(),
+                        args.description.clone(), 
+                        Some(FileType::ReadPaired),
+                        UploadConfig::default(), 
+                        None
+                    )?;
+
+            }
+        
         }
         Commands::Review( args ) => {
 

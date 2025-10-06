@@ -229,113 +229,13 @@ impl Cerebro {
         ).build()
     }
     /// Pathogen detection table record per taxon
-    pub fn into_pathogen_detection_table_records(&self) -> Vec<PathogenDetectionTableRecord> {
+    pub fn into_pathogen_detection_table_records(&self) -> Result<Vec<PathogenDetectionTableRecord>, ModelError> {
         let mut rows = Vec::with_capacity(self.taxa.len());
         for taxon in &self.taxa {
-            
-            // 1) Basic fields
-            let id = self.name.clone();
-            let taxid = taxon.taxid.clone();
-            let rank = Some(taxon.rank);
-            let name = Some(taxon.name.clone());
-            let lineage = Some(taxon.lineage.clone());
-
-            // 2) Initialize all profiling/assembly slots
-            let mut kraken_reads = None;
-            let mut kraken_rpm = None;
-            let mut bracken_reads = None;
-            let mut bracken_rpm = None;
-            let mut metabuli_reads = None;
-            let mut metabuli_rpm = None;
-            let mut ganon_reads = None;
-            let mut ganon_rpm = None;
-            let mut kmcp_reads = None;
-            let mut kmcp_rpm = None;
-            let mut sylph_reads = None;
-            let mut sylph_rpm = None;
-            let mut vircov_reads = None;
-            let mut vircov_rpm = None;
-            let mut blast_contigs = None;
-            let mut blast_bases = None;
-            let mut blast_bpm = None;
-
-            // 3) Walk through all profile‐evidence records
-            for rec in &taxon.evidence.profile {
-                match (rec.tool.clone(), rec.mode.clone()) {
-                    (ProfileTool::Kraken2, AbundanceMode::Sequence) => {
-                        kraken_reads = Some(rec.reads);
-                        kraken_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Bracken, AbundanceMode::Profile) => {
-                        bracken_reads = Some(rec.reads);
-                        bracken_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Metabuli, AbundanceMode::Sequence) => {
-                        metabuli_reads = Some(rec.reads);
-                        metabuli_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Ganon2, AbundanceMode::Sequence) => {
-                        ganon_reads = Some(rec.reads);
-                        ganon_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Kmcp, AbundanceMode::Sequence) => {
-                        kmcp_reads = Some(rec.reads);
-                        kmcp_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Sylph, AbundanceMode::Sequence) => {
-                        sylph_reads = Some(rec.reads);
-                        sylph_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Vircov, AbundanceMode::Sequence) => {
-                        vircov_reads = Some(rec.reads);
-                        vircov_rpm = Some(rec.rpm);
-                    }
-                    (ProfileTool::Blast, AbundanceMode::Bases) => {
-                        blast_contigs = Some(rec.contigs);
-                        blast_bases = Some(rec.bases);
-                        blast_bpm = Some(rec.bpm);
-                    }
-                    _ => {}
-                }
-            }
-
-            // 4) Alignment (Vircov) coverage lives in alignment evidence
-            let vircov_coverage = taxon
-                .evidence
-                .alignment
-                .iter()
-                .find(|v| v.taxid.as_deref() == Some(&taxon.taxid))
-                .and_then(|v| v.remap_coverage);
-
-            let row = PathogenDetectionTableRecord {
-                id,
-                taxid,
-                rank,
-                name,
-                lineage,
-                vircov_reads,
-                vircov_rpm,
-                vircov_coverage,
-                kraken_reads,
-                kraken_rpm,
-                bracken_reads,
-                bracken_rpm,
-                metabuli_reads,
-                metabuli_rpm,
-                ganon_reads,
-                ganon_rpm,
-                kmcp_reads,
-                kmcp_rpm,
-                sylph_reads,
-                sylph_rpm,
-                blast_contigs,
-                blast_bases,
-                blast_bpm,
-            };
-
+            let row = PathogenDetectionTableRecord::from_taxon(&self.name, taxon, &taxon.evidence.alignment)?;
             rows.push(row);
         }
-        rows
+        Ok(rows)
     }
     pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
         let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;

@@ -323,7 +323,10 @@ pub struct PathogenDetectionTableArgs {
     pub output: Option<PathBuf>,
     /// Sample identifiers to limit query
     #[clap(long, short = 's', num_args(1..))]
-    pub sample_ids: Option<Vec<String>>
+    pub sample_ids: Option<Vec<String>>,
+    /// Collapse taxon variants into single species (WARNING: assigns new taxid to the collapsed taxon)
+    #[clap(long, short = 'c')]
+    pub collapse_variants: bool
 }
 
 

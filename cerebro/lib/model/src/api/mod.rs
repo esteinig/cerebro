@@ -12,3 +12,4 @@ pub mod stage;
 pub mod settings;
 pub mod jobs;
 pub mod training;
+pub mod ciqa;

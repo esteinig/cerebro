@@ -27,6 +27,7 @@ name = "cerebro_ciqa"
 
 [dependencies]
 
+cerebro-fs = { git = "https://github.com/esteinig/cerebro", package = "cerebro-fs", branch = "main" }
 cerebro-client = { git = "https://github.com/esteinig/cerebro", package = "cerebro-client", branch = "main" }
 cerebro-model = { git = "https://github.com/esteinig/cerebro", package = "cerebro-model", branch = "main" }
 cerebro-pipeline = { git = "https://github.com/esteinig/cerebro", package = "cerebro-pipeline", branch = "main" }

@@ -1061,7 +1061,7 @@ impl ReferencePlate {
         output: &Path, 
         config: &MetaGpConfig, 
         prevalence_contamination: HashMap<String, HashSet<String>>
-    ) -> Result<(), CiqaError> {
+    ) -> Result<PrefetchData, CiqaError> {
         
         log::info!("Fetching primary threshold data for sample '{}'", config.sample);
 
@@ -1107,7 +1107,7 @@ impl ReferencePlate {
         prefetch_data.prune();
         prefetch_data.to_json(output)?;
 
-        Ok(())
+        Ok(prefetch_data)
         
     }
 

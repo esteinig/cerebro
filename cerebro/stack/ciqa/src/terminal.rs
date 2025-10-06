@@ -100,6 +100,8 @@ pub enum Commands {
     WriteTable(WriteTableArgs),
     /// Plot the tiered prefetch taxa composition
     PlotPrefetch(PlotPrefetchArgs),
+    /// Upload a CI/QA dataset to Cerebro Fs and index/stage for pipeline
+    UploadCiqaDataset(UploadCiqaDatasetArgs),
     /// Plot the reference plate layout
     PlotPlate(PlotPlateArgs),
     /// Plot the reference plate quality control summary
@@ -194,6 +196,26 @@ pub struct PlotPrefetchArgs {
     pub title: Option<String>,
 }
 
+#[derive(Debug, Args)]
+pub struct UploadCiqaDatasetArgs {
+    
+    /// Read files dataset with NTC/ENV control for showread CI/QA
+    #[clap(long, short = 'f', num_args=1..)]
+    pub fastq_pe: Vec<PathBuf>,
+    /// Sequence run identifier
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+    /// Pipeline run identifier
+    #[clap(long, short = 'p')]
+    pub pipeline_id: Option<String>,
+    /// File description
+    #[clap(long, short = 'd')]
+    pub description: Option<String>,
+    
+}
 
 #[derive(Debug, Args)]
 pub struct DebugPathogenArgs {
@@ -385,12 +407,27 @@ pub struct PrefetchArgs {
     /// the raw data into the primary filter category
     #[clap(long)]
     pub disable_filter: bool,
+    /// Change the collapse variants filter on all tier filter configurations
+    #[clap(long)]
+    pub collapse_variants: bool,
     /// Threads to use for fetching data
     #[clap(long, short = 't', default_value="4")]
     pub threads: u64,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,
+    /// Write JSON summary of all prefetched samples
+    #[clap(long)]
+    pub summary: Option<PathBuf>,
+    /// Write TSV of positives with no detected candidates
+    #[clap(long)]
+    pub summary_missed: Option<PathBuf>,
+    /// Path to an existing unfiltered PathogenDetectionTable CSV to subset
+    #[clap(long)]
+    pub pathogen_detection_table: Option<PathBuf>,
+    /// Output TSV for subset of PD table containing only missed detections
+    #[clap(long)]
+    pub pathogen_missed: Option<PathBuf>,
 }
 
 

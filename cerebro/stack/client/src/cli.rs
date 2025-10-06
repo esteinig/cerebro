@@ -457,7 +457,7 @@ fn main() -> anyhow::Result<()> {
         Commands::GetPathogenDetectionTable( args ) => {
 
             let schema = PathogenDetectionTableSchema::new(
-                args.sample_ids.clone().unwrap_or_default()
+                args.sample_ids.clone().unwrap_or_default(), args.collapse_variants
             );
 
             client.get_pathogen_detection(

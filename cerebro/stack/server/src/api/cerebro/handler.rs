@@ -1156,16 +1156,32 @@ async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<Pa
                         
                         match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
                             Ok(taxa) => {
-                                model.taxa = taxa;
-                                records.extend(
-                                    model.into_pathogen_detection_table_records()
-                                )
+
+
+                                // Collapse species / taxon variants if option is provided
+                                // WARNING: the function assigns a new taxonomic identifier to the collapsed taxon! 
+                                if schema.collapse_variants {
+                                    model.taxa = match collapse_taxa(taxa) {
+                                        Ok(t) => t, Err(err) => return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()))
+                                    };
+                                } else {
+                                    model.taxa = taxa;
+                                }
+
+
+                                let recs = match model.into_pathogen_detection_table_records() {
+                                    Ok(rec) => rec,
+                                    Err(err) => return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()))
+                                };
+
+                                records.extend(recs)
                             }
                             Err(err) => {
                                 return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()));
                             }
                         };
                     }
+
 
                     // Optionally convert the summaries to CSV table (string) if requested.
                     let csv_output = if let Some(true) = query.csv {
