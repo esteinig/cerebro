@@ -723,74 +723,6 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
 
 }
 
-pub fn apply_prevalence_contamination_filter(
-    cerebros: Vec<Cerebro>,
-    min_rpm: f64,              // Evidence from any read profiling tool > RPM
-    threshold: f64,            // Prevalence percentage threshold (e.g., 0.5 for 50%)
-    taxid_subset: Vec<String>, // Only consider these Taxon.taxid values
-    collapse_variants: bool
-) -> Vec<String> {
-
-    // Check for edge cases
-    if cerebros.is_empty() {
-        return Vec::new(); // No data to process
-    }
-
-    // Convert taxid_subset to a HashSet for efficient lookups
-    let taxid_subset_set: HashSet<String> = taxid_subset.into_iter().collect();
-
-    // Total number of Cerebro objects
-    let total_cerebro_count = cerebros.len() as f64;
-
-    // HashMap to count how many Cerebro objects have matching Taxon evidence
-    let mut taxon_prevalence: HashMap<String, usize> = HashMap::new();
-
-    // Iterate through each Cerebro object
-    for cerebro in cerebros {
-
-        // Collect Taxon IDs with matching evidence in this Cerebro object
-        let mut found_taxa: HashSet<String> = HashSet::new();
-
-        for taxon in cerebro.taxa {
-
-            // Check if the Taxon is in the subset
-            if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {
-                continue; // Skip taxa not in the subset if any are defined in subset, otherwise use Taxon
-            }
-
-
-            // Check if the Taxon has any ProfileRecord evidence matching the criteria
-            let has_matching_evidence = taxon
-                .evidence
-                .profile
-                .iter()
-                .any(|record| record.rpm >= min_rpm);
-
-            if has_matching_evidence {
-                found_taxa.insert(taxon.taxid.clone());
-            }
-        }
-
-        // Increment prevalence count for each Taxon ID found in this Cerebro
-        for taxid in found_taxa {
-            *taxon_prevalence.entry(taxid).or_insert(0) += 1;
-        }
-    }
-
-    // Filter Taxon IDs based on the percentage threshold
-    taxon_prevalence
-        .into_iter()
-        .filter_map(|(taxid, count)| {
-            let prevalence = count as f64 / total_cerebro_count;
-            if prevalence >= threshold {
-                Some(taxid)
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
 // Prevalence contamination identification - TODO: stratify by sample type (already in ContaminationSchema)
 #[post("/cerebro/taxa/contamination")]
 async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_schema: web::Json<ContaminationSchema>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
@@ -824,7 +756,13 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
                 };
             }
 
-            let taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone(), contam_schema.collapse_variants);
+            let taxids = apply_prevalence_contamination_filter(
+                cerebro.into_iter().map(|c| c.taxa).collect(), 
+                contam_schema.min_rpm, 
+                contam_schema.threshold, 
+                contam_schema.taxid.clone(), 
+                contam_schema.collapse_variants
+            );
             
             HttpResponse::Ok().json(ContaminationTaxaResponse::success(taxids))
         },

@@ -178,10 +178,14 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             )?;
 
 
-            let contam_config: PrevalenceContaminationConfig = match args.contamination {
+            let mut contam_config: PrevalenceContaminationConfig = match args.contamination {
                 Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
                 None => PrevalenceContaminationConfig::default()
             };
+
+            if args.collapse_variants {
+                contam_config.collapse_variants = true;
+            }
 
             let prevalence_contamination = if args.disable_filter {
                 HashMap::new()

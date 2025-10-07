@@ -1824,7 +1824,7 @@ impl CerebroClient {
                     let mut filter_config_modified = filter_config.clone();
 
                     // Pass the contamination taxids to the server-side filter to conduct removal before collapsing variants if specified
-                    filter_config_modified.prevalence_contamination_taxids = contam_taxids.map(|set| set.iter().cloned().collect());
+                    filter_config_modified.prevalence_contamination = contam_taxids.map(|set| set.iter().cloned().collect());
 
                     let response = self.send_request_with_team_db_project(
                         self.client

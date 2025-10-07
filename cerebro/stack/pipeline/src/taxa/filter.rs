@@ -20,23 +20,23 @@ use super::taxon::Taxon;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonFilterConfig {
-    pub rank: Option<PathogenDetectionRank>,        // Filter by specific taxonomic rank
-    pub domains: Vec<String>,                       // Filter by domain names
-    pub tools: Vec<ProfileTool>,                    // Filter by specific detection tools
-    pub modes: Vec<AbundanceMode>,                  // Filter by detection modes (Sequence/Profile)
+    pub rank: Option<PathogenDetectionRank>,            // Filter by specific taxonomic rank
+    pub domains: Vec<String>,                           // Filter by domain names
+    pub tools: Vec<ProfileTool>,                        // Filter by specific detection tools
+    pub modes: Vec<AbundanceMode>,                      // Filter by detection modes (Sequence/Profile)
     pub min_bases: u64,
     pub max_bases: Option<u64>,
     pub min_bpm: f64,                             
-    pub min_reads: u64,                             // Minimum read count for inclusion
-    pub min_rpm: f64,                               // Minimum RPM (Reads per million) for inclusion
+    pub min_reads: u64,                                 // Minimum read count for inclusion
+    pub min_rpm: f64,                                   // Minimum RPM (Reads per million) for inclusion
     pub max_rpm: Option<f64>,
-    pub min_abundance: f64,                         // Minimum abundance for inclusion
-    pub ntc_ratio: Option<f64>,                     // NTC ratio threshold
-    pub lineage: Option<Vec<LineageFilterConfig>>,  // Lineage filter configuration if specified
-    pub targets: Option<Vec<String>>,               // Subset taxa to these lineage components
-    pub collapse_variants: bool,                    // Collapse species variants by name post prefetch - sums evidence and adjusts taxon name  (GTDB species names e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) 
-    pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches \
-    pub prevalence_contamination_taxids: Option<Vec<String>>
+    pub min_abundance: f64,                             // Minimum abundance for inclusion
+    pub ntc_ratio: Option<f64>,                         // NTC ratio threshold
+    pub lineage: Option<Vec<LineageFilterConfig>>,      // Lineage filter configuration if specified
+    pub targets: Option<Vec<String>>,                   // Subset taxa to these lineage components
+    pub collapse_variants: bool,                        // Collapse species variants by name post prefetch - sums evidence and adjusts taxon name  (GTDB species names e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) 
+    pub ignore_taxstr: Option<Vec<String>>,             // Remove any of these matches \
+    pub prevalence_contamination: Option<Vec<String>>
 }
 
 impl TaxonFilterConfig {
@@ -77,7 +77,7 @@ impl Default for TaxonFilterConfig {
             targets: None,
             collapse_variants: false,
             ignore_taxstr: None,
-            prevalence_contamination_taxids: None
+            prevalence_contamination: None
         }
     }
 }
@@ -105,7 +105,7 @@ impl TaxonFilterConfig {
             targets: None,
             collapse_variants: false,
             ignore_taxstr: taxstr,
-            prevalence_contamination_taxids: None
+            prevalence_contamination: None
         }
     }
     pub fn gp_below_threshold(taxstr: Option<Vec<String>>) -> Self {
@@ -130,7 +130,7 @@ impl TaxonFilterConfig {
             targets: None,
             collapse_variants: false,
             ignore_taxstr: taxstr,
-            prevalence_contamination_taxids: None
+            prevalence_contamination: None
         }
     }
     pub fn gp_target_threshold(taxstr: Option<Vec<String>>) -> Self {
@@ -159,7 +159,7 @@ impl TaxonFilterConfig {
             targets: Some(targets),
             collapse_variants: false,
             ignore_taxstr: taxstr,
-            prevalence_contamination_taxids: None
+            prevalence_contamination: None
         }
     }
 }
@@ -439,14 +439,6 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
-    // Apply prevalence contamination filter by taxonomic identifiers before we collapse taxa below:
-    let (mut taxa, contamination): (Vec<_>, Vec<_>) = match &filter_config.prevalence_contamination_taxids {
-        Some(contam_taxids) => {
-            taxa.into_iter().partition(|tax| !contam_taxids.contains(&tax.taxid))
-        }
-        None => (taxa, Vec::new()),
-    };
-
     // Apply target filter if specified - this is really slow at the moment because of the String checks?
     if let Some(target_set) = &filter_config.target_set() {
         taxa = taxa.into_iter()
@@ -480,6 +472,14 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     if let Some(lineage_filters) = &filter_config.lineage {
         taxa = apply_lineage_filters(taxa, lineage_filters, sample_tags);
     }
+
+    // Apply prevalence contamination filter by taxonomic identifiers before we collapse taxa below:
+    let (mut taxa, contamination): (Vec<_>, Vec<_>) = match &filter_config.prevalence_contamination {
+        Some(contam_names) => {
+            taxa.into_iter().partition(|tax| !contam_names.contains(&tax.name))
+        }
+        None => (taxa, Vec::new()),
+    };
 
     (taxa, contamination)
 }
@@ -717,3 +717,77 @@ pub fn apply_lineage_filters(
         .collect()
 }
 
+
+pub fn apply_prevalence_contamination_filter(
+    cerebros: Vec<Vec<Taxon>>,
+    min_rpm: f64,              // Evidence from any read profiling tool > RPM
+    threshold: f64,            // Prevalence percentage threshold (e.g., 0.5 for 50%)
+    taxid_subset: Vec<String>, // Only consider these Taxon.taxid values
+    collapse_variants: bool
+) -> Vec<String> {
+
+    // Check for edge cases
+    if cerebros.is_empty() {
+        return Vec::new(); // No data to process
+    }
+
+    // Convert taxid_subset to a HashSet for efficient lookups
+    let taxid_subset_set: HashSet<String> = taxid_subset.into_iter().collect();
+
+    // Total number of Cerebro objects
+    let total_cerebro_count = cerebros.len() as f64;
+
+    // HashMap to count how many Cerebro objects have matching Taxon evidence
+    let mut taxon_prevalence: HashMap<String, usize> = HashMap::new();
+
+    // Iterate through each Cerebro object
+    for cerebro in cerebros {
+
+        // Collect Taxon IDs with matching evidence in this Cerebro object
+        let mut found_taxa: HashSet<String> = HashSet::new();
+        
+        let cerebro = if collapse_variants {
+            collapse_taxa(cerebro).expect("Failed to collapse taxa")
+        } else {
+            cerebro
+        };
+
+        for taxon in cerebro {
+
+            // Check if the Taxon is in the subset
+            if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {
+                continue; // Skip taxa not in the subset if any are defined in subset, otherwise use Taxon
+            }
+
+
+            // Check if the Taxon has any ProfileRecord evidence matching the criteria
+            let has_matching_evidence = taxon
+                .evidence
+                .profile
+                .iter()
+                .any(|record| record.rpm >= min_rpm);
+
+            if has_matching_evidence {
+                found_taxa.insert(taxon.name.clone()); // CHANGED TAXID TO TAXNAME
+            }
+        }
+
+        // Increment prevalence count for each Taxon ID found in this Cerebro
+        for taxid in found_taxa {
+            *taxon_prevalence.entry(taxid).or_insert(0) += 1;
+        }
+    }
+
+    // Filter Taxon IDs based on the percentage threshold
+    taxon_prevalence
+        .into_iter()
+        .filter_map(|(taxid, count)| {
+            let prevalence = count as f64 / total_cerebro_count;
+            if prevalence >= threshold {
+                Some(taxid)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
