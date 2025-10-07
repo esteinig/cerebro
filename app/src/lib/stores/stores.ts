@@ -107,7 +107,7 @@ const defaultServerFilterConfig: TaxonFilterConfig = {
 export const primaryThresholdServerFilterConfig: TaxonFilterConfig = {
     rank: PathogenDetectionRank.Species,
     domains: [],
-    tools: ["Vircov", "Bracken", "Metabuli", "Ganon2", "Blast"], 
+    tools: ["Vircov", "Kraken2", "Metabuli", "Ganon2", "Blast"], 
     modes: ["Mixed"], 
     min_bases: 0,   // Check this threshold TODO V75
     max_bases: null,
@@ -159,7 +159,7 @@ export const primaryThresholdServerFilterConfig: TaxonFilterConfig = {
 export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
     rank: PathogenDetectionRank.Species,
     domains: [],
-    tools: ["Vircov", "Bracken", "Metabuli", "Ganon2", "Blast"], 
+    tools: ["Vircov", "Kraken2", "Metabuli", "Ganon2", "Blast"], 
     modes: ["Mixed"], 
     min_bases: 0, 
     max_bases: null,
@@ -211,7 +211,7 @@ export const secondaryThresholdServerFilterConfig: TaxonFilterConfig = {
 export const validationThresholdServerFilterConfig: TaxonFilterConfig = {
     rank: PathogenDetectionRank.Species,
     domains: [],
-    tools: ["Vircov", "Bracken", "Metabuli", "Ganon2", "Blast"], 
+    tools: ["Vircov", "Kraken2", "Metabuli", "Ganon2", "Blast"], 
     modes: ["Mixed"], 
     min_bases: 0, 
     max_bases: null,
