@@ -213,7 +213,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let outdir = args.outdir.clone();
                     let force = args.force;
                     let subset = args.samples.clone();
-                    let collapse_variants = args.collapse_variants.clone();
 
                     let contam_config = contam_config.clone();
                     let tiered_filter_config = tiered_filter_config.clone();

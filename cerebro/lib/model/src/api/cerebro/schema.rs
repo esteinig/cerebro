@@ -272,8 +272,8 @@ pub struct PostFilterConfig {
 impl Default for PostFilterConfig {
     fn default() -> Self {
         Self {
-            collapse_variants: true,
-            best_species: true,
+            collapse_variants: false,
+            best_species: false,
             best_species_min: 3,
             best_species_domains: vec![
                 "Archaea".to_string(),
@@ -281,7 +281,7 @@ impl Default for PostFilterConfig {
                 "Eukaryota".to_string()
             ],
             best_species_base_weight: None,
-            exclude_phage: true,
+            exclude_phage: false,
             exclude_phage_list: HashSet::from_iter(
                 TargetList::gp_prokaryote_viruses().to_vec()
             )
