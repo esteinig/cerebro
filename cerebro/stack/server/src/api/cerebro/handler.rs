@@ -688,10 +688,10 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     for tt in tagged_taxa {
                         tag_map.insert(tt.name, tt.sample_tags);
                     }          
-                         
+                    
 
                     // Applying the rank/evidence filters from the provided filter configuration
-                    let taxa: Vec<Taxon> = apply_filters(
+                    let (taxa, contamination) = apply_filters(
                         aggregated_taxa.into_values().collect(), 
                         &filter_config, 
                         &tag_map, 
@@ -699,7 +699,7 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     );
                     
                     if query.overview.is_some_and(|x| x) {                        
-                        HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
+                        HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa, contamination))
                     } else {
                         // Additional filter for specific taxa by 'taxid':
 
@@ -708,10 +708,10 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                             let taxids = taxid.split(",").collect::<Vec<&str>>();
                             let taxa: Vec<Taxon> = taxa.into_iter().filter(|taxon| taxids.contains(&taxon.taxid.as_str())).collect();
 
-                            HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
+                            HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa, contamination))
                         } else {
                             // Return all otherwise - same as overview at the moment!
-                            HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
+                            HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa, contamination))
                         }
                     }
                 },
@@ -1117,7 +1117,6 @@ async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<Pa
         Err(error_response) => return error_response
     };
 
-
     let mut filter = Document::new();
 
     if !schema.sample_ids.is_empty() {
@@ -1171,7 +1170,6 @@ async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<Pa
                             }
                         };
                     }
-
 
                     // Optionally convert the summaries to CSV table (string) if requested.
                     let csv_output = if let Some(true) = query.csv {

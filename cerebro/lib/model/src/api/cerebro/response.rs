@@ -60,11 +60,11 @@ pub struct FilteredTaxaResponse {
     pub data: FilteredTaxaData
 }
 impl FilteredTaxaResponse {
-    pub fn success(taxa: Vec<Taxon>) -> Self {
+    pub fn success(taxa: Vec<Taxon>, contamination: Vec<Taxon>) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("Filtered taxa retrieved"),
-            data: FilteredTaxaData { taxa }
+            data: FilteredTaxaData { taxa, contamination }
         }
     }
     pub fn not_found() -> Self {
@@ -225,7 +225,8 @@ impl ContaminationTaxaResponse {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct FilteredTaxaData {
-    pub taxa: Vec<Taxon>
+    pub taxa: Vec<Taxon>,
+    pub contamination: Vec<Taxon>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

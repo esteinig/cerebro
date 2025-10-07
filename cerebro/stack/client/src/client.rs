@@ -1821,6 +1821,11 @@ impl CerebroClient {
                         &[("id", ids.join(","))]
                     );
 
+                    let mut filter_config_modified = filter_config.clone();
+
+                    // Pass the contamination taxids to the server-side filter to conduct removal before collapsing variants if specified
+                    filter_config_modified.prevalence_contamination_taxids = contam_taxids.map(|set| set.iter().cloned().collect());
+
                     let response = self.send_request_with_team_db_project(
                         self.client
                             .post(url)
@@ -1833,23 +1838,13 @@ impl CerebroClient {
                         "Taxon retrieval failed",
                     )?;
 
-                    if let Some(contam_taxids) = contam_taxids {
+                    if let Some(_) = contam_taxids {
 
-                        let contam_taxa: Vec<Taxon> = taxa_response_data.data.taxa
-                            .iter()
-                            .filter(|tax| contam_taxids.contains(&tax.taxid))
-                            .cloned()
-                            .collect();
-
-                        let mut sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
-                            .iter()
-                            .filter(|tax| !contam_taxids.contains(&tax.taxid))
-                            .cloned()
-                            .collect();
-
+                        let mut taxa = taxa_response_data.data.taxa;
                         let mut clear_contam_taxa = Vec::new();
+
                         if contam_history {
-                            'contam: for contam_taxon in &contam_taxa {
+                            'contam: for contam_taxon in &taxa_response_data.data.contamination {
                                 let reg = self.get_taxon_history(
                                     format!("s__{}", contam_taxon.name), 
                                     format!("s__Homo sapiens"), // hardcoded for now
@@ -1860,7 +1855,7 @@ impl CerebroClient {
                                 if let Some(reg) = reg {
                                     for outlier in reg.outliers {
                                         if outlier.sample_id == schema.sample {
-                                            sample_control_taxa.push(contam_taxon.to_owned());
+                                            taxa.push(contam_taxon.to_owned());
                                             continue 'contam;
                                         }
                                     }
@@ -1868,11 +1863,11 @@ impl CerebroClient {
                                 clear_contam_taxa.push(contam_taxon.clone())
                             }    
                         } else {
-                            clear_contam_taxa = contam_taxa.clone();
+                            clear_contam_taxa = taxa_response_data.data.contamination.clone();
                         }
-                        tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), clear_contam_taxa.clone()));
+                        tag_data.insert(tag.to_string(), (taxa.clone(), clear_contam_taxa.clone()));
                     } else {
-                        tag_data.insert(tag.to_string(), (taxa_response_data.data.taxa, Vec::new()));
+                        tag_data.insert(tag.to_string(), (taxa_response_data.data.taxa, taxa_response_data.data.contamination));
                     }
                 }   
             }

@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use env_logger::filter;
+
 use serde::{Deserialize, Serialize};
 use taxonomy::TaxRank;
 
@@ -37,7 +35,8 @@ pub struct TaxonFilterConfig {
     pub lineage: Option<Vec<LineageFilterConfig>>,  // Lineage filter configuration if specified
     pub targets: Option<Vec<String>>,               // Subset taxa to these lineage components
     pub collapse_variants: bool,                    // Collapse species variants by name post prefetch - sums evidence and adjusts taxon name  (GTDB species names e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) 
-    pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches 
+    pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches \
+    pub prevalence_contamination_taxids: Option<Vec<String>>
 }
 
 impl TaxonFilterConfig {
@@ -77,7 +76,8 @@ impl Default for TaxonFilterConfig {
             lineage: None,
             targets: None,
             collapse_variants: false,
-            ignore_taxstr: None
+            ignore_taxstr: None,
+            prevalence_contamination_taxids: None
         }
     }
 }
@@ -104,7 +104,8 @@ impl TaxonFilterConfig {
             ]),
             targets: None,
             collapse_variants: false,
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
+            prevalence_contamination_taxids: None
         }
     }
     pub fn gp_below_threshold(taxstr: Option<Vec<String>>) -> Self {
@@ -128,7 +129,8 @@ impl TaxonFilterConfig {
             ]),
             targets: None,
             collapse_variants: false,
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
+            prevalence_contamination_taxids: None
         }
     }
     pub fn gp_target_threshold(taxstr: Option<Vec<String>>) -> Self {
@@ -156,7 +158,8 @@ impl TaxonFilterConfig {
             ]),
             targets: Some(targets),
             collapse_variants: false,
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
+            prevalence_contamination_taxids: None
         }
     }
 }
@@ -411,8 +414,9 @@ type SampleId = String;
 type Tag = String;
 
 
-pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>, allow_no_evidence: bool) -> Vec<Taxon> {
+pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>, allow_no_evidence: bool) -> (Vec<Taxon>, Vec<Taxon>) {
 
+    
     // Filter by taxonomic rank
     if let Some(rank) = &filter_config.rank {
         let tax_rank: TaxRank = (*rank).clone().into(); // Convert PathogenDetectionRank to TaxRank --> important because the taxon abstraction uses TaxRank from taxonomy crate (might need to change this)
@@ -435,6 +439,27 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
+    // Apply prevalence contamination filter by taxonomic identifiers before we collapse taxa below:
+    let (mut taxa, contamination) = match &filter_config.prevalence_contamination_taxids {
+        Some(contam_taxids) => {
+
+            let contamination: Vec<Taxon> = taxa
+                .iter()
+                .filter(|tax| contam_taxids.contains(&tax.taxid))
+                .cloned()
+                .collect();
+
+            let taxa: Vec<Taxon> = taxa
+                .iter()
+                .filter(|tax| !contam_taxids.contains(&tax.taxid))
+                .cloned()
+                .collect();
+
+            (taxa, contamination)
+        },
+        None => (taxa, vec![])
+    };
+
     // Apply target filter if specified - this is really slow at the moment because of the String checks?
     if let Some(target_set) = &filter_config.target_set() {
         taxa = taxa.into_iter()
@@ -456,21 +481,20 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
-
-    // Filter by detection tools, modes, and thresholds
-    taxa = apply_evidence_filters(taxa, filter_config, sample_tags, allow_no_evidence);
-
     // Apply collapse variants function
     if filter_config.collapse_variants {
         taxa = collapse_taxa(taxa).expect("Failed to collapse taxa");
     }
+
+    // Filter by detection tools, modes, and thresholds
+    taxa = apply_evidence_filters(taxa, filter_config, sample_tags, allow_no_evidence);
 
     // If lineage filters are specified, apply the filters across retained taxa:
     if let Some(lineage_filters) = &filter_config.lineage {
         taxa = apply_lineage_filters(taxa, lineage_filters, sample_tags);
     }
 
-    taxa
+    (taxa, contamination)
 }
 
 
