@@ -751,17 +751,7 @@ pub fn apply_prevalence_contamination_filter(
         // Collect Taxon IDs with matching evidence in this Cerebro object
         let mut found_taxa: HashSet<String> = HashSet::new();
 
-        // If collapse variants is active, collapse the taxon variants (from GTDB)
-        // Note this will assign a new taxid to collapsed taxa, which should match
-        // any created previously through the 'apply_filter' function
-
-        let cerebro_taxa = if collapse_variants {
-           collapse_taxa(cerebro.taxa).expect("FAILED TO COLLAPSE TAXA")
-        } else {
-            cerebro.taxa
-        };
-
-        for taxon in cerebro_taxa {
+        for taxon in cerebro.taxa {
 
             // Check if the Taxon is in the subset
             if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {

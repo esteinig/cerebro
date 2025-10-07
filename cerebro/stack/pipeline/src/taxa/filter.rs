@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
+use env_logger::filter;
 use serde::{Deserialize, Serialize};
 use taxonomy::TaxRank;
 
@@ -35,7 +36,7 @@ pub struct TaxonFilterConfig {
     pub ntc_ratio: Option<f64>,                     // NTC ratio threshold
     pub lineage: Option<Vec<LineageFilterConfig>>,  // Lineage filter configuration if specified
     pub targets: Option<Vec<String>>,               // Subset taxa to these lineage components
-    pub collapse_variants: bool,                    // Collapse species variants by name (GTDB, e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) - sums evidence and adjusts taxon name
+    pub collapse_variants: bool,                    // Collapse species variants by name post prefetch - sums evidence and adjusts taxon name  (GTDB species names e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) 
     pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches 
 }
 
@@ -332,7 +333,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(10.0) ,
-            min_assembly_tools: Some(1)
+            min_assembly_tools: None
         }
     }
 
@@ -358,7 +359,7 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
-            min_kmer_rpm: Some(3.0),
+            min_kmer_rpm: Some(2.0),
             min_assembly_tools: None
         }
     }
@@ -371,8 +372,8 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(5.0) ,
-            min_assembly_tools: Some(1)
+            min_kmer_rpm: Some(5.0),
+            min_assembly_tools: None
         }
     }
 
@@ -455,8 +456,14 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
             .collect();
     }
 
+
     // Filter by detection tools, modes, and thresholds
     taxa = apply_evidence_filters(taxa, filter_config, sample_tags, allow_no_evidence);
+
+    // Apply collapse variants function
+    if filter_config.collapse_variants {
+        taxa = collapse_taxa(taxa).expect("Failed to collapse taxa");
+    }
 
     // If lineage filters are specified, apply the filters across retained taxa:
     if let Some(lineage_filters) = &filter_config.lineage {
