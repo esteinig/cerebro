@@ -1042,7 +1042,7 @@ impl ReferencePlate {
     ) -> Result<HashMap<String, HashSet<String>>, CiqaError> {
 
         log::info!(
-            "Fetching DNA prevalence contamination taxids from database '{}' and project '{}'", 
+            "Fetching prevalence contamination taxids from database '{}' and project '{}'", 
             client.db.clone().unwrap_or_default(), client.project.clone().unwrap_or_default()
         );
 

@@ -240,12 +240,10 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                             let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
 
-                            let mut tiered_filter_config = match ignore_taxstr {
+                            let tiered_filter_config = match ignore_taxstr {
                                 Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
                                 None => tiered_filter_config,
                             };
-
-                            if collapse_variants { tiered_filter_config.set_collapse_variants() };
 
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id.clone(),
