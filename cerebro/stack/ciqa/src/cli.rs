@@ -1,6 +1,6 @@
 
 use std::{collections::{HashMap, HashSet}, fs::create_dir_all, process::exit, sync::Arc};
-
+use cerebro_model::api::cerebro::schema::SampleType;
 use cerebro_fs::client::{FileSystemClient, UploadConfig};
 use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, SampleContext, TaskConfig, ClinicalContext}};
 
@@ -522,7 +522,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             let state_dir = args.outdir.join("state_logs");
             std::fs::create_dir_all(&state_dir)?;
 
-            let plate = ReferencePlate::new(
+            let plate = ReferencePlate::from_review(
                 &args.plate,
                 None,
                 MissingOrthogonal::Indeterminate,
@@ -584,6 +584,9 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             args.model_dir.clone(),
                             args.sample_len,
                             args.temperature,
+                            args.top_k,
+                            args.top_p,
+                            args.min_p,
                             gpu_id,
                         )
                     )?;
