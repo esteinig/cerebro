@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use taxonomy::ncbi;
 use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::{panviral::PanviralOutput, pathogen::PathogenDetectionOutput}, taxa::taxon::{Taxon, TaxonExtraction}, utils::read_tsv};
+use crate::{error::WorkflowError, nextflow::{panviral::PanviralOutput, pathogen::PathogenDetectionOutput}, taxa::taxon::{collapse_taxa, Taxon, TaxonExtraction}, utils::read_tsv};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,7 +52,7 @@ impl Alignment {
 }
 
 impl TaxonExtraction for Alignment {
-    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<Vec<Taxon>, WorkflowError> {
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool, gtdb_break_monophyly: bool) -> Result<Vec<Taxon>, WorkflowError> {
         let taxonomy = ncbi::load(taxonomy_directory)?;
     
         let mut taxa: HashMap<String, Taxon> = HashMap::new();
@@ -89,6 +89,13 @@ impl TaxonExtraction for Alignment {
                 taxa.insert(taxid.clone(), taxon);
             }
         }
-        Ok(taxa.values().cloned().collect())
+        
+        let taxa_data = taxa.values().cloned().collect();
+
+        if gtdb_break_monophyly {
+            Ok(collapse_taxa(taxa_data, true, Some(&taxonomy))?)
+        } else {
+            Ok(taxa_data)
+        }
     }
 }

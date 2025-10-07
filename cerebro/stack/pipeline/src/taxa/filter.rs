@@ -36,7 +36,6 @@ pub struct TaxonFilterConfig {
     pub ntc_ratio: Option<f64>,                     // NTC ratio threshold
     pub lineage: Option<Vec<LineageFilterConfig>>,  // Lineage filter configuration if specified
     pub targets: Option<Vec<String>>,               // Subset taxa to these lineage components
-    pub collapse_variants: bool,                    // Collapse species variants by name post prefetch - sums evidence and adjusts taxon name  (GTDB species names e.g. Haemophilus influenzae_A or Haemophilus influenzae_H) 
     pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches 
 }
 
@@ -76,7 +75,6 @@ impl Default for TaxonFilterConfig {
             ntc_ratio: None,
             lineage: None,
             targets: None,
-            collapse_variants: false,
             ignore_taxstr: None
         }
     }
@@ -103,7 +101,6 @@ impl TaxonFilterConfig {
                 LineageFilterConfig::gp_eukaryota_above_threshold()
             ]),
             targets: None,
-            collapse_variants: false,
             ignore_taxstr: taxstr
         }
     }
@@ -127,7 +124,6 @@ impl TaxonFilterConfig {
                 LineageFilterConfig::gp_eukaryota_below_threshold(),
             ]),
             targets: None,
-            collapse_variants: false,
             ignore_taxstr: taxstr
         }
     }
@@ -155,7 +151,6 @@ impl TaxonFilterConfig {
                 LineageFilterConfig::gp_viruses_target_threshold(),
             ]),
             targets: Some(targets),
-            collapse_variants: false,
             ignore_taxstr: taxstr
         }
     }
@@ -358,8 +353,8 @@ impl LineageFilterConfig {
             min_alignment_rpm: None,
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(2),
-            min_kmer_rpm: Some(2.0),
+            min_kmer_tools: Some(3),
+            min_kmer_rpm: Some(1.0),
             min_assembly_tools: None
         }
     }
@@ -459,11 +454,6 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
 
     // Filter by detection tools, modes, and thresholds
     taxa = apply_evidence_filters(taxa, filter_config, sample_tags, allow_no_evidence);
-
-    // Apply collapse variants function
-    if filter_config.collapse_variants {
-        taxa = collapse_taxa(taxa).expect("Failed to collapse taxa");
-    }
 
     // If lineage filters are specified, apply the filters across retained taxa:
     if let Some(lineage_filters) = &filter_config.lineage {

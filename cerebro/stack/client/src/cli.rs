@@ -80,7 +80,8 @@ fn main() -> anyhow::Result<()> {
                 &quality,
                 &pathogen.get_taxa(
                     &args.taxonomy, 
-                    args.strict
+                    args.strict,
+                    args.gtdb_break_monophyly
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
@@ -117,7 +118,8 @@ fn main() -> anyhow::Result<()> {
                 &quality,
                 &pathogen.get_taxa(
                     &args.taxonomy, 
-                    args.strict
+                    args.strict,
+                    args.gtdb_break_monophyly
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
@@ -158,7 +160,8 @@ fn main() -> anyhow::Result<()> {
                 &quality,
                 &panviral.get_taxa(
                     &args.taxonomy, 
-                    args.strict
+                    args.strict,
+                    args.gtdb_break_monophyly
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),
@@ -193,7 +196,8 @@ fn main() -> anyhow::Result<()> {
                 &quality,
                 &panviral.get_taxa(
                     &args.taxonomy, 
-                    args.strict
+                    args.strict,
+                    args.gtdb_break_monophyly
                 )?,
                 args.sample_sheet.clone(),
                 args.pipeline_config.clone(),

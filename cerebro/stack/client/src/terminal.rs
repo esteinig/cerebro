@@ -164,6 +164,9 @@ pub struct UploadPathogenArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    #[clap(long)]
+    pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
     #[clap(long)]
     pub run_id: Option<String>,
@@ -201,6 +204,9 @@ pub struct CreatePathogenArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    #[clap(long)]
+    pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
     /// otherwise defaults to placeholder for now
     #[clap(long)]
@@ -233,6 +239,9 @@ pub struct UploadPanviralArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    #[clap(long)]
+    pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
     /// otherwise defaults to placeholder for now
     #[clap(long)]
@@ -274,6 +283,9 @@ pub struct CreatePanviralArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    #[clap(long)]
+    pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
     /// otherwise defaults to placeholder for now
     #[clap(long)]

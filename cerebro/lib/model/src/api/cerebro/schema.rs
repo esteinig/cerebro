@@ -180,8 +180,7 @@ pub struct ContaminationSchema {
     pub tags: Vec<String>,
     pub threshold: f64,
     pub min_rpm: f64,
-    pub sample_type: Option<String>,
-    pub collapse_variants: bool
+    pub sample_type: Option<String>
 }
 impl ContaminationSchema {
     pub fn from_config(taxid: Vec<String>, tags: Vec<String>, config: &PrevalenceContaminationConfig) -> Self {
@@ -191,7 +190,6 @@ impl ContaminationSchema {
             threshold: config.threshold,
             min_rpm: config.min_rpm,
             sample_type: config.sample_type.clone(),
-            collapse_variants: config.collapse_variants
         }
     }
 }
@@ -203,7 +201,6 @@ pub struct PrevalenceContaminationConfig {
     pub threshold: f64,
     pub min_rpm: f64,
     pub sample_type: Option<String>,
-    pub collapse_variants: bool,
     pub outliers: PrevalenceOutliers
 }
 impl Default for PrevalenceContaminationConfig {
@@ -212,7 +209,6 @@ impl Default for PrevalenceContaminationConfig {
             threshold: 0.60,
             min_rpm: 0.0,
             sample_type: None,
-            collapse_variants: false,
             outliers: PrevalenceOutliers::default()
         }
     }
@@ -233,7 +229,6 @@ impl PrevalenceContaminationConfig {
             threshold: 0.0,
             min_rpm: 0.0,
             sample_type: None,
-            collapse_variants: false,
             outliers: PrevalenceOutliers::disabled()
         }
     }
@@ -339,11 +334,6 @@ impl TieredFilterConfig {
             None => Some(ignore_taxstr.clone())
         };
         config
-    }
-    pub fn set_collapse_variants(&mut self) {
-        self.primary.collapse_variants = true;
-        self.secondary.collapse_variants = true;
-        self.target.collapse_variants = true;
     }
     pub fn default(ignore_taxstr: Option<Vec<String>>) -> Self {
         Self {

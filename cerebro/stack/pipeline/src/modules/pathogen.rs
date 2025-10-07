@@ -1,10 +1,11 @@
 use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
+use crate::taxa::taxon::{collapse_taxa, LineageOperations};
 
 use serde::{Deserialize, Serialize};
 use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
 use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{lineage_to_gtdb_str, Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{lineage_to_gtdb_str, rank_index_and_prefix, Taxon, TaxonEvidence, TaxonExtraction}, utils::{read_tsv, write_tsv}};
 
 use super::{alignment::Alignment, assembly::{MetagenomeAssembly, ContigRecord}, quality::QualityControl};
 
@@ -753,7 +754,7 @@ impl PathogenDetection {
 }
 
 impl TaxonExtraction for PathogenDetection {
-    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<Vec<Taxon>, WorkflowError> {
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool, gtdb_break_monophyly: bool) -> Result<Vec<Taxon>, WorkflowError> {
         let taxonomy = ncbi::load(taxonomy_directory)?;
 
         let mut taxa: HashMap<String, Taxon> = HashMap::new();
@@ -822,7 +823,13 @@ impl TaxonExtraction for PathogenDetection {
             }
         }
 
-        Ok(taxa.values().cloned().collect())
+        let taxa_data = taxa.values().cloned().collect();
+
+        if gtdb_break_monophyly {
+            Ok(collapse_taxa(taxa_data, true, Some(&taxonomy))?)
+        } else {
+            Ok(taxa_data)
+        }
     }
 }
 

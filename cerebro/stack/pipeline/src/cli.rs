@@ -58,25 +58,6 @@ fn main() -> anyhow::Result<()> {
                     if let Some(path) = &args.pathogen {
                         pathogen_detection.to_json(path)?;
                     }
-                    
-                    if let Some(path) = &args.filter_pathogen {
-
-                        let filter = match &args.filter_json {
-                            Some(path) => PathogenDetectionFilter::from_json(path)?,
-                            None => PathogenDetectionFilter::new(
-                                args.filter_taxids.clone(), 
-                                args.filter_names.clone(),
-                                args.filter_ranks.clone()
-                            )?
-                        };
-
-                        log::info!("{:#?}", filter);
-
-                        let filtered_records = pathogen_detection.filter_by_taxonomy(
-                            filter.taxids, filter.names, filter.ranks
-                        );
-                        PathogenDetection::write_records(&filtered_records, path)?;
-                    }
                 }
 
                 ProcessCommands::Quality(args) => {

@@ -2,18 +2,18 @@ use anyhow::Result;
 use itertools::Itertools;
 use vircov::vircov::VircovRecord;
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
 use std::{path::PathBuf, collections::HashMap};
 use taxonomy::{Taxonomy, GeneralTaxonomy, TaxRank};
-use std::collections::hash_map::DefaultHasher;
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use crate::modules::assembly::ContigRecord;
 use crate::modules::pathogen::{AbundanceMode, ProfileRecord, ProfileTool};
 use crate::error::WorkflowError;
 
 
 pub trait TaxonExtraction {
-    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool) -> Result<Vec<Taxon>, WorkflowError>;
+    fn get_taxa(&self, taxonomy_directory: &PathBuf, strict: bool, gtdb_break_monophyly: bool) -> Result<Vec<Taxon>, WorkflowError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -429,70 +429,54 @@ fn get_base_name(name: &str) -> &str {
 }
 
 
-/// Collapses variants of taxa with the same base name (e.g. "Haemophilus influenzae_AC" and
-/// "Haemophilus influenzae_B" become "Haemophilus influenzae"). In the collapsed Taxon,
-/// alignment and assembly records are concatenated and the lineage is updated so that the
-/// component for its rank is replaced with the base name. For profile evidence, for each unique
-/// (id, tool, mode) combination, the numeric fields are summed.
-pub fn collapse_taxa(taxa: Vec<Taxon>) -> Result<Vec<Taxon>, WorkflowError> {
-
-    // Group taxa by their base name.
+/// Collapse variant suffixes to a single "{Genus species}" name.
+/// If `gtdb == true`, only collapse taxa in domains Bacteria or Archaea.
+/// If `taxonomy` is provided and a taxon with the collapsed name exists,
+/// use its taxid instead of a hashed "collapsed-..." id.
+pub fn collapse_taxa(
+    taxa: Vec<Taxon>,
+    gtdb: bool,
+    taxonomy: Option<&GeneralTaxonomy>,
+) -> Result<Vec<Taxon>, WorkflowError> {
+    // choose grouping key per taxon
     let mut groups: HashMap<String, Vec<Taxon>> = HashMap::new();
     for taxon in taxa {
-        let base = get_base_name(&taxon.name).to_string();
-        groups.entry(base).or_default().push(taxon);
+        let applicable = !gtdb || matches!(taxon.lineage.get_domain().as_deref(), Some("Bacteria" | "Archaea"));
+        let key = if applicable { collapse_gs(&taxon.name) } else { taxon.name.clone() };
+        groups.entry(key).or_default().push(taxon);
     }
 
-    let mut collapsed = Vec::new();
-
-    // Process each group.
+    let mut out = Vec::with_capacity(groups.len());
     for (base_name, group) in groups {
-        
-        // If only a single taxon in group, leave it untouched and continue with groups
-        if group.len() == 1 {
-            collapsed.push(group[0].clone());
-            continue;
-        }
-
-        // Choose representative: search the group for any Taxon whose name matches the base name.
-        // If not found, use the first taxon in the group.
-        let representative = group
-            .iter()
-            .find(|taxon| taxon.name == base_name)
-            .unwrap_or(&group[0]);
-
+        // representative
+        let representative = group.iter().find(|t| t.name == base_name).unwrap_or(&group[0]);
         let rank = &representative.rank;
 
-        // Update the lineage: replace the part corresponding to the taxon's rank with the base name.
+        // lineage update (replace the component at the rank with the collapsed base name)
         let mut new_lineage = representative.lineage.clone();
         if let Some((idx, prefix)) = rank_index_and_prefix(rank) {
             let mut parts: Vec<String> = new_lineage.split(';').map(|s| s.to_string()).collect();
-            if parts.len() > idx {
-                parts[idx] = format!("{}{}", prefix, base_name);
-                new_lineage = parts.join(";");
-            } else {
+            if parts.len() <= idx {
                 return Err(WorkflowError::LineageStringTooShort(new_lineage));
             }
+            parts[idx] = format!("{}{}", prefix, base_name);
+            new_lineage = parts.join(";");
         }
 
-        // Initialize accumulators for evidence.
+        // accumulate evidence (concat align/assembly, sum profile by (id,tool,mode))
         let mut alignment = Vec::new();
         let mut assembly = Vec::new();
         let mut profile_map: HashMap<(String, ProfileTool, AbundanceMode), ProfileRecord> = HashMap::new();
 
-        // Accumulate evidence from all taxa in the group.
         for taxon in &group {
-            // Concatenate alignment and assembly records.
             alignment.extend(taxon.evidence.alignment.iter().cloned());
             assembly.extend(taxon.evidence.assembly.iter().cloned());
-
-            // For profile evidence, sum the numeric fields for each (id, tool, mode) key.
-            for record in &taxon.evidence.profile {
-                let key = (record.id.clone(), record.tool.clone(), record.mode.clone());
-                let entry = profile_map.entry(key).or_insert(ProfileRecord {
-                    id: record.id.clone(),
-                    tool: record.tool.clone(),
-                    mode: record.mode.clone(),
+            for r in &taxon.evidence.profile {
+                let key = (r.id.clone(), r.tool.clone(), r.mode.clone());
+                let e = profile_map.entry(key).or_insert(ProfileRecord {
+                    id: r.id.clone(),
+                    tool: r.tool.clone(),
+                    mode: r.mode.clone(),
                     reads: 0,
                     rpm: 0.0,
                     contigs: 0,
@@ -500,41 +484,94 @@ pub fn collapse_taxa(taxa: Vec<Taxon>) -> Result<Vec<Taxon>, WorkflowError> {
                     bpm: 0.0,
                     abundance: 0.0,
                 });
-                entry.reads += record.reads;
-                entry.rpm += record.rpm;
-                entry.contigs += record.contigs;
-                entry.bases += record.bases;
-                entry.bpm += record.bpm;
-                entry.abundance += record.abundance;
+                e.reads += r.reads;
+                e.rpm += r.rpm;
+                e.contigs += r.contigs;
+                e.bases += r.bases;
+                e.bpm += r.bpm;
+                e.abundance += r.abundance;
             }
         }
-
         let profile = profile_map.into_values().collect();
 
-        // Create a new taxid for this collapsed taxon in the format: collapsed-{hash of rank and taxon basename} 
-        // this is so the taxids can be found in subsequent requests that use taxids e.g. for prevalence  
-        // contamination or taxon history - which also need to call this function on the taxa!
+        // decide taxid
+        let changed_name = base_name != representative.name || group.len() > 1;
+        let new_taxid = if changed_name {
+            if let Some(tax) = taxonomy {
+                taxid_for_name_with_rank(tax, &base_name, rank)
+                    .unwrap_or_else(|| {
+                        if group.len() == 1 { 
+                            representative.taxid.clone() 
+                        } else { 
+                            log::warn!("Failed to find base name in taxonomy for taxon variant collapse - falling back to hashed identifier for: '{base_name}' 
+                            (group representative = {}, n = {})", representative.name, group.len());
+                            hashed_collapsed_id(rank, &base_name)
+                        }
+                    })
+            } else {
+                hashed_collapsed_id(rank, &base_name)
+            }
+        } else {
+            representative.taxid.clone()
+        };
 
-        let mut hasher = DefaultHasher::new();
-        format!("collapsed-{}-{}", representative.rank, base_name).hash(&mut hasher);
-        
-        let new_taxid = hasher.finish();
-
-        // Build the new, collapsed Taxon.
-        let new_taxon = Taxon {
-            taxid: new_taxid.to_string(), 
+        out.push(Taxon {
+            taxid: new_taxid,
             rank: representative.rank.clone(),
             name: base_name,
             lineage: new_lineage,
-            evidence: TaxonEvidence {
-                alignment,
-                assembly,
-                profile,
-            },
-        };
-
-        collapsed.push(new_taxon);
+            evidence: TaxonEvidence { alignment, assembly, profile },
+        });
     }
 
-    Ok(collapsed)
+    Ok(out)
+}
+
+/// Collapse only the species token.
+/// "Haemophilus_A influenzae_CD" -> "Haemophilus_A influenzae"
+/// "Haemophilus influenzae_CD"   -> "Haemophilus influenzae"
+/// "Haemophilus_A"               -> "Haemophilus_A"  // no species present
+fn collapse_gs(name: &str) -> String {
+    let mut it = name.split_whitespace();
+    let g = it.next().unwrap_or("");
+    let s = it.next();
+
+    match s {
+        Some(species) if !g.is_empty() => format!("{} {}", g, strip_variant_token(species)),
+        _ => name.to_string(),
+    }
+}
+
+/// Remove a trailing "_[A-Z]+" suffix from a token if present.
+fn strip_variant_token(tok: &str) -> &str {
+    if let Some(pos) = tok.rfind('_') {
+        let suf = &tok[pos + 1..];
+        if !suf.is_empty() && suf.chars().all(|c| c.is_ascii_uppercase()) {
+            return &tok[..pos];
+        }
+    }
+    tok
+}
+
+/// Stable hashed id for collapsed taxa when no taxonomy match is found.
+fn hashed_collapsed_id(rank: &TaxRank, base_name: &str) -> String {
+    let mut h = DefaultHasher::new();
+    format!("collapsed-{rank}-{base_name}").hash(&mut h);
+    h.finish().to_string()
+}
+
+fn taxid_for_name_with_rank(
+    tax: &GeneralTaxonomy,
+    name: &str,
+    want: &TaxRank,
+) -> Option<String> {
+    let cands = tax.find_all_by_name(name);
+    if cands.is_empty() {
+        return None;
+    }
+    // prefer exact-rank match, else first
+    if let Some(tid) = cands.iter().find(|&&tid| tax.rank(tid).ok().as_ref() == Some(want)) {
+        return Some((*tid).to_string());
+    }
+    Some(cands[0].to_string())
 }

@@ -728,7 +728,6 @@ pub fn apply_prevalence_contamination_filter(
     min_rpm: f64,              // Evidence from any read profiling tool > RPM
     threshold: f64,            // Prevalence percentage threshold (e.g., 0.5 for 50%)
     taxid_subset: Vec<String>, // Only consider these Taxon.taxid values
-    collapse_variants: bool
 ) -> Vec<String> {
 
     // Check for edge cases
@@ -824,7 +823,7 @@ async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_sc
                 };
             }
 
-            let taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone(), contam_schema.collapse_variants);
+            let taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone());
             
             HttpResponse::Ok().json(ContaminationTaxaResponse::success(taxids))
         },
@@ -1151,7 +1150,7 @@ async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<Pa
                                 // Collapse species / taxon variants if option is provided
                                 // WARNING: the function assigns a new taxonomic identifier to the collapsed taxon! 
                                 if schema.collapse_variants {
-                                    model.taxa = match collapse_taxa(taxa) {
+                                    model.taxa = match collapse_taxa(taxa, true, None) {
                                         Ok(t) => t, Err(err) => return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()))
                                     };
                                 } else {

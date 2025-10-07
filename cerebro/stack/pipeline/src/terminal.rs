@@ -388,21 +388,6 @@ pub struct ProcessArgs {
     /// If read scanning outputs fail to be detected (input/output scanning) include sample with zero reads
     #[clap(long, short = 'f')]
     pub qc_fail_ok: bool,
-    /// Output file of processed and filtered pathogen detection data
-    #[clap(long)]
-    pub filter_pathogen: Option<PathBuf>,
-    /// Provide filters as JSON
-    #[clap(long)]
-    pub filter_json: Option<PathBuf>,
-    /// Filter the output by taxids
-    #[clap(long)]
-    pub filter_taxids: Option<Vec<String>>,
-    /// Filter the output by taxnames
-    #[clap(long)]
-    pub filter_names: Option<Vec<String>>,
-    /// Filter the output by taxranks
-    #[clap(long)]
-    pub filter_ranks: Option<Vec<PathogenDetectionRank>>,
     /// Paired-end reads (same identifier for each mate) used as input
     /// 
     /// Classifiers like Kraken2 or Metabuli output reads as unique reads
