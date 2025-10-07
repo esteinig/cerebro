@@ -1829,7 +1829,7 @@ impl CerebroClient {
                     let response = self.send_request_with_team_db_project(
                         self.client
                             .post(url)
-                            .json(filter_config)
+                            .json(&filter_config_modified)
                     )?;
 
                     let taxa_response_data = self.handle_response::<FilteredTaxaResponse>(

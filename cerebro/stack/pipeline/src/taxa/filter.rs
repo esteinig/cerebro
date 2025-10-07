@@ -440,24 +440,11 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     }
 
     // Apply prevalence contamination filter by taxonomic identifiers before we collapse taxa below:
-    let (mut taxa, contamination) = match &filter_config.prevalence_contamination_taxids {
+    let (mut taxa, contamination): (Vec<_>, Vec<_>) = match &filter_config.prevalence_contamination_taxids {
         Some(contam_taxids) => {
-
-            let contamination: Vec<Taxon> = taxa
-                .iter()
-                .filter(|tax| contam_taxids.contains(&tax.taxid))
-                .cloned()
-                .collect();
-
-            let taxa: Vec<Taxon> = taxa
-                .iter()
-                .filter(|tax| !contam_taxids.contains(&tax.taxid))
-                .cloned()
-                .collect();
-
-            (taxa, contamination)
-        },
-        None => (taxa, vec![])
+            taxa.into_iter().partition(|tax| !contam_taxids.contains(&tax.taxid))
+        }
+        None => (taxa, Vec::new()),
     };
 
     // Apply target filter if specified - this is really slow at the moment because of the String checks?
