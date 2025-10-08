@@ -237,7 +237,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 .get_sample_reference(&sample_id)
                                 .ok_or_else(|| anyhow::anyhow!("No reference for {}", sample_id))?;
 
-                            let (tags, ignore_taxstr) = get_note_instructions(&sample_reference);
+                            let (tags, ignore_taxstr, exclude_lod) = get_note_instructions(&sample_reference);
 
                             let tiered_filter_config = match ignore_taxstr {
                                 Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
@@ -796,7 +796,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 }
 
 
-fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Option<Vec<String>>) {
+fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Option<Vec<String>>, bool) {
 
     let tags = match sample_reference.note {
         Some(ref note) => {
@@ -829,5 +829,10 @@ fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Op
         None => None
     };
 
-    (tags, ignore_taxstr)
+    let exclude_lod = match sample_reference.note {
+        Some(ref note) => note.contains("exclude_lod"),
+        None => false
+    };
+
+    (tags, ignore_taxstr, exclude_lod)
 }

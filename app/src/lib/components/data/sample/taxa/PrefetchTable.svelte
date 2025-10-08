@@ -93,7 +93,6 @@
 <div>
 
     {#if tableData.length === 0}
-        <div class="flex justify-center py-16 "><ErrorAnimation /></div>
         <p class="flex justify-center text-lg pb-4">No taxa available for this category</p>
     {:else}
         <div>

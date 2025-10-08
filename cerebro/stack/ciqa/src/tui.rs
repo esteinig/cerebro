@@ -224,11 +224,14 @@ impl App {
             synthesize_matrix(m, 96, replicate_count, mi as u64 + 42);
         }
 
-        let mut state=TableState::default(); state.select(Some(0));
-        let mut strand_a=SinSignal::new(0.15,4.0,10.0,0.0);
-        let mut strand_b=SinSignal::new(0.15,4.0,10.0,std::f64::consts::PI);
-        let dna_a:Vec<_>=strand_a.by_ref().take(200).collect();
-        let dna_b:Vec<_>=strand_b.by_ref().take(200).collect();
+        let mut state = TableState::default(); state.select(Some(0));
+        
+        let mut strand_a = SinSignal::new(0.15,4.0,10.0,0.0);
+        let mut strand_b = SinSignal::new(0.15,4.0,10.0,std::f64::consts::PI);
+
+        let dna_a: Vec<_> = strand_a.by_ref().take(200).collect();
+        let dna_b: Vec<_> = strand_b.by_ref().take(200).collect();
+
         Self{
             models,
             selected:state,

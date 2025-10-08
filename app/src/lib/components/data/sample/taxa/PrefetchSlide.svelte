@@ -26,6 +26,9 @@
   $: selectedLabel = trainingRecord.result;
   
   function next() {
+    showPrimary = false;
+    showSecondary = false;
+    showTarget = false;
     dispatch('next', { index: trainingIndex, item: trainingData, label: selectedLabel, candidate: selectedCandidateName });
   }
 
