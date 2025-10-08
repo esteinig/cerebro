@@ -265,6 +265,7 @@ pub struct LineageFilterConfig {
 impl LineageFilterConfig {
      /// Checks whether the given taxon meets the alignment evidence criteria.
      pub fn passes_alignment_filters(&self, taxon: &Taxon) -> bool {
+
         // (1) If a minimum number of alignment tools is specified and is greater than 0,
         // then there must be at least one alignment record.
         if let Some(min_tools) = self.min_alignment_tools {
@@ -278,9 +279,9 @@ impl LineageFilterConfig {
         // and (optionally) the coverage threshold.
         if let Some(min_regions) = self.min_alignment_regions {
             // Use the specified coverage, or 0.0 if not provided.
-            let min_cov = self.min_alignment_regions_coverage.unwrap_or(0.0);
+            let max_cov_applied = self.min_alignment_regions_coverage.unwrap_or(0.0);
             let valid_alignment = taxon.evidence.alignment.iter().any(|record| {
-                record.scan_regions >= min_regions && record.scan_coverage >= min_cov
+                record.scan_regions >= min_regions && record.scan_coverage < max_cov_applied
             });
             if !valid_alignment {
                 return false;
@@ -639,25 +640,9 @@ pub fn apply_lineage_filters(
                 if lf.lineages.iter().any(|l| lineage_str.contains(l)) {
 
                     // Alignment filter for Vircov records
-                    if let Some(min_alignment_tools) = lf.min_alignment_tools {
-                        let min_alignment_rpm = lf.min_alignment_rpm.unwrap_or(0.0);
-                        
-                        let valid_alignment_count = taxon.evidence.alignment.iter().filter(|record| {
-                            if record.scan_coverage < lf.min_alignment_regions_coverage.unwrap_or(100.0) {
-                                record.scan_regions >= lf.min_alignment_regions.unwrap_or(0)
-                            } else {
-                                true
-                            }
-                        }).count();
-
-                        let alignment_count = filtered_profile.iter().filter(|record| {
-                            record.tool == ProfileTool::Vircov && record.rpm >= min_alignment_rpm
-                        }).count();
-                        
-                        if alignment_count < min_alignment_tools || valid_alignment_count < 1 {
-                            passes_all = false;
-                            break;
-                        }
+                    if !lf.passes_alignment_filters(taxon) {
+                        passes_all = false;
+                        break;
                     }
 
                     // K-mer filter for non-Vircov/Blast records
@@ -665,7 +650,7 @@ pub fn apply_lineage_filters(
                         let min_kmer_rpm = lf.min_kmer_rpm.unwrap_or(0.0);
                         let kmer_count = filtered_profile.iter().filter(|record| {
                             match record.tool {
-                                ProfileTool::Vircov | ProfileTool::Blast => false,
+                                ProfileTool::Vircov | ProfileTool::Blast | ProfileTool::Sylph => false,
                                 _ => record.rpm >= min_kmer_rpm,
                             }
                         }).count();
