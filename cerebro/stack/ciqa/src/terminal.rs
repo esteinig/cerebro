@@ -287,10 +287,10 @@ pub struct DiagnoseLocalArgs {
     #[arg(long, short='t', default_value_t = 0.8)]
     pub temperature: f64,
     /// Nucleus sampling probability cutoff.
-    #[arg(long, short='s')]
+    #[arg(long)]
     pub top_p: Option<f64>,
     /// Only sample among the top K samples.
-    #[arg(long, short='k')]
+    #[arg(long)]
     pub top_k: Option<usize>,
     /// Minimum probability threshold for sampling (min_p sampling).
     #[arg(long)]

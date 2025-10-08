@@ -364,7 +364,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0),
-            min_assembly_tools: None
+            min_assembly_tools: Some(1)
         }
     }
 
@@ -375,7 +375,7 @@ impl LineageFilterConfig {
             min_alignment_tools: Some(1),
             min_alignment_rpm: Some(0.0),
             min_alignment_regions: Some(2),
-            min_alignment_regions_coverage: Some(0.2),
+            min_alignment_regions_coverage: Some(20.0),
             min_kmer_tools: Some(1),
             min_kmer_rpm: Some(0.0),
             min_assembly_tools: None
@@ -643,7 +643,7 @@ pub fn apply_lineage_filters(
                         let min_alignment_rpm = lf.min_alignment_rpm.unwrap_or(0.0);
                         
                         let valid_alignment_count = taxon.evidence.alignment.iter().filter(|record| {
-                            if record.scan_coverage < lf.min_alignment_regions_coverage.unwrap_or(0.0) {
+                            if record.scan_coverage < lf.min_alignment_regions_coverage.unwrap_or(100.0) {
                                 record.scan_regions >= lf.min_alignment_regions.unwrap_or(0)
                             } else {
                                 true
