@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use env_logger::filter;
 use serde::{Deserialize, Serialize};
 use taxonomy::TaxRank;
 
@@ -15,7 +12,6 @@ use crate::modules::pathogen::AbundanceMode;
 use crate::utils::read_tsv;
 use crate::utils::write_tsv;
 
-use super::taxon::collapse_taxa;
 use super::taxon::LineageOperations;
 use super::taxon::Taxon;
 
@@ -94,7 +90,7 @@ impl TaxonFilterConfig {
             min_rpm: 0.0,
             max_rpm: None,
             min_abundance: 0.0,
-            ntc_ratio: None,
+            ntc_ratio: Some(1.0),
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_above_threshold(),
                 LineageFilterConfig::gp_viruses_above_threshold(),
@@ -117,7 +113,7 @@ impl TaxonFilterConfig {
             min_rpm: 0.0,
             max_rpm: None,
             min_abundance: 0.0,
-            ntc_ratio: None,
+            ntc_ratio: Some(1.0),
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_below_threshold(),
                 LineageFilterConfig::gp_viruses_below_threshold(),
@@ -146,7 +142,7 @@ impl TaxonFilterConfig {
             min_rpm: 0.0,
             max_rpm: None,
             min_abundance: 0.0,
-            ntc_ratio: None,
+            ntc_ratio: Some(1.0),
             lineage: Some(vec![
                 LineageFilterConfig::gp_viruses_target_threshold(),
             ]),
@@ -376,11 +372,11 @@ impl LineageFilterConfig {
         Self {
             lineages: vec!["d__Viruses".to_string()],
             tags: vec!["DNA".to_string(), "RNA".to_string()],
-            min_alignment_tools: None,
-            min_alignment_rpm: None,
-            min_alignment_regions: None,
-            min_alignment_regions_coverage: None,
-            min_kmer_tools: Some(3),
+            min_alignment_tools: Some(1),
+            min_alignment_rpm: Some(0.0),
+            min_alignment_regions: Some(2),
+            min_alignment_regions_coverage: Some(0.2),
+            min_kmer_tools: Some(1),
             min_kmer_rpm: Some(0.0),
             min_assembly_tools: None
         }

@@ -249,6 +249,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 sample_reference.sample_type.clone(),
                                 sample_reference.result.clone(),
                                 sample_reference.positive_taxa(),
+                                exclude_lod,
                                 Some(negative_controls),
                                 Some(tags),
                                 tiered_filter_config,
