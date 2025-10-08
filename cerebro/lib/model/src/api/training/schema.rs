@@ -45,7 +45,8 @@ pub struct TrainingRecord {
     pub sample_type: Option<SampleType>,
     pub candidates: Option<Vec<String>>,
     pub reference_result: Option<TestResult>,
-    pub reference_candidates: Option<Vec<String>>
+    pub reference_candidates: Option<Vec<String>>,
+    pub exclude_lod: bool
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

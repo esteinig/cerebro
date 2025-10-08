@@ -324,7 +324,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(10.0) ,
-            min_assembly_tools: None
+            min_assembly_tools: Some(1)
         }
     }
 

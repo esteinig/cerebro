@@ -61,7 +61,8 @@ impl TrainingSessionRecord {
                 sample_name: Some(r.prefetch.config.sample),
                 sample_type: Some(r.prefetch.config.sample_type),
                 reference_result: r.prefetch.config.test_result,
-                reference_candidates: r.prefetch.config.candidates
+                reference_candidates: r.prefetch.config.candidates,
+                exclude_lod: r.prefetch.config.exclude_lod
             })
             .collect();
 
@@ -148,7 +149,7 @@ impl TrainingSessionRecord {
             let mut exclude_reason: Option<String> = None;
             let mut matched_any_candidate: Option<bool> = None;
 
-            let decision: Decision = match r.reference_result {
+            let mut decision: Decision = match r.reference_result {
                 None => {
                     exclude_reason = Some("missing reference_result".into());
                     Decision::Excluded
@@ -156,6 +157,7 @@ impl TrainingSessionRecord {
                 Some(TestResult::Positive) => match r.result {
                     TestResult::Positive => match (&r.candidates, &r.reference_candidates) {
                         (Some(cands), Some(ref_cands)) => {
+
                             let overlap = cands.iter().any(|c| ref_cands.iter().any(|rc| *rc == normalize_candidate(c)));
                             matched_any_candidate = Some(overlap);
                             if overlap { Decision::TP } else { Decision::FP }
@@ -174,6 +176,12 @@ impl TrainingSessionRecord {
                     TestResult::Negative => Decision::TN,
                 },
             };
+
+            // Override if the LOD exclusion flag was set
+            if r.exclude_lod {
+                exclude_reason = Some("limit of detection".into());
+                decision = Decision::Excluded
+            }
 
             match decision {
                 Decision::TP => tp += 1,
