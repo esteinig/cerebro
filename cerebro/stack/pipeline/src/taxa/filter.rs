@@ -266,22 +266,26 @@ impl LineageFilterConfig {
      /// Checks whether the given taxon meets the alignment evidence criteria.
      pub fn passes_alignment_filters(&self, taxon: &Taxon) -> bool {
 
-        // (1) If a minimum number of alignment tools is specified and is greater than 0,
-        // then there must be at least one alignment record.
         if let Some(min_tools) = self.min_alignment_tools {
             if min_tools > 0 && taxon.evidence.alignment.is_empty() {
                 return false;
             }
         }
 
-        // (2) If a requirement is defined for the minimum number of alignment regions,
-        // check that at least one alignment record in the taxon meets both the regions
-        // and (optionally) the coverage threshold.
         if let Some(min_regions) = self.min_alignment_regions {
-            // Use the specified coverage, or 0.0 if not provided.
-            let max_cov_applied = self.min_alignment_regions_coverage.unwrap_or(0.0);
+            // If minimum alignment regions is specified without the coverage thresholds
+            // the 100.0% coverage setting forces considerations of alignment regions at
+            // any coverage, otherwise only below the specified coverage
+            let min_alignment_regions_coverage = self.min_alignment_regions_coverage.unwrap_or(100.0);
+
             let valid_alignment = taxon.evidence.alignment.iter().any(|record| {
-                record.scan_regions >= min_regions && record.scan_coverage < max_cov_applied
+                if record.scan_coverage > min_alignment_regions_coverage {
+                    // Do not apply the alignment regions filter since coverage is sufficiently high
+                    true
+                } else {
+                    // Apply the alignment regions filter since coverage is sufficiently low
+                    record.scan_regions >= min_regions
+                }
             });
             if !valid_alignment {
                 return false;
