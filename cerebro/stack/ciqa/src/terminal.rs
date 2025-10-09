@@ -317,18 +317,18 @@ pub struct DiagnoseLocalArgs {
     #[clap(long, default_value="tiered")]
     pub tree_config: TreeConfig,
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
-    #[clap(long, default_value="true")]
-    pub post_filter: Option<bool>,
-    /// Minimum species per genus required to enable selecting best species for the genus during post filter processing (Archaea|Bacteria|Eukaryota)
+    #[clap(long)]
+    pub post_filter: bool,
+    /// Post-filter: minimum species per genus required to enable selecting best species for the genus during post filter processing (Archaea|Bacteria|Eukaryota)
     #[clap(long, default_value="3")]
     pub min_species: usize,
-    /// Override default species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
+    /// Post-filter: override default species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
     #[clap(long, num_args=1..)]
     pub species_domains: Option<Vec<String>>,
-    /// Override default variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
+    /// Post-filter: override default variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
     #[clap(long, default_value="true")]
     pub collapse_variants: Option<bool>,
-    /// Override default phage exclusion option for post processing taxa after filtering and retrieval
+    /// Post-filter: override default phage exclusion option for post processing taxa after filtering and retrieval
     #[clap(long, default_value="true")]
     pub exclude_phage: Option<bool>,
     /// Force overwrite output, otherwise skip if exists

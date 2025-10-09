@@ -637,7 +637,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             }
                         });
                         
-                        let post_filter = if args.post_filter.unwrap_or(false) { 
+                        let post_filter = if args.post_filter { 
                             let collapse_variants = match args.collapse_variants {
                                 Some(value) => value,
                                 None => false,

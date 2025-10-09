@@ -526,7 +526,7 @@ async fn complete_training_session_handler(
                 TrainingResponse::<()>::not_found("No matching record identifier in this session"),
             ),
             Err(err) => return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to update record: {}", err))),
-            Ok(_) => return HttpResponse::Ok().json(TrainingResponse::<()>::completed())    
+            Ok(_) => return HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(training_result))    
         }
     } else {
         HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(training_result))
@@ -626,8 +626,8 @@ async fn get_training_session_certificate_handler(
         course: "Cerebro Training: Pathogen Identification".to_string(),
         date: date_completed.split("T").next().unwrap_or(&date_completed).to_string(),
         dataset: session.collection.clone(),
-        sensitivity: None, // session.result.as_ref().map(|r| r.sensitivity),
-        specificity: None, // session.result.as_ref().map(|r| r.specificity)
+        sensitivity: session.result.as_ref().map(|r| r.sensitivity),
+        specificity: session.result.as_ref().map(|r| r.specificity),
     };
 
     let report_template = match report_compiler.report(&report_config)
