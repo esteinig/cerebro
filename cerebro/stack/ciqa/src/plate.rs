@@ -2277,7 +2277,7 @@ pub fn plot_diagnostic_matrix(
 
         root.draw_text(
             label,
-            &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+            &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
             (x, baseline_y),
         )?;
         x += text_w(label, false) + gap_medium;
@@ -2285,32 +2285,25 @@ pub fn plot_diagnostic_matrix(
 
     // ---- draw: stats ----
     if let Some((sens, spec, ppv, npv, nstr)) = stats_fmt {
-        let mut draw_pair = |hdr: &str, val: &str| -> Result<(), CiqaError> {
-            root.draw_text(
-                hdr,
-                &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
-                (x, baseline_y),
-            )?;
-            x += text_w(hdr, true) + pad;
-
+        let mut draw_pair = |val: &str| -> Result<(), CiqaError> {
             root.draw_text(
                 val,
-                &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+                &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
                 (x, baseline_y),
             )?;
             x += text_w(val, false) + gap_medium;
             Ok(())
         };
 
-        draw_pair("Sensitivity:", &sens)?;
-        draw_pair("Specificity:", &spec)?;
-        draw_pair("PPV:", &ppv)?;
-        draw_pair("NPV:", &npv)?;
-        draw_pair("Replicate Certainty:", &format!("{:.1}%", average_replicate_certainty(data, reference)))?;
+        draw_pair(&format!("Sensitivity: {sens}"))?;
+        draw_pair(&format!("Specificity: {spec}"))?;
+        draw_pair(&format!("PPV: {ppv}"))?;
+        draw_pair(&format!("NPV: {npv}"))?;
+        draw_pair(&format!("Replicate Certainty: {:.1}%", average_replicate_certainty(data, reference)))?;
 
         root.draw_text(
             &nstr,
-            &normal.into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+            &normal.into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
             (x, baseline_y),
         )?;
     }
