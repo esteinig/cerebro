@@ -2187,38 +2187,74 @@ pub fn plot_diagnostic_matrix(
         }
     }
     {
-        use plotters::style::{RGBAColor};
-    
-        let baseline_y = (height_px as f64 - outer_margin - 8.0).round() as i32; // bottom baseline
-        let mut x = outer_margin as i32;                                         // start at left
-        let gap_small = 10i32;   // space between items inside a group
-        let gap_medium = 22i32;  // space between groups
-    
-        // 12a) Outcome swatches: TP TN FP FN  (icons bottom-aligned)
-        let sw = 14.0; // icon size
+        let baseline_y = (height_px as f64 - outer_margin - 8.0).round() as i32;
+        let gap_small  = 10i32;  // inside a group
+        let gap_medium = 22i32;  // between groups
+        let sw         = 14.0;   // icon size
+        let char_w     = ((font_size as f64) * 0.60).round() as i32; // monospace approx
+
+        // --- measure total width first ---
         let legend = [
             (DiagnosticOutcome::TruePositive,  "TP"),
             (DiagnosticOutcome::TrueNegative,  "TN"),
             (DiagnosticOutcome::FalsePositive, "FP"),
             (DiagnosticOutcome::FalseNegative, "FN"),
         ];
+
+        let mut total_w: i32 = 0;
+
+        // icons + labels
+        for (i, (_, label)) in legend.iter().enumerate() {
+            let label_w = (label.len() as i32) * char_w;
+            total_w += (sw as i32) + gap_small + label_w;
+            if i != legend.len() - 1 {
+                total_w += gap_medium;
+            }
+        }
+
+        // stats (optional)
+        let mut stats_fmt: Option<(String, String, String, String, String)> = None;
+        if let Some(cs) = consensus_stats {
+            let sens = format!("{:.1}%", cs.sensitivity * 100.0);
+            let spec = format!("{:.1}%", cs.specificity * 100.0);
+            let ppv  = format!("{:.1}%", cs.ppv * 100.0);
+            let npv  = format!("{:.1}%", cs.npv * 100.0);
+            let nstr = format!("N={}", cs.total);
+            // "Header: " + value + gap between pairs
+            let pairs = [("Sensitivity:", &sens), ("Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
+            for (i, (hdr, val)) in pairs.iter().enumerate() {
+                total_w += (hdr.len() as i32) * char_w; // header
+                total_w += 6;                            // colon+space fudge
+                total_w += (val.len() as i32) * char_w; // value
+                if i != pairs.len() - 1 { total_w += gap_medium; }
+            }
+            total_w += gap_medium;                      // gap before N
+            total_w += (nstr.len() as i32) * char_w;   // N
+            stats_fmt = Some((sens, spec, ppv, npv, nstr));
+        }
+
+        // centered start x
+        let mut x = ((width_px as i32) - total_w) / 2;
+
+        // --- draw: icons + labels ---
         for (out, label) in legend {
             let style = palette.colors[out.index()].filled();
-            // place icon so its bottom touches baseline
             let icon_top = baseline_y as f64 - sw;
+
             match shape {
                 CellShape::Circle => {
-                    let cx = (x as f64 + sw/2.0) as i32;
-                    let cy = (icon_top + sw/2.0) as i32;
-                    root.draw(&Circle::new((cx, cy), (sw/2.0) as i32, style.clone()))?;
+                    let cx = (x as f64 + sw / 2.0) as i32;
+                    let cy = (icon_top + sw / 2.0) as i32;
+                    root.draw(&Circle::new((cx, cy), (sw / 2.0) as i32, style.clone()))?;
                 }
                 CellShape::Square { .. } => {
                     let r = [(x, icon_top as i32), ((x as f64 + sw) as i32, baseline_y)];
                     root.draw(&Rectangle::new(r, style.clone()))?;
                 }
             }
-            x += sw as i32 + gap_small;
-            // label bottom-aligned to baseline
+
+            x += (sw as i32) + gap_small;
+
             root.draw_text(
                 label,
                 &("monospace", font_size.max(10))
@@ -2227,63 +2263,41 @@ pub fn plot_diagnostic_matrix(
                     .pos(Pos::new(HPos::Left, VPos::Bottom)),
                 (x, baseline_y),
             )?;
-            // advance after label
-            x += 22 + gap_medium;
+            x += (label.len() as i32) * char_w + gap_medium;
         }
-    
-        // 12b) Consensus stats inline: bold headers, 1-decimal percents
-        if let Some(cs) = consensus_stats {
+
+        // --- draw: stats inline ---
+        if let Some((sens, spec, ppv, npv, nstr)) = stats_fmt {
             let normal = ("monospace", font_size).into_font();
             let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
-    
-            // helper to draw "Header: value" with bold header, bottom-aligned
+
             let mut draw_pair = |hdr: &str, val: &str| -> Result<(), CiqaError> {
-                // header
                 root.draw_text(
                     hdr,
                     &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                     (x, baseline_y),
                 )?;
-                // measure approx header width by a fixed advance (monospace); tweak if needed
-                let hdr_advance = (hdr.len() as i32) * 8; // ~8px/char for monospace at small sizes
-                x += hdr_advance + 6;
-                // value
+                x += (hdr.len() as i32) * char_w + 6;
                 root.draw_text(
                     val,
                     &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                     (x, baseline_y),
                 )?;
-                x += (val.len() as i32) * 8 + gap_medium;
+                x += (val.len() as i32) * char_w + gap_medium;
                 Ok(())
             };
-    
-            // values as percents with one decimal
-            let sens = format!("{:.1}%", cs.sensitivity);
-            let spec = format!("{:.1}%", cs.specificity);
-            let ppv  = format!("{:.1}%", cs.ppv);
-            let npv  = format!("{:.1}%", cs.npv);
-    
-            // draw in order
+
             draw_pair("Sensitivity:", &sens)?;
             draw_pair("Specificity:", &spec)?;
             draw_pair("PPV:", &ppv)?;
             draw_pair("NPV:", &npv)?;
-    
-            // sample count
-            let n_txt = format!("N={}", cs.total);
+
             root.draw_text(
-                &n_txt,
+                &nstr,
                 &normal.into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                 (x, baseline_y),
             )?;
         }
-    
-        // thin separator line above the legend
-        let sep_y = baseline_y - 14;
-        root.draw(&PathElement::new(
-            vec![(outer_margin as i32, sep_y), ((width_px as i32 - outer_margin as i32), sep_y)],
-            RGBAColor(0, 0, 0, 0.15).stroke_width(1),
-        ))?;
     }
 
     Ok(())
