@@ -546,13 +546,12 @@ pub fn average_replicate_certainty(
 
     for row in 0..nrows {
         for col in data {
-            total_count += 1;
             let rev = &col[row];
             match rev.outcome {
                 DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => total_good += 1,
                 DiagnosticOutcome::FalsePositive
-                | DiagnosticOutcome::FalseNegative
-                | DiagnosticOutcome::NotConsidered
+                | DiagnosticOutcome::FalseNegative => { total_count += 1; },
+                DiagnosticOutcome::NotConsidered
                 | DiagnosticOutcome::Indeterminate
                 | DiagnosticOutcome::Control
                 | DiagnosticOutcome::Unknown => {}
