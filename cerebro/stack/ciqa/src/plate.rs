@@ -2299,11 +2299,7 @@ pub fn plot_diagnostic_matrix(
             Ok(())
         };
 
-        draw_pair(&format!("Sensitivity: {sens}"))?;
-        draw_pair(&format!("Specificity: {spec}"))?;
-        draw_pair(&format!("PPV: {ppv}"))?;
-        draw_pair(&format!("NPV: {npv}"))?;
-        draw_pair(&format!("Replicate Certainty: {:.1}%", rc))?;
+        draw_pair(&format!("Sensitivity: {sens}  Specificity: {spec}  Specificity: {spec}  PPV: {ppv}  NPV: {npv}  Replicate Certainty: {rc}"))?;
 
         root.draw_text(
             &nstr,
