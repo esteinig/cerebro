@@ -2291,7 +2291,7 @@ pub fn plot_diagnostic_matrix(
                 &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
                 (x, baseline_y),
             )?;
-            x += text_w(val, false) + gap_medium;
+            x += text_w(val, false) + gap_small;
             Ok(())
         };
 
