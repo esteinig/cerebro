@@ -2211,7 +2211,7 @@ pub fn plot_diagnostic_matrix(
             let label_w = (label.len() as i32) * char_w;
             total_w += (sw as i32) + gap_small + label_w;
             if i != legend.len() - 1 {
-                total_w += gap_medium;
+                total_w += gap_small;
             }
         }
 
@@ -2229,7 +2229,7 @@ pub fn plot_diagnostic_matrix(
                 total_w += (hdr.len() as i32) * char_w; // header
                 total_w += 6;                            // colon+space fudge
                 total_w += (val.len() as i32) * char_w; // value
-                if i != pairs.len() - 1 { total_w += gap_medium; }
+                if i != pairs.len() - 1 { total_w += gap_small; }
             }
             total_w += gap_medium;                      // gap before N
             total_w += (nstr.len() as i32) * char_w;   // N
