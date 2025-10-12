@@ -2199,6 +2199,9 @@ pub fn plot_diagnostic_matrix(
             (DiagnosticOutcome::TrueNegative,  "TN"),
             (DiagnosticOutcome::FalsePositive, "FP"),
             (DiagnosticOutcome::FalseNegative, "FN"),
+            (DiagnosticOutcome::Control, "Control"),
+            (DiagnosticOutcome::Indeterminate, "Error"),
+            (DiagnosticOutcome::NotConsidered, "N/A"),
         ];
 
         let mut total_w: i32 = 0;
