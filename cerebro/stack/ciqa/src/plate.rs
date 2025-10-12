@@ -2202,10 +2202,16 @@ pub fn plot_diagnostic_matrix(
 
     // ---- measure total width precisely (center the whole line) ----
     let sw = 14.0;
-    let legend = [("TP", DiagnosticOutcome::TruePositive),
-                ("TN", DiagnosticOutcome::TrueNegative),
-                ("FP", DiagnosticOutcome::FalsePositive),
-                ("FN", DiagnosticOutcome::FalseNegative)];
+
+    let legend = [
+            ("TP", DiagnosticOutcome::TruePositive),
+            ("TN", DiagnosticOutcome::TrueNegative),
+            ("FP", DiagnosticOutcome::FalsePositive),
+            ("FN", DiagnosticOutcome::FalseNegative),
+            ("Control", DiagnosticOutcome::Control),
+            ("Failed", DiagnosticOutcome::Indeterminate),
+            ("N/A", DiagnosticOutcome::NotConsidered)
+    ];
 
     let mut total_w: i32 = 0;
     for (i, (label, _)) in legend.iter().enumerate() {
@@ -2219,7 +2225,7 @@ pub fn plot_diagnostic_matrix(
         let spec = format!("{:.1}%", cs.specificity * 100.0);
         let ppv  = format!("{:.1}%", cs.ppv * 100.0);
         let npv  = format!("{:.1}%", cs.npv * 100.0);
-        let nstr = format!("N={}", cs.total);
+        let nstr = format!("n = {}", cs.total);
 
         let pairs = [("Sensitivity:", &sens),
                     ("Specificity:", &spec),
