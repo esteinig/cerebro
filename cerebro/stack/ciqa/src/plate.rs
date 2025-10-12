@@ -2224,7 +2224,7 @@ pub fn plot_diagnostic_matrix(
             let npv  = format!("{:.1}%", cs.npv * 100.0);
             let nstr = format!("n = {}", cs.total);
             // "Header: " + value + gap between pairs
-            let pairs = [("Sensitivity:", &sens), ("Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
+            let pairs = [("Consensus Sensitivity:", &sens), ("Consensus Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
             for (i, (hdr, val)) in pairs.iter().enumerate() {
                 total_w += (hdr.len() as i32) * char_w; // header
                 total_w += 6;                            // colon+space fudge
