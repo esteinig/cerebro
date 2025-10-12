@@ -2046,7 +2046,7 @@ pub fn plot_diagnostic_matrix(
 
     // 3. Panel layout parameters (same as QC function)
     let chunk_size   = 12;
-    let max_panels_x = 3;
+    let max_panels_x = 2;
     let num_panels   = (nrows + chunk_size - 1) / chunk_size;
     let panels_x     = std::cmp::min(max_panels_x, num_panels);
     let panels_y     = (num_panels + max_panels_x - 1) / max_panels_x;
@@ -2204,8 +2204,6 @@ pub fn plot_diagnostic_matrix(
     let normal = ("monospace", font_size).into_font();
     let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
     let gap_small  = 10i32;
-    let gap_medium = 22i32;
-
     // helper: pixel width of text with a style
     let text_w = |s: &str, bolding: bool| -> i32 {
         let ts = if bolding { bold.clone() } else { normal.clone() }
