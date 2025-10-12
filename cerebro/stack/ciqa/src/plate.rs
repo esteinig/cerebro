@@ -550,9 +550,8 @@ pub fn average_replicate_certainty(
             match rev.outcome {
                 DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => { total_good += 1; total_count += 1; },
                 DiagnosticOutcome::FalsePositive
-                | DiagnosticOutcome::FalseNegative => { total_count += 1; },
+                | DiagnosticOutcome::FalseNegative | DiagnosticOutcome::Indeterminate => { total_count += 1; },
                 DiagnosticOutcome::NotConsidered
-                | DiagnosticOutcome::Indeterminate
                 | DiagnosticOutcome::Control
                 | DiagnosticOutcome::Unknown => {}
             }
@@ -562,7 +561,7 @@ pub fn average_replicate_certainty(
     if total_count == 0 {
         0.0
     } else {
-        (total_good as f64) * 100.0 / (total_count as f64)
+        ((total_good as f64) / (total_count as f64))*100.0
     }
 }
 
