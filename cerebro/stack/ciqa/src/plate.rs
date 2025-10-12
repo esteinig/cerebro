@@ -2205,7 +2205,6 @@ pub fn plot_diagnostic_matrix(
     let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
     let gap_small  = 10i32;
     let gap_medium = 22i32;
-    let pad        = 8i32;
 
     // helper: pixel width of text with a style
     let text_w = |s: &str, bolding: bool| -> i32 {
@@ -2240,22 +2239,23 @@ pub fn plot_diagnostic_matrix(
         let ppv  = format!("{:.1}%", cs.ppv * 100.0);
         let npv  = format!("{:.1}%", cs.npv * 100.0);
         let rc: String = format!("{:.1}%", average_replicate_certainty(data, reference));
-        
+
         let nstr = format!("n = {}", cs.total);
 
         let pairs = [
-            ("Sensitivity:", &sens),
-            ("Specificity:", &spec),
-            ("PPV:", &ppv),
-            ("NPV:", &npv),
-            ("Replicate Certainty:", &rc)
+            format!("Sensitivity: {sens}"),
+            format!("Specificity: {spec}"),
+            format!("PPV: {ppv}"),
+            format!("NPV: {npv}"),
+            format!("Replicate Certainty: {rc}")
         ];
 
-        for (i, (hdr, val)) in pairs.iter().enumerate() {
-            total_w += text_w(hdr, true) + pad + text_w(val, false);
-            if i != pairs.len() - 1 { total_w += gap_small; }
+        for (i, val) in pairs.iter().enumerate() {
+            total_w += text_w(val, false) + gap_small;
         }
-        total_w += gap_small + text_w(&nstr, false);
+
+        total_w += text_w(&nstr, false) + gap_small;
+        
         stats_fmt = Some((sens, spec, ppv, npv, nstr, rc));
     }
 
@@ -2305,12 +2305,8 @@ pub fn plot_diagnostic_matrix(
         draw_pair(&format!("PPV: {ppv}"))?;
         draw_pair(&format!("NPV: {npv}"))?;
         draw_pair(&format!("Replicate Certainty: {:.1}%", rc))?;
+        draw_pair(&nstr)?;
 
-        root.draw_text(
-            &nstr,
-            &normal.into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
-            (x, baseline_y),
-        )?;
     }
 
     Ok(())
