@@ -399,6 +399,9 @@ pub struct ReviewArgs {
     /// Set plot title
     #[clap(long)]
     pub title: Option<String>,
+    /// Set column header text
+    #[clap(long)]
+    pub header_text: Option<String>,
 }
 
 

@@ -510,7 +510,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.title.as_deref(), 
                     args.width, 
                     args.height, 
-                    args.reference.clone()
+                    args.reference.clone(),
+                    args.header_text.as_deref()
                 )?;
             }
         },

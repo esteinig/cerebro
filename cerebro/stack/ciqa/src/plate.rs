@@ -576,7 +576,7 @@ impl DiagnosticData {
         
         Ok(reference_review.first().cloned())
     }
-    pub fn plot_summary(&self, output: &Path, title: Option<&str>, width: u32, height: u32, reference: Option<PathBuf>) -> Result<(), CiqaError> {
+    pub fn plot_summary(&self, output: &Path, title: Option<&str>, width: u32, height: u32, reference: Option<PathBuf>, header_text: Option<&str>) -> Result<(), CiqaError> {
 
         let data_columns: Vec<Vec<DiagnosticReview>> = self.stats
             .iter()
@@ -604,7 +604,8 @@ impl DiagnosticData {
             &Palette::diagnostic_review2(), 
             CellShape::Circle, 
             PanelColumnHeader::Panel,
-            title
+            title,
+            header_text
         )
     }
 }
@@ -804,7 +805,6 @@ impl Palette {
             "#f78462".to_string(),
             "#B7C6C0".to_string(),
             "#fbc1b0".to_string(),
-
             "#dfbf88ff".to_string(),
             "#d3d3d3".to_string(),
             "#89a7c0".to_string(),
@@ -1973,6 +1973,7 @@ pub fn plot_diagnostic_matrix(
     shape: CellShape,
     column_header: PanelColumnHeader,
     title: Option<&str>,
+    header_text: Option<&str>
 ) -> Result<(), CiqaError> {
     // 1. Determine sample IDs and sanity‑check all columns
     let sample_labels: Vec<_> = if let Some(col) = reference {
@@ -2133,7 +2134,7 @@ pub fn plot_diagnostic_matrix(
                 //   first data columns → "Col 1", "Col 2", …
                 //   then "Consensus", then "Reference"
                 let header = if col_idx < data.len() {
-                    format!("Data {}", col_idx + 1)
+                    format!("{} {}", header_text.unwrap_or("Replicate"), col_idx + 1)
                 } else if col_idx < data.len() + consensus.as_ref().map(|_|1).unwrap_or(0) {
                     "Consensus".into()
                 } else {
