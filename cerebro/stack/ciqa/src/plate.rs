@@ -2163,7 +2163,7 @@ pub fn plot_diagnostic_matrix(
                     &("monospace", font_size)
                         .into_font()
                         .into_text_style(&panel_area)
-                        .pos(Pos::new(HPos::Left, VPos::Bottom))
+                        .pos(Pos::new(HPos::Left, VPos::Center))
                         .transform(FontTransform::Rotate270),
                     ((x0 + (cell_px as f64 / 2.0)) as i32, -5),
                 )?;
