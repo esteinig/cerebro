@@ -2046,7 +2046,7 @@ pub fn plot_diagnostic_matrix(
 
     // 3. Panel layout parameters (same as QC function)
     let chunk_size   = 12;
-    let max_panels_x = 2;
+    let max_panels_x = 4;
     let num_panels   = (nrows + chunk_size - 1) / chunk_size;
     let panels_x     = std::cmp::min(max_panels_x, num_panels);
     let panels_y     = (num_panels + max_panels_x - 1) / max_panels_x;
