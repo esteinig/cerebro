@@ -2035,14 +2035,27 @@ pub fn plot_diagnostic_matrix(
         column_header.panel_column_header(panels_x, panels_y);
 
     // 6. Figure out total SVG size
+
+    let stride = cell_px as f64 + col_padding;
+    let consensus_gap_px    = stride.clone(); // one cell gap  or e.g. 16.0; visual spacer before "Consensus"
+
+    // where does "Consensus" land in the flattened order?
+    let consensus_idx: Option<usize> = if consensus.is_some() { Some(data.len()) } else { None };
+
+    // extra width only if consensus exists
+    let extra_gap_per_panel = if consensus_idx.is_some() { consensus_gap_px } else { 0.0 };
+
+
     let height_px = (
         (panels_y as f64 * chunk_size as f64) * (cell_px as f64 + row_padding)
         + (panels_y as f64 * panel_padding_bottom)
         + total_padding_top as f64
         + (2.0 * outer_margin)
     ).ceil() as u32;
+
     let width_px = (
-        (panels_x as f64 * total_cols as f64) * (cell_px as f64 + col_padding)
+        (panels_x as f64 * total_cols as f64) * stride
+        + (panels_x as f64 * extra_gap_per_panel)            // <— add this
         + (panels_x as f64 * (panel_padding_left + panel_padding_right))
         + (2.0 * outer_margin)
     ).ceil() as u32;
@@ -2083,11 +2096,19 @@ pub fn plot_diagnostic_matrix(
         );
 
         let nrows_chunk = chunk.len();
-        let stride = cell_px as f64 + col_padding;
+
+        // compute x with a gap inserted before consensus
+        let x_for = |col_idx: usize| -> f64 {
+            let base = (col_idx as f64) * stride;
+            match consensus_idx {
+                Some(ci) if col_idx >= ci => base + consensus_gap_px, // shift consensus and everything after
+                _ => base,
+            }
+        };
 
         // 11a. Draw every column (data → consensus → reference)
         for (col_idx, col) in columns.iter().enumerate() {
-            let x0 = (col_idx as f64) * stride;
+            let x0 = x_for(col_idx);
             for row in 0..nrows_chunk {
                 let row_idx = chunk_idx * chunk_size + row;
                 if row_idx >= nrows { continue; }
@@ -2129,13 +2150,10 @@ pub fn plot_diagnostic_matrix(
         // 11c. Rotated column headers on the first panel row
         if panel_column_headers[chunk_idx] {
             for col_idx in 0..total_cols {
-                let x0 = (col_idx as f64) * stride;
-                // pick a header string:
-                //   first data columns → "Col 1", "Col 2", …
-                //   then "Consensus", then "Reference"
+                let x0 = x_for(col_idx);
                 let header = if col_idx < data.len() {
                     format!("{} {}", header_text.unwrap_or("Replicate"), col_idx + 1)
-                } else if col_idx < data.len() + consensus.as_ref().map(|_|1).unwrap_or(0) {
+                } else if col_idx < data.len() + consensus.as_ref().map(|_| 1).unwrap_or(0) {
                     "Consensus".into()
                 } else {
                     "Reference".into()
@@ -2150,6 +2168,7 @@ pub fn plot_diagnostic_matrix(
                     ((x0 + (cell_px as f64 / 2.0)) as i32, -5),
                 )?;
             }
+
         }
     }
 
