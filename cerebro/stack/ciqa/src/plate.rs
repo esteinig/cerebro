@@ -2218,13 +2218,15 @@ pub fn plot_diagnostic_matrix(
         // stats (optional)
         let mut stats_fmt: Option<(String, String, String, String, String)> = None;
         if let Some(cs) = consensus_stats {
+            
             let sens = format!("{:.1}%", cs.sensitivity * 100.0);
             let spec = format!("{:.1}%", cs.specificity * 100.0);
             let ppv  = format!("{:.1}%", cs.ppv * 100.0);
             let npv  = format!("{:.1}%", cs.npv * 100.0);
             let nstr = format!("n = {}", cs.total);
+
             // "Header: " + value + gap between pairs
-            let pairs = [("Consensus  - Sensitivity:", &sens), ("Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
+            let pairs = [("Sensitivity:", &sens), ("Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
             for (i, (hdr, val)) in pairs.iter().enumerate() {
                 total_w += (hdr.len() as i32) * char_w; // header
                 total_w += 6;                            // colon+space fudge
@@ -2270,23 +2272,30 @@ pub fn plot_diagnostic_matrix(
         }
 
         // --- draw: stats inline ---
+
         if let Some((sens, spec, ppv, npv, nstr)) = stats_fmt {
+
             let normal = ("monospace", font_size).into_font();
             let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
 
             let mut draw_pair = |hdr: &str, val: &str| -> Result<(), CiqaError> {
+                
                 root.draw_text(
                     hdr,
                     &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                     (x, baseline_y),
                 )?;
-                x += (hdr.len() as i32) * char_w + 6;
+                
+                x += (hdr.len() as i32) * char_w + gap_small;
+
                 root.draw_text(
                     val,
                     &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                     (x, baseline_y),
                 )?;
+
                 x += (val.len() as i32) * char_w + gap_small;
+                
                 Ok(())
             };
 
