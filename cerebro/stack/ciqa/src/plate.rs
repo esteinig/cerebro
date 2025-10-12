@@ -2222,7 +2222,7 @@ pub fn plot_diagnostic_matrix(
             let spec = format!("{:.1}%", cs.specificity * 100.0);
             let ppv  = format!("{:.1}%", cs.ppv * 100.0);
             let npv  = format!("{:.1}%", cs.npv * 100.0);
-            let nstr = format!("N={}", cs.total);
+            let nstr = format!("n = {}", cs.total);
             // "Header: " + value + gap between pairs
             let pairs = [("Sensitivity:", &sens), ("Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
             for (i, (hdr, val)) in pairs.iter().enumerate() {
@@ -2231,7 +2231,7 @@ pub fn plot_diagnostic_matrix(
                 total_w += (val.len() as i32) * char_w; // value
                 if i != pairs.len() - 1 { total_w += gap_small; }
             }
-            total_w += gap_medium;                      // gap before N
+            total_w += gap_small;                      // gap before N
             total_w += (nstr.len() as i32) * char_w;   // N
             stats_fmt = Some((sens, spec, ppv, npv, nstr));
         }
@@ -2266,7 +2266,7 @@ pub fn plot_diagnostic_matrix(
                     .pos(Pos::new(HPos::Left, VPos::Bottom)),
                 (x, baseline_y),
             )?;
-            x += (label.len() as i32) * char_w + gap_medium;
+            x += (label.len() as i32) * char_w + gap_small;
         }
 
         // --- draw: stats inline ---
@@ -2286,7 +2286,7 @@ pub fn plot_diagnostic_matrix(
                     &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                     (x, baseline_y),
                 )?;
-                x += (val.len() as i32) * char_w + gap_medium;
+                x += (val.len() as i32) * char_w + gap_small;
                 Ok(())
             };
 
