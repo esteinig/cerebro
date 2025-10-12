@@ -2286,7 +2286,7 @@ pub fn plot_diagnostic_matrix(
                     (x, baseline_y),
                 )?;
                 
-                x += (hdr.len() as i32) * char_w + gap_small;
+                x += gap_small;
 
                 root.draw_text(
                     val,
@@ -2294,7 +2294,7 @@ pub fn plot_diagnostic_matrix(
                     (x, baseline_y),
                 )?;
 
-                x += (val.len() as i32) * char_w + gap_small;
+                x += gap_small;
                 
                 Ok(())
             };
