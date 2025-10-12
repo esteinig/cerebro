@@ -805,7 +805,7 @@ impl Palette {
             "#f78462".to_string(),
             "#B7C6C0".to_string(),
             "#fbc1b0".to_string(),
-            "#dfbf88ff".to_string(),
+            "#dfbf88".to_string(),
             "#d3d3d3".to_string(),
             "#89a7c0".to_string(),
             "#d3d3d3".to_string(),
