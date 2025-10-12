@@ -2046,7 +2046,7 @@ pub fn plot_diagnostic_matrix(
     let row_padding         = 4.0;
     let cell_px             = 24;
     let font_size           = (cell_px as f64).clamp(4.0, 14.0).round() as u32;
-    let meta_col_px         = 220.0; 
+    let legend_height_px    = 120.0;
 
     // 5. Compute top‑paddings per panel (for column headers)
     let base_padding_y   = 10;
@@ -2059,8 +2059,8 @@ pub fn plot_diagnostic_matrix(
     // 6. Figure out total SVG size
 
     let stride = cell_px as f64 + col_padding;
-    let consensus_gap_px    = stride.clone(); // one cell gap  or e.g. 16.0; visual spacer before "Consensus"
-
+    let consensus_gap_px = stride; // one-cell gap before Consensus
+    
     let consensus_idx: Option<usize> = if consensus.is_some() { Some(data.len()) } else { None };
     let extra_gap_per_panel = if consensus_idx.is_some() { consensus_gap_px } else { 0.0 };
     
@@ -2068,13 +2068,13 @@ pub fn plot_diagnostic_matrix(
         (panels_y as f64 * chunk_size as f64) * (cell_px as f64 + row_padding)
         + (panels_y as f64 * panel_padding_bottom)
         + total_padding_top as f64
+        + legend_height_px                         // <— reserve legend space
         + (2.0 * outer_margin)
     ).ceil() as u32;
-
+    
     let width_px = (
-        (panels_x as f64 * (columns.len() as f64) * stride)   // real data/cons/reference columns
+        (panels_x as f64 * total_cols as f64) * stride
         + (panels_x as f64 * extra_gap_per_panel)
-        + (panels_x as f64 * meta_col_px)                     // meta column
         + (panels_x as f64 * (panel_padding_left + panel_padding_right))
         + (2.0 * outer_margin)
     ).ceil() as u32;
@@ -2104,17 +2104,10 @@ pub fn plot_diagnostic_matrix(
 
     // helper: x position with gap and meta
     let x_for = |col_idx: usize| -> f64 {
-        // data/cons/reference occupy [0 .. columns.len())
-        if col_idx == meta_idx {
-            // start of meta column
-            (columns.len() as f64) * stride
-            + if consensus_idx.is_some() { consensus_gap_px } else { 0.0 }
-        } else {
-            let base = (col_idx as f64) * stride;
-            match consensus_idx {
-                Some(ci) if col_idx >= ci => base + consensus_gap_px,
-                _ => base,
-            }
+        let base = (col_idx as f64) * stride;
+        match consensus_idx {
+            Some(ci) if col_idx >= ci => base + consensus_gap_px,
+            _ => base,
         }
     };
 
@@ -2192,63 +2185,91 @@ pub fn plot_diagnostic_matrix(
             }
 
         }
+    }
 
-        // 11d. META COLUMN CONTENT
-        {
-            let x0 = x_for(meta_idx);
-            let y0 = 0.0;
-            // draw a transparent rect (for layout debugging, keep commented)
-            // panel_area.draw(&Rectangle::new([(x0 as i32, -5), ((x0 + meta_col_px) as i32, 5)], TRANSPARENT.filled()))?;
-
-            // Row 0: legend + consensus stats text
-            if chunk_idx == 0 {
-                // legend swatches
-                let sw = 12.0;
-                let lx = x0 + 8.0;
-                let mut ly = y0 + 4.0;
-
-                let legend = [
-                    (DiagnosticOutcome::TruePositive,  "TP"),
-                    (DiagnosticOutcome::TrueNegative,  "TN"),
-                    (DiagnosticOutcome::FalsePositive, "FP"),
-                    (DiagnosticOutcome::FalseNegative, "FN"),
-                ];
-                for (out, lab) in legend {
-                    let style = palette.colors[out.index()].filled();
-                    match shape {
-                        CellShape::Circle => {
-                            panel_area.draw(&Circle::new((lx as i32, (ly+sw/2.0) as i32), (sw/2.0) as i32, style.clone()))?;
-                        }
-                        CellShape::Square { border_width: _ } => {
-                            let r = [(lx as i32, ly as i32), ((lx+sw) as i32, (ly+sw) as i32)];
-                            panel_area.draw(&Rectangle::new(r, style.clone()))?;
-                        }
-                    }
-                    panel_area.draw_text(
-                        lab,
-                        &("monospace", (font_size.max(10))).into_font().into_text_style(&panel_area)
-                            .pos(Pos::new(HPos::Left, VPos::Center)),
-                        ((lx + sw + 6.0) as i32, (ly + sw/2.0) as i32),
-                    )?;
-                    ly += sw + 6.0;
+    {
+    
+        let legend_area_top = (height_px as f64 - outer_margin - legend_height_px).round() as i32;
+        let center_x = (width_px / 2) as i32;
+    
+        // layout: swatches on the left, stats on the right
+        let swatch_size = 14.0;
+        let line_gap    = 8.0;
+        let block_gap   = 24.0;
+    
+        // compute total width of the legend block to center it
+        let left_block_w  = 4.0 * (swatch_size + 32.0); // rough label width
+        let right_block_w = 220.0;                      // stats text block
+        let total_w = (left_block_w + block_gap + right_block_w) as i32;
+    
+        let left_x = center_x - total_w / 2;
+        let mut sx = left_x as f64;
+        let mut sy = legend_area_top as f64 + 18.0;
+    
+        let legend = [
+            (DiagnosticOutcome::TruePositive,  "TP"),
+            (DiagnosticOutcome::TrueNegative,  "TN"),
+            (DiagnosticOutcome::FalsePositive, "FP"),
+            (DiagnosticOutcome::FalseNegative, "FN"),
+        ];
+    
+        for (out, label) in legend {
+            let style = palette.colors[out.index()].filled();
+    
+            match shape {
+                CellShape::Circle => {
+                    let cx = (sx + swatch_size / 2.0) as i32;
+                    let cy = (sy + swatch_size / 2.0) as i32;
+                    root.draw(&Circle::new((cx, cy), (swatch_size / 2.0) as i32, style.clone()))?;
                 }
-
-                // consensus stats block
-                if let Some(cs) = consensus_stats {
-                    let txt = format!(
-                        "Consensus {}\nSens {:.1}%  Spec {:.1}%\nPPV  {:.1}%  NPV  {:.1}%\nN = {}",
-                        cs.name, cs.sensitivity, cs.specificity, cs.ppv, cs.npv, cs.total
-                    );
-                    panel_area.draw_text(
-                        &txt,
-                        &("monospace", font_size).into_font().into_text_style(&panel_area)
-                            .pos(Pos::new(HPos::Left, VPos::Top)),
-                        ((x0 + 100.0) as i32, 0),
-                    )?;
+                CellShape::Square { border_width: _ } => {
+                    let r = [
+                        (sx as i32, sy as i32),
+                        ((sx + swatch_size) as i32, (sy + swatch_size) as i32),
+                    ];
+                    root.draw(&Rectangle::new(r, style.clone()))?;
                 }
             }
-            // other rows in meta column remain empty by design
+    
+            root.draw_text(
+                label,
+                &("monospace", font_size.max(10))
+                    .into_font()
+                    .into_text_style(&root)
+                    .pos(Pos::new(HPos::Left, VPos::Center)),
+                ((sx + swatch_size + 8.0) as i32, (sy + swatch_size / 2.0) as i32),
+            )?;
+    
+            // advance vertically
+            sy += swatch_size + line_gap;
         }
+    
+        // stats block
+        if let Some(cs) = consensus_stats {
+            let stats_x = (left_x as f64 + left_block_w + block_gap) as i32;
+            let stats_y = (legend_area_top + 8) as i32;
+    
+            let txt = format!(
+                "Consensus {}\nSensitivity {:.1}%   Specificity {:.1}%\nPPV {:.1}%   NPV {:.1}%\nN = {}",
+                cs.name, cs.sensitivity, cs.specificity, cs.ppv, cs.npv, cs.total
+            );
+    
+            root.draw_text(
+                &txt,
+                &("monospace", font_size)
+                    .into_font()
+                    .into_text_style(&root)
+                    .pos(Pos::new(HPos::Left, VPos::Top)),
+                (stats_x, stats_y),
+            )?;
+        }
+    
+        // optional faint separator line above legend
+        let sep_y = legend_area_top - 6;
+        root.draw(&PathElement::new(
+            vec![(outer_margin as i32, sep_y), ((width_px as i32 - outer_margin as i32), sep_y)],
+            RGBAColor(0, 0, 0, 0.15).stroke_width(1),
+        ))?;
     }
 
     Ok(())
