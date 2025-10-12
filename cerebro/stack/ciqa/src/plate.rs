@@ -2264,12 +2264,6 @@ pub fn plot_diagnostic_matrix(
             )?;
         }
     
-        // optional faint separator line above legend
-        let sep_y = legend_area_top - 6;
-        root.draw(&PathElement::new(
-            vec![(outer_margin as i32, sep_y), ((width_px as i32 - outer_margin as i32), sep_y)],
-            RGBAColor(0, 0, 0, 0.15).stroke_width(1),
-        ))?;
     }
 
     Ok(())
