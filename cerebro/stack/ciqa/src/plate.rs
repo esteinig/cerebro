@@ -2186,130 +2186,112 @@ pub fn plot_diagnostic_matrix(
 
         }
     }
-    {
-        let baseline_y = (height_px as f64 - outer_margin - 8.0).round() as i32;
-        let gap_small  = 10i32;  // inside a group
-        let gap_medium = 22i32;  // between groups
-        let sw         = 14.0;   // icon size
-        let char_w     = ((font_size as f64) * 0.60).round() as i32; // monospace approx
+        // styles once
+    let normal = ("monospace", font_size).into_font();
+    let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
+    let gap_small  = 10i32;
+    let gap_medium = 22i32;
+    let pad        = 8i32;
 
-        // --- measure total width first ---
-        let legend = [
-            (DiagnosticOutcome::TruePositive,  "TP"),
-            (DiagnosticOutcome::TrueNegative,  "TN"),
-            (DiagnosticOutcome::FalsePositive, "FP"),
-            (DiagnosticOutcome::FalseNegative, "FN"),
-            (DiagnosticOutcome::Control, "Control"),
-            (DiagnosticOutcome::Indeterminate, "Error"),
-            (DiagnosticOutcome::NotConsidered, "N/A"),
-        ];
+    // helper: pixel width of text with a style
+    let text_w = |s: &str, bolding: bool| -> i32 {
+        let ts = if bolding { bold.clone() } else { normal.clone() }
+            .into_text_style(&root);
+        root.estimate_text_size(s, &ts).unwrap_or((((font_size as f64) * 0.60).round() as u32, 0.0 as u32)).0 as i32
+    };
 
-        let mut total_w: i32 = 0;
+    // ---- measure total width precisely (center the whole line) ----
+    let sw = 14.0;
+    let legend = [("TP", DiagnosticOutcome::TruePositive),
+                ("TN", DiagnosticOutcome::TrueNegative),
+                ("FP", DiagnosticOutcome::FalsePositive),
+                ("FN", DiagnosticOutcome::FalseNegative)];
 
-        // icons + labels
-        for (i, (_, label)) in legend.iter().enumerate() {
-            let label_w = (label.len() as i32) * char_w;
-            total_w += (sw as i32) + gap_small + label_w;
-            if i != legend.len() - 1 {
-                total_w += gap_small;
+    let mut total_w: i32 = 0;
+    for (i, (label, _)) in legend.iter().enumerate() {
+        total_w += (sw as i32) + gap_small + text_w(label, false);
+        if i != legend.len() - 1 { total_w += gap_medium; }
+    }
+
+    let mut stats_fmt: Option<(String,String,String,String,String)> = None;
+    if let Some(cs) = consensus_stats {
+        let sens = format!("{:.1}%", cs.sensitivity * 100.0);
+        let spec = format!("{:.1}%", cs.specificity * 100.0);
+        let ppv  = format!("{:.1}%", cs.ppv * 100.0);
+        let npv  = format!("{:.1}%", cs.npv * 100.0);
+        let nstr = format!("N={}", cs.total);
+
+        let pairs = [("Sensitivity:", &sens),
+                    ("Specificity:", &spec),
+                    ("PPV:", &ppv),
+                    ("NPV:", &npv)];
+
+        for (i, (hdr, val)) in pairs.iter().enumerate() {
+            total_w += text_w(hdr, true) + pad + text_w(val, false);
+            if i != pairs.len() - 1 { total_w += gap_medium; }
+        }
+        total_w += gap_medium + text_w(&nstr, false);
+        stats_fmt = Some((sens, spec, ppv, npv, nstr));
+    }
+
+    let baseline_y = (height_px as f64 - outer_margin - 8.0).round() as i32;
+    let mut x = ((width_px as i32) - total_w) / 2;
+
+    // ---- draw: icons + labels ----
+    for (label, out) in legend {
+        let style = palette.colors[out.index()].filled();
+        let icon_top = baseline_y as f64 - sw;
+
+        match shape {
+            CellShape::Circle => {
+                let cx = (x as f64 + sw/2.0) as i32;
+                let cy = (icon_top + sw/2.0) as i32;
+                root.draw(&Circle::new((cx, cy), (sw/2.0) as i32, style.clone()))?;
+            }
+            CellShape::Square { .. } => {
+                let r = [(x, icon_top as i32), ((x as f64 + sw) as i32, baseline_y)];
+                root.draw(&Rectangle::new(r, style.clone()))?;
             }
         }
+        x += (sw as i32) + gap_small;
 
-        // stats (optional)
-        let mut stats_fmt: Option<(String, String, String, String, String)> = None;
-        if let Some(cs) = consensus_stats {
-            
-            let sens = format!("{:.1}%", cs.sensitivity * 100.0);
-            let spec = format!("{:.1}%", cs.specificity * 100.0);
-            let ppv  = format!("{:.1}%", cs.ppv * 100.0);
-            let npv  = format!("{:.1}%", cs.npv * 100.0);
-            let nstr = format!("n = {}", cs.total);
+        root.draw_text(
+            label,
+            &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+            (x, baseline_y),
+        )?;
+        x += text_w(label, false) + gap_medium;
+    }
 
-            // "Header: " + value + gap between pairs
-            let pairs = [("Sensitivity:", &sens), ("Specificity:", &spec), ("PPV:", &ppv), ("NPV:", &npv)];
-            for (i, (hdr, val)) in pairs.iter().enumerate() {
-                total_w += (hdr.len() as i32) * char_w; // header
-                total_w += 6;                            // colon+space fudge
-                total_w += (val.len() as i32) * char_w; // value
-                if i != pairs.len() - 1 { total_w += gap_small; }
-            }
-            total_w += gap_small;                      // gap before N
-            total_w += (nstr.len() as i32) * char_w;   // N
-            stats_fmt = Some((sens, spec, ppv, npv, nstr));
-        }
-
-        // centered start x
-        let mut x = ((width_px as i32) - total_w) / 2;
-
-        // --- draw: icons + labels ---
-        for (out, label) in legend {
-            let style = palette.colors[out.index()].filled();
-            let icon_top = baseline_y as f64 - sw;
-
-            match shape {
-                CellShape::Circle => {
-                    let cx = (x as f64 + sw / 2.0) as i32;
-                    let cy = (icon_top + sw / 2.0) as i32;
-                    root.draw(&Circle::new((cx, cy), (sw / 2.0) as i32, style.clone()))?;
-                }
-                CellShape::Square { .. } => {
-                    let r = [(x, icon_top as i32), ((x as f64 + sw) as i32, baseline_y)];
-                    root.draw(&Rectangle::new(r, style.clone()))?;
-                }
-            }
-
-            x += (sw as i32) + gap_small;
-
+    // ---- draw: stats ----
+    if let Some((sens, spec, ppv, npv, nstr)) = stats_fmt {
+        let mut draw_pair = |hdr: &str, val: &str| -> Result<(), CiqaError> {
             root.draw_text(
-                label,
-                &("monospace", font_size.max(10))
-                    .into_font()
-                    .into_text_style(&root)
-                    .pos(Pos::new(HPos::Left, VPos::Center)),
+                hdr,
+                &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                 (x, baseline_y),
             )?;
-            x += (label.len() as i32) * char_w + gap_small;
-        }
-
-        // --- draw: stats inline ---
-
-        if let Some((sens, spec, ppv, npv, nstr)) = stats_fmt {
-
-            let normal = ("monospace", font_size).into_font();
-            let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
-
-            let mut draw_pair = |hdr: &str, val: &str| -> Result<(), CiqaError> {
-                
-                root.draw_text(
-                    hdr,
-                    &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
-                    (x, baseline_y),
-                )?;
-                
-                x += gap_small;
-
-                root.draw_text(
-                    val,
-                    &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
-                    (x, baseline_y),
-                )?;
-
-                x += gap_small;
-                
-                Ok(())
-            };
-
-            draw_pair("Sensitivity:", &sens)?;
-            draw_pair("Specificity:", &spec)?;
-            draw_pair("PPV:", &ppv)?;
-            draw_pair("NPV:", &npv)?;
+            x += text_w(hdr, true) + pad;
 
             root.draw_text(
-                &nstr,
-                &normal.into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+                val,
+                &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
                 (x, baseline_y),
             )?;
-        }
+            x += text_w(val, false) + gap_medium;
+            Ok(())
+        };
+
+        draw_pair("Sensitivity:", &sens)?;
+        draw_pair("Specificity:", &spec)?;
+        draw_pair("PPV:", &ppv)?;
+        draw_pair("NPV:", &npv)?;
+
+        root.draw_text(
+            &nstr,
+            &normal.into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+            (x, baseline_y),
+        )?;
     }
 
     Ok(())
