@@ -2230,28 +2230,32 @@ pub fn plot_diagnostic_matrix(
     let mut total_w: i32 = 0;
     for (i, (label, _)) in legend.iter().enumerate() {
         total_w += (sw as i32) + gap_small + text_w(label, false);
-        if i != legend.len() - 1 { total_w += gap_medium; }
+        if i != legend.len() - 1 { total_w += gap_small; }
     }
 
-    let mut stats_fmt: Option<(String,String,String,String,String)> = None;
+    let mut stats_fmt: Option<(String,String,String,String,String,String)> = None;
     if let Some(cs) = consensus_stats {
         let sens = format!("{:.1}%", cs.sensitivity * 100.0);
         let spec = format!("{:.1}%", cs.specificity * 100.0);
         let ppv  = format!("{:.1}%", cs.ppv * 100.0);
         let npv  = format!("{:.1}%", cs.npv * 100.0);
+        let rc: String = format!("{:.1}%", average_replicate_certainty(data, reference));
         let nstr = format!("n = {}", cs.total);
 
-        let pairs = [("Sensitivity:", &sens),
-                    ("Specificity:", &spec),
-                    ("PPV:", &ppv),
-                    ("NPV:", &npv)];
+        let pairs = [
+            ("Sensitivity:", &sens),
+            ("Specificity:", &spec),
+            ("PPV:", &ppv),
+            ("NPV:", &npv),
+            ("Replicate Certainty:", &rc)
+        ];
 
         for (i, (hdr, val)) in pairs.iter().enumerate() {
             total_w += text_w(hdr, true) + pad + text_w(val, false);
-            if i != pairs.len() - 1 { total_w += gap_medium; }
+            if i != pairs.len() - 1 { total_w += gap_small; }
         }
-        total_w += gap_medium + text_w(&nstr, false);
-        stats_fmt = Some((sens, spec, ppv, npv, nstr));
+        total_w += gap_small + text_w(&nstr, false);
+        stats_fmt = Some((sens, spec, ppv, npv, nstr, rc));
     }
 
     let baseline_y = (height_px as f64 - outer_margin - 8.0).round() as i32;
@@ -2280,11 +2284,11 @@ pub fn plot_diagnostic_matrix(
             &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
             (x, baseline_y),
         )?;
-        x += text_w(label, false) + gap_medium;
+        x += text_w(label, false) + gap_small;
     }
 
     // ---- draw: stats ----
-    if let Some((sens, spec, ppv, npv, nstr)) = stats_fmt {
+    if let Some((sens, spec, ppv, npv, nstr, rc)) = stats_fmt {
         let mut draw_pair = |val: &str| -> Result<(), CiqaError> {
             root.draw_text(
                 val,
@@ -2299,7 +2303,7 @@ pub fn plot_diagnostic_matrix(
         draw_pair(&format!("Specificity: {spec}"))?;
         draw_pair(&format!("PPV: {ppv}"))?;
         draw_pair(&format!("NPV: {npv}"))?;
-        draw_pair(&format!("Replicate Certainty: {:.1}%", average_replicate_certainty(data, reference)))?;
+        draw_pair(&format!("Replicate Certainty: {:.1}%", rc))?;
 
         root.draw_text(
             &nstr,
