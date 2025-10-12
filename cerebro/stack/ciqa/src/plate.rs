@@ -2306,7 +2306,7 @@ pub fn plot_diagnostic_matrix(
         draw_pair("Specificity:", &spec)?;
         draw_pair("PPV:", &ppv)?;
         draw_pair("NPV:", &npv)?;
-        draw_pair("Replicate Certainty:", &format!("{:.1}", average_replicate_certainty(data, reference)))?;
+        draw_pair("Replicate Certainty:", &format!("{:.1}%", average_replicate_certainty(data, reference)))?;
 
         root.draw_text(
             &nstr,
