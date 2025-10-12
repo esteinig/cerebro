@@ -12,6 +12,7 @@
             <p class="opacity-80 p-2">Clinical Report</p>
                 <ListBox class="border-token p-4 border-primary-500">
                     <ListBoxItem bind:group={selectedView} name="medium" value="report" active='variant-soft' rounded='rounded-token'>New Report</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value="batch" active='variant-soft' rounded='rounded-token'>Batch Report</ListBoxItem>
                     <ListBoxItem bind:group={selectedView} name="medium" value="configuration", active='variant-soft' rounded='rounded-token' disabled>Configuration</ListBoxItem>
                     <ListBoxItem bind:group={selectedView} name="medium" value="appendixA", active='variant-soft' rounded='rounded-token' disabled>Appendix A: Laboratory</ListBoxItem>
                     <ListBoxItem bind:group={selectedView} name="medium" value="appendixB", active='variant-soft' rounded='rounded-token' disabled>Appendix B: Bioinformatics</ListBoxItem>

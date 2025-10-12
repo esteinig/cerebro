@@ -2,9 +2,11 @@ use cerebro_model::api::{teams::model::TeamAdminCollection, training::{model::{T
 
 use cerebro_report::{LibraryReportCompiler, ReportType, TrainingCompletionReport};
 use chrono::{SecondsFormat, Utc};
-use futures::stream::TryStreamExt;
-use mongodb::{bson::{doc, from_document, to_bson, Bson}, options::FindOneOptions, Collection};
+use futures::stream::{StreamExt, TryStreamExt};
+
+use mongodb::{bson::{doc, from_document, to_bson, Bson}, options::{FindOneOptions, FindOptions}, Collection};
 use actix_web::{delete, get, patch, post, web, HttpResponse};
+use serde::Deserialize;
 
 use crate::api::{auth::jwt::{self, TeamAccessQuery}, server::AppState, training::gridfs::{delete_from_gridfs, download_prefetch_from_gridfs, find_unique_gridfs_id_by_filename, upload_prefetch_to_gridfs}, utils::get_teams_db_collection};
 
@@ -388,6 +390,48 @@ async fn retrieve_training_session_handler(data: web::Data<AppState>, session_id
     }
 }
 
+
+#[derive(Deserialize)]
+struct ListQuery {
+    limit: Option<i64>, // default 100
+    skip: Option<u64>,  // default 0
+}
+
+#[get("/training/sessions")]
+async fn list_training_sessions_handler(
+    data: web::Data<AppState>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+    q: web::Query<ListQuery>,
+) -> HttpResponse {
+    let training_records_collection: Collection<TrainingSessionRecord> =
+        get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+
+    let limit = q.limit.unwrap_or(100).clamp(1, 1_000);
+    let skip = q.skip.unwrap_or(0);
+
+    let opts = FindOptions::builder().limit(Some(limit)).skip(Some(skip)).build();
+
+    match training_records_collection.find(doc! {}).with_options(opts).await {
+        Ok(mut cursor) => {
+            let mut out = Vec::new();
+            while let Some(res) = cursor.next().await {
+                match res {
+                    Ok(rec) => out.push(TrainingSessionData::from_query(rec)),
+                    Err(e) => {
+                        return HttpResponse::InternalServerError()
+                            .json(TrainingResponse::<()>::error(&format!("Cursor error: {e}")));
+                    }
+                }
+            }
+            HttpResponse::Ok().json(TrainingResponse::ok(out))
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(TrainingResponse::<()>::error(&format!("Failed to list training sessions: {}", err))),
+    }
+}
+
+
 #[patch("/training/session")]
 async fn update_training_record_handler(
     data: web::Data<AppState>,
@@ -660,6 +704,7 @@ pub fn training_config(cfg: &mut web::ServiceConfig) {
        .service(retrieve_training_session_data_handler)
        .service(get_training_session_result_handler)
        .service(get_training_session_certificate_handler)
-       .service(update_training_record_handler);
+       .service(update_training_record_handler)
+       .service(list_training_sessions_handler);
 
 }

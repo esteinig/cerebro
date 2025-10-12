@@ -10,6 +10,7 @@
 	import ReportAppendixLaboratory from './ReportAppendixLaboratory.svelte';
 	import ReportAppendixBioinformatics from './ReportAppendixBioinformatics.svelte';
 	import { SlideToggle } from '@skeletonlabs/skeleton';
+	import BatchReport from './BatchReport.svelte';
   
     export let selectedView: string = "report";
 
@@ -284,6 +285,8 @@
                 <ReportAppendixLaboratory />
             {:else if selectedView === "appendixB"}
                 <ReportAppendixBioinformatics />
+            {:else if selectedView === "batch"}
+                <BatchReport />
             {/if}
             <div class="grid grid-cols-3 gap-6 w-3/4 pb-12 pt-12"> 
                 <button class="btn variant-ghost-primary" on:click={compilePDF}>

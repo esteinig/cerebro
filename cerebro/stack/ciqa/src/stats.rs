@@ -2,6 +2,80 @@ use std::collections::HashMap;
 use statrs::distribution::{Binomial, ChiSquared, Discrete, ContinuousCDF};
 use crate::plate::{DiagnosticOutcome, DiagnosticReview};
 
+#[derive(Debug, clap::ValueEnum, Clone, Copy)]
+pub enum AdjMethod { Bonferroni, Holm, BenjaminiHochberg }
+
+#[derive(Debug, Clone)]
+pub struct McNemarBatchRow {
+    pub id: String,           // filename or ablation ID
+    pub result: McNemarResult,
+    pub p_raw: f64,
+    pub p_adj: f64,
+}
+
+pub fn mcnemar_batch_adjust(
+    baseline_reviews: &[DiagnosticReview],
+    labeled_reviews: Vec<(String, Vec<DiagnosticReview>)>,
+    method: AdjMethod,
+) -> Vec<McNemarBatchRow> {
+    // raw p-values
+    let mut rows: Vec<McNemarBatchRow> = labeled_reviews.into_iter().map(|(id, revs)| {
+        let r = mcnemar_from_reviews(baseline_reviews, &revs);
+        McNemarBatchRow { id, p_raw: r.p_value, p_adj: r.p_value, result: r }
+    }).collect();
+
+    // adjust
+    let pvals: Vec<f64> = rows.iter().map(|r| r.p_raw).collect();
+    let padj = match method {
+        AdjMethod::Bonferroni => adjust_bonferroni(&pvals),
+        AdjMethod::Holm => adjust_holm(&pvals),
+        AdjMethod::BenjaminiHochberg => adjust_bh(&pvals),
+    };
+    for (row, p) in rows.iter_mut().zip(padj) { row.p_adj = p.min(1.0); }
+    rows
+}
+
+fn adjust_bonferroni(p: &[f64]) -> Vec<f64> {
+    let m = p.len() as f64;
+    p.iter().map(|&x| (x * m).min(1.0)).collect()
+}
+
+fn adjust_holm(p: &[f64]) -> Vec<f64> {
+    let m = p.len();
+    let mut idx: Vec<usize> = (0..m).collect();
+    idx.sort_by(|&i, &j| p[i].partial_cmp(&p[j]).unwrap());
+
+    let mut adj = vec![0.0; m];
+    let mut running_max: f64 = 0.0;
+    for (rank, &i) in idx.iter().enumerate() {
+        let k = m - rank; // Holm multiplier
+        let val = (p[i] * k as f64).min(1.0);
+        running_max = running_max.max(val);
+        adj[i] = running_max;
+    }
+    adj
+}
+
+fn adjust_bh(p: &[f64]) -> Vec<f64> {
+    let m = p.len();
+    let mut idx: Vec<usize> = (0..m).collect();
+    idx.sort_by(|&i, &j| p[i].partial_cmp(&p[j]).unwrap());
+
+    let mut adj_sorted = vec![0.0; m];
+    let mut prev = f64::INFINITY;
+    for (rank_rev, &i) in idx.iter().enumerate().rev() {
+        let rank = rank_rev + 1; // 1-based from smallest
+        let val = (p[i] * (m as f64) / (rank as f64)).min(1.0);
+        let monotone = val.min(prev);
+        adj_sorted[rank_rev] = monotone;
+        prev = monotone;
+    }
+    // map back
+    let mut out = vec![0.0; m];
+    for (rank, &i) in idx.iter().enumerate() { out[i] = adj_sorted[rank]; }
+    out
+}
+
 pub trait HasSampleOutcome {
     fn sample_id(&self) -> &str;
     fn outcome(&self) -> &DiagnosticOutcome;
@@ -65,7 +139,7 @@ fn is_correct(outcome: &DiagnosticOutcome) -> Option<bool> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct McNemarResult {
     pub test_type: String,
     pub p_value: f64,

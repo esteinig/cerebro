@@ -10,7 +10,7 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
 use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::mcnemar_from_reviews, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -754,6 +754,41 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 _ => {
                     log::error!("Could not find consensus reviews in provided diagnostic review data!")
                 }
+            }
+
+        }
+
+        Commands::McnemarAdjust( args ) => {
+
+            let base = DiagnosticData::from_json(args.baseline)?;
+            let base_reviews = base.get_consensus_reviews_filtered()
+                .ok_or_else(|| anyhow::anyhow!("baseline missing consensus reviews"))?;
+    
+            // load ablations
+            let mut labeled = Vec::new();
+            for path in &args.comparisons {
+                let dd = DiagnosticData::from_json(path)?;
+                if let Some(revs) = dd.get_consensus_reviews_filtered() {
+                    // use filename as ID
+                    labeled.push((get_file_component(path, FileComponent::FileStem)?, revs));
+                }
+            }
+    
+            let rows = mcnemar_batch_adjust(&base_reviews, labeled, args.method);
+    
+            // print concise table
+            println!("id\tb\tc\tn_discord\tp_raw\tp_adj\tmethod\tmode");
+            for r in rows {
+                println!("{}\t{}\t{}\t{}\t{:.6}\t{:.6}\t{:?}\t{}",
+                    r.id,
+                    r.result.b,
+                    r.result.c,
+                    r.result.total_discordant,
+                    r.p_raw,
+                    r.p_adj,
+                    args.method,
+                    r.result.test_type
+                );
             }
 
         }

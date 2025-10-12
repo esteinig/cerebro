@@ -6,7 +6,7 @@ use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
 use clap::{Args, Parser, Subcommand};
 use cerebro_model::api::cerebro::schema::SampleType;
-use crate::plate::{PanelColumnHeader, MissingOrthogonal, StatsMode};
+use crate::{plate::{MissingOrthogonal, PanelColumnHeader, StatsMode}, stats::AdjMethod};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
@@ -112,6 +112,8 @@ pub enum Commands {
     Review(ReviewArgs),
     /// Compare two diagnostic consensus reviews using McNemar's test statistic
     Mcnemar(McnemarArgs),
+    /// Adjust a series of comparisons against a baseline diagnostic consensus review using McNemar's test statistic
+    McnemarAdjust(McnemarAdjustArgs),
     #[cfg(feature = "local")]
     /// Diagnose samples on the reference plate using the generative practitioner
     DiagnoseLocal(DiagnoseLocalArgs),
@@ -141,6 +143,20 @@ pub struct McnemarArgs {
     /// Path to output from review of configuration B (DiagnosticData, JSON)
     #[clap(long, short = 'b')]
     pub review_b: String,
+}
+
+
+#[derive(Debug, Args)]
+pub struct McnemarAdjustArgs {
+    /// Baseline DiagnosticData JSON
+    #[clap(long)]
+    pub baseline: PathBuf,
+    /// One or more ablation DiagnosticData JSONs
+    #[clap(long, short = 'c', num_args=(1..), required = true)]
+    pub comparisons: Vec<PathBuf>,
+    /// Multiple-comparison adjustment
+    #[clap(long, value_enum, default_value_t = AdjMethod::BenjaminiHochberg)]
+    pub method: AdjMethod,
 }
 
 #[derive(Debug, Args)]
@@ -278,7 +294,7 @@ pub struct DiagnoseLocalArgs {
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
     /// Local generator model for diagnostic queries
-    #[clap(long, short = 'm', default_value="deepseekr1-qwen7b-q8-0")]
+    #[clap(long, short = 'm', default_value="qwen3-8b-q8-0")]
     pub model: GeneratorModel,
     /// The length of the sample to generate (in tokens) - needs to be long enough to capture model thought process
     #[arg(short = 'n', long, default_value_t = 20000)]

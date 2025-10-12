@@ -601,7 +601,7 @@ impl DiagnosticData {
             reference_column.as_deref(), 
             consensus_column.as_deref(), 
             output, 
-            &Palette::diagnostic_review(), 
+            &Palette::diagnostic_review2(), 
             CellShape::Circle, 
             PanelColumnHeader::Panel,
             title
@@ -776,13 +776,38 @@ impl Palette {
         //  Unknown        => 7,
 
         let review_hex = vec![
-            "#748f46".to_string(),
+            "#748f46".to_string(), 
             "#f05b43".to_string(),
             "#98ab76".to_string(),
             "#f78462".to_string(),
             "#f7dea3".to_string(),
             "#d3d3d3".to_string(),
             "#aadce0".to_string(),
+            "#d3d3d3".to_string(),
+        ];
+        Palette::from_hex(PaletteName::DiagnosticReview, review_hex)
+    }
+    /// Returns a Palette with a set of default colors for the diagnostic review plot
+    pub fn diagnostic_review2() -> Self {
+
+        //  TruePositive   => 0,
+        //  FalsePositive  => 1,
+        //  TrueNegative   => 2,
+        //  FalseNegative  => 3,
+        //  Indeterminate  => 4,
+        //  NotConsidered  => 5,
+        //  Control        => 6,
+        //  Unknown        => 7,
+
+        let review_hex = vec![
+            "#768f84".to_string(), 
+            "#f78462".to_string(),
+            "#B7C6C0".to_string(),
+            "#fbc1b0".to_string(),
+
+            "#dfbf88ff".to_string(),
+            "#d3d3d3".to_string(),
+            "#89a7c0".to_string(),
             "#d3d3d3".to_string(),
         ];
         Palette::from_hex(PaletteName::DiagnosticReview, review_hex)
