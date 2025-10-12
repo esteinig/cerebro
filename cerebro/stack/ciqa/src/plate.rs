@@ -2240,6 +2240,7 @@ pub fn plot_diagnostic_matrix(
         let ppv  = format!("{:.1}%", cs.ppv * 100.0);
         let npv  = format!("{:.1}%", cs.npv * 100.0);
         let rc: String = format!("{:.1}%", average_replicate_certainty(data, reference));
+        
         let nstr = format!("n = {}", cs.total);
 
         let pairs = [
@@ -2299,7 +2300,11 @@ pub fn plot_diagnostic_matrix(
             Ok(())
         };
 
-        draw_pair(&format!("Sensitivity: {sens}  Specificity: {spec}  Specificity: {spec}  PPV: {ppv}  NPV: {npv}  Replicate Certainty: {rc}  {nstr}"))?;
+        draw_pair(&format!("Sensitivity: {sens}"))?;
+        draw_pair(&format!("Specificity: {spec}"))?;
+        draw_pair(&format!("PPV: {ppv}"))?;
+        draw_pair(&format!("NPV: {npv}"))?;
+        draw_pair(&format!("Replicate Certainty: {:.1}%", rc))?;
 
         root.draw_text(
             &nstr,
