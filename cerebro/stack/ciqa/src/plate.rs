@@ -528,27 +528,43 @@ fn compute_mean_and_ci(values: &[f64]) -> (f64, Vec<f64>) {
     (mean, vec![lower, upper])
 }
 
-pub fn replicate_certainty_per_sample(
+pub fn average_replicate_certainty(
     data: &[Vec<DiagnosticReview>],
     reference: Option<&[DiagnosticReview]>,
-) -> Vec<f64> {
-    let nrows = if let Some(r) = reference { r.len() } else if !data.is_empty() { data[0].len() } else { 0 };
-    if nrows == 0 { return vec![]; }
+) -> f64 {
+    let nrows = if let Some(r) = reference {
+        r.len()
+    } else if !data.is_empty() {
+        data[0].len()
+    } else {
+        return 0.0;
+    };
+    if nrows == 0 { return 0.0; }
 
-    // certainty = fraction of replicates that are TP or TN (vs reference)
-    (0..nrows).map(|row| {
-        let mut good = 0usize;
-        let mut total = 0usize;
+    let mut total_good = 0usize;
+    let mut total_count = 0usize;
+
+    for row in 0..nrows {
         for col in data {
+            total_count += 1;
             let rev = &col[row];
-            total += 1;
             match rev.outcome {
-                DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => good += 1,
-                DiagnosticOutcome::FalsePositive | DiagnosticOutcome::FalseNegative | DiagnosticOutcome::NotConsidered | DiagnosticOutcome::Indeterminate | DiagnosticOutcome::Control | DiagnosticOutcome::Unknown => {}
+                DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => total_good += 1,
+                DiagnosticOutcome::FalsePositive
+                | DiagnosticOutcome::FalseNegative
+                | DiagnosticOutcome::NotConsidered
+                | DiagnosticOutcome::Indeterminate
+                | DiagnosticOutcome::Control
+                | DiagnosticOutcome::Unknown => {}
             }
         }
-        if total == 0 { 0.0 } else { (good as f64) * 100.0 / (total as f64) }
-    }).collect()
+    }
+
+    if total_count == 0 {
+        0.0
+    } else {
+        (total_good as f64) * 100.0 / (total_count as f64)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -2292,6 +2308,7 @@ pub fn plot_diagnostic_matrix(
         draw_pair("Specificity:", &spec)?;
         draw_pair("PPV:", &ppv)?;
         draw_pair("NPV:", &npv)?;
+        draw_pair("Replicate Certainty:", &format!("{:.1}", average_replicate_certainty(data, reference)))?;
 
         root.draw_text(
             &nstr,
