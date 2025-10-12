@@ -2265,7 +2265,7 @@ pub fn plot_diagnostic_matrix(
                 &("monospace", font_size.max(10))
                     .into_font()
                     .into_text_style(&root)
-                    .pos(Pos::new(HPos::Left, VPos::Bottom)),
+                    .pos(Pos::new(HPos::Left, VPos::Center)),
                 (x, baseline_y),
             )?;
             x += (label.len() as i32) * char_w + gap_small;
@@ -2282,7 +2282,7 @@ pub fn plot_diagnostic_matrix(
                 
                 root.draw_text(
                     hdr,
-                    &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+                    &bold.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
                     (x, baseline_y),
                 )?;
                 
@@ -2290,7 +2290,7 @@ pub fn plot_diagnostic_matrix(
 
                 root.draw_text(
                     val,
-                    &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Bottom)),
+                    &normal.clone().into_text_style(&root).pos(Pos::new(HPos::Left, VPos::Center)),
                     (x, baseline_y),
                 )?;
 
