@@ -2304,7 +2304,7 @@ pub fn plot_diagnostic_matrix(
         draw_pair(&format!("Specificity: {spec}"))?;
         draw_pair(&format!("PPV: {ppv}"))?;
         draw_pair(&format!("NPV: {npv}"))?;
-        draw_pair(&format!("Replicate Certainty: {:.1}%", rc))?;
+        draw_pair(&format!("Replicate Certainty: {rc}"))?;
         draw_pair(&nstr)?;
 
     }
