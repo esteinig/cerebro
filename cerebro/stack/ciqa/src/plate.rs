@@ -528,6 +528,28 @@ fn compute_mean_and_ci(values: &[f64]) -> (f64, Vec<f64>) {
     (mean, vec![lower, upper])
 }
 
+pub fn replicate_certainty_per_sample(
+    data: &[Vec<DiagnosticReview>],
+    reference: Option<&[DiagnosticReview]>,
+) -> Vec<f64> {
+    let nrows = if let Some(r) = reference { r.len() } else if !data.is_empty() { data[0].len() } else { 0 };
+    if nrows == 0 { return vec![]; }
+
+    // certainty = fraction of replicates that are TP or TN (vs reference)
+    (0..nrows).map(|row| {
+        let mut good = 0usize;
+        let mut total = 0usize;
+        for col in data {
+            let rev = &col[row];
+            total += 1;
+            match rev.outcome {
+                DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => good += 1,
+                DiagnosticOutcome::FalsePositive | DiagnosticOutcome::FalseNegative | DiagnosticOutcome::NotConsidered | DiagnosticOutcome::Indeterminate | DiagnosticOutcome::Control | DiagnosticOutcome::Unknown => {}
+            }
+        }
+        if total == 0 { 0.0 } else { (good as f64) * 100.0 / (total as f64) }
+    }).collect()
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DiagnosticData {
@@ -576,7 +598,7 @@ impl DiagnosticData {
         
         Ok(reference_review.first().cloned())
     }
-    pub fn plot_summary(&self, output: &Path, title: Option<&str>, width: u32, height: u32, reference: Option<PathBuf>, header_text: Option<&str>) -> Result<(), CiqaError> {
+    pub fn plot_summary(&self, output: &Path, title: Option<&str>, width: u32, height: u32, reference: Option<PathBuf>, header_text: Option<&str>, consensus_stats: Option<&DiagnosticStats>) -> Result<(), CiqaError> {
 
         let data_columns: Vec<Vec<DiagnosticReview>> = self.stats
             .iter()
@@ -605,7 +627,8 @@ impl DiagnosticData {
             CellShape::Circle, 
             PanelColumnHeader::Panel,
             title,
-            header_text
+            header_text,
+            consensus_stats
         )
     }
 }
@@ -1973,7 +1996,8 @@ pub fn plot_diagnostic_matrix(
     shape: CellShape,
     column_header: PanelColumnHeader,
     title: Option<&str>,
-    header_text: Option<&str>
+    header_text: Option<&str>,
+    consensus_stats: Option<&DiagnosticStats>
 ) -> Result<(), CiqaError> {
     // 1. Determine sample IDs and sanity‑check all columns
     let sample_labels: Vec<_> = if let Some(col) = reference {
@@ -1998,16 +2022,13 @@ pub fn plot_diagnostic_matrix(
 
     // 2. Flatten into a single Vec<&[DiagnosticReview]> in draw order
     let mut columns: Vec<&[DiagnosticReview]> = Vec::new();
-    for col in data {
-        columns.push(col.as_slice());
-    }
-    if let Some(col) = consensus {
-        columns.push(col);
-    }
-    if let Some(col) = reference {
-        columns.push(col);
-    }
-    let total_cols = columns.len();
+    for col in data { columns.push(col.as_slice()); }
+    if let Some(col) = consensus { columns.push(col); }
+    if let Some(col) = reference { columns.push(col); }
+
+    // meta column index (always last)
+    let meta_idx = columns.len();
+    let total_cols = columns.len() + 1;
 
     // 3. Panel layout parameters (same as QC function)
     let chunk_size   = 12;
@@ -2025,6 +2046,7 @@ pub fn plot_diagnostic_matrix(
     let row_padding         = 4.0;
     let cell_px             = 24;
     let font_size           = (cell_px as f64).clamp(4.0, 14.0).round() as u32;
+    let meta_col_px         = 220.0; 
 
     // 5. Compute top‑paddings per panel (for column headers)
     let base_padding_y   = 10;
@@ -2039,13 +2061,9 @@ pub fn plot_diagnostic_matrix(
     let stride = cell_px as f64 + col_padding;
     let consensus_gap_px    = stride.clone(); // one cell gap  or e.g. 16.0; visual spacer before "Consensus"
 
-    // where does "Consensus" land in the flattened order?
     let consensus_idx: Option<usize> = if consensus.is_some() { Some(data.len()) } else { None };
-
-    // extra width only if consensus exists
     let extra_gap_per_panel = if consensus_idx.is_some() { consensus_gap_px } else { 0.0 };
-
-
+    
     let height_px = (
         (panels_y as f64 * chunk_size as f64) * (cell_px as f64 + row_padding)
         + (panels_y as f64 * panel_padding_bottom)
@@ -2054,8 +2072,9 @@ pub fn plot_diagnostic_matrix(
     ).ceil() as u32;
 
     let width_px = (
-        (panels_x as f64 * total_cols as f64) * stride
-        + (panels_x as f64 * extra_gap_per_panel)            // <— add this
+        (panels_x as f64 * (columns.len() as f64) * stride)   // real data/cons/reference columns
+        + (panels_x as f64 * extra_gap_per_panel)
+        + (panels_x as f64 * meta_col_px)                     // meta column
         + (panels_x as f64 * (panel_padding_left + panel_padding_right))
         + (2.0 * outer_margin)
     ).ceil() as u32;
@@ -2083,6 +2102,22 @@ pub fn plot_diagnostic_matrix(
         palette.colors[rev.outcome.index()].filled()
     };
 
+    // helper: x position with gap and meta
+    let x_for = |col_idx: usize| -> f64 {
+        // data/cons/reference occupy [0 .. columns.len())
+        if col_idx == meta_idx {
+            // start of meta column
+            (columns.len() as f64) * stride
+            + if consensus_idx.is_some() { consensus_gap_px } else { 0.0 }
+        } else {
+            let base = (col_idx as f64) * stride;
+            match consensus_idx {
+                Some(ci) if col_idx >= ci => base + consensus_gap_px,
+                _ => base,
+            }
+        }
+    };
+
     // 11. Draw each panel
     for (panel, (chunk_idx, chunk)) in
         panels.iter().zip(sample_labels.chunks(chunk_size).enumerate())
@@ -2097,15 +2132,6 @@ pub fn plot_diagnostic_matrix(
 
         let nrows_chunk = chunk.len();
 
-        // compute x with a gap inserted before consensus
-        let x_for = |col_idx: usize| -> f64 {
-            let base = (col_idx as f64) * stride;
-            match consensus_idx {
-                Some(ci) if col_idx >= ci => base + consensus_gap_px, // shift consensus and everything after
-                _ => base,
-            }
-        };
-
         // 11a. Draw every column (data → consensus → reference)
         for (col_idx, col) in columns.iter().enumerate() {
             let x0 = x_for(col_idx);
@@ -2115,7 +2141,6 @@ pub fn plot_diagnostic_matrix(
                 let rev = &col[row_idx];
                 let style = get_style(rev);
                 let y0 = row as f64 * (cell_px as f64 + row_padding);
-
                 match shape {
                     CellShape::Circle => {
                         let cx = (x0 + cell_px as f64 / 2.0) as i32;
@@ -2123,10 +2148,7 @@ pub fn plot_diagnostic_matrix(
                         panel_area.draw(&Circle::new((cx, cy), (cell_px as f64 / 2.0) as i32, style.clone()))?;
                     }
                     CellShape::Square { border_width } => {
-                        let rect = [
-                            (x0 as i32, y0 as i32),
-                            ((x0 + cell_px as f64) as i32, (y0 + cell_px as f64) as i32),
-                        ];
+                        let rect = [(x0 as i32, y0 as i32), ((x0 + cell_px as f64) as i32, (y0 + cell_px as f64) as i32)];
                         panel_area.draw(&Rectangle::new(rect, style.clone()))?;
                         panel_area.draw(&Rectangle::new(rect, WHITE.stroke_width(border_width)))?;
                     }
@@ -2149,7 +2171,7 @@ pub fn plot_diagnostic_matrix(
 
         // 11c. Rotated column headers on the first panel row
         if panel_column_headers[chunk_idx] {
-            for col_idx in 0..total_cols {
+            for col_idx in 0..columns.len() {           // only real columns get rotated headers
                 let x0 = x_for(col_idx);
                 let header = if col_idx < data.len() {
                     format!("{} {}", header_text.unwrap_or("Replicate"), col_idx + 1)
@@ -2169,6 +2191,63 @@ pub fn plot_diagnostic_matrix(
                 )?;
             }
 
+        }
+
+        // 11d. META COLUMN CONTENT
+        {
+            let x0 = x_for(meta_idx);
+            let y0 = 0.0;
+            // draw a transparent rect (for layout debugging, keep commented)
+            // panel_area.draw(&Rectangle::new([(x0 as i32, -5), ((x0 + meta_col_px) as i32, 5)], TRANSPARENT.filled()))?;
+
+            // Row 0: legend + consensus stats text
+            if chunk_idx == 0 {
+                // legend swatches
+                let sw = 12.0;
+                let lx = x0 + 8.0;
+                let mut ly = y0 + 4.0;
+
+                let legend = [
+                    (DiagnosticOutcome::TruePositive,  "TP"),
+                    (DiagnosticOutcome::TrueNegative,  "TN"),
+                    (DiagnosticOutcome::FalsePositive, "FP"),
+                    (DiagnosticOutcome::FalseNegative, "FN"),
+                ];
+                for (out, lab) in legend {
+                    let style = palette.colors[out.index()].filled();
+                    match shape {
+                        CellShape::Circle => {
+                            panel_area.draw(&Circle::new((lx as i32, (ly+sw/2.0) as i32), (sw/2.0) as i32, style.clone()))?;
+                        }
+                        CellShape::Square { border_width: _ } => {
+                            let r = [(lx as i32, ly as i32), ((lx+sw) as i32, (ly+sw) as i32)];
+                            panel_area.draw(&Rectangle::new(r, style.clone()))?;
+                        }
+                    }
+                    panel_area.draw_text(
+                        lab,
+                        &("monospace", (font_size.max(10))).into_font().into_text_style(&panel_area)
+                            .pos(Pos::new(HPos::Left, VPos::Center)),
+                        ((lx + sw + 6.0) as i32, (ly + sw/2.0) as i32),
+                    )?;
+                    ly += sw + 6.0;
+                }
+
+                // consensus stats block
+                if let Some(cs) = consensus_stats {
+                    let txt = format!(
+                        "Consensus {}\nSens {:.1}%  Spec {:.1}%\nPPV  {:.1}%  NPV  {:.1}%\nN = {}",
+                        cs.name, cs.sensitivity, cs.specificity, cs.ppv, cs.npv, cs.total
+                    );
+                    panel_area.draw_text(
+                        &txt,
+                        &("monospace", font_size).into_font().into_text_style(&panel_area)
+                            .pos(Pos::new(HPos::Left, VPos::Top)),
+                        ((x0 + 100.0) as i32, 0),
+                    )?;
+                }
+            }
+            // other rows in meta column remain empty by design
         }
     }
 

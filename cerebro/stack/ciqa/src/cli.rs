@@ -511,7 +511,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     args.width, 
                     args.height, 
                     args.reference.clone(),
-                    args.header_text.as_deref()
+                    args.header_text.as_deref(),
+                    Some(&consensus_stats)
                 )?;
             }
         },
