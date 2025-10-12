@@ -548,7 +548,7 @@ pub fn average_replicate_certainty(
         for col in data {
             let rev = &col[row];
             match rev.outcome {
-                DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => total_good += 1,
+                DiagnosticOutcome::TruePositive | DiagnosticOutcome::TrueNegative => { total_good += 1; total_count += 1; },
                 DiagnosticOutcome::FalsePositive
                 | DiagnosticOutcome::FalseNegative => { total_count += 1; },
                 DiagnosticOutcome::NotConsidered
