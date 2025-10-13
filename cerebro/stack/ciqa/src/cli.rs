@@ -834,7 +834,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 }
 
 
-fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Option<Vec<String>>, bool) {
+fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Option<Vec<String>>, Option<bool>) {
 
     let tags = match sample_reference.note {
         Some(ref note) => {
@@ -868,8 +868,8 @@ fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Op
     };
 
     let exclude_lod = match sample_reference.note {
-        Some(ref note) => note.contains("exclude_lod"),
-        None => false
+        Some(ref note) => Some(note.contains("exclude_lod")),
+        None => None
     };
 
     (tags, ignore_taxstr, exclude_lod)

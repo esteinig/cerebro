@@ -108,8 +108,10 @@
     };
   
     onMount(() => {
+      loadingWasm = true;
       loadCompiler();
       document.addEventListener('keydown', handleKeydown);
+      loadingWasm = false;
       return () => {
         document.removeEventListener('keydown', handleKeydown);
       };
