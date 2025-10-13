@@ -14,7 +14,7 @@ use chrono::{TimeZone, SecondsFormat};
 
 use cerebro_pipeline::{
     error::WorkflowError, 
-    modules::{pathogen::{AbundanceMode, PathogenDetectionTableRecord, ProfileTool}, quality::{PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl}}, 
+    modules::{pathogen::PathogenDetectionTableRecord, quality::{PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl}}, 
     nextflow::sheet::SampleSheet, 
     taxa::{filter::TaxonFilterConfig, taxon::{LineageOperations, Taxon}},
 };
@@ -30,7 +30,7 @@ use crate::api::cerebro::schema::{
 };
 
 
-const SCHEMA_VERSION: &str = "0.11.0";
+const SCHEMA_VERSION: &str = "0.12.0";
 
 /*
 ========================

@@ -3,11 +3,12 @@
     import { get } from 'svelte/store';
     import { FileDropzone, ProgressRadial } from "@skeletonlabs/skeleton";
     import { selectedReportSchema } from '$lib/stores/stores';
-    import type { PathogenDetectionReport } from '$lib/utils/types';
+    import type { PathogenDetectionReport, ReportSignature } from '$lib/utils/types';
 	  import { page } from '$app/stores';
 	  import JSZip from 'jszip';
 
     export let compiler: any;
+    export let reportSchema: PathogenDetectionReport = $selectedReportSchema;
 
     export let batch: PathogenDetectionReport[] = [];
     let processing: boolean = false;
@@ -101,8 +102,10 @@
         const idx = indexMap(header);
 
         batch = data.filter(r => r && r.length).map(r => {
-          const base = structuredClone(get(selectedReportSchema)) as PathogenDetectionReport;
+          let base = structuredClone(get(selectedReportSchema)) as PathogenDetectionReport;
           console.log(base);
+          // Set configured signatures from new report interface view
+          base.authorisation.signatures = reportSchema.authorisation.signatures;
           applyToSchema(base, rowToObj(r, idx));
           return base;
         });

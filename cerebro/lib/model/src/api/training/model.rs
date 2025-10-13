@@ -178,7 +178,7 @@ impl TrainingSessionRecord {
             };
 
             // Override if the LOD exclusion flag was set
-            if r.exclude_lod {
+            if r.exclude_lod.is_some_and(|x| x) {
                 exclude_reason = Some("limit of detection".into());
                 decision = Decision::Excluded
             }

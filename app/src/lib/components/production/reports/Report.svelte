@@ -316,7 +316,7 @@
             {:else if selectedView === "appendixB"}
                 <ReportAppendixBioinformatics />
             {:else if selectedView === "batch"}
-                <BatchReport compiler={compiler} bind:batch={batch}/>
+                <BatchReport compiler={compiler} bind:batch={batch} reportSchema={reportSchema} />
             {/if}
         </div>   
           
