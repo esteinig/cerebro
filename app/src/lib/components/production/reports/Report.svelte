@@ -9,7 +9,7 @@
 	import ReportConfiguration from './ReportConfiguration.svelte';
 	import ReportAppendixLaboratory from './ReportAppendixLaboratory.svelte';
 	import ReportAppendixBioinformatics from './ReportAppendixBioinformatics.svelte';
-	import { SlideToggle } from '@skeletonlabs/skeleton';
+	import { ProgressRadial, SlideToggle } from '@skeletonlabs/skeleton';
 	import BatchReport from './BatchReport.svelte';
   
     export let selectedView: string = "report";
@@ -23,6 +23,9 @@
     let virtualPDF: string = "pdf.typ";
     let virtualSVG: string = "svg.typ";
     
+    let batch: PathogenDetectionReport[] = [];
+
+    let loadingWasm: boolean = false;
 
     enum ReportTemplate {
       PathogenDetection = "PathogenDetection"
@@ -32,14 +35,17 @@
   
     const loadCompiler = async () => {
       try {
+        loadingWasm = true;
         await init();
         compiler = new ReportCompiler('/', ReportTemplate.PathogenDetection); // Initialize with root and empty callback
       } catch (error) {
         console.error('Failed to load WASM module:', error);
       }
+
+      loadingWasm = false;
   
       if (!report) {
-        compileSVG(reportSchema); // Compile on page initilization
+        compileSVG(reportSchema); // Compile on page load
       }
     };
   
@@ -123,6 +129,21 @@
     const removeSignature = (index: number) => {
         reportSchema.authorisation.signatures = reportSchema.authorisation.signatures.filter((_, i) => i !== index);
     };
+
+
+    // non-identifying fields only
+    const SAFE_FIELDS: { label: string; path: string }[] = [
+      { label: 'Specimen type', path: 'patient_header.specimen_type' },
+      { label: 'Pathogen detected', path: 'patient_result.pathogen_detected' },
+      { label: 'Pathogen', path: 'patient_result.pathogen_reported' }
+    ];
+
+    function getDeep(obj: any, path: string) {
+      return path.split('.').reduce((o, k) => (o?.[k]), obj);
+    }
+    function safePairs(r: any) {
+      return SAFE_FIELDS.map(({ label, path }) => [label, getDeep(r, path)]);
+    }
     
   </script>
   
@@ -279,6 +300,15 @@
 
                     </div>
                 </form>
+                <div class="grid grid-cols-3 gap-6 w-3/4 pb-12 pt-12"> 
+                    <button class="btn variant-ghost-primary" on:click={compilePDF}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Download
+                    </button>
+                </div>
+                <p class="opacity-40 text-regular mt-4"><kbd class="kbd text-sm">Ctrl + S</kbd> or <kbd class="kbd">Command + S</kbd> (MacOS) to update preview</p>
             {:else if selectedView === "configuration"}
                 <ReportConfiguration />
             {:else if selectedView === "appendixA"}
@@ -286,34 +316,56 @@
             {:else if selectedView === "appendixB"}
                 <ReportAppendixBioinformatics />
             {:else if selectedView === "batch"}
-                <BatchReport />
+                <BatchReport compiler={compiler} bind:batch={batch}/>
             {/if}
-            <div class="grid grid-cols-3 gap-6 w-3/4 pb-12 pt-12"> 
-                <button class="btn variant-ghost-primary" on:click={compilePDF}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    Download
-                </button>
-            </div>
-            <p class="opacity-40 text-regular mt-4"><kbd class="kbd text-sm">Ctrl + S</kbd> or <kbd class="kbd">Command + S</kbd> (MacOS) to update preview</p>
         </div>   
           
-        <!-- Live preview -->
-  
-        <div class="grid grid-rows-12 p-1 gap-y-2 bg-surface-500/5">
-        {#await Promise.resolve(svgData)}
-            <p>Loading preview...</p>
-        {:then data}
-            {#each data as svg}
-            <div class="svg-preview">
-                {@html svg}
+        {#if selectedView === "report"}
+            <div class="grid grid-rows-12 p-1 gap-y-2 bg-surface-500/5">
+                {#await Promise.resolve(svgData)}
+                    <div class="flex justify-center items-center">
+                        <ProgressRadial width="w-24" stroke={30} meter="stroke-primary-500" track="stroke-primary-500/30" />
+                    </div>
+                {:then data}
+                    {#each data as svg}
+                    <div class="svg-preview">
+                        {@html svg}
+                    </div>
+                    {/each}
+                {:catch error}
+                    <p>Error loading preview: {error.message}</p>
+                {/await}
             </div>
+        {:else if selectedView === "batch"}
+
+        {#if batch && batch.length}
+            <ul class="divide-y divide-primary-500 rounded-xl border-token border-primary-500">
+            {#each batch as r, i}
+                <li class="p-4 flex gap-3 items-start">
+                <!-- checkmark -->
+                <svg class="w-5 h-5 shrink-0 text-success-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-7.5 7.5a1 1 0 0 1-1.414 0l-3-3a1 1 0 1 1 1.414-1.414l2.293 2.293 6.793-6.793a1 1 0 0 1 1.414 0z" clip-rule="evenodd"/>
+                </svg>
+
+                <div class="flex-1">
+                    <div class="text-xs opacity-60 mb-2">Row {i + 1}</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    {#each safePairs(r) as [label, value]}
+                        <div>
+                        <span class="opacity-60">{label}:</span>
+                        <span class="ml-1">{value ?? '-'}</span>
+                        </div>
+                    {/each}
+                    </div>
+                </div>
+                </li>
             {/each}
-        {:catch error}
-            <p>Error loading preview: {error.message}</p>
-        {/await}
-        </div>
+            </ul>
+            {:else}
+            <p class="opacity-60 text-sm">No batch loaded.</p>
+            {/if}
+        {/if}
+
     </div>
   </div>
   
@@ -321,11 +373,8 @@
   
       /* Container for the SVG preview */
       .svg-preview {
-        display: flex;
-        justify-content: center;
-        align-items: center;
         width: 100%;
         height: 100%; /* Adjust height based on layout */
-        overflow: auto;
+
       }
   </style>
