@@ -10,7 +10,7 @@
 	import ReportAppendixLaboratory from './ReportAppendixLaboratory.svelte';
 	import ReportAppendixBioinformatics from './ReportAppendixBioinformatics.svelte';
 	import { ProgressRadial, SlideToggle } from '@skeletonlabs/skeleton';
-	import BatchReport from './BatchReport.svelte';
+	import BatchReport from './ReportBatch.svelte';
   
     export let selectedView: string = "report";
 

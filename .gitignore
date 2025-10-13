@@ -1,8 +1,6 @@
 # Testing
 testing/
 .nextflow/
-reports/
-templates/report/report.pdf
 cerebro/stack/report-wasm/tests/
 cerebro/stack/ciqa/templates/test*/
 cerebro/stack/ciqa/templates/adbdb5*.json
