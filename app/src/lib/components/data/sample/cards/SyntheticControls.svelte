@@ -40,35 +40,48 @@
 	let correlationCoefficient: number = 0;
 	let groupCoefficients = { A: 0, B: 0, C: 0, D: 0 };
 
-	const getGroupCoefficients = (correlationData: CorrelationData[]): typeof groupCoefficients => {
-		if (correlationData.length === 0) return { A: 0, B: 0, C: 0, D: 0 };
+	// helpers
+	const toNum = (v: unknown) => {
+		const n = typeof v === 'string' ? Number(v.trim()) : Number(v);
+		return Number.isFinite(n) ? n : null;
+	};
+	const hasVariance = (arr: number[]) => new Set(arr).size > 1;
 
-		const calculateGroup = (group: string) => {
-			const filteredData = correlationData.filter((x) => x.group === group);
-			if (filteredData.length < 2) return 0; // Correlation requires at least two points
-			return sampleCorrelation(
-				filteredData.map((x) => x.concentration),
-				filteredData.map((x) => x.alignments)
-			) ** 2;
+	function cleanPairs(data: CorrelationData[]) {
+		return (data ?? [])
+			.map(d => [toNum(d.concentration), toNum(d.alignments)] as const)
+			.filter(([x, y]) => x !== null && y !== null) as Array<[number, number]>;
+	}
+
+	const getGroupCoefficients = (data: CorrelationData[]) => {
+		const safe = (group: string) => {
+			const pairs = cleanPairs(data.filter(d => d.group === group));
+			if (pairs.length < 2) return 0;
+			const xs = pairs.map(p => p[0]);
+			const ys = pairs.map(p => p[1]);
+			if (!hasVariance(xs) || !hasVariance(ys)) return 0;
+			return sampleCorrelation(xs, ys) ** 2;
 		};
-
 		return {
-			A: calculateGroup("A"),
-			B: calculateGroup("B"),
-			C: calculateGroup("C"),
-			D: calculateGroup("D"),
+			A: safe('A'),
+			B: safe('B'),
+			C: safe('C'),
+			D: safe('D'),
 		};
 	};
 
 	$: {
-		if (correlationData.length > 0) {
-			correlationCoefficient = sampleCorrelation(
-				correlationData.map((x) => x.concentration),
-				correlationData.map((x) => x.alignments)
-			) ** 2;
-
-			groupCoefficients = getGroupCoefficients(correlationData);
+		const pairs = cleanPairs(correlationData);
+		if (pairs.length >= 2) {
+			const xs = pairs.map(p => p[0]);
+			const ys = pairs.map(p => p[1]);
+			correlationCoefficient = (hasVariance(xs) && hasVariance(ys))
+			? sampleCorrelation(xs, ys) ** 2
+			: 0;
+		} else {
+			correlationCoefficient = 0;
 		}
+		groupCoefficients = getGroupCoefficients(correlationData);
 	}
 
 	let groupColors: Record<string, string> = {};
@@ -120,7 +133,7 @@
 						domain: [minAlignments-(0.5*minAlignments), maxAlignments+(0.5*maxAlignments)],
                         ticks: {
                             values: logTicksAlignments, // Explicitly set log ticks
-                            formatter: (tick) =>
+                            formatter: (tick: any) =>
                                 typeof tick === "number"
                                     ? new Intl.NumberFormat("en", { notation: "scientific" }).format(tick)
                                     : tick.toString(),
@@ -132,7 +145,7 @@
 						scaleType: ScaleTypes.LOG,
 						domain: [minConcentration-(0.5*minConcentration), maxConcentration+(0.5*maxConcentration)],
 						ticks: {
-							formatter: (tick) =>
+							formatter: (tick: any) =>
 								typeof tick === "number"
 									? new Intl.NumberFormat("en", { notation: "scientific" }).format(tick)
 									: tick.toString(),
