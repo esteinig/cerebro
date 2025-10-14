@@ -479,11 +479,11 @@ fn main() -> anyhow::Result<()> {
                     client.upload_training_prefetch(&args.prefetch, &args.collection, &args.description)?;
                 },
                 // List prefetch data in a team training database
-                TrainingCommands::List( args ) => {
+                TrainingCommands::ListDatasets( args ) => {
                     client.list_training_collections(args.collection.clone())?;
                 },
                 // Delete prefetch data from the team training database
-                TrainingCommands::Delete( args ) => {
+                TrainingCommands::DeleteDataset( args ) => {
                     
                     if args.name.is_none() {
                         let confirmation = dialoguer::Confirm::new()
@@ -503,7 +503,16 @@ fn main() -> anyhow::Result<()> {
                             args.name.clone()
                         )?;
                     }
-                }
+                },
+
+                // List session data in a team training database
+                TrainingCommands::ListSessions( args ) => {
+                    client.list_training_sessions(args.completed, args.user_name.clone(), args.outdir.clone())?;
+                },
+                // Delete session data in a team training database
+                TrainingCommands::DeleteSession( args ) => {
+                    client.delete_training_sessions(args.session_id.clone(), args.user_id.clone(), args.incomplete)?;
+                },
             }
         },
         // Modify (create-delete-update) a project

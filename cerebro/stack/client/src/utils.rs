@@ -1,7 +1,11 @@
-use std::io::Write;
+use std::{fs::File, io::{BufWriter, Write}, path::Path};
+use cerebro_model::api::{cerebro::schema::TestResult, training::model::TrainingResultRecord};
 use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
+use serde::{Deserialize, Serialize};
+
+use crate::error::HttpClientError;
 
 
 pub fn init_logger() {
@@ -41,3 +45,60 @@ pub fn init_logger() {
         .init();
 }
 
+// Matches the META-GPT implementation - need to find a better way to
+// provide this struct across Cerebro 
+
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum Diagnosis {
+    Infectious,
+    InfectiousReview,
+    NonInfectious,
+    NonInfectiousReview,
+    Tumor,
+    Unknown
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiagnosticResult {
+    pub diagnosis: Diagnosis,
+    pub candidates: Vec<String>,
+    pub pathogen: Option<String>,
+}
+impl DiagnosticResult {
+    pub fn non_infectious() -> Self {
+        Self {
+            diagnosis: Diagnosis::NonInfectious,
+            candidates: vec![],
+            pathogen: None
+        }
+    }
+    pub fn to_json(&self, path: &Path) -> Result<(), HttpClientError> {
+        let agent_state = serde_json::to_string_pretty(self).map_err(|err| HttpClientError::SerdeFailure(err))?;
+        let mut writer = BufWriter::new(File::create(path)?);
+        write!(writer, "{agent_state}")?;
+        Ok(())
+    }
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, HttpClientError> {
+        let data = std::fs::read_to_string(path)?;
+        let result = serde_json::from_str::<DiagnosticResult>(&data)?;
+        Ok(result)
+    }
+
+    pub fn from_training_result(record: &TrainingResultRecord) -> Self {
+        
+        let candidates = match &record.candidates {
+            Some(candidates) => candidates.split(";").map(|x| x.trim().to_string()).collect(),
+            None => vec![]
+        };
+        
+        Self {
+            diagnosis: match record.result { 
+                TestResult::Positive => Diagnosis::Infectious,
+                TestResult::Negative => Diagnosis::NonInfectious
+            },
+            pathogen: candidates.first().cloned(),
+            candidates
+        }
+    }
+}

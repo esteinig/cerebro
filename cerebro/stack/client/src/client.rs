@@ -43,6 +43,7 @@ use cerebro_model::api::stage::response::ListStagedSamplesResponse;
 use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::training::response::TrainingPrefetchData;
 use cerebro_model::api::training::response::TrainingResponse;
+use cerebro_model::api::training::response::TrainingSessionData;
 use cerebro_model::api::training::schema::CreateTrainingPrefetch;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::watchers::response::DeleteWatcherResponse;
@@ -54,6 +55,7 @@ use cerebro_pipeline::modules::pathogen::PathogenDetectionTableRecord;
 use cerebro_pipeline::modules::quality::ReadQualityControl;
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::Taxon;
+use cerebro_pipeline::utils::write_tsv;
 use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
@@ -79,6 +81,7 @@ use crate::error::HttpClientError;
 use crate::regression::RpmAnalysisResult;
 use crate::regression::RpmAnalyzer;
 use crate::regression::RpmConfigBuilder;
+use crate::utils::DiagnosticResult;
 use std::fmt;
 
 
@@ -123,7 +126,9 @@ pub enum Route {
     JobsScheduleStatus,
     TrainingRegister,
     TrainingList,
-    TrainingDelete
+    TrainingDelete,
+    TrainingSessionList,
+    TrainingSessionDelete
 }
 
 impl Route {
@@ -168,6 +173,8 @@ impl Route {
             Route::TrainingRegister => "training/prefetch",
             Route::TrainingList => "training/prefetch",
             Route::TrainingDelete => "training/prefetch",
+            Route::TrainingSessionList => "training/sessions",
+            Route::TrainingSessionDelete => "training/session",
         }
     }
 }
@@ -1566,6 +1573,173 @@ impl CerebroClient {
             }
         } else {
             log::warn!("No data was returned for this collection")
+        }
+
+        Ok(())
+    }
+
+    pub fn list_training_sessions(
+        &self, 
+        completed: bool,
+        user_name: Option<String>,
+        results: Option<PathBuf>
+    ) -> Result<Option<Vec<TrainingSessionData>>, HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = self.routes.url(Route::TrainingSessionList);
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(url)
+        )?;
+
+        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingSessionData>>>(
+            response,
+            None,
+            "Training session data retrieval failed",
+        )?;
+
+        if let Some(ref data) = training_response.data {
+
+            if data.is_empty() {
+                log::warn!("No training session data available for this team")
+            }
+
+            for session in data  {
+                if completed {
+                    if session.completed.is_some() {
+                        if let Some(ref user_name) = user_name {
+                            if *user_name == session.user_name {
+                                log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                            }
+                        } else {
+                            log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                        }
+                        
+                    }
+                } else {
+                    if let Some(ref user_name) = user_name {
+                        if *user_name == session.user_name {
+                            log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                        }
+                    } else {
+                        log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                    }
+                }
+                
+            }
+
+            // Output session results
+            if let Some(ref results) = results {
+
+                create_dir_all(results)?;
+
+                for session in data {
+                    if let Some(date) = &session.completed {
+                        
+                        let user_path = results.join(session.user_name.replace(" ", ""));
+                        let session_path = user_path.join(&session.collection).join(date);
+                        let session_ciqa = session_path.join("ciqa");
+
+                        create_dir_all(&session_ciqa)?;
+
+                        log::info!("Output complete session results to: {}", session_path.display());
+
+                        // Output full session data:
+                        session.to_json(session_path.join("session.json"))?;
+
+                        if let Some(ref result_data) = session.result {
+
+                            log::info!("dataset={} user_name='{}' completed={} - n={} sensitivity={:.1} specificity={:.1}", session.collection, session.user_name, date, result_data.total, result_data.sensitivity, result_data.specificity);
+
+                            // Output evaluation results table
+                            write_tsv(&result_data.data, &session_path.join("results.tsv"), true)?;
+                            
+                            // Output diagnostic results compatible with META-GPT and CIQA
+                            for record in &result_data.data {
+                                let result = DiagnosticResult::from_training_result(&record);
+                                let result_filename = format!("{}.json", record.sample_name.clone().unwrap_or(record.record_id.clone()));
+                                result.to_json(&session_ciqa.join(result_filename))?;
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+
+        Ok(training_response.data)
+    }
+
+
+    pub fn delete_training_sessions(
+        &self, 
+        session_id: Option<String>,
+        user_id: Option<String>,
+        incomplete: bool
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        // Delete single session by identifier
+        if let Some(id) = session_id {
+
+            let url = format!("{}/{id}", self.routes.url(Route::TrainingSessionDelete));
+
+            let response = self.send_request_with_team(
+                self.client
+                    .delete(url)
+            )?;
+
+            self.handle_response::<TrainingResponse<()>>(
+                response,
+                None,
+                "Training session data retrieval failed",
+            )?;
+        }
+
+        let url = self.routes.url(Route::TrainingSessionList);
+
+        let response = self.send_request_with_team(
+            self.client
+                .get(url)
+        )?;
+
+        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingSessionData>>>(
+            response,
+            None,
+            "Training session data retrieval failed",
+        )?;
+
+        if let Some(data) = training_response.data {
+            for session in data  {
+
+                if let Some(ref user_id) = user_id {
+                    if *user_id != session.user_id {
+                        continue;
+                    }
+                }
+
+                if incomplete {
+                    if session.completed.is_some() {
+                        continue;
+                    }
+                };
+
+                let url = format!("{}/{}", self.routes.url(Route::TrainingSessionDelete), session.id);
+
+                let response = self.send_request_with_team(
+                    self.client
+                        .delete(url)
+                )?;
+
+                self.handle_response::<TrainingResponse<()>>(
+                    response,
+                    None,
+                    "Training session data retrieval failed",
+                )?;
+            }
         }
 
         Ok(())

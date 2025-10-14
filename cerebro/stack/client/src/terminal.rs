@@ -425,9 +425,13 @@ pub enum TrainingCommands {
     /// Upload and register prefetch data in the team database
     Upload(TrainingUploadArgs),
     /// List registered prefetch data by training collection
-    List(TrainingListArgs),
+    ListDatasets(TrainingListArgs),
     /// Delete registered prefetch data 
-    Delete(TrainingDeleteArgs),
+    DeleteDataset(TrainingDeleteArgs),
+    /// List training sessions
+    ListSessions(TrainingSessionListArgs),
+    /// Delete training sessions
+    DeleteSession(TrainingSessionDeleteArgs),
 }
 
 
@@ -451,6 +455,31 @@ pub struct TrainingListArgs {
     pub collection: Option<String>,
 }
 
+#[derive(Debug, Args)]
+pub struct TrainingSessionListArgs {
+    /// List only completed sessions
+    #[clap(short, long)]
+    pub completed: bool,
+    /// List sesssions for this user
+    #[clap(short, long)]
+    pub user_name: Option<String>,
+    /// Output results for completed sessions to this directory
+    #[clap(short, long)]
+    pub outdir: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct TrainingSessionDeleteArgs {
+    /// Training session identifier to delete
+    #[clap(short, long)]
+    pub session_id: Option<String>,
+    /// User identifier to delete training sessions for
+    #[clap(short, long)]
+    pub user_id: Option<String>,
+    /// Delete all incomplete sessions
+    #[clap(short, long)]
+    pub incomplete: bool,
+}
 
 #[derive(Debug, Args)]
 pub struct TrainingDeleteArgs {

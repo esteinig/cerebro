@@ -382,7 +382,7 @@ async fn retrieve_training_session_handler(data: web::Data<AppState>, session_id
             if session.user_id != auth_guard.user.id {
                 HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist for this user"))
             } else {
-                HttpResponse::Ok().json(TrainingResponse::<TrainingSessionData>::ok(TrainingSessionData::from_query(session)))
+                HttpResponse::Ok().json(TrainingResponse::<TrainingSessionData>::ok(TrainingSessionData::from_query(session, true)))
             }
         },
         Ok(None) => HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist")),
@@ -391,33 +391,23 @@ async fn retrieve_training_session_handler(data: web::Data<AppState>, session_id
 }
 
 
-#[derive(Deserialize)]
-struct ListQuery {
-    limit: Option<i64>, // default 100
-    skip: Option<u64>,  // default 0
-}
 
 #[get("/training/sessions")]
 async fn list_training_sessions_handler(
     data: web::Data<AppState>,
     _: web::Query<TeamAccessQuery>,
     auth_guard: jwt::JwtDataMiddleware,
-    q: web::Query<ListQuery>,
 ) -> HttpResponse {
+
     let training_records_collection: Collection<TrainingSessionRecord> =
         get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
 
-    let limit = q.limit.unwrap_or(100).clamp(1, 1_000);
-    let skip = q.skip.unwrap_or(0);
-
-    let opts = FindOptions::builder().limit(Some(limit)).skip(Some(skip)).build();
-
-    match training_records_collection.find(doc! {}).with_options(opts).await {
+    match training_records_collection.find(doc! {}).await {
         Ok(mut cursor) => {
             let mut out = Vec::new();
             while let Some(res) = cursor.next().await {
                 match res {
-                    Ok(rec) => out.push(TrainingSessionData::from_query(rec)),
+                    Ok(rec) => out.push(TrainingSessionData::from_query(rec, true)),
                     Err(e) => {
                         return HttpResponse::InternalServerError()
                             .json(TrainingResponse::<()>::error(&format!("Cursor error: {e}")));
@@ -431,6 +421,21 @@ async fn list_training_sessions_handler(
     }
 }
 
+#[delete("/training/session/{session_id}")]
+async fn delete_training_session_handler(data: web::Data<AppState>, session_id: web::Path<String>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+    
+    let training_records_collection: Collection<TrainingSessionRecord> =
+        get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+
+    // Delete metadata
+    if let Err(e) = training_records_collection.delete_one(doc! { "id": session_id.into_inner() }).await {
+        return HttpResponse::InternalServerError()
+            .json(TrainingResponse::<()>::error(&format!("Delete training session failed: {}", e)));
+    }
+
+    HttpResponse::Ok().json(TrainingResponse::<()>::ok(()))
+    
+}
 
 #[patch("/training/session")]
 async fn update_training_record_handler(
@@ -705,6 +710,7 @@ pub fn training_config(cfg: &mut web::ServiceConfig) {
        .service(get_training_session_result_handler)
        .service(get_training_session_certificate_handler)
        .service(update_training_record_handler)
-       .service(list_training_sessions_handler);
+       .service(list_training_sessions_handler)
+       .service(delete_training_session_handler);
 
 }
