@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ClientFilterConfig, Taxon, TaxonOverviewRecord, TaxonEvidence, TaxonFilterConfig, PrevalenceContaminationConfig } from "$lib/utils/types";
     import { DisplayData, DisplayTotal, ProfileTool, DisplayVisualisation } from "$lib/utils/types";
-	import { getToastStore, ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
+	import { ListBox, ListBoxItem, Paginator, ProgressRadial, type PaginationSettings } from "@skeletonlabs/skeleton";
 	import { selectedTaxonHighlightConfig, selectedClientFilterConfig, selectedTaxa, selectedIdentifiers, selectedServerFilterConfig, selectedPrevalenceContamConfig, selectedModels } from "$lib/stores/stores";
     import { AbundanceMode } from "$lib/utils/types";
 	import CerebroApi, { ApiResponse } from "$lib/utils/api";
@@ -59,7 +59,6 @@
     }
 
     let publicApi = new CerebroApi();
-    let toastStore = getToastStore();
 
     let loading: boolean = false;
 
@@ -78,7 +77,7 @@
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(serverFilterConfig ?? $selectedServerFilterConfig) 
             } as RequestInit,
-            $page.data.refreshToken, toastStore, "Taxa loaded"
+            $page.data.refreshToken
         )
 
         loading = false;
@@ -114,7 +113,7 @@
                     collapse_variants: config.collapse_variants
                 }) 
             } as RequestInit,
-            $page.data.refreshToken, toastStore, "Contaminants identified from project libraries"
+            $page.data.refreshToken
         )
 
         $navigationLoading = false;

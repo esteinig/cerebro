@@ -10,7 +10,7 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
 use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, run_plot_diag_strip, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -35,6 +35,9 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::PlotPrefetch( args ) => {
             let prefetch = PrefetchData::from_json(args.prefetch)?;
         },
+        Commands::PlotDiagStrip(args) => {
+            run_plot_diag_strip(args)?;
+        }
         Commands::WriteTable( args ) => {
             let plate = ReferencePlate::from_path(&args.plate)?;
             plate.write_tsv(&args.output, args.species_rank)?;

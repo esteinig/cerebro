@@ -108,6 +108,8 @@ pub enum Commands {
     PlotQc(PlotQcArgs),
     /// Plot the reference plate review results
     PlotReview(PlotReviewArgs),
+    /// Plot sensitivity/specificity stripplot across model sizes with optional CI and quantization line overlay
+    PlotDiagStrip(PlotDiagStripArgs),
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
     /// Compare two diagnostic consensus reviews using McNemar's test statistic
@@ -120,6 +122,47 @@ pub enum Commands {
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
 }
+
+#[derive(Debug, Args)]
+pub struct PlotDiagStripArgs {
+    /// DiagnosticData files (*.ct.json). Globs allowed.
+    #[clap(long, short = 'i', num_args=1.., required=true)]
+    pub inputs: Vec<String>,
+    /// Output figure (.svg or .png)
+    #[clap(long, short = 'o', default_value="diag_strip.svg")]
+    pub output: PathBuf,
+    /// Plot width (px)
+    #[clap(long, default_value="1200")]
+    pub width: u32,
+    /// Plot height (px)
+    #[clap(long, default_value="700")]
+    pub height: u32,
+    /// Show mean bars
+    #[clap(long)]
+    pub mean: bool,
+    /// Show 95% CI whiskers on means
+    #[clap(long)]
+    pub ci: bool,
+    /// Overlay dashed lines per quantization across sizes
+    #[clap(long = "lines-by-quant")]
+    pub lines_by_quant: bool,
+    /// Line width in px
+    #[clap(long, default_value_t=2)]
+    pub line_width: u32,
+    /// Plot axis as percent
+    #[clap(long)]
+    pub percent: bool,
+    /// Jitter half-width in x units (category fraction)
+    #[clap(long, default_value_t=0.18)]
+    pub jitter: f64,
+    /// Enable consensus dashed horizontal lines
+    #[clap(long)]
+    pub consensus: bool,
+    /// Optional title
+    #[clap(long)]
+    pub title: Option<String>,
+}
+
 
 #[derive(Debug, Args)]
 pub struct WriteTableArgs {

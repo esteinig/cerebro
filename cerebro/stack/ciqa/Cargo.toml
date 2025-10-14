@@ -63,6 +63,7 @@ statrs = "0.18.0"
 nvml-wrapper = "0.10.0"
 rayon = "1.10.0"
 ratatui = "0.29.0"
+glob = "0.3.3"
 
 [features]
 default = []
