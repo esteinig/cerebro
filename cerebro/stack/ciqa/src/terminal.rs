@@ -107,7 +107,9 @@ pub enum Commands {
     /// Plot the reference plate quality control summary
     PlotQc(PlotQcArgs),
     /// Plot the reference plate review results
-    PlotReview(PlotReviewArgs),
+    PlotReview(PlotReviewArgs),    
+    /// Summarize DiagnosticData metrics across quantization and bit parameters
+    DiagnosticSummary(DiagnosticSummaryArgs),
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
     /// Compare two diagnostic consensus reviews using McNemar's test statistic
@@ -121,6 +123,18 @@ pub enum Commands {
     DebugPathogen(DebugPathogenArgs),
 }
 
+#[derive(Debug, Args)]
+pub struct DiagnosticSummaryArgs {
+    /// Input DiagnosticData JSON files
+    #[clap(long, short = 'i', num_args=1..)]
+    pub diagnostics: Vec<PathBuf>,
+    /// Output TSV summary file
+    #[clap(long, short = 'o', default_value="diagnostic_summary.tsv")]
+    pub output: PathBuf,
+    /// Output TSV summary file
+    #[clap(long, short = 'o', default_value="replicate_summary.tsv")]
+    pub replicates: PathBuf,
+}
 
 #[derive(Debug, Args)]
 pub struct WriteTableArgs {

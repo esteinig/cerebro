@@ -645,6 +645,20 @@ impl DiagnosticData {
             consensus_stats
         )
     }
+    pub fn split_replicates_consensus(&self) -> (Vec<DiagnosticStats>, Vec<DiagnosticStats>) {
+        let mut replicates = Vec::new();
+        let mut consensus = Vec::new();
+
+        for item in &self.stats {
+            if item.name.to_lowercase().contains("consensus") {
+                consensus.push(item.clone());
+            } else {
+                replicates.push(item.clone());
+            }
+        }
+
+        (replicates, consensus)
+    }
 }
 
 

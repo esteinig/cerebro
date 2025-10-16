@@ -10,7 +10,7 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
 use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
 use cerebro_ciqa::tui::start_tui;
 
+use regex::Regex;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -144,6 +145,87 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             };
 
         },
+        Commands::DiagnosticSummary(args) => {
+
+            #[derive(Serialize)]
+            struct ReplicateSummary {
+                params: String,
+                quant: String,
+                clinical: String, 
+                group: String,
+                metric: String,
+                value: f64,
+            }
+
+            let mut replicate_summaries = Vec::new();
+            
+            let re = Regex::new(r"qwen3-(\d+b)-(q\d+)-[^_]+_(clinical|noclinical)_").unwrap();
+
+            for path in &args.diagnostics {
+                let filename = path.file_name().unwrap().to_string_lossy();
+
+                let (params, quant, clinical) = match re.captures(&filename) {
+                    Some(caps) => (
+                        caps.get(1).unwrap().as_str().to_string(),
+                        caps.get(2).unwrap().as_str().to_string(),
+                        caps.get(3).unwrap().as_str().to_string(),
+                    ),
+                    None => {
+                        log::warn!("Skipping file with unrecognized name: {}", filename);
+                        continue;
+                    }
+                };
+
+                let data = match DiagnosticData::from_json(path) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        log::error!("Failed to load {}: {:?}", filename, e);
+                        continue;
+                    }
+                };
+
+                // Extract consensus and replicate data
+                let (replicates, consensus) = data.split_replicates_consensus();
+
+
+                let mut process_group = |group: &str, stats: &Vec<DiagnosticStats>| {
+                    for replicate in stats {
+                        for metric in ["sensitivity", "specificity", "ppv", "npv"] {
+                            replicate_summaries.push(ReplicateSummary {
+                                params: params.clone(),
+                                quant: quant.clone(),
+                                clinical: clinical.clone(),
+                                group: group.to_string(),
+                                metric: metric.to_string(),
+                                value: if metric == "sensitivity" {
+                                    replicate.sensitivity
+                                } else if metric == "specificity" {
+                                    replicate.specificity
+                                } else if metric == "ppv" {
+                                    replicate.ppv
+                                } else {
+                                    replicate.npv
+                                }
+                            });
+                        }
+                    }
+                };
+
+                process_group("replicate", &replicates);
+                process_group("consensus", &consensus);
+                
+            
+            }
+
+
+
+            if replicate_summaries.is_empty() {
+                log::warn!("No summaries generated.");
+            } else {
+                write_tsv(&replicate_summaries, &args.replicates, true)?;
+                log::info!("Wrote summary to {}", args.output.display());
+            }
+        }
         // Deconvolute the blocking task spawn in this async context, if not (and if this runs in --release, this may be
         // the reason for the ongoing dropouts in requests to the server)
 

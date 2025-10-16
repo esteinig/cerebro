@@ -14,7 +14,8 @@ setup(
         "typer",
         "pandas",
         "seaborn",
-        "scipy"
+        "scipy",
+        "scikit-posthocs"
     ],
     entry_points="""
         [console_scripts]
