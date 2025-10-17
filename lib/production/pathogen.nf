@@ -94,6 +94,8 @@ workflow TaxonomicProfile {
         databases
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
+        log.info(profileParams)
+        
 
         if (profileParams.alignment) {
             Vircov(
@@ -150,6 +152,8 @@ workflow TaxonomicProfile {
             )
         }
 
+
+
         // if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
         //     GanonProfile(
         //         reads,
@@ -179,7 +183,7 @@ workflow TaxonomicProfile {
             (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
-            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
+            // (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
             (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
         )
 
