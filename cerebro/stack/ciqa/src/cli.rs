@@ -260,12 +260,20 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             )?;
 
 
-            let contam_config: PrevalenceContaminationConfig = match args.contamination {
+            let mut contam_config: PrevalenceContaminationConfig = match args.contamination {
                 Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
                 None => PrevalenceContaminationConfig::default()
             };
 
+            if args.disable_prevalence_outlier {
+                log::warn!("Prevalence contamination outliers deactivated.");
+                contam_config.outliers.primary = false;
+                contam_config.outliers.secondary = false;
+                contam_config.outliers.target = false;
+            }
+
             let prevalence_contamination = if args.disable_filter || args.disable_prevalence_control {
+                log::warn!("Prevalence contamination control deactivated.");
                 HashMap::new()
             } else {
                 plate.prevalence_contamination(

@@ -444,6 +444,9 @@ pub struct PrefetchArgs {
     /// Disable the prevalence contamination filter
     #[clap(long)]
     pub disable_prevalence_control: bool,
+    /// Disable the prevalence contamination outlier filter
+    #[clap(long)]
+    pub disable_prevalence_outlier: bool,
     /// Disable the negative and environmental template control contamination filter
     #[clap(long)]
     pub disable_negative_control: bool,
