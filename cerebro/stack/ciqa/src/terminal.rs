@@ -441,6 +441,12 @@ pub struct PrefetchArgs {
     /// the raw data into the primary filter category
     #[clap(long)]
     pub disable_filter: bool,
+    /// Disable the prevalence contamination filter
+    #[clap(long)]
+    pub disable_prevalence_control: bool,
+    /// Disable the negative and environmental template control contamination filter
+    #[clap(long)]
+    pub disable_negative_control: bool,
     /// Threads to use for fetching data
     #[clap(long, short = 't', default_value="4")]
     pub threads: u64,

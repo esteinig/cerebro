@@ -265,7 +265,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 None => PrevalenceContaminationConfig::default()
             };
 
-            let prevalence_contamination = if args.disable_filter {
+            let prevalence_contamination = if args.disable_filter || args.disable_prevalence_control {
                 HashMap::new()
             } else {
                 plate.prevalence_contamination(
@@ -274,7 +274,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 )?
             };
 
-            let tiered_filter_config = match args.tiered_filter {
+            let mut tiered_filter_config = match args.tiered_filter {
                 Some(path) => TieredFilterConfig::from_json(&path)?,
                 None => {
                     if args.disable_filter {
@@ -284,6 +284,13 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     }
                 }
             };
+
+            if args.disable_negative_control {
+                log::warn!("Negative control comparisons deactivated.");
+                tiered_filter_config.primary.ntc_ratio = None;
+                tiered_filter_config.secondary.ntc_ratio = None;
+                tiered_filter_config.target.ntc_ratio = None;
+            }
 
             std::env::set_var("RAYON_NUM_THREADS", args.threads.to_string());
 
