@@ -94,8 +94,8 @@ workflow TaxonomicProfile {
         databases
     main:
         profileParams = params.pathogenDetection.taxonomicProfile
-        log.info(profileParams)
         
+        log.info "TaxonomicProfile parameters: ${profileParams}"
 
         if (profileParams.alignment) {
             Vircov(
