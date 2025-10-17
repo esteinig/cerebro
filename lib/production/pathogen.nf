@@ -150,14 +150,14 @@ workflow TaxonomicProfile {
             )
         }
 
-        if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
-            GanonProfile(
-                reads,
-                databases.ganonDatabase,
-                profileParams.ganonDatabasePrefix,
-                profileParams.ganonMultipleMatches
-            )
-        }
+        // if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
+        //     GanonProfile(
+        //         reads,
+        //         databases.ganonDatabase,
+        //         profileParams.ganonDatabasePrefix,
+        //         profileParams.ganonMultipleMatches
+        //     )
+        // }
 
 
         if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
