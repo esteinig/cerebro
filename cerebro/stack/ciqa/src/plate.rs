@@ -13,17 +13,21 @@ use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, 
 use rand::Rng;
 
 pub fn parse_dir_components(dir_name: &str) -> Option<(String,String,String,u32)> {
+    let name = dir_name.trim_end_matches('/');
     // 1=params (e.g. 14b)
-    // 2=quant  (e.g. q8-0 or q8_0)
+    // 2=quant BARE (q2|q4|q8)
     // 3=clinical|noclinical
-    // 4=replicate (digits at very end)
-    let re = Regex::new(r"^qwen3-(\d+b)-(q\d+(?:[-_]\d+)?)_(clinical|noclinical)(?:_.+)?_(\d+)$").ok()?;
-    let caps = re.captures(dir_name)?;
-    let params = caps.get(1)?.as_str().to_string();
-    let quant  = caps.get(2)?.as_str().to_string();
-    let clinical = caps.get(3)?.as_str().to_string();
-    let replicate: u32 = caps.get(4)?.as_str().parse().ok()?;
-    Some((params, quant, clinical, replicate))
+    // 4=replicate
+    let re = Regex::new(
+        r"^qwen3-(\d+b)-(q\d+)(?:[-_][0-9a-z]+)*_(clinical|noclinical)(?:_.+)?_(\d+)$"
+    ).ok()?;
+    let caps = re.captures(name)?;
+    Some((
+        caps.get(1)?.as_str().to_string(),
+        caps.get(2)?.as_str().to_string(),            // ← only q2/q4/q8
+        caps.get(3)?.as_str().to_string(),
+        caps.get(4)?.as_str().parse().ok()?,
+    ))
 }
 
 #[derive(Serialize)]
