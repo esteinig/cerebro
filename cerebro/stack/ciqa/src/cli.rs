@@ -1,7 +1,8 @@
 
-use std::{collections::{HashMap, HashSet}, fs::create_dir_all, process::exit, sync::Arc};
+use std::{collections::{HashMap, HashSet}, fs::create_dir_all, path::Path, process::exit, sync::Arc};
 use cerebro_model::api::cerebro::schema::SampleType;
 use cerebro_fs::client::{FileSystemClient, UploadConfig};
+use csv::WriterBuilder;
 use meta_gpt::{gpt::{AgentBenchmark, DiagnosticAgent, DiagnosticResult, GpuBenchmark, SampleContext, TaskConfig, ClinicalContext}};
 
 #[cfg(feature = "local")]
@@ -10,7 +11,7 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
 use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, plot_plate, plot_qc_summary_matrix, plot_stripplot, DiagnosticData, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference}, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, parse_dir_components, plot_plate, plot_qc_summary_matrix, plot_stripplot, write_tsv_seconds, write_tsv_vram, DiagnosticData, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SecondsRow, VramRow}, plots::draw_radar_chart, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -22,6 +23,22 @@ use cerebro_ciqa::tui::start_tui;
 use regex::Regex;
 use std::fs::File;
 use std::io::BufReader;
+
+
+#[derive(Serialize)]
+struct ReplicateSummary {
+    params: String,
+    quant: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    clinical: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label: Option<String>,       
+    group: String,
+    metric: String,
+    value: f64,
+}
 
 fn main() -> anyhow::Result<(), anyhow::Error> {
     
@@ -35,6 +52,45 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
         },
         Commands::PlotPrefetch( args ) => {
             let prefetch = PrefetchData::from_json(args.prefetch)?;
+        },
+        Commands::PlotRadar(args) => {
+
+            // Example series: Sensitivity, Specificity, PPV, NPV, Replicate Certainty (values in [0,1])
+            let series: Vec<(String, [f64; 5])> = vec![
+                ("Clinical".into(), [0.92, 0.88, 0.70, 0.95, 0.99]),
+                ("Noclinical".into(), [0.85, 0.93, 0.78, 0.90, 0.75]),
+            ];
+    
+            let ext = args
+                .output
+                .extension()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_lowercase();
+    
+            if ext == "svg" {
+                draw_radar_chart(
+                    SVGBackend::new(&args.output, (args.width, args.height)),
+                    &series,
+                    args.colors,
+                    (args.width, args.height),
+                    args.ref_line,
+                    args.grid_weight,
+                    args.label_size,
+                    args.line_weight
+                )?;
+            } else {
+                draw_radar_chart(
+                    BitMapBackend::new(&args.output, (args.width, args.height)),
+                    &series,
+                    args.colors,
+                    (args.width, args.height),
+                    args.ref_line,
+                    args.grid_weight,
+                    args.label_size,
+                    args.line_weight
+                )?;
+            }
         },
         Commands::WritePlateTable( args ) => {
             let plate = ReferencePlate::from_path(&args.plate)?;
@@ -146,36 +202,88 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
         },
         Commands::DiagnosticSummary(args) => {
-
-            #[derive(Serialize)]
-            struct ReplicateSummary {
-                params: String,
-                quant: String,
-                clinical: String, 
-                group: String,
-                metric: String,
-                value: f64,
+        
+        
+            // 1) Build unique parent-dir list (order-preserving) and map to user labels
+            let mut seen = HashSet::<String>::new();
+            let mut parents_ordered = Vec::<String>::new();
+            for p in &args.diagnostics {
+                let parent = p.parent()
+                    .and_then(|pp| pp.file_name())
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| String::from(""));
+                if seen.insert(parent.clone()) {
+                    parents_ordered.push(parent);
+                }
             }
-
+        
+            // args.labels: Option<Vec<String>>
+            let mut parent_to_label: HashMap<String, Option<String>> = HashMap::new();
+            match &args.labels {
+                Some(v) => {
+                    for (i, parent) in parents_ordered.iter().enumerate() {
+                        let lab = v.get(i).cloned();     // missing -> None
+                        parent_to_label.insert(parent.clone(), lab);
+                    }
+                }
+                None => {
+                    for parent in &parents_ordered {
+                        parent_to_label.insert(parent.clone(), None);
+                    }
+                }
+            }
+        
             let mut replicate_summaries = Vec::new();
-            
-            let re = Regex::new(r"qwen3-(\d+b)-(q\d+)-[^_]+_(clinical|noclinical)_").unwrap();
-
+        
+            let re = if args.reasoning {
+                Regex::new(
+                    r"^qwen3-(\d+b)-(q\d+)-[^_]+_(clinical|noclinical)_(?:.*?_(think|no[-_]?think))?[^/]*\.ct\.json$"
+                ).unwrap()
+            } else {
+                Regex::new(r"qwen3-(\d+b)-(q\d+)-[^_]+_(clinical|noclinical)_").unwrap()
+            };
+        
             for path in &args.diagnostics {
                 let filename = path.file_name().unwrap().to_string_lossy();
-
-                let (params, quant, clinical) = match re.captures(&filename) {
-                    Some(caps) => (
-                        caps.get(1).unwrap().as_str().to_string(),
-                        caps.get(2).unwrap().as_str().to_string(),
-                        caps.get(3).unwrap().as_str().to_string(),
-                    ),
-                    None => {
-                        log::warn!("Skipping file with unrecognized name: {}", filename);
-                        continue;
+        
+                let (params, quant, clinical, reasoning) = if args.reasoning {
+                    match re.captures(&filename) {
+                        Some(caps) => {
+                            let reasoning = match caps.get(4) {
+                                Some(m) => {
+                                    let val = m.as_str().to_ascii_lowercase();
+                                    if val.contains("no") { "nothink".to_string() } else { "think".to_string() }
+                                }
+                                None => "think".to_string(),
+                            };
+        
+                            (
+                                caps.get(1).unwrap().as_str().to_string(),
+                                caps.get(2).unwrap().as_str().to_string(),
+                                Some(caps.get(3).unwrap().as_str().to_string()),
+                                Some(reasoning),
+                            )
+                        }
+                        None => {
+                            log::warn!("Skipping file with unrecognized name: {}", filename);
+                            continue;
+                        }
                     }
+                } else {
+                    let (params, quant, clinical) = match re.captures(&filename) {
+                        Some(caps) => (
+                            caps.get(1).unwrap().as_str().to_string(),
+                            caps.get(2).unwrap().as_str().to_string(),
+                            Some(caps.get(3).unwrap().as_str().to_string()),
+                        ),
+                        None => {
+                            log::warn!("Skipping file with unrecognized name: {}", filename);
+                            continue;
+                        }
+                    };
+                    (params, quant, clinical, None)
                 };
-
+        
                 let data = match DiagnosticData::from_json(path) {
                     Ok(d) => d,
                     Err(e) => {
@@ -183,11 +291,17 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                         continue;
                     }
                 };
-
+        
+                // Determine this file's parent label
+                let parent = path.parent()
+                    .and_then(|pp| pp.file_name())
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| String::from(""));
+                let label_for_parent: Option<String> = parent_to_label.get(&parent).cloned().unwrap_or(None);
+        
                 // Extract consensus and replicate data
                 let (replicates, consensus) = data.split_replicates_consensus();
-
-
+        
                 let mut process_group = |group: &str, stats: &Vec<DiagnosticStats>| {
                     for replicate in stats {
                         for metric in ["sensitivity", "specificity", "ppv", "npv"] {
@@ -195,37 +309,34 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 params: params.clone(),
                                 quant: quant.clone(),
                                 clinical: clinical.clone(),
+                                reasoning: reasoning.clone(),
+                                label: label_for_parent.clone(),   // NEW
                                 group: group.to_string(),
                                 metric: metric.to_string(),
-                                value: if metric == "sensitivity" {
-                                    replicate.sensitivity
-                                } else if metric == "specificity" {
-                                    replicate.specificity
-                                } else if metric == "ppv" {
-                                    replicate.ppv
-                                } else {
-                                    replicate.npv
-                                }
+                                value: match metric {
+                                    "sensitivity" => replicate.sensitivity,
+                                    "specificity" => replicate.specificity,
+                                    "ppv" => replicate.ppv,
+                                    _ => replicate.npv,
+                                },
                             });
                         }
                     }
                 };
-
+        
                 process_group("replicate", &replicates);
                 process_group("consensus", &consensus);
-                
-            
             }
-
-
-
+        
             if replicate_summaries.is_empty() {
                 log::warn!("No summaries generated.");
             } else {
-                write_tsv(&replicate_summaries, &args.replicates, true)?;
-                log::info!("Wrote summary to {}", args.output.display());
+                // 2) Dynamic TSV: omit columns where all Option<T> are None
+                write_tsv_dynamic(&replicate_summaries, &args.replicates)?;
+                log::info!("Wrote summary to {}", args.replicates.display());
             }
         }
+        
         // Deconvolute the blocking task spawn in this async context, if not (and if this runs in --release, this may be
         // the reason for the ongoing dropouts in requests to the server)
 
@@ -919,6 +1030,85 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             write_tsv(&records, &args.output, false)?;
 
         }
+        Commands::ComputeSummary(args) => {
+    
+            let mut vram_rows: Vec<VramRow> = Vec::new();
+            let mut sec_rows:  Vec<SecondsRow> = Vec::new();
+    
+            for dir in &args.input_dirs {
+                let dir_name = dir.file_name()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+    
+                let Some((params, quant, clinical, replicate)) = parse_dir_components(&dir_name) else {
+                    log::warn!("Skip {}: name did not match expected pattern", dir.display());
+                    continue;
+                };
+    
+                let state = dir.join("state_logs");
+                if !state.exists() {
+                    log::warn!("Skip {}: no state_logs/", dir.display());
+                    continue;
+                }
+    
+                // GPU peaks: gpu{j}.bench.json
+                for entry in std::fs::read_dir(&state)? {
+                    let entry = match entry {
+                        Ok(e) => e,
+                        Err(e) => { log::warn!("Dir read error in {}: {:?}", state.display(), e); continue; }
+                    };
+                    let path = entry.path();
+                    if !path.is_file() { continue; }
+                    let fname = path.file_name().unwrap().to_string_lossy();
+    
+                    // gpu index
+                    if let Some(cap) = Regex::new(r"^gpu(\d+)\.bench\.json$").unwrap().captures(&fname) {
+                        let gpu_idx: u32 = cap.get(1).unwrap().as_str().parse().unwrap_or(0);
+                        match GpuBenchmark::from_json(&path) {
+                            Ok(gpu) => {
+                                vram_rows.push(VramRow{
+                                    params: params.clone(),
+                                    quant: quant.clone(),
+                                    clinical: clinical.clone(),
+                                    replicate,
+                                    gpu_index: gpu_idx,
+                                    peak_vram: gpu.peak_vram,
+                                    source_dir: dir.display().to_string(),
+                                });
+                            }
+                            Err(e) => log::warn!("Bad GPU bench {}: {:?}", path.display(), e),
+                        }
+                        continue;
+                    }
+    
+                    // seconds per-sample: *.bench.json but not gpu*.bench.json
+                    if fname.ends_with(".bench.json") && !fname.starts_with("gpu") {
+                        match AgentBenchmark::from_json(&path) {
+                            Ok(bench) => {
+                                sec_rows.push(SecondsRow{
+                                    params: params.clone(),
+                                    quant: quant.clone(),
+                                    clinical: clinical.clone(),
+                                    replicate,
+                                    file: fname.to_string(),
+                                    seconds: bench.seconds,
+                                    source_dir: dir.display().to_string(),
+                                });
+                            }
+                            Err(e) => log::warn!("Bad agent bench {}: {:?}", path.display(), e),
+                        }
+                    }
+                }
+            }
+    
+            if vram_rows.is_empty() { log::warn!("No GPU VRAM rows found"); }
+            if sec_rows.is_empty()  { log::warn!("No runtime rows found"); }
+    
+            write_tsv_vram(&vram_rows, &args.out_vram)?;
+            write_tsv_seconds(&sec_rows, &args.out_seconds)?;
+            log::info!("Wrote VRAM → {}", args.out_vram.display());
+            log::info!("Wrote seconds → {}", args.out_seconds.display());
+        }
         Commands::Tui( args ) => {
 
             start_tui()?;
@@ -970,4 +1160,41 @@ fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Op
     };
 
     (tags, ignore_taxstr, exclude_lod)
+}
+
+
+fn write_tsv_dynamic(rows: &Vec<ReplicateSummary>, out_path: &Path) -> anyhow::Result<()> {
+    // Decide which optional columns to include
+    let has_clinical = rows.iter().any(|r| r.clinical.is_some());
+    let has_reasoning = rows.iter().any(|r| r.reasoning.is_some());
+    let has_label = rows.iter().any(|r| r.label.is_some());
+
+    // Build headers
+    let mut headers = vec!["params", "quant"];
+    if has_clinical { headers.push("clinical"); }
+    if has_reasoning { headers.push("reasoning"); }
+    if has_label { headers.push("label"); }
+    headers.extend_from_slice(&["group", "metric", "value"]);
+
+    let file = File::create(out_path)?;
+    let mut wtr = WriterBuilder::new().delimiter(b'\t').has_headers(true).from_writer(file);
+
+    wtr.write_record(&headers)?;
+
+    // Write records
+    for r in rows {
+        let mut rec: Vec<String> = Vec::with_capacity(headers.len());
+        rec.push(r.params.clone());
+        rec.push(r.quant.clone());
+        if has_clinical { rec.push(r.clinical.clone().unwrap_or_default()); }
+        if has_reasoning { rec.push(r.reasoning.clone().unwrap_or_default()); }
+        if has_label { rec.push(r.label.clone().unwrap_or_default()); }
+        rec.push(r.group.clone());
+        rec.push(r.metric.clone());
+        rec.push(format!("{}", r.value));
+        wtr.write_record(&rec)?;
+    }
+
+    wtr.flush()?;
+    Ok(())
 }

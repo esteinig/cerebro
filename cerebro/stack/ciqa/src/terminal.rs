@@ -6,7 +6,7 @@ use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
 use clap::{Args, Parser, Subcommand};
 use cerebro_model::api::cerebro::schema::SampleType;
-use crate::{plate::{MissingOrthogonal, PanelColumnHeader, StatsMode}, stats::AdjMethod};
+use crate::{plate::{MissingOrthogonal, PanelColumnHeader, StatsMode}, plots::{GridWeight, LabelSize}, stats::AdjMethod};
 
 /// Cerebro: production file system watcher 
 #[derive(Debug, Parser)]
@@ -104,12 +104,16 @@ pub enum Commands {
     UploadCiqaDataset(UploadCiqaDatasetArgs),
     /// Plot the reference plate layout
     PlotPlate(PlotPlateArgs),
+    /// Plot an example radar chart for diagnostic metrics
+    PlotRadar(PlotRadarArgs),
     /// Plot the reference plate quality control summary
     PlotQc(PlotQcArgs),
     /// Plot the reference plate review results
     PlotReview(PlotReviewArgs),    
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
+    /// Compute GPU VRAM and runtime summaries from state_logs
+    ComputeSummary(ComputeSummaryArgs),
     /// Review diagnostic outcome of a review table against the reference data
     Review(ReviewArgs),
     /// Compare two diagnostic consensus reviews using McNemar's test statistic
@@ -124,6 +128,47 @@ pub enum Commands {
 }
 
 #[derive(Debug, Args)]
+pub struct ComputeSummaryArgs {
+    /// Input directories named like: qwen3-14b-q8-0_clinical_tiered_*_{rep}
+    #[clap(long, short = 'i', num_args=1..)]
+    pub input_dirs: Vec<PathBuf>,
+    /// Output TSV for GPU VRAM peaks
+    #[clap(long, short = 'g', default_value="gpu_vram.tsv")]
+    pub out_vram: PathBuf,
+    /// Output TSV for runtime seconds
+    #[clap(long, short = 's', default_value="runtime_seconds.tsv")]
+    pub out_seconds: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct PlotRadarArgs {
+    /// Output plot file (.svg or .png)
+    #[clap(long, short = 'o', default_value="diagnostic_radar.png")]
+    pub output: PathBuf,
+    /// Plot width (px)
+    #[clap(long, default_value="1024")]
+    pub width: u32,
+    /// Plot height (px)
+    #[clap(long, default_value="1024")]
+    pub height: u32,
+    /// Colors for data series
+    #[clap(long, num_args=1..)]
+    pub colors: Option<Vec<String>>,
+    /// Reference line at this value [0-1]
+    #[clap(long)]
+    pub ref_line: Option<f64>,
+    /// Grid weight preset
+    #[clap(long, default_value="light")]
+    pub grid_weight: GridWeight,
+    /// Label size preset
+    #[clap(long, default_value="normal")]
+    pub label_size: LabelSize,
+    /// Label size preset
+    #[clap(long)]
+    pub line_weight: Option<u32>,
+}
+
+#[derive(Debug, Args)]
 pub struct DiagnosticSummaryArgs {
     /// Input DiagnosticData JSON files
     #[clap(long, short = 'i', num_args=1..)]
@@ -132,8 +177,14 @@ pub struct DiagnosticSummaryArgs {
     #[clap(long, short = 'o', default_value="diagnostic_summary.tsv")]
     pub output: PathBuf,
     /// Output TSV summary file
-    #[clap(long, short = 'o', default_value="replicate_summary.tsv")]
+    #[clap(long, short = 'r', default_value="replicate_summary.tsv")]
     pub replicates: PathBuf,
+    /// Output optional column reasoning to extract think or nothink column 'reasoning'
+    #[clap(long)]
+    pub reasoning: bool,
+    /// Labels for input JSON files parent directories for column 'labels'
+    #[clap(long, num_args=1..)]
+    pub labels: Option<Vec<String>>,
 }
 
 #[derive(Debug, Args)]

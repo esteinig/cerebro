@@ -6,18 +6,7 @@ use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::Builder;
 use log::{LevelFilter, Level};
 use niffler::{get_reader, get_writer};
-use plotters::coord::Shift;
-use plotters::prelude::SVGBackend;
-use plotters_bitmap::BitMapBackend;
 use serde::{Deserialize, Serialize};
-use plotters::drawing::IntoDrawingArea;
-use glob::glob;
-use itertools::Itertools;
-use plotters::prelude::*;
-use plotters::style::Color;
-use std::hash::Hash;
-use std::hash::Hasher;
-use plotters::style::text_anchor::*;
 use crate::error::CiqaError;
 
 pub trait CompressionExt {

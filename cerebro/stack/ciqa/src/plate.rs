@@ -3,6 +3,7 @@ use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter},
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult}};
 use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}};
+use regex::Regex;
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
@@ -10,6 +11,77 @@ use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
 use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, write_tsv, FileComponent}};
 use rand::Rng;
+
+pub fn parse_dir_components(dir_name: &str) -> Option<(String,String,String,u32)> {
+    // examples:
+    // qwen3-14b-q8-0_clinical_tiered_tiered-threshold_default_3
+    // qwen3-7b-q4_0_noclinical_xxx_42
+    let re = Regex::new(
+        r"^qwen3-(\d+b)-(q\d+(?:[_-]\d+)?)_[^-_]+_(clinical|noclinical).*?_(\d+)$"
+    ).unwrap();
+    let caps = re.captures(dir_name)?;
+    let params = caps.get(1)?.as_str().to_string();
+    let quant  = caps.get(2)?.as_str().to_string();
+    let clinical = caps.get(3)?.as_str().to_string();
+    let replicate: u32 = caps.get(4)?.as_str().parse().ok()?;
+    Some((params, quant, clinical, replicate))
+}
+
+#[derive(Serialize)]
+pub struct VramRow {
+    pub params: String,
+    pub quant: String,
+    pub clinical: String,
+    pub replicate: u32,
+    pub gpu_index: u32,
+    pub peak_vram: u64, // bytes
+    pub source_dir: String,
+}
+
+#[derive(Serialize)]
+pub struct SecondsRow {
+    pub params: String,
+    pub quant: String,
+    pub clinical: String,
+    pub replicate: u32,
+    pub file: String,     // sample-level bench file name
+    pub seconds: f32,
+    pub source_dir: String,
+}
+
+pub fn write_tsv_vram(rows: &[VramRow], out: &Path) -> anyhow::Result<()> {
+    let file = std::fs::File::create(out)?;
+    let mut w = csv::WriterBuilder::new().delimiter(b'\t').has_headers(true).from_writer(file);
+    w.write_record(["params","quant","clinical","replicate","gpu_index","peak_vram","source_dir"])?;
+    for r in rows {
+        w.write_record(&[
+            &r.params, &r.quant, &r.clinical,
+            &r.replicate.to_string(),
+            &r.gpu_index.to_string(),
+            &r.peak_vram.to_string(),
+            &r.source_dir
+        ])?;
+    }
+    w.flush()?;
+    Ok(())
+}
+
+pub fn write_tsv_seconds(rows: &[SecondsRow], out: &Path) -> anyhow::Result<()> {
+    let file = std::fs::File::create(out)?;
+    let mut w = csv::WriterBuilder::new().delimiter(b'\t').has_headers(true).from_writer(file);
+    w.write_record(["params","quant","clinical","replicate","file","seconds","source_dir"])?;
+    for r in rows {
+        w.write_record(&[
+            &r.params, &r.quant, &r.clinical,
+            &r.replicate.to_string(),
+            &r.file,
+            &format!("{}", r.seconds),
+            &r.source_dir
+        ])?;
+    }
+    w.flush()?;
+    Ok(())
+}
 
 pub trait FromSampleType {
     fn from_sample_type(sample_type: SampleType) -> SampleContext;
