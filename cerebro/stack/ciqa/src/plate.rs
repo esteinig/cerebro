@@ -13,12 +13,11 @@ use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, 
 use rand::Rng;
 
 pub fn parse_dir_components(dir_name: &str) -> Option<(String,String,String,u32)> {
-    // examples:
-    // qwen3-14b-q8-0_clinical_tiered_tiered-threshold_default_3
-    // qwen3-7b-q4_0_noclinical_xxx_42
-    let re = Regex::new(
-        r"^qwen3-(\d+b)-(q\d+(?:[_-]\d+)?)_[^-_]+_(clinical|noclinical).*?_(\d+)$"
-    ).unwrap();
+    // 1=params (e.g. 14b)
+    // 2=quant  (e.g. q8-0 or q8_0)
+    // 3=clinical|noclinical
+    // 4=replicate (digits at very end)
+    let re = Regex::new(r"^qwen3-(\d+b)-(q\d+(?:[-_]\d+)?)_(clinical|noclinical)(?:_.+)?_(\d+)$").ok()?;
     let caps = re.captures(dir_name)?;
     let params = caps.get(1)?.as_str().to_string();
     let quant  = caps.get(2)?.as_str().to_string();

@@ -1036,6 +1036,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             let mut sec_rows:  Vec<SecondsRow> = Vec::new();
     
             for dir in &args.input_dirs {
+
                 let dir_name = dir.file_name()
                     .map(|s| s.to_string_lossy().into_owned())
                     .unwrap_or_default();
@@ -1047,7 +1048,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
     
                 let state = dir.join("state_logs");
                 if !state.exists() {
-                    log::warn!("Skip {}: no state_logs/", dir.display());
+                    log::warn!("Skip {}: no 'state_logs' subdirectory found", dir.display());
                     continue;
                 }
     
