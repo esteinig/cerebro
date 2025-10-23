@@ -842,8 +842,8 @@ process BlastContigsBitscoreStream {
         -db "${database}/${databasePrefix}" \
         -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' \
         | awk 'BEGIN{FS=OFS="\t"} {
-            k=$1                          # qseqid
-            bs=$13                        # bitscore
+            k=\$1                          # qseqid
+            bs=\$13                        # bitscore
             if(!(k in max) || bs>max[k]) {max[k]=bs; line[k]=$0}
         }
         END{for(k in line) print line[k]}' \
