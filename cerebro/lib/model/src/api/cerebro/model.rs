@@ -143,6 +143,7 @@ impl Cerebro {
         run_date: Option<String>,
     ) -> Result<Self, ModelError> {
             
+
             let (run_config, sample_config) = match sample_sheet {
                 Some(path) => {
                     let sample_sheet = SampleSheet::from(&path)?;
@@ -163,6 +164,7 @@ impl Cerebro {
                 )
             };
 
+            log::info!("Reading workflow config");
             let workflow_config = match workflow_config {
                 Some(path) => WorkflowConfig::from(&path)?,
                 None => WorkflowConfig::default(),

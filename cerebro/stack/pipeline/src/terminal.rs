@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::{error::WorkflowError, modules::pathogen::PathogenDetectionRank, tools::download::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
+use crate::{error::WorkflowError, tools::download::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
 
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]

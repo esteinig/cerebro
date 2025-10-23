@@ -16,7 +16,7 @@ use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, TrainingCommands, WatcherCommands};
 
-use cerebro_model::api::cerebro::model::Cerebro;
+use cerebro_model::api::cerebro::model::{Cerebro, ModelError};
 use cerebro_pipeline::taxa::taxon::TaxonExtraction;
 
 

@@ -12,6 +12,7 @@ include { Concoct as MetaSpadesConcoct; Concoct as MegahitConcoct } from "../pro
 include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "../processes/pathogen";
 include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "../processes/pathogen";
 include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "../processes/pathogen";
+include { BlastContigsBitscoreStream as MegahitBlastBitscoreStream; BlastContigsBitscoreStream as MetaSpadesBlastBitscoreStream } from "../processes/pathogen";
 
 include { PipelineConfig } from "./utils";
 
@@ -237,14 +238,26 @@ workflow MetagenomeAssembly {
 
             
             if (magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) {
-                MetaSpadesBlast(
-                    MetaSpades.out.contigs,
-                    databases.contigProfile,
-                    magParams.contigProfileBlastPrefix,
-                    magParams.contigProfileBlastMinPercentIdentity,
-                    magParams.contigProfileBlastMinEvalue,
-                    magParams.contigProfileBlastMaxTargetSeqs,
-                )
+
+                if (magParams.contigProfileBlastBitscoreStream) {
+                    MetaSpadesBlast(
+                        MetaSpades.out.contigs,
+                        databases.contigProfile,
+                        magParams.contigProfileBlastPrefix,
+                        magParams.contigProfileBlastMinPercentIdentity,
+                        magParams.contigProfileBlastMinEvalue,
+                        magParams.contigProfileBlastMaxTargetSeqs,
+                    )
+                } else {
+                    MetaSpadesBlastBitscoreStream(
+                        MetaSpades.out.contigs,
+                        databases.contigProfile,
+                        magParams.contigProfileBlastPrefix,
+                        magParams.contigProfileBlastMinPercentIdentity,
+                        magParams.contigProfileBlastMinEvalue,
+                        magParams.contigProfileBlastMaxTargetSeqs,
+                    )
+                }
             }
         }
 
@@ -283,14 +296,25 @@ workflow MetagenomeAssembly {
             }
 
             if (magParams.contigProfile && magParams.contigProfileMethod.contains("blast")) {
-                MegahitBlast(
-                    Megahit.out.contigs,
-                    databases.contigProfile,
-                    magParams.contigProfileBlastPrefix,
-                    magParams.contigProfileBlastMinPercentIdentity,
-                    magParams.contigProfileBlastMinEvalue,
-                    magParams.contigProfileBlastMaxTargetSeqs,
-                )
+                if (magParams.contigProfileBlastBitscoreStream) {
+                    MegahitBlastBitscoreStream(
+                        Megahit.out.contigs,
+                        databases.contigProfile,
+                        magParams.contigProfileBlastPrefix,
+                        magParams.contigProfileBlastMinPercentIdentity,
+                        magParams.contigProfileBlastMinEvalue,
+                        magParams.contigProfileBlastMaxTargetSeqs,
+                    )
+                } else {
+                    MegahitBlast(
+                        Megahit.out.contigs,
+                        databases.contigProfile,
+                        magParams.contigProfileBlastPrefix,
+                        magParams.contigProfileBlastMinPercentIdentity,
+                        magParams.contigProfileBlastMinEvalue,
+                        magParams.contigProfileBlastMaxTargetSeqs,
+                    )
+                }
             }
         }
 

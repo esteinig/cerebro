@@ -15,7 +15,9 @@ setup(
         "pandas",
         "seaborn",
         "scipy",
-        "scikit-posthocs"
+        "scikit-posthocs",
+        "ridgeplot",
+        "kaleido"
     ],
     entry_points="""
         [console_scripts]

@@ -811,6 +811,46 @@ process BlastContigs {
 
 }
 
+process BlastContigsBitscoreStream {
+
+    label "pathogenAssemblyBlast"
+    tag { sampleID }
+
+    publishDir  "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.blast.assembly.tsv"
+
+    input:
+    tuple val(sampleID), val(assembler), path(contigs)
+    path(database)
+    val(databasePrefix)
+    val(minPercentIdentity)
+    val(minEvalue)
+    val(maxTargetSeqs)
+
+
+    output:
+    tuple(val(sampleID), path("${sampleID}.blast.bitscore.tsv"), emit: results)
+
+    script:
+
+    """
+    BLASTDB="$database" blastn \
+        -num_threads "$task.cpus" \
+        -query "$contigs" \
+        -perc_identity "$minPercentIdentity" \
+        -evalue "$minEvalue" \
+        -max_hsps 1 \
+        -db "${database}/${databasePrefix}" \
+        -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length nident pident evalue bitscore staxid ssciname stitle' \
+        | awk 'BEGIN{FS=OFS="\t"} {
+            k=$1                          # qseqid
+            bs=$13                        # bitscore
+            if(!(k in max) || bs>max[k]) {max[k]=bs; line[k]=$0}
+        }
+        END{for(k in line) print line[k]}' \
+    > "${sampleID}.blast.assembly.tsv"
+    """
+}
+
 process ProcessOutputIllumina {
     
     tag { sampleID }
