@@ -870,7 +870,7 @@ process BlastContigsBitscoreStream {
         | awk 'BEGIN{FS=OFS="\t"} {
             k=\$1                          # qseqid
             bs=\$13                        # bitscore
-            if(!(k in max) || bs>max[k]) {max[k]=bs; line[k]=$0}
+            if(!(k in max) || bs>max[k]) {max[k]=bs; line[k]=\$0}
         }
         END{for(k in line) print line[k]}' \
     > "${sampleID}.blast.assembly.tsv"
