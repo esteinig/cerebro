@@ -1,12 +1,11 @@
 <script lang="ts">
 	import ErrorAnimation from "$lib/general/error/ErrorAnimation.svelte";
 	import SpeciesOverviewTableHeader from "$lib/general/tables/SpeciesOverviewTableHeader.svelte";
-	import { selectedClientFilterConfig, selectedTaxa, selectedTaxonHighlightConfig } from "$lib/stores/stores";
+	import { defaultPrefetchClientFilterConfig } from "$lib/stores/stores";
 	import { transformTaxonOverview } from "$lib/utils/helpers";
 	import { AbundanceMode, DisplayData, DisplayTotal, ProfileTool, type Taxon, type TaxonEvidence, type TaxonOverviewRecord } from "$lib/utils/types";
-	import { ListBox, ListBoxItem, ProgressRadial } from "@skeletonlabs/skeleton";
-	import { createEventDispatcher, onMount } from "svelte";
-	import TaxonEvidenceOverview from "./evidence/TaxonEvidenceOverview.svelte";
+	import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
+	import { createEventDispatcher } from "svelte";
 
     export let taxa: Taxon[] | null = [];
     export let selectedName: string = "";
@@ -111,50 +110,50 @@
                             <SpeciesOverviewTableHeader tool={displayTotal} sortColumn={sortColumn} displayData={displayData} circleColor={null} sortOrder={sortDirection}/>
                         </div>
                         
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Vircov)}
                             <div on:click|preventDefault={() => sortByColumn("vircov")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Vircov} displayData={displayData} sortColumn={sortColumn} circleColor="bg-primary-500" sortOrder={sortDirection}/>
                             </div>
                         {/if}
                         
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
                             <div on:click|preventDefault={() => sortByColumn("kraken2")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Kraken2} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-400" sortOrder={sortDirection}/>
                             </div>
                         {/if}
                         
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Bracken)}
                             <div on:click|preventDefault={() => sortByColumn("bracken")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Bracken} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-500" sortOrder={sortDirection}/>
                             </div>
                         {/if}
                         
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
                             <div on:click|preventDefault={() => sortByColumn("metabuli")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Metabuli} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-600" sortOrder={sortDirection}/>
                             </div>
                         {/if}
                         
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
                             <div on:click|preventDefault={() => sortByColumn("ganon2")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Ganon2} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-700" sortOrder={sortDirection}/>
                             </div>
                         {/if}
 
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Sylph)}
                             <div on:click|preventDefault={() => sortByColumn("sylph")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Sylph} displayData={displayData} sortColumn={sortColumn} circleColor="bg-secondary-800" sortOrder={sortDirection}/>
                             </div>
                         {/if}
                         
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Blast)}
                             <div on:click|preventDefault={() => sortByColumn("blast")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={ProfileTool.Blast} displayData={displayData} sortColumn={sortColumn} circleColor="bg-tertiary-500" sortOrder={sortDirection}/>
                             </div>
                         {/if}
 
 
-                        {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                        {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Blast)}
                             <div on:click|preventDefault={() => sortByColumn("contigs")} role="columnheader">
                                 <SpeciesOverviewTableHeader tool={"Assembly"} displayData={displayData} sortColumn={sortColumn} circleColor="bg-tertiary-500" sortOrder={sortDirection}/>
                             </div>
@@ -177,25 +176,25 @@
                                     <div class="col-span-2 truncate italic">{overview.name}</div>
                                     <div class="text-right">{overview.total > 0 ? overview.total.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Vircov)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Vircov)}
                                         <div class="text-right">{overview.vircov > 0 ? overview.vircov.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Kraken2)}
                                         <div class="text-right">{overview.kraken2 > 0 ? overview.kraken2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Bracken)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Bracken)}
                                         <div class="text-right">{overview.bracken > 0 ? overview.bracken.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Metabuli)}
                                         <div class="text-right">{overview.metabuli > 0 ? overview.metabuli.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Ganon2)}
                                         <div class="text-right">{overview.ganon2 > 0 ? overview.ganon2.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Sylph)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Sylph)}
                                         <div class="text-right">{overview.sylph > 0 ? overview.sylph.toFixed(getNumberPrecision(displayData)) : "-"}</div>
                                     {/if}
-                                    {#if $selectedClientFilterConfig.tools.includes(ProfileTool.Blast)}
+                                    {#if defaultPrefetchClientFilterConfig.tools.includes(ProfileTool.Blast)}
                                         <div class="text-right">{overview.blast > 0 ? overview.blast.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
                                         <div class="text-right">{overview.contigs > 0 ? overview.contigs.toFixed(getNumberPrecision(DisplayData.Bases)) : "-"}</div>
                                     {/if}

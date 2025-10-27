@@ -475,6 +475,7 @@ def plot_gpt(
         df["id"] = df["id"].astype(int)
 
         labels_df = df.loc[:, ["id", "label"]].dropna().drop_duplicates(subset=["id"])
+
         # no external order column; preserve appearance order
         x_order_labels = labels_df["label"].drop_duplicates().tolist()
         use_labels_flag = len(x_order_labels) > 0
@@ -514,7 +515,7 @@ def plot_gpt(
             raise typer.Exit(code=1)
 
         comparison_condition = ["think", "nothink"] if reasoning else ["clinical", "noclinical"] 
-        comparison_column =  d_pair["reasoning"]if reasoning else d_pair["clinical"] 
+        comparison_column =  d_pair["reasoning"] if reasoning else d_pair["clinical"] 
 
         levels = [
             lvl for lvl in comparison_condition

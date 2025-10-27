@@ -281,7 +281,7 @@ const defaultTaxonHighlightConfig: TaxonHighlightConfig = {
 const defaultReport: PathogenDetectionReport = {
     header: {
         logo_enabled: true,
-        logo: null
+        logo_width: '11%'
     } satisfies ReportHeader,
     footer: {
         reporting_location: "Melbourne"
@@ -373,3 +373,29 @@ export const selectedPrevalenceContamConfig = writable<PrevalenceContaminationCo
 export const selectedTaxonHighlightConfig = writable<TaxonHighlightConfig>(defaultTaxonHighlightConfig)
 export const selectedTaxa = writable<TaxonOverviewRecord[]>([])
 
+export const defaultPrefetchClientFilterConfig: ClientFilterConfig = {
+    domains: [],
+    genera: [],
+    species: [],
+    tools: [ProfileTool.Vircov, ProfileTool.Kraken2, ProfileTool.Metabuli, ProfileTool.Ganon2, ProfileTool.Blast],
+    contam: {
+        display: true,
+        opacity: 20
+    } satisfies ClientFilterContam,
+    evidence: {
+        display: false,
+        opacity: 20
+    } satisfies ClientFilterEvidence,
+    modules: {
+        alignment: false,
+        profile: false,
+        assembly: false
+    } satisfies ClientFilterModules,
+    minimum: {
+        rpm: 0,
+        rpm_kmer: 0,
+        rpm_alignment: 0,
+        contigs: 0,
+        bases: 0
+    } satisfies ClientFilterMinimum
+}
