@@ -2,9 +2,11 @@ use serde::Deserialize;
 
 // Generic error response
 #[derive(Debug, Deserialize)]
-pub struct ErrorResponse {
+pub struct ErrorResponse<T = serde_json::Value> {
     pub status: String,
     pub message: String,
+    #[serde(default)]
+    pub data: Option<T>,
 }
 
 pub enum HttpMethod {

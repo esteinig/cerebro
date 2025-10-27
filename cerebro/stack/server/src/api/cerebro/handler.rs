@@ -1,4 +1,4 @@
-use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse, QualityControlTableResponse, RetrieveModelResponse, TaxonHistoryResponse, TaxonHistoryResult};
+use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, CerebroResponse, ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse, QualityControlTableResponse, RetrieveModelResponse, TaxonHistoryResponse, TaxonHistoryResult};
 use mongodb::bson::{from_document, Document};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -30,7 +30,7 @@ use cerebro_model::api::cerebro::model::{
     RunConfig
 };
 use cerebro_model::api::cerebro::schema::{
-    CerebroIdentifierSchema, ContaminationSchema, PathogenDetectionTableSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, QualityControlTableSchema, SampleTypeSchema, TaxaSummarySchema
+    CerebroIdentifierSchema, ContaminationSchema, PathogenDetectionTableSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, QualityControlTableSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleTypeSchema, TaxaSummarySchema, UpdateRunConfigSchema
 };
 
 use mongodb::options::{UpdateManyModel, WriteModel};
@@ -1570,6 +1570,26 @@ async fn run_handler(data: web::Data<AppState>, query: web::Query<CerebroRunQuer
 }
     
 
+#[patch("/cerebro/run")]
+async fn update_run_config_handler(data: web::Data<AppState>, schema: web::Json<UpdateRunConfigSchema>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+    let filter = doc! { "name": &schema.sample_id };  // cerebro base model name field - identifier as processed in pipeline
+    let update = doc! { "$set": { "run.id": &schema.run_id } };
+
+    match project_collection.update_many(filter, update).await {
+        Ok(res) if res.matched_count == 0 => return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!("Failed to find: {}", schema.sample_id))),
+        Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
+        Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none())
+    }
+    
+}
+    
+
 #[derive(Deserialize)]
 struct CerebroWorkflowIdQuery {
     // Required for access authorization 
@@ -1674,7 +1694,8 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(sample_group_handler)
        .service(history_taxa_handler)
        .service(contamination_taxa_handler_project)
-       .service(status_handler);
+       .service(status_handler)
+       .service(update_run_config_handler);
 
 
     if config.security.components.comments {

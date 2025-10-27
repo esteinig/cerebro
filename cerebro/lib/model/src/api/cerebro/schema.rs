@@ -105,6 +105,11 @@ pub struct SampleGroupSchema {
 }
 
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateRunConfigSchema {
+    pub sample_id: String,
+    pub run_id: String
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct TaxaSummarySchema {

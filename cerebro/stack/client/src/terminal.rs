@@ -92,6 +92,8 @@ pub enum Commands {
     UploadModels(UploadModelsArgs),
     /// Upload processed model to database
     DownloadModels(DownloadModelsArgs),
+    /// Cerebro model updates
+    UpdateModels(UpdateModelsArgs),
 
     /// Summary of quality control for requested models or samples
     GetQualityControlTable(QualityControlTableArgs),
@@ -129,6 +131,9 @@ pub enum Commands {
     /// Faktory job scheduler
     #[clap(subcommand)]
     Jobs(JobsCommands),
+
+
+
 }
 
 #[derive(Debug, Args)]
@@ -308,6 +313,15 @@ pub struct UploadModelsArgs {
     /// Processed database models(.json)
     #[clap(long, short = 'm', num_args(1..))]
     pub models: Vec<PathBuf>
+}
+
+
+
+#[derive(Debug, Args)]
+pub struct UpdateModelsArgs {
+    // Run identifier update from two-column TSV: {cerebro.sample.id} {cerebro.run.id}
+    #[clap(long, short = 'r')]
+    pub run_tsv: Option<PathBuf>
 }
 
 #[derive(Debug, Args)]

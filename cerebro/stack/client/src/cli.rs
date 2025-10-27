@@ -16,7 +16,7 @@ use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, TrainingCommands, WatcherCommands};
 
-use cerebro_model::api::cerebro::model::{Cerebro, ModelError};
+use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipeline::taxa::taxon::TaxonExtraction;
 
 
@@ -127,9 +127,7 @@ fn main() -> anyhow::Result<()> {
                 args.run_date.clone()
             )?;
 
-            
             cerebro.write_json(&args.model)?;
-
 
         }
         // Process and upload sample model to database
@@ -218,8 +216,14 @@ fn main() -> anyhow::Result<()> {
         Commands::DownloadModels( args ) => {
 
             create_dir_all(&args.outdir)?;
-            
             client.download_models(&args.outdir)?;
+        }
+
+        Commands::UpdateModels( args ) => {
+            
+            client.update_models(
+                args.run_tsv.clone()
+            )?;
         }
         Commands::Tower(subcommand) => {
             match subcommand {

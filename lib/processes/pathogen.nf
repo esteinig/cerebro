@@ -350,6 +350,32 @@ process GanonReads {
 
 }
 
+process RemapKmerReads {
+
+
+    tag { sampleID }
+    label "KmerRemap"
+
+
+    input:
+    tuple val(sampleID), path(forward), path(reverse)
+    tuple val(sampleID), path(report_file), path(reads_file)
+    path(remapKmerDatabase)
+    path(taxonomy)
+
+
+    output:
+    tuple (val(sampleID), path(forward), path(reverse), emit: reads)
+    tuple (val(sampleID), path("${sampleID}.vircov.tsv"), emit: results)
+
+    script:
+
+    """
+    cerebro-pipeline pathogen remap-kmer-reads --reads-file $reads_file --report-file $report_file --r1 $forward --r2 $reverse --taxonomy $taxonomy --rank genus --db $remapKmerDatabase
+    """
+
+}
+
 
 process GanonReadsNanopore { 
 

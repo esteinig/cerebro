@@ -19,6 +19,7 @@ use cerebro_model::api::cerebro::schema::ContaminationSchema;
 use cerebro_model::api::cerebro::schema::PathogenDetectionTableSchema;
 use cerebro_model::api::cerebro::schema::QualityControlTableSchema;
 use cerebro_model::api::cerebro::schema::PrevalenceContaminationConfig;
+use cerebro_model::api::cerebro::schema::UpdateRunConfigSchema;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
@@ -55,6 +56,7 @@ use cerebro_pipeline::modules::pathogen::PathogenDetectionTableRecord;
 use cerebro_pipeline::modules::quality::ReadQualityControl;
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::Taxon;
+use cerebro_pipeline::utils::read_tsv;
 use cerebro_pipeline::utils::write_tsv;
 use chrono::Utc;
 use reqwest::blocking::RequestBuilder;
@@ -96,6 +98,7 @@ pub enum Route {
     DataUserSelfTeams,
     DataCerebroInsertModel,
     DataCerebroRetrieveModel,
+    DataCerebroUpdateModelRunConfig,
     DataCerebroIdentifiers,
     DataCerebroQualityControl,
     DataCerebroPathogenDetection,
@@ -142,6 +145,7 @@ impl Route {
             Route::DataUserSelfTeams => "users/self/teams",
             Route::DataCerebroInsertModel => "cerebro",
             Route::DataCerebroRetrieveModel => "cerebro",
+            Route::DataCerebroUpdateModelRunConfig => "cerebro/run",
             Route::DataCerebroIdentifiers => "cerebro/ids",
             Route::DataCerebroQualityControl => "cerebro/table/qc",
             Route::DataCerebroPathogenDetection => "cerebro/table/pathogen",
@@ -491,33 +495,39 @@ impl CerebroClient {
         Ok(response)
     }
 
-    fn handle_response<T: DeserializeOwned>(
+    
+    pub fn handle_response<S: DeserializeOwned>(
         &self,
         response: Response,
         success_msg: Option<&str>,
         failure_msg: &str,
-    ) -> Result<T, HttpClientError> {
+    ) -> Result<S, HttpClientError> {
         let status = response.status();
+
         if status.is_success() {
             if let Some(msg) = success_msg {
                 log::info!("{}", msg);
             }
-            response.json().map_err(|_| {
-                HttpClientError::DataResponseFailure(
-                    status,
-                    String::from("failed to parse response data"),
-                )
-            })
-        } else {
-            let error_response: ErrorResponse = response.json().map_err(|_| {
-                HttpClientError::DataResponseFailure(
-                    status,
-                    String::from("failed to parse error response"),
-                )
-            })?;
-            log::error!("{}: {}", failure_msg, error_response.message);
-            Err(HttpClientError::ResponseFailure(status))
+            return response.json().map_err(|_| {
+                HttpClientError::DataResponseFailure(status, "failed to parse response data".into())
+            });
         }
+
+        // Read body once, then try JSON -> fallback to text
+        let bytes = response.bytes().unwrap_or_default();
+
+        if let Ok(err) = serde_json::from_slice::<ErrorResponse>(&bytes) {
+            if let Some(data) = &err.data {
+                log::error!("{}: {} | data: {:?}", failure_msg, err.message, data);
+            } else {
+                log::error!("{}: {}", failure_msg, err.message);
+            }
+        } else {
+            let text = String::from_utf8_lossy(&bytes);
+            log::error!("{}: {}", failure_msg, text);
+        }
+
+        Err(HttpClientError::ResponseFailure(status))
     }
 
     fn build_request_url<T, R>(&self, route: R, params: &[(&str, T)]) -> String
@@ -1449,6 +1459,49 @@ impl CerebroClient {
         Ok(())
     }
 
+    pub fn update_models(
+        &self,
+        run_tsv: Option<PathBuf>
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+        
+
+        if let Some(path) = run_tsv {
+
+            // Run configuration update
+            let update_data: Vec<UpdateRunConfigSchema> = read_tsv(&path, false, true)?;
+
+            for update_schema in update_data {
+
+                let url = format!("{}", self.routes.url(Route::DataCerebroUpdateModelRunConfig));
+
+                let response = self.send_request_with_team_db_project(
+                    self.client
+                        .patch(url)
+                        .json(&update_schema)
+                )?;
+
+                log::info!("Update schema: {:?}", &update_schema);
+
+                match self.handle_response::<serde_json::Value>(
+                    response,
+                    Some(&format!(
+                        "Model for sample library {} updated successfully",
+                        update_schema.sample_id
+                    )),
+                    "Update failed",
+                ) {
+                    Ok(_) => {},
+                    Err(err) => log::warn!("{}", err.to_string())
+                };
+            }
+        }
+
+        Ok(())
+    }
     pub fn upload_training_prefetch(
         &self, 
         prefetch: &Vec<PathBuf>,

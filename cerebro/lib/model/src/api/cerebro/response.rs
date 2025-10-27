@@ -326,3 +326,25 @@ impl SampleSummaryResponse {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CerebroResponse<T> {
+    pub status: String,
+    pub message: String,
+    pub data: Option<T>,
+}
+
+impl<T> CerebroResponse<T> {
+    pub fn ok(data: T) -> Self {
+        Self { status: "ok".to_string(), message: "ok".into(), data: Some(data) }
+    }
+    pub fn ok_none() -> Self {
+        Self { status: "ok".to_string(), message: "ok".into(), data: None }
+    }
+    pub fn error(message: &str) -> Self {
+        Self { status: "fail".to_string(), message: message.into(), data: None }
+    }
+    pub fn not_found(message: &str) -> Self {
+        Self { status: "fail".to_string(), message: message.into(), data: None }
+    }
+}
