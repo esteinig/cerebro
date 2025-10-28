@@ -379,6 +379,7 @@ impl TieredFilterConfig {
 pub enum SampleType {
     Csf,
     Eye,
+    Tis,
     Ntc,
     Pos,
     Lod,
