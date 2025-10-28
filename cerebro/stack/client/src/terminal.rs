@@ -94,6 +94,8 @@ pub enum Commands {
     DownloadModels(DownloadModelsArgs),
     /// Cerebro model updates
     UpdateModels(UpdateModelsArgs),
+    /// Cerebro model delete
+    DeleteModels(DeleteModelsArgs),
 
     /// Summary of quality control for requested models or samples
     GetQualityControlTable(QualityControlTableArgs),
@@ -319,9 +321,17 @@ pub struct UploadModelsArgs {
 
 #[derive(Debug, Args)]
 pub struct UpdateModelsArgs {
-    // Run identifier update from two-column TSV: {cerebro.sample.id} {cerebro.run.id}
+    // Run identifier update from two-column TSV: {cerebro.name} {cerebro.run.id}
     #[clap(long, short = 'r')]
     pub run_tsv: Option<PathBuf>
+}
+
+
+#[derive(Debug, Args)]
+pub struct DeleteModelsArgs {
+    // Delete by full sample identifier (as processed in pipeline) from one column TSV: {cerebro.name}
+    #[clap(long, short = 'r')]
+    pub name_tsv: Option<PathBuf>
 }
 
 #[derive(Debug, Args)]

@@ -225,6 +225,13 @@ fn main() -> anyhow::Result<()> {
                 args.run_tsv.clone()
             )?;
         }
+
+        Commands::DeleteModels( args ) => {
+            
+            client.delete_models(
+                args.name_tsv.clone()
+            )?;
+        }
         Commands::Tower(subcommand) => {
             match subcommand {
                 TowerCommands::Register( args ) => {

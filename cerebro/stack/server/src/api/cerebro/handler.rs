@@ -1588,6 +1588,26 @@ async fn update_run_config_handler(data: web::Data<AppState>, schema: web::Json<
     }
     
 }
+
+
+#[delete("/cerebro/{sample_id}")]
+async fn delete_model_by_sample_handler(data: web::Data<AppState>, sample_id: web::Path<String>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+    let id = sample_id.into_inner();
+    let filter = doc! { "name": &id };  // cerebro base model name field - identifier as processed in pipeline
+
+    match project_collection.delete_one(filter).await {
+        Ok(res) if res.deleted_count == 0 => return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!("Failed to find: {}", &id))),
+        Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
+        Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none())
+    }
+    
+}
     
 
 #[derive(Deserialize)]
@@ -1695,7 +1715,8 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(history_taxa_handler)
        .service(contamination_taxa_handler_project)
        .service(status_handler)
-       .service(update_run_config_handler);
+       .service(update_run_config_handler)
+       .service(delete_model_by_sample_handler);
 
 
     if config.security.components.comments {

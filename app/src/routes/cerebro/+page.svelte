@@ -19,11 +19,11 @@
                 </div>
                 <div class="row-span-1">
                     <div class="mb-8">
-                        <ProductionOperations></ProductionOperations>   
-                    </div>
-                    <div>
                         <PipelineDeployment></PipelineDeployment>      
                     </div>   
+                    <div>
+                        <ProductionOperations></ProductionOperations>   
+                    </div>
                 </div>
             </div>
         </div>

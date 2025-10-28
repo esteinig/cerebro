@@ -8,6 +8,7 @@ use std::io::Write;
 use anyhow::Result;
 use cerebro_model::api::cerebro::response::CerebroIdentifierResponse;
 use cerebro_model::api::cerebro::response::CerebroIdentifierSummary;
+use cerebro_model::api::cerebro::response::CerebroResponse;
 use cerebro_model::api::cerebro::response::ContaminationTaxaResponse;
 use cerebro_model::api::cerebro::response::FilteredTaxaResponse;
 use cerebro_model::api::cerebro::response::PathogenDetectionTableResponse;
@@ -98,6 +99,7 @@ pub enum Route {
     DataUserSelfTeams,
     DataCerebroInsertModel,
     DataCerebroRetrieveModel,
+    DataCerebroDeleteModel,
     DataCerebroUpdateModelRunConfig,
     DataCerebroIdentifiers,
     DataCerebroQualityControl,
@@ -145,6 +147,7 @@ impl Route {
             Route::DataUserSelfTeams => "users/self/teams",
             Route::DataCerebroInsertModel => "cerebro",
             Route::DataCerebroRetrieveModel => "cerebro",
+            Route::DataCerebroDeleteModel => "cerebro",
             Route::DataCerebroUpdateModelRunConfig => "cerebro/run",
             Route::DataCerebroIdentifiers => "cerebro/ids",
             Route::DataCerebroQualityControl => "cerebro/table/qc",
@@ -1486,13 +1489,60 @@ impl CerebroClient {
 
                 log::info!("Update schema: {:?}", &update_schema);
 
-                match self.handle_response::<serde_json::Value>(
+                match self.handle_response::<CerebroResponse<()>>(
                     response,
                     Some(&format!(
                         "Model for sample library {} updated successfully",
                         update_schema.sample_id
                     )),
                     "Update failed",
+                ) {
+                    Ok(_) => {},
+                    Err(err) => log::warn!("{}", err.to_string())
+                };
+            }
+        }
+
+        Ok(())
+    }
+
+
+    pub fn delete_models(
+        &self,
+        name_tsv: Option<PathBuf>
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+        
+        if let Some(path) = name_tsv {
+
+            #[derive(Deserialize)]
+            struct FileRow {
+                sample_name: String
+            }
+
+            // Run configuration update
+            let delete_models: Vec<FileRow> = read_tsv(&path, false, true)?;
+
+            for row in delete_models {
+                
+                
+                let url = format!("{}/{}", self.routes.url(Route::DataCerebroDeleteModel), row.sample_name);
+
+                let response = self.send_request_with_team_db_project(
+                    self.client
+                        .delete(url)
+                )?;
+
+                match self.handle_response::<CerebroResponse<()>>(
+                    response,
+                    Some(&format!(
+                        "Model '{}' deleted successfully",
+                        row.sample_name
+                    )),
+                    &format!("Deletion failed for: {}", row.sample_name),
                 ) {
                     Ok(_) => {},
                     Err(err) => log::warn!("{}", err.to_string())
