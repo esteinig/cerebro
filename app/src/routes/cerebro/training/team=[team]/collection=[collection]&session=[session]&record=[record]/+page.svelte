@@ -102,8 +102,7 @@
         let body = `
         <div class="text-large">
         <p class="opacity-60 mt-2">Your task is to select a (single) pathogen candidate species from the provided taxonomic profiling data.</p>
-        <p class="opacity-60 mt-2">Click on the threshold categories to see a filtered selection of organisms in this training dataset.</p> 
-        <p class="opacity-60 mt-2">Click on any organism to select a positive identification, click on it again to de-select it. If you believe the sample is negative, simply click 'Next'.</p> 
+        <p class="opacity-60 mt-2">Click on the information button on the left hand side of the header to see more information about the data</p>
         </div>
         `
 

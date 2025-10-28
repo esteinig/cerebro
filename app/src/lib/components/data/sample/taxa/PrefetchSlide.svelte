@@ -4,11 +4,19 @@
   import { CiqaSampleType, type TrainingRecord, type TestResult, type TrainingPrefetchData } from '$lib/utils/types';
   import { getUuidShort } from '$lib/utils/helpers';
 	import { page } from '$app/stores';
+	import { getModalStore, type ModalSettings, SlideToggle } from '@skeletonlabs/skeleton';
+	import InfoModal from '$lib/components/training/InfoModal.svelte';
+
+  const modalStore = getModalStore();
 
   export let trainingRecord: TrainingRecord;
   export let trainingData: TrainingPrefetchData;
   export let trainingSlides: number = 0;
 
+  // optional weight control if we want to tweak later
+  let baseWeight: number = 1.0;
+  let collapseByGenus = false;
+  
   $: trainingIndex = Number.parseInt($page.params.record, 10);
   if (Number.isNaN(trainingIndex)) trainingIndex = 0;
 
@@ -61,9 +69,44 @@
     selectedCandidateName = name;
     selectedLabel = name ? 'positive' : 'negative';
   }
+
+  async function openInfoModal() {
+
+    const modal: ModalSettings = {
+      type: 'component',
+      component: {
+        ref: InfoModal,
+        // optional props
+        props: { title: 'Wanted: Bugs!', confirmLabel: 'Ok' },
+        // default slot HTML
+        slot: `
+          <div class="text-base">
+            <p class="mt-2">You are a diagnostic assistant trained to support the interpretation of metagenomic sequencing results for infectious disease diagnosis. Use your expertise in microbiology, pathology, metagenomics, clinical diagnostics, and infectious diseases to help determine whether a case is infectious (positive) or non-infectious (negative).</p>
+            <p class="mt-2">We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries). Filtering the taxonomic profiling data from the bioinformatics pipeline produced three subsets of the same dataset: 
+              primary threshold (present at high abundance), secondary threshold (present at moderate to low abundance), and a target threshold for high priority pathogens (present at low abundance). Our pipeline uses multiple methods for 
+              pathogen detection - alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). RPM and contigs/bases provided for each detected species are the primary evidence.</p>
+            <p class="mt-2">Species names are taxonomic species names (genus name and species name). If you do not know a species, assume that the provided species name is correct - do not interpret unknown species names as another species you know. 
+              You must make your considerations and determinations based on the species, not the genus. For viral species, traditional abbreviations and alternative names may be provided, which you can assume are valid alternatives to 
+              the output species name.</p>
+              <p class="mt-2">You can use the 'Best Species' slider to collapse genera with more than four species represented in the data and retain only the best species for each genus (Archaea/Bacteria/Eukaryota)</p>
+          </div>` 
+      },
+      modalClasses: 'w-[80vw] max-w-[80vw] h-[80vh] !max-h-[80vh] flex', 
+      backdropClasses: 'backdrop-blur-md bg-black/40 items-center',
+    };
+    modalStore.trigger(modal);
+  }
+
 </script>
   
     <div class="w-full flex items-center justify-center gap-3 py-3 sticky top-0 bg-base-100/80 backdrop-blur z-10">
+      
+      <button class="px-3 py-1 rounded disabled:opacity-40 flex items-center" on:click={openInfoModal}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 stroke-success-500 mr-2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+              </svg>
+              <p class="opacity-80">Information</p>
+      </button>
       
       <button class="px-3 py-1 border rounded disabled:opacity-40"
               on:click={prev}
@@ -117,6 +160,12 @@
         </button>
       {/if}
 
+
+      <div class="flex items-center gap-2 ml-5">
+        <SlideToggle name="collapseByGenus" bind:checked={collapseByGenus} />
+        <span class="text-sm opacity-70 select-none">Best Species</span>
+      </div>
+
     </div>
   
     <div class="space-y-6">
@@ -129,7 +178,8 @@
             </button>
           </p>
           {#if showPrimary}
-            <PrefetchTable taxa={trainingData.prefetch.primary}  selectedName={selectedCandidateName ?? ""}  on:select={onSelect} />
+            <PrefetchTable taxa={trainingData.prefetch.primary}  selectedName={selectedCandidateName ?? ""}  
+            collapseByGenus={collapseByGenus} on:select={onSelect} />
           {/if}
         </section>
       
@@ -143,7 +193,8 @@
             </button>
           </p>
           {#if showSecondary}
-            <PrefetchTable taxa={trainingData.prefetch.secondary}   selectedName={selectedCandidateName ?? ""}  on:select={onSelect} />
+            <PrefetchTable taxa={trainingData.prefetch.secondary}   selectedName={selectedCandidateName ?? ""} 
+            collapseByGenus={collapseByGenus} on:select={onSelect} />
           {/if}
         </section>
       
@@ -156,7 +207,8 @@
             </button>
           </p>
           {#if showTarget}
-            <PrefetchTable taxa={trainingData.prefetch.target}   selectedName={selectedCandidateName ?? ""}  on:select={onSelect} />
+            <PrefetchTable taxa={trainingData.prefetch.target}   selectedName={selectedCandidateName ?? ""} 
+            collapseByGenus={collapseByGenus} on:select={onSelect} />
           {/if}
         </section>
       </div>  

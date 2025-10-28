@@ -14,6 +14,9 @@
     export let displayData: DisplayData = DisplayData.Rpm;
     export let displayTotal: DisplayTotal = DisplayTotal.Average;
 
+    export let collapseByGenus: boolean = false;
+    export let baseWeight: number = 1.0;
+
     // Container for filtered table row data
     let tableData: TaxonOverviewRecord[] = [];
     
@@ -61,11 +64,15 @@
     let sortColumn: keyof TaxonOverviewRecord = "total";
     let sortDirection: "asc" | "desc" = "desc";
 
-    $: { 
+    $: {
         if (taxa) {
-            tableData = transformTaxonOverview(taxa, displayMode, displayData, displayTotal)
+        tableData = transformTaxonOverview(taxa, displayMode, displayData, displayTotal);
+        if (collapseByGenus) {
+            tableData = collapseGenera(tableData, baseWeight);
         }
-        // Sort the transformed data based on sortColumn and sortDirection.
+        } else {
+        tableData = [];
+        }
         tableData = sortTableData(sortColumn, sortDirection);
     }
 
@@ -85,6 +92,60 @@
     const dispatch = createEventDispatcher<{
       select: { index: number; item: TaxonOverviewRecord | null; };
     }>();
+
+    const RPM_FIELDS: (keyof TaxonOverviewRecord)[] = [
+        'vircov','kraken2','bracken','metabuli','ganon2','kmcp','sylph'
+    ];
+
+    function profileScore(r: TaxonOverviewRecord, weight = 1.0): number {
+        const totalRpm = RPM_FIELDS.reduce((s, k) => s + Math.max(0, Number(r[k] ?? 0)), 0);
+        const bases     = Math.max(0, Number(r.blast ?? 0));
+        const baseScore = bases > 0 ? Math.log10(bases) * weight : 0;
+        return totalRpm + baseScore;
+    }
+
+    function collapseGenera(rows: TaxonOverviewRecord[], weight = 1.0): TaxonOverviewRecord[] {
+        const allowed = new Set(['Eukaryota','Bacteria','Archaea']);
+        const byGenus = new Map<string, TaxonOverviewRecord[]>();
+
+        for (const r of rows) {
+        if (!r.genus || !r.domain || !allowed.has(r.domain)) continue;
+        const list = byGenus.get(r.genus) ?? [];
+        list.push(r);
+        byGenus.set(r.genus, list);
+        }
+
+        // genera with >= 5 species
+        const collapseSet = new Set<string>();
+        for (const [g, list] of byGenus) {
+        if (list.length >= 5) collapseSet.add(g);
+        }
+
+        const bestByGenus = new Map<string, TaxonOverviewRecord>();
+        for (const g of collapseSet) {
+        const list = byGenus.get(g)!;
+        let best = list[0];
+        let bestScore = profileScore(best, weight);
+        for (let i = 1; i < list.length; i++) {
+            const s = profileScore(list[i], weight);
+            if (s > bestScore) { best = list[i]; bestScore = s; }
+        }
+        bestByGenus.set(g, best);
+        }
+
+        // keep:
+        // - all rows in genera not collapsed
+        // - for collapsed genera, keep only the best species
+        const out: TaxonOverviewRecord[] = [];
+        for (const r of rows) {
+        if (r.genus && collapseSet.has(r.genus)) {
+            if (bestByGenus.get(r.genus) === r) out.push(r);
+        } else {
+            out.push(r);
+        }
+        }
+        return out;
+    }
 
 </script>
 
