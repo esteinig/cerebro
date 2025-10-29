@@ -230,6 +230,17 @@ pub struct SampleReference {
 }
 
 impl SampleReference {
+    pub fn from_tsv(row: ReferencePlateTsvRow) -> Self {
+        Self {
+            sample_id: row.sample_id,
+            sample_type: row.sample_type,
+            result: None,
+            note: None,
+            clinical: None,
+            domain: None,
+            orthogonal: vec![]
+        }
+    }
     pub fn positive_taxa(&self) -> Option<Vec<String>> {
         let mut set = HashSet::new();
 
@@ -972,6 +983,12 @@ pub fn get_diagnostic_stats(args: &ReviewArgs, reference_plate: &mut ReferencePl
     Ok(stats)
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReferencePlateTsvRow {
+    sample_id: String,
+    sample_type: SampleType
+}
+
 // The PlateReference bundles the entire list of samples.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReferencePlate {
@@ -1031,6 +1048,19 @@ impl ReferencePlate {
             missing_orthogonal
         })
     }
+    pub fn from_tsv(path: &Path, missing_orthogonal: MissingOrthogonal) -> Result<Self, CiqaError> {
+        let rows = read_tsv::<ReferencePlateTsvRow>(path, false, true)?;
+        let reference: Vec<_> = rows.into_iter().map(|row| SampleReference::from_tsv(row)).collect();
+        let samples = Self::get_samples(&reference);
+
+        Ok(Self {
+            reference,
+            review: None,
+            negative_controls: vec![],
+            samples,
+            missing_orthogonal: missing_orthogonal
+        })
+    } 
     pub fn set_none(&mut self, sample_id: &Vec<String>) -> Result<(), CiqaError> {
         let ids: HashSet<&String> = sample_id.into_iter().collect();
         for sample in &mut self.reference {

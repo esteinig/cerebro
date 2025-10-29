@@ -96,6 +96,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             let plate = ReferencePlate::from_path(&args.plate)?;
             plate.write_tsv(&args.output, args.species_rank)?;
         },
+
+        Commands::CreatePlate( args ) => {
+            let plate = ReferencePlate::from_tsv(&args.tsv, args.missing_orthogonal)?;
+            plate.to_json(args.output)?;
+        },
         Commands::PlotQc( args ) => {
 
 
@@ -363,13 +368,23 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
             create_dir_all(&args.outdir)?;
 
-            let plate = ReferencePlate::from_review(
-                &args.plate, 
-                None,
-                MissingOrthogonal::Indeterminate,
-                false
-            )?;
-
+            let plate = match (args.plate_review, args.plate_json) {
+                (Some(path), None) => ReferencePlate::from_review(
+                    &path, 
+                    None,
+                    MissingOrthogonal::Indeterminate,
+                    false
+                )?,
+                (None, Some(path)) => ReferencePlate::from_json(path)?,
+                (Some(_), Some(_)) => {
+                    log::error!("Two input options provided");
+                    exit(1);
+                },
+                (None, None) => {
+                    log::error!("No input options provided");
+                    exit(1)
+                }
+            };
 
             let mut contam_config: PrevalenceContaminationConfig = match args.contamination {
                 Some(path) => PrevalenceContaminationConfig::from_json(&path)?,
@@ -452,9 +467,17 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 None => tiered_filter_config,
                             };
 
-                            if negative_controls.is_empty() {
+                            let negative_controls = if negative_controls.is_empty() {
                                 log::info!("No negative controls for sample '{sample_id}' - attempting to fetch from project: {}", project_name);
-                            }
+                                if let Some(negative_controls_fetched) = api_client.get_negative_controls(&sample_id)? {
+                                    negative_controls_fetched
+                                } else {
+                                    log::warn!("No negative controls provided or found in project for sample: {sample_id}");
+                                    negative_controls
+                                }
+                            } else {
+                                negative_controls
+                            };
 
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id.clone(),

@@ -96,6 +96,8 @@ pub enum Commands {
     Tui(TuiArgs),
     /// Prefetch tiered data with filter settings for a sample and save to file
     Prefetch(PrefetchArgs),
+    /// Create a plate JSON from a tab-delimited table (headers: 'sample_id' and 'sample_type')
+    CreatePlate(CreatePlateArgs),
     /// Write the plate to a tab-delimited table 
     WritePlateTable(WriteTableArgs),
     /// Plot the tiered prefetch taxa composition
@@ -126,6 +128,22 @@ pub enum Commands {
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
 }
+
+
+#[derive(Debug, Args)]
+pub struct CreatePlateArgs {
+    // Input plate TSV
+    #[clap(long, short = 't')]
+    pub tsv: PathBuf,
+    /// Output plate JSON 
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+
+    /// Strategy for missing orthogonal reference data during evaluation
+    #[clap(long, short = 'm', default_value="result-only")]
+    pub missing_orthogonal: MissingOrthogonal
+}
+
 
 #[derive(Debug, Args)]
 pub struct ComputeSummaryArgs {
@@ -473,9 +491,12 @@ pub struct ReviewArgs {
 
 #[derive(Debug, Args, Clone)]
 pub struct PrefetchArgs {
-    /// Reference plate file (.json)
+    /// Reference plate file review (.json)
     #[clap(long, short = 'p')]
-    pub plate: PathBuf,
+    pub plate_review: Option<PathBuf>,
+    /// Reference plate file review (.json)
+    #[clap(long, short = 'p')]
+    pub plate_json: Option<PathBuf>,
     /// Output directory for tiered filter data (.prefetch.json)
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
