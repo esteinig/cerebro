@@ -2,7 +2,7 @@ use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroId
 use mongodb::bson::{from_document, Document};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use futures::stream::TryStreamExt;
+use futures::stream::{StreamExt, TryStreamExt};
 use mongodb::{bson::doc, Collection, Database};
 use actix_web::{get, post, web, HttpResponse, patch, delete, HttpRequest};
 
@@ -1590,15 +1590,15 @@ async fn update_run_config_handler(data: web::Data<AppState>, schema: web::Json<
 }
 
 
-#[delete("/cerebro/{sample_id}")]
-async fn delete_model_by_sample_handler(data: web::Data<AppState>, sample_id: web::Path<String>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+#[delete("/cerebro/{sample_name}")]
+async fn delete_model_by_sample_handler(data: web::Data<AppState>, sample_name: web::Path<String>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
 
     let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
         Ok(authorized) => authorized,
         Err(error_response) => return error_response
     };
 
-    let id = sample_id.into_inner();
+    let id = sample_name.into_inner();
     let filter = doc! { "name": &id };  // cerebro base model name field - identifier as processed in pipeline
 
     match project_collection.delete_one(filter).await {
@@ -1606,6 +1606,57 @@ async fn delete_model_by_sample_handler(data: web::Data<AppState>, sample_id: we
         Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
         Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none())
     }
+    
+}
+
+
+#[get("/cerebro/controls/{sample_id}")]
+async fn get_sample_negative_controls(data: web::Data<AppState>, sample_id: web::Path<String>,  access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
+
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
+        Ok(authorized) => authorized,
+        Err(error_response) => return error_response
+    };
+
+    let sample_id = sample_id.into_inner();
+
+    let filter = doc! { "sample.id": &sample_id};
+
+    let model = match project_collection.find_one(filter).await {
+        Ok(Some(model)) => model,
+        Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
+        Ok(_) => return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!("failed to find sample: {}", &sample_id)))
+    };
+
+    let run_id = model.run.id.clone();
+
+    let filter = doc! {
+        "run.id": &run_id,
+        "sample.tags": { "$in": ["NTC", "ENV"] }
+    };
+
+    // If your API returns a cursor:
+    let mut ids: HashSet<String> = HashSet::new();
+    match project_collection.find(filter).await {
+        Ok(mut cursor) => {
+            while let Some(res) = cursor.next().await {
+                match res {
+                    Ok(m) => { ids.insert(m.sample.id.clone()); }
+                    Err(e) => {
+                        return HttpResponse::InternalServerError()
+                            .json(CerebroResponse::<()>::error(&e.to_string()))
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(CerebroResponse::<()>::error(&err.to_string()))
+        }
+    }
+
+    let control_sample_ids: Vec<String> = ids.into_iter().collect();
+    HttpResponse::Ok().json(CerebroResponse::<Vec<String>>::ok(control_sample_ids))
     
 }
     
@@ -1716,7 +1767,8 @@ pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
        .service(contamination_taxa_handler_project)
        .service(status_handler)
        .service(update_run_config_handler)
-       .service(delete_model_by_sample_handler);
+       .service(delete_model_by_sample_handler)
+       .service(get_sample_negative_controls);
 
 
     if config.security.components.comments {

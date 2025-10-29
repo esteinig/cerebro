@@ -225,7 +225,6 @@ fn main() -> anyhow::Result<()> {
                 args.run_tsv.clone()
             )?;
         }
-
         Commands::DeleteModels( args ) => {
             
             client.delete_models(
@@ -438,6 +437,20 @@ fn main() -> anyhow::Result<()> {
             }
                         
         },
+
+
+        // Query sample models for negative controls associated with their run (NTC, ENV)
+        Commands::GetNegativeControls( args ) => {
+            
+            let data = client.get_negative_controls(
+                &args.sample_id.clone()
+            )?;
+
+            if let Some(data) = data {
+                log::info!("{:?}", data)
+            }
+        }
+
         // Query sample models for taxon history and taxon vs host regression analysis
         Commands::GetTaxonHistory( args ) => {
 

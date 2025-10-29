@@ -428,6 +428,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let sample_id = sid.clone();
                     let negative_controls = plate.negative_controls.clone();
                     let prevalence_contamination = prevalence_contamination.clone();
+                    let project_name = api_client.project.clone().unwrap_or("null".to_string());
 
                     let result: anyhow::Result<Option<(PerSampleSummary, Option<MissedDetectionRow>)>> = (|| {
                         if let Some(ref subset) = subset {
@@ -439,7 +440,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
                         let data_file = outdir.join(format!("{sample_id}.prefetch.json"));
 
-                        // Get PrefetchData either by computing or reading
                         let data: PrefetchData = if force || !data_file.exists() {
                             let sample_reference = plate
                                 .get_sample_reference(&sample_id)
@@ -451,6 +451,10 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 Some(ignore_taxstr) => tiered_filter_config.with_ignore_taxstr(ignore_taxstr),
                                 None => tiered_filter_config,
                             };
+
+                            if negative_controls.is_empty() {
+                                log::info!("No negative controls for sample '{sample_id}' - attempting to fetch from project: {}", project_name);
+                            }
 
                             let config = MetaGpConfig::new(
                                 sample_reference.sample_id.clone(),

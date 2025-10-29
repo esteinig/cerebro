@@ -104,6 +104,7 @@ pub enum Route {
     DataCerebroIdentifiers,
     DataCerebroQualityControl,
     DataCerebroPathogenDetection,
+    DataCerebroSampleNegativeControls,
     DataCerebroTaxaSummary,
     DataCerebroTaxaHistory,
     DataCerebroTaxaFiltered,
@@ -152,6 +153,7 @@ impl Route {
             Route::DataCerebroIdentifiers => "cerebro/ids",
             Route::DataCerebroQualityControl => "cerebro/table/qc",
             Route::DataCerebroPathogenDetection => "cerebro/table/pathogen",
+            Route::DataCerebroSampleNegativeControls => "cerebro/controls",
             Route::DataCerebroTaxaSummary => "cerebro/taxa/summary",
             Route::DataCerebroTaxaHistory => "cerebro/taxa/history",
             Route::DataCerebroTaxaContamination => "cerebro/taxa/contamination",
@@ -1869,6 +1871,31 @@ impl CerebroClient {
             response,
             None,
             "Cerebro identifiers retrieval failed",
+        )?;
+
+        Ok(response.data)
+    } 
+
+    pub fn get_negative_controls(
+        &self,
+        sample_id: &str,
+    ) -> Result<Option<Vec<String>>, HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+        
+        let url = format!("{}/{sample_id}", self.routes.url(Route::DataCerebroSampleNegativeControls));
+
+        let response = self.send_request_with_team_db_project(
+            self.client
+                .get(url)
+        )?;
+
+        let response = self.handle_response::<CerebroResponse<Vec<String>>>(
+            response,
+            None,
+            "Sample negative controls retrieval failed",
         )?;
 
         Ok(response.data)

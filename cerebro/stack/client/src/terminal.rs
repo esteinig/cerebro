@@ -82,7 +82,6 @@ pub enum Commands {
     CreatePathogen(CreatePathogenArgs),
     /// Process panviral-enrichment pipeline outputs for upload to database
     CreatePanviral(CreatePanviralArgs),
-
     /// Upload pipeline outputs to database (production from staged files)
     UploadPathogen(UploadPathogenArgs),
     /// Upload pipeline outputs to database (production from staged files)
@@ -101,9 +100,10 @@ pub enum Commands {
     GetQualityControlTable(QualityControlTableArgs),
     /// Summary of pathogen detection for requested models or samples
     GetPathogenDetectionTable(PathogenDetectionTableArgs),
-    
     /// Taxon history query for data and host regression
     GetTaxonHistory(TaxonHistoryArgs),
+    /// Taxon history query for data and host regression
+    GetNegativeControls(NegativeControlsArgs),
 
 
     /// CRUD operations for training collections
@@ -311,6 +311,12 @@ pub struct CreatePanviralArgs {
 
 
 #[derive(Debug, Args)]
+pub struct NegativeControlsArgs {
+    #[clap(long, short = 's')]
+    pub sample_id: String
+}
+
+#[derive(Debug, Args)]
 pub struct UploadModelsArgs {
     /// Processed database models(.json)
     #[clap(long, short = 'm', num_args(1..))]
@@ -330,7 +336,7 @@ pub struct UpdateModelsArgs {
 #[derive(Debug, Args)]
 pub struct DeleteModelsArgs {
     // Delete by full sample identifier (as processed in pipeline) from one column TSV: {cerebro.name}
-    #[clap(long, short = 'r')]
+    #[clap(long, short = 'n')]
     pub name_tsv: Option<PathBuf>
 }
 
