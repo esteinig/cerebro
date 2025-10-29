@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
         },
 
         Commands::CreatePlate( args ) => {
-            let plate = ReferencePlate::from_tsv(&args.tsv, args.missing_orthogonal)?;
+            let plate = ReferencePlate::from_tsv(&args.tsv, args.missing_orthogonal, args.ignore_taxstr)?;
             plate.to_json(args.output)?;
         },
         Commands::PlotQc( args ) => {
@@ -1168,7 +1168,22 @@ fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Op
         None => vec![String::from("DNA"), String::from("RNA")]
     };
 
-    let ignore_taxstr = match sample_reference.note {
+    let exclude_lod = match sample_reference.note {
+        Some(ref note) => Some(note.contains("exclude_lod")),
+        None => None
+    };
+
+    let clean_note = sample_reference.note.clone().map(|n| {
+        n.replace("ignore_rna", "")
+         .replace("ignore_dna", "")
+         .replace("only_dna", "")
+         .replace("only_rna", "")
+         .replace("exclude_lod", "")
+         .trim()
+         .to_string()
+    });
+
+    let ignore_taxstr = match clean_note {
         Some(ref note) => {
             if note.contains("ignore_taxstr") {
                 Some(note.replace("ignore_taxstr:", "")
@@ -1179,11 +1194,6 @@ fn get_note_instructions(sample_reference: &SampleReference) -> (Vec<String>, Op
                 None
             }
         },
-        None => None
-    };
-
-    let exclude_lod = match sample_reference.note {
-        Some(ref note) => Some(note.contains("exclude_lod")),
         None => None
     };
 

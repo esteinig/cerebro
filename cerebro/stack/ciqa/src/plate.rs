@@ -230,12 +230,12 @@ pub struct SampleReference {
 }
 
 impl SampleReference {
-    pub fn from_tsv(row: ReferencePlateTsvRow) -> Self {
+    pub fn from_tsv(row: ReferencePlateTsvRow, ignore_taxstr: Option<String>) -> Self {
         Self {
             sample_id: row.sample_id,
             sample_type: row.sample_type,
             result: None,
-            note: None,
+            note: ignore_taxstr.map(|s| format!("ignore_taxstr: {s}")),
             clinical: None,
             domain: None,
             orthogonal: vec![]
@@ -1048,9 +1048,17 @@ impl ReferencePlate {
             missing_orthogonal
         })
     }
-    pub fn from_tsv(path: &Path, missing_orthogonal: MissingOrthogonal) -> Result<Self, CiqaError> {
+    pub fn from_tsv(path: &Path, missing_orthogonal: MissingOrthogonal, ignore_taxstr: Option<String>) -> Result<Self, CiqaError> {
+        
         let rows = read_tsv::<ReferencePlateTsvRow>(path, false, true)?;
-        let reference: Vec<_> = rows.into_iter().map(|row| SampleReference::from_tsv(row)).collect();
+
+        let reference: Vec<_> = rows
+            .into_iter()
+            .map(|row| {
+                SampleReference::from_tsv(row, ignore_taxstr.clone())
+            })
+            .collect();
+
         let samples = Self::get_samples(&reference);
 
         Ok(Self {

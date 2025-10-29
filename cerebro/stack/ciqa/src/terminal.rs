@@ -138,7 +138,10 @@ pub struct CreatePlateArgs {
     /// Output plate JSON 
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-
+    /// Comma-separated string of substrings that when matched to the species name 
+    /// cause the species identification to be excluded from the results
+    #[clap(long, short = 'i')]
+    pub ignore_taxstr: Option<String>,
     /// Strategy for missing orthogonal reference data during evaluation
     #[clap(long, short = 'm', default_value="result-only")]
     pub missing_orthogonal: MissingOrthogonal
