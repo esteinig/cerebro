@@ -2255,6 +2255,7 @@ export type TieredFilterConfig = {
 export enum CiqaSampleType {
     Csf = "CSF",
     Eye = "EYE",
+    Tissue = "TIS",
     Ntc = "NTC",
     Pos = "POS",
     Lod = "LOD",
