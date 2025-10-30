@@ -113,8 +113,8 @@
             <form class="p-4 space-y-4" on:submit|preventDefault={registerUser}>
                            
                 <label class="label">
-                    <span>Email</span>
-                    <input type="text" placeholder="Email" class="input" bind:value={email} required/>
+                    <span>Email (case-sensitive)</span>
+                    <input type="text" placeholder="Email (case-sensitive)" class="input" bind:value={email} required/>
                 </label>
 
                 <label class="label">
