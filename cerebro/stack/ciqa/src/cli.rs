@@ -414,7 +414,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     if args.disable_filter {
                         TieredFilterConfig::none()
                     } else {
-                        TieredFilterConfig::default(None)
+                        if args.dev_filter {
+                            TieredFilterConfig::dev(None)
+                        } else {
+                            TieredFilterConfig::default(None)
+                        }
                     }
                 }
             };

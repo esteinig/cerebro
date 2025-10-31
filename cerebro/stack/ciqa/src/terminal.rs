@@ -516,6 +516,10 @@ pub struct PrefetchArgs {
     /// the raw data into the primary filter category
     #[clap(long)]
     pub disable_filter: bool,
+    /// SLightly more stringent prokaryotic subthreshold filter for testing
+    /// on development cohort
+    #[clap(long)]
+    pub dev_filter: bool,
     /// Disable the prevalence contamination filter
     #[clap(long)]
     pub disable_prevalence_control: bool,

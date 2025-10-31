@@ -353,6 +353,19 @@ impl TieredFilterConfig {
             )
         }
     }
+    pub fn dev(ignore_taxstr: Option<Vec<String>>) -> Self {
+        Self {
+            primary: TaxonFilterConfig::gp_above_threshold(
+                ignore_taxstr.clone()
+            ),
+            secondary: TaxonFilterConfig::dev_below_threshold(
+                ignore_taxstr.clone()
+            ),
+            target: TaxonFilterConfig::gp_target_threshold(
+                ignore_taxstr.clone()
+            )
+        }
+    }
     pub fn none() -> Self {
         Self {
             primary: TaxonFilterConfig::default(),
