@@ -123,6 +123,29 @@ impl TaxonFilterConfig {
             ignore_taxstr: taxstr
         }
     }
+    pub fn dev_below_threshold(taxstr: Option<Vec<String>>) -> Self {
+        Self {
+            rank: Some(PathogenDetectionRank::Species),
+            domains: Vec::new(),
+            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            modes: vec![AbundanceMode::Mixed],
+            min_bases: 0,
+            max_bases: None,
+            min_bpm: 0.0,
+            min_reads: 0,
+            min_rpm: 0.0,
+            max_rpm: None,
+            min_abundance: 0.0,
+            ntc_ratio: Some(1.0),
+            lineage: Some(vec![
+                LineageFilterConfig::dev_bacteria_below_threshold(),   // more stringent bacterial subthreshold category
+                LineageFilterConfig::gp_eukaryota_below_threshold(),
+                LineageFilterConfig::gp_viruses_below_threshold(),
+            ]),
+            targets: None,
+            ignore_taxstr: taxstr
+        }
+    }
     pub fn gp_target_threshold(taxstr: Option<Vec<String>>) -> Self {
         
         let targets = TargetList::combine(&[
@@ -356,6 +379,19 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(1.0),
+            min_assembly_tools: None
+        }
+    }
+    pub fn dev_bacteria_below_threshold() -> Self {
+        Self {
+            lineages: vec!["d__Bacteria".to_string(), "d__Archaea".to_string()],
+            tags: vec!["DNA".to_string()],
+            min_alignment_tools: None,
+            min_alignment_rpm: None,
+            min_alignment_regions: None,
+            min_alignment_regions_coverage: None,
+            min_kmer_tools: Some(3),
+            min_kmer_rpm: Some(3.0),
             min_assembly_tools: None
         }
     }
