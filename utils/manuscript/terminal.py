@@ -192,6 +192,12 @@ def _plot_panel(
     d_rep = data[data["group"] == "replicate"]
     d_con  = data[data["group"] == "consensus"]
 
+    print("=======================")
+    print(d_rep)
+    print("=======================")
+    print(d_con)
+    print("=======================")
+
     # Replicate stripplot (positions established by hue+dodge)
     sns.stripplot(
         data=d_rep, x=x_col, y="value",
@@ -234,7 +240,11 @@ def _plot_panel(
     ax.set_ylabel("Performance (%)", fontsize=12)
     ax.tick_params(axis="both", which="major", labelsize=12, length=4, width=0.8)
     ax.tick_params(axis="both", which="minor", length=2, width=0.6)
-    ax.set_ylim(50, 105)
+
+    ax.set_ylim(0, 105)
+    ax.yaxis.set_major_locator(MultipleLocator(10))
+
+
 
     if hline_y is not None:
         ax.axhline(hline_y, color="darkgray", linestyle=":", linewidth=1.2, zorder=1)
@@ -368,7 +378,8 @@ def _plot_metric_grouped(
     ax.set_ylabel("Performance (%)", fontsize=12)
     ax.tick_params(axis="both", which="major", labelsize=12, length=4, width=0.8)
     ax.tick_params(axis="both", which="minor", length=2, width=0.6)
-    ax.set_ylim(50, 105)
+    ax.set_ylim(0, 105)
+    ax.yaxis.set_major_locator(MultipleLocator(10))
 
     if legend:
         handles_, labels_ = ax.get_legend_handles_labels()
@@ -644,14 +655,15 @@ def plot_gpt(
             raise typer.Exit(code=1)
 
         fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(width, height), sharey=True)
+
         fig.subplots_adjust(right=0.86)
 
         pal_rep = _parse_palette(palette)
         pal_con = _parse_palette(consensus_palette)
 
-        # choose x mapping
         x_col = "label" if use_labels_flag else "params"
         x_order_this = x_order_labels if use_labels_flag else x_order
+
         for i, q in enumerate(QuantRows):
             ax = axes[i]
             sub = d_pair[d_pair["quant"] == q]
@@ -850,8 +862,8 @@ def condition_test(
         raise typer.Exit(code=1)
 
 
-ParamsOrder = ["32b", "14b", "8b", "4b"]
-QuantRows   = ["q8", "q4"]  # extend to include "q2" if you have it
+# ParamsOrder = ["32b", "14b", "8b", "4b"]
+# QuantRows   = ["q8", "q4"] 
 
 def _bench_coerce(df: pd.DataFrame, value_col: str) -> pd.DataFrame:
     need = {"params", "quant", value_col}

@@ -1,8 +1,10 @@
-use std::{fs::File, io::{BufWriter, Write}, path::Path};
-use cerebro_model::api::{cerebro::schema::TestResult, training::model::TrainingResultRecord};
+use std::{ffi::OsStr, fs::File, io::{BufWriter, Write}, path::Path};
+use cerebro_model::api::{cerebro::{model::Cerebro, schema::TestResult}, training::model::TrainingResultRecord};
+use csv::{Writer, WriterBuilder};
 use env_logger::Builder;
 use env_logger::fmt::Color;
 use log::{LevelFilter, Level};
+use niffler::get_writer;
 use serde::{Deserialize, Serialize};
 
 use crate::error::HttpClientError;
@@ -101,4 +103,107 @@ impl DiagnosticResult {
             candidates
         }
     }
+}
+
+
+pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>>, HttpClientError> {
+    
+    let buf_writer = BufWriter::new(File::create(&file)?);
+
+    let writer = get_writer(
+        Box::new(buf_writer), 
+        niffler::Format::from_path(file), 
+        niffler::compression::Level::Six
+    )?;
+
+    let csv_writer = WriterBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(header)
+        .from_writer(writer);
+
+    Ok(csv_writer)
+}
+
+pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Result<(), HttpClientError> {
+
+    let mut writer = get_tsv_writer(file, header)?;
+
+    for value in data {
+        // Serialize each value in the vector into the writer
+        writer.serialize(&value)?;
+    }
+
+    // Flush and complete writing
+    writer.flush()?;
+    
+    Ok(())
+}
+
+
+pub trait CompressionExt {
+    fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
+}
+
+/// Attempts to infer the compression type from the file extension.
+/// If the extension is not known, then Uncompressed is returned.
+impl CompressionExt for niffler::compression::Format {
+    fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self {
+        let path = Path::new(p);
+        match path.extension().map(|s| s.to_str()) {
+            Some(Some("gz")) => Self::Gzip,
+            Some(Some("bz") | Some("bz2")) => Self::Bzip,
+            Some(Some("lzma")) => Self::Lzma,
+            _ => Self::No,
+        }
+    }
+}
+
+
+#[derive(Serialize)]
+struct SummaryRow {
+    cerebro_id: String,
+    cerebro_name: String,
+    sample_id: String,
+    sample_tags: String,
+    sample_group: Option<String>,
+    sample_type: Option<String>,
+    sample_date: Option<String>,
+
+    workflow_id: String,
+    workflow_name: String,
+    workflow_pipeline: String,
+    workflow_version: String,
+
+    run_id: String,
+    run_date: String,
+}
+
+impl From<&Cerebro> for SummaryRow {
+    fn from(c: &Cerebro) -> Self {
+
+        SummaryRow {
+            cerebro_id: c.id.to_string(),
+            cerebro_name: c.name.clone(),
+
+            sample_id: c.sample.id.to_string(),
+            sample_tags: c.sample.tags.iter().map(String::from).collect::<Vec<_>>().join("-"),
+            sample_group: c.sample.sample_group.clone(),
+            sample_type: c.sample.sample_type.clone(),
+            sample_date: c.sample.sample_date.clone(),
+
+            workflow_id: c.workflow.id.to_string(),
+            workflow_name: c.workflow.name.clone(),
+            workflow_pipeline: c.workflow.pipeline.clone(),
+            workflow_version: c.workflow.version.clone(),
+
+            run_id: c.run.id.to_string(),
+            run_date: c.run.date.clone(),
+        }
+    }
+}
+
+/// Build and write the TSV summary for a list of models.
+pub fn write_models_summary(models: &[Cerebro], outfile: &Path) -> Result<(), HttpClientError> {
+    let rows: Vec<SummaryRow> = models.iter().map(SummaryRow::from).collect();
+    write_tsv(&rows, outfile, true)
 }

@@ -100,6 +100,8 @@ pub enum Commands {
     CreatePlate(CreatePlateArgs),
     /// Write the plate to a tab-delimited table 
     WritePlateTable(WriteTableArgs),
+    /// Add data to existing prefetch files (clinical)
+    ModifyPlate(ModifyPlateArgs),
     /// Plot the tiered prefetch taxa composition
     PlotPrefetch(PlotPrefetchArgs),
     /// Upload a CI/QA dataset to Cerebro Fs and index/stage for pipeline
@@ -114,6 +116,8 @@ pub enum Commands {
     PlotReview(PlotReviewArgs),    
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
+    /// Summarize Predictions across replicates
+    PredictionSummary(PredictionSummaryArgs),
     /// Compute GPU VRAM and runtime summaries from state_logs
     ComputeSummary(ComputeSummaryArgs),
     /// Review diagnostic outcome of a review table against the reference data
@@ -149,6 +153,26 @@ pub struct CreatePlateArgs {
 
 
 #[derive(Debug, Args)]
+pub struct ModifyPlateArgs {
+    /// Reference plate file review (.json)
+    #[clap(long, short = 'p')]
+    pub plate_review: Option<PathBuf>,
+    /// Reference plate file review (.json)
+    #[clap(long, short = 'p')]
+    pub plate_json: Option<PathBuf>,
+    /// Data to be added (.tsv) with columns 'id' (matches config.sample_id) and 'clinical' (to overwrite config.clinical)
+    #[clap(long, short = 'd')]
+    pub data: PathBuf,
+    /// Data file is comma-delimited (.csv)
+    #[clap(long, short = 'd')]
+    pub csv: bool,
+    /// Output modified prefetch files into this directory
+    #[clap(long, short = 'o')]
+    pub output: PathBuf,
+}
+
+
+#[derive(Debug, Args)]
 pub struct ComputeSummaryArgs {
     /// Input directories named like: qwen3-14b-q8-0_clinical_tiered_*_{rep}
     #[clap(long, short = 'i', num_args=1..)]
@@ -159,6 +183,20 @@ pub struct ComputeSummaryArgs {
     /// Output TSV for runtime seconds
     #[clap(long, short = 's', default_value="runtime_seconds.tsv")]
     pub out_seconds: PathBuf,
+}
+
+
+#[derive(Debug, Args)]
+pub struct PredictionSummaryArgs {
+    /// Replicate input directories with {sample_id}.*.json prediction files
+    #[clap(long, short = 'i', num_args=1..)]
+    pub input_dirs: Vec<PathBuf>,
+    /// Output table file for summary of diagnoses (infectious vs non-infectious) (.tsv)
+    #[clap(long, short = 'd')]
+    pub diagnoses: PathBuf,
+    /// Output table file for summary of pathogen candidates (infectious) (.tsv)
+    #[clap(long, short = 'p')]
+    pub pathogens: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -451,7 +489,7 @@ pub struct ReviewArgs {
     /// Reference plate schema (.json)
     #[clap(long, short = 'p')]
     pub plate: PathBuf,
-    /// Plate review files (.tsv) or `meta-gpt` output directories with diagnostic result files if `--diagnostic_agent` flag enabled
+    /// Plate review files (.tsv) or `meta-gpt` output directories with diagnostic result files if `--diagnostic-agent` flag enabled
     #[clap(long, short = 'r', num_args=1..)]
     pub review: Vec<PathBuf>,
     /// Output data (.json) from the reviews 
@@ -509,6 +547,9 @@ pub struct PrefetchArgs {
     /// Prevalence contamination config (.json) otherwise default
     #[clap(long)]
     pub contamination: Option<PathBuf>,
+    /// Prevalence contamination minimum RPM threshold for regression
+    #[clap(long)]
+    pub contamination_min_rpm: Option<f64>,
     /// Tiered filter config (.json) otherwise default
     #[clap(long)]
     pub tiered_filter: Option<PathBuf>,

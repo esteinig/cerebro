@@ -6,3 +6,4 @@ pub mod stats;
 pub mod plots;
 pub mod tui;
 pub mod prefetch;
+pub mod tables;

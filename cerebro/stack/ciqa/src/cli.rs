@@ -11,11 +11,11 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
 use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, parse_dir_components, plot_plate, plot_qc_summary_matrix, plot_stripplot, write_tsv_seconds, write_tsv_vram, DiagnosticData, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SecondsRow, VramRow}, plots::draw_radar_chart, prefetch::{counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{DiagnosticData, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SecondsRow, VramRow, aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, parse_dir_components, plot_plate, plot_qc_summary_matrix, plot_stripplot, write_tsv_seconds, write_tsv_vram}, plots::draw_radar_chart, prefetch::{MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus, counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, terminal::{App, Commands}, utils::{init_logger, read_csv, read_tsv, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
 use cerebro_ciqa::tui::start_tui;
@@ -206,10 +206,14 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             };
 
         },
+        Commands::PredictionSummary(args) => {
+
+                
+        }
         Commands::DiagnosticSummary(args) => {
         
         
-            // 1) Build unique parent-dir list (order-preserving) and map to user labels
+            // Build unique parent-dir list (order-preserving) and map to user labels
             let mut seen = HashSet::<String>::new();
             let mut parents_ordered = Vec::<String>::new();
             for p in &args.diagnostics {
@@ -222,7 +226,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 }
             }
         
-            // args.labels: Option<Vec<String>>
             let mut parent_to_label: HashMap<String, Option<String>> = HashMap::new();
             match &args.labels {
                 Some(v) => {
@@ -261,7 +264,6 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 }
                                 None => "think".to_string(),
                             };
-        
                             (
                                 caps.get(1).unwrap().as_str().to_string(),
                                 caps.get(2).unwrap().as_str().to_string(),
@@ -270,8 +272,13 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             )
                         }
                         None => {
-                            log::warn!("Skipping file with unrecognized name: {}", filename);
-                            continue;
+                            log::warn!("No parameters, quantizations or clinical tags found in file name");
+                            (
+                                String::from("no-params"),
+                                String::from("no-quant"),
+                                Some(String::from("noclinical")),
+                                None,
+                            )
                         }
                     }
                 } else {
@@ -282,8 +289,12 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             Some(caps.get(3).unwrap().as_str().to_string()),
                         ),
                         None => {
-                            log::warn!("Skipping file with unrecognized name: {}", filename);
-                            continue;
+                            log::warn!("No parameters, quantizations or clinical tags found in file name");
+                            (
+                                String::from("no-params"),
+                                String::from("no-quant"),
+                                Some(String::from("noclinical")),
+                            )
                         }
                     };
                     (params, quant, clinical, None)
@@ -315,7 +326,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 quant: quant.clone(),
                                 clinical: clinical.clone(),
                                 reasoning: reasoning.clone(),
-                                label: label_for_parent.clone(),   // NEW
+                                label: label_for_parent.clone(), 
                                 group: group.to_string(),
                                 metric: metric.to_string(),
                                 value: match metric {
@@ -336,7 +347,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             if replicate_summaries.is_empty() {
                 log::warn!("No summaries generated.");
             } else {
-                // 2) Dynamic TSV: omit columns where all Option<T> are None
+                // Dynamic TSV: omit columns where all Option<T> are None
                 write_tsv_dynamic(&replicate_summaries, &args.replicates)?;
                 log::info!("Wrote summary to {}", args.replicates.display());
             }
@@ -396,6 +407,10 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 contam_config.outliers.primary = false;
                 contam_config.outliers.secondary = false;
                 contam_config.outliers.target = false;
+            }
+
+            if let Some(val) = args.contamination_min_rpm {
+                contam_config.min_rpm = val;
             }
 
             let prevalence_contamination = if args.disable_filter || args.disable_prevalence_control {
@@ -866,6 +881,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                             .map(|s| match s.sample_type {
                                 SampleType::Csf => SampleContext::Csf,
                                 SampleType::Eye => SampleContext::Eye,
+                                SampleType::Tis => SampleContext::Tissue,
                                 _               => SampleContext::None,
                             })
                             .unwrap_or(SampleContext::None);
@@ -1140,6 +1156,54 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             write_tsv_seconds(&sec_rows, &args.out_seconds)?;
             log::info!("Wrote VRAM → {}", args.out_vram.display());
             log::info!("Wrote seconds → {}", args.out_seconds.display());
+        }
+        Commands::ModifyPlate( args ) => {
+            
+            #[derive(Deserialize)]
+            struct PrefetchRecord {
+                sample_id: String,
+                clinical: Option<String>
+            }
+
+            let records: Vec<PrefetchRecord> = if args.csv {
+                read_csv(&args.data, false, true)?
+            } else {
+                read_tsv(&args.data, false, true)?
+            };
+            
+            let mut plate = match (args.plate_review, args.plate_json) {
+                (Some(path), None) => ReferencePlate::from_review(
+                    &path, 
+                    None,
+                    MissingOrthogonal::Indeterminate,
+                    false
+                )?,
+                (None, Some(path)) => ReferencePlate::from_json(path)?,
+                (Some(_), Some(_)) => {
+                    log::error!("Two input options provided");
+                    exit(1);
+                },
+                (None, None) => {
+                    log::error!("No input options provided");
+                    exit(1)
+                }
+            };
+
+            for reference in &mut plate.reference {
+                
+
+                let record = records.iter().find(|r| r.sample_id == reference.sample_id);
+
+                if let Some(record) = record {
+                    reference.clinical = record.clinical.clone();
+                    log::info!("Added clinical information to sample: {}", reference.sample_id);
+                } else {
+                    log::warn!("Could not find sample identifier '{}' on the reference plate!", reference.sample_id)
+                }
+            }          
+
+            plate.to_json(args.output)?;
+
         }
         Commands::Tui( args ) => {
 

@@ -880,7 +880,7 @@ process BlastContigsBitscoreStream {
 process ProcessOutputIllumina {
     
     tag { sampleID }
-    label "cerebro"
+    label "cerebroPipeline"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"

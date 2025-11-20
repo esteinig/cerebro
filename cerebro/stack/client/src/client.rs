@@ -85,6 +85,7 @@ use crate::regression::RpmAnalysisResult;
 use crate::regression::RpmAnalyzer;
 use crate::regression::RpmConfigBuilder;
 use crate::utils::DiagnosticResult;
+use crate::utils::write_models_summary;
 use std::fmt;
 
 
@@ -1388,7 +1389,8 @@ impl CerebroClient {
 
     pub fn download_models(
         &self,
-        outdir: &PathBuf
+        outdir: &PathBuf,
+        summary_table: Option<PathBuf>
     ) -> Result<(), HttpClientError> {
 
         self.log_team_warning();
@@ -1410,13 +1412,17 @@ impl CerebroClient {
         if model_response.data.is_empty() {
             log::warn!("No models found for this query")
         } else {
-            for model in model_response.data {
+            for model in &model_response.data {
                 log::info!("Writing model to file: {}.json", model.name);
                 model.write_json(
                     &outdir.join(
                         format!("{}.json", model.name)
                     )
                 )?
+            }
+
+            if let Some(path) = summary_table {
+                write_models_summary(&model_response.data, &path)?;
             }
         }
 
@@ -1616,8 +1622,9 @@ impl CerebroClient {
         )?;
 
         if let Some(data) = training_response.data {
+            println!("collection\tname\tuuid\tuuid_short");
             for training_prefetch in data  {
-                log::info!("collection={} description='{}' name={} ", training_prefetch.collection, training_prefetch.description, training_prefetch.name);
+                println!("{}\t{}\t{}\t{}", training_prefetch.collection, training_prefetch.name, training_prefetch.id, training_prefetch.id.chars().take(8).collect_vec().iter().join(""));
             }
         }
 

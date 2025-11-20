@@ -16,6 +16,10 @@ Custom error definitions
 pub enum HttpClientError {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    #[error(transparent)]
+    CsvError(#[from] csv::Error),
+    #[error(transparent)]
+    NifflerError(#[from] niffler::Error),
     /// Represents failure to get password input from prompt
     #[error("failed to obtain password from prompt")]
     PasswordInput,

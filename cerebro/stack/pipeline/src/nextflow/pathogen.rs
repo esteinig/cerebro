@@ -261,7 +261,7 @@ impl MetabuliReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)? }    
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? }    
         })
     }
 }

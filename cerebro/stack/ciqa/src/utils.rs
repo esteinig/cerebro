@@ -160,6 +160,21 @@ pub fn get_tsv_reader(file: &Path, flexible: bool, header: bool) -> Result<Reade
     Ok(tsv_reader)
 }
 
+
+pub fn get_csv_reader(file: &Path, flexible: bool, header: bool) -> Result<Reader<Box<dyn Read>>, CiqaError> {
+
+    let buf_reader = BufReader::new(File::open(&file)?);
+    let (reader, _format) = get_reader(Box::new(buf_reader))?;
+
+    let csv_reader = ReaderBuilder::new()
+        .delimiter(b',')
+        .has_headers(header)
+        .flexible(flexible) // Allows records with a different number of fields
+        .from_reader(reader);
+
+    Ok(csv_reader)
+}
+
 pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>>, CiqaError> {
     
     let buf_writer = BufWriter::new(File::create(&file)?);
@@ -200,3 +215,15 @@ pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header
     Ok(records)
 }
 
+
+pub fn read_csv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header: bool) -> Result<Vec<T>, CiqaError> {
+
+    let mut reader = get_csv_reader(file, flexible, header)?;
+
+    let mut records = Vec::new();
+    for record in reader.deserialize() {
+        records.push(record?)
+    }
+
+    Ok(records)
+}

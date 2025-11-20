@@ -1,7 +1,7 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult}};
+use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult}, training::model::normalize_candidate};
 use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}};
 use regex::Regex;
 use statrs::distribution::{ContinuousCDF, StudentsT};
@@ -289,7 +289,6 @@ impl SampleReview {
         let mut stem_parts = stem.split('.');
 
         let sample_id = stem_parts.next().ok_or(CiqaError::SampleIdentifierNotFound)?;
-        let gpt_model = stem_parts.next().ok_or(CiqaError::ModelNameNotFound)?;
         
         let test_result =  if diagnostic_result.diagnosis == Diagnosis::Infectious || diagnostic_result.diagnosis == Diagnosis::InfectiousReview {
             Some(TestResult::Positive)
@@ -324,7 +323,7 @@ impl SampleReview {
             sample_id: sample_id.to_string(),
             result: test_result,
             pathogen: pathogen_str,
-            note: Some(format!("MetaGPT model: {gpt_model}"))
+            note: None
         })
     }
 }
@@ -1459,6 +1458,41 @@ pub fn aggregate_reference_plates(plates: Vec<ReferencePlate>) -> ReferencePlate
     }
 }
 
+/// Clean a pathogen species string of the form "s__{genus} {species}",
+/// stripping any trailing underscore-suffixed parts from genus/species.
+///
+/// Examples:
+/// - "s__Staphylococcus_A aureus_B"   -> "s__Staphylococcus aureus"
+/// - "s__Staphylococcus aureus_CFD"   -> "s__Staphylococcus aureus"
+/// - "s__Staphylococcus aureus"       -> "s__Staphylococcus aureus"
+pub fn clean_pathogen_name(input: &str) -> String {
+    const PREFIX: &str = "s__";
+
+    // If it doesn't start with the expected prefix, just return it unchanged.
+    if !input.starts_with(PREFIX) {
+        return input.to_string();
+    }
+
+    // Remove the prefix and split the rest into "genus" and "species".
+    let rest = &input[PREFIX.len()..];
+    let mut parts = rest.split_whitespace();
+
+    let raw_genus = match parts.next() {
+        Some(g) => g,
+        None => return input.to_string(), // malformed, give up
+    };
+
+    let raw_species = match parts.next() {
+        Some(s) => s,
+        None => return input.to_string(), // malformed, give up
+    };
+
+    let genus = raw_genus.split('_').next().unwrap_or(raw_genus);
+    let species = raw_species.split('_').next().unwrap_or(raw_species);
+
+    format!("{PREFIX}{genus} {species}")
+}
+
 /// Compare a single SampleReference and SampleReview and return a diagnostic outcome.
 fn compare_sample_review(reference: &SampleReference, review: &SampleReview, missing_orthogonal: MissingOrthogonal) -> DiagnosticOutcome {
 
@@ -1484,6 +1518,11 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
 
             // For a positive review, we use the pathogen for comparison.
             if let Some(ref pathogen) = review.pathogen {
+
+
+                // Added here for manual clinian review through the application (diagnostic output)
+                let pathogen = clean_pathogen_name(&pathogen);
+
 
                 // Positive review but no orthogonal tests conducted against which to assess <====== how should we handle these cases?
                 if reference.orthogonal.is_empty() {
@@ -1511,7 +1550,7 @@ fn compare_sample_review(reference: &SampleReference, review: &SampleReview, mis
 
                         if test.result == TestResult::Positive {
 
-                            if test.taxa.iter().any(|t| t == pathogen) {
+                            if test.taxa.iter().any(|t| *t == pathogen) {
                                 return DiagnosticOutcome::TruePositive;
                             } else {
                                 // No exact match to pathogen species if the reference is genus dereference the pathogen species to pathogen genus for evaluation

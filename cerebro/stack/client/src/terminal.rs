@@ -344,7 +344,10 @@ pub struct DeleteModelsArgs {
 pub struct DownloadModelsArgs {
     /// Output directory for models in the specified collection (.json)
     #[clap(long, short = 'o')]
-    pub outdir: PathBuf
+    pub outdir: PathBuf,
+    /// Output summary table with model information (.tsv)
+    #[clap(long, short = 's')]
+    pub summary_table: Option<PathBuf>
 }
 
 #[derive(Debug, Args)]

@@ -23,7 +23,7 @@ setup(
         [console_scripts]
         cerebro-utils=utils.terminal:app
     """,
-    version="0.7.0",
+    version="0.12.0",
     license="MIT",
     description="Python utilities for plotting Cerebro experiment results",
 )

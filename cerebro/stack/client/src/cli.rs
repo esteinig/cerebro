@@ -12,7 +12,7 @@ use cerebro_pipeline::modules::pathogen::PathogenDetection;
 use cerebro_pipeline::modules::quality::QualityControl;
 use clap::Parser;
 
-use cerebro_client::utils::init_logger;
+use cerebro_client::utils::{init_logger, write_models_summary};
 use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, TrainingCommands, WatcherCommands};
 
@@ -216,7 +216,12 @@ fn main() -> anyhow::Result<()> {
         Commands::DownloadModels( args ) => {
 
             create_dir_all(&args.outdir)?;
-            client.download_models(&args.outdir)?;
+
+            client.download_models(
+                &args.outdir, 
+                args.summary_table.clone()
+            )?;
+            
         }
 
         Commands::UpdateModels( args ) => {
@@ -224,6 +229,7 @@ fn main() -> anyhow::Result<()> {
             client.update_models(
                 args.run_tsv.clone()
             )?;
+
         }
         Commands::DeleteModels( args ) => {
             
