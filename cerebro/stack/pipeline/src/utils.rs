@@ -320,6 +320,7 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     let mut csv_reader = ReaderBuilder::new()
         .has_headers(header)
         .flexible(flexible)
+        .delimiter(b'\t')
         .from_reader(Cursor::new(filtered_content));
 
     // Iterate over records
