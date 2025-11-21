@@ -117,7 +117,7 @@
       <div class="text-xl opacity-70">
         Sample {trainingIndex + 1} / {trainingSlides} • 
         <span class="ml-1 chip variant-filled-primary">{getSampleTypeName(trainingData.prefetch.config.sample_type)}</span>
-        <span class="ml-1">• {getUuidShort(trainingData.id)}</span>
+        <span class="ml-1">• {trainingData.prefetch.config.sample}</span>
       </div>
 
   

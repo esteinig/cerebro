@@ -257,6 +257,9 @@ pub struct WriteTableArgs {
     /// Include only positive taxa if test included detection at species rank
     #[clap(long, short = 's')]
     pub species_rank: bool,
+    /// Output clinical notes instead of taxa
+    #[clap(long, short = 's')]
+    pub clinical: bool,
 }
 
 

@@ -1,3 +1,4 @@
+use csv::WriterBuilder;
 use meta_gpt::gpt::{Diagnosis, DiagnosticResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, BTreeMap};
@@ -127,7 +128,37 @@ fn consensus_pathogen(
     }
 }
 
+fn consensus_pathogen_support_pct(
+    diagnoses: &HashMap<String, Option<Diagnosis>>,
+    pathogens: &HashMap<String, Option<String>>,
+    consensus: &Option<String>,
+) -> f64 {
+    use std::collections::HashMap as Map;
 
+    if consensus.is_none() {
+        return 0.0;
+    }
+    let consensus_path = consensus.as_ref().unwrap();
+
+    let mut pathogen_counts: Map<String, usize> = Map::new();
+    let mut total_count = 0usize;
+
+    for (rep_label, diag_opt) in diagnoses {
+        if let Some(Diagnosis::Infectious) = diag_opt {
+            if let Some(Some(path)) = pathogens.get(rep_label) {
+                *pathogen_counts.entry(path.clone()).or_insert(0) += 1;
+                total_count += 1;
+            }
+        }
+    }
+
+    if total_count == 0 {
+        return 0.0;
+    }
+
+    let num = *pathogen_counts.get(consensus_path).unwrap_or(&0);
+    (num as f64) * 100.0 / (total_count as f64)
+}
 
 pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()> {
 
@@ -140,6 +171,7 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
         replicate_labels.push(label);
         replicate_dirs.push(dir.to_path_buf());
     }
+    replicate_labels.sort_by_key(|lbl| lbl.parse::<u64>().unwrap_or(u64::MAX));
 
     // Aggregate all DiagnosticResult per {sample_id} across replicates
     let mut samples: HashMap<String, SampleAggregate> = HashMap::new();
@@ -169,61 +201,125 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
 
             // Diagnosis is always present in DiagnosticResult.
             agg.diagnoses.insert(rep_label.clone(), Some(result.diagnosis));
+
             // Pathogen is Option<String>.
             agg.pathogens.insert(rep_label.clone(), result.pathogen);
         }
     }
 
-    // Build diagnosis rows
-    let mut diagnosis_rows: Vec<DiagnosisRow> = Vec::new();
-    let mut pathogen_rows: Vec<PathogenRow> = Vec::new();
-
     // Sort sample_ids for deterministic output
     let mut sample_ids: Vec<String> = samples.keys().cloned().collect();
     sample_ids.sort();
 
+    // diagnoses.tsv
+
+    let mut diag_writer = WriterBuilder::new()
+        .delimiter(b'\t')
+        .from_path(&args.diagnoses)?;
+
+
+
+    // Header: sample_id, one column per replicate, consensus, consensus_certainty
+    let mut diag_header: Vec<String> = Vec::new();
+    diag_header.push("sample_id".to_string());
+    for rep_label in &replicate_labels {
+        diag_header.push(rep_label.clone()); 
+    }
+    diag_header.push("consensus".to_string());
+    diag_header.push("consensus_certainty".to_string()); 
+    diag_writer.write_record(&diag_header)?;
+
+    // pathogens.tsv
+
+    let mut path_writer = WriterBuilder::new()
+        .delimiter(b'\t')
+        .from_path(&args.pathogens)?;
+
+    let mut path_header: Vec<String> = Vec::new();
+    path_header.push("sample_id".to_string());
+    for rep_label in &replicate_labels {
+        path_header.push(rep_label.clone()); // or format!("pathogen_{}", rep_label)
+    }
+    path_header.push("consensus".to_string());
+    path_header.push("consensus_certainty".to_string());
+    path_writer.write_record(&path_header)?;
+
+    // rows
+
     for sample_id in sample_ids {
         let agg = samples.get(&sample_id).expect("sample must exist");
 
-        // Build per-replicate columns for diagnoses
-        let mut diag_map: BTreeMap<String, Option<Diagnosis>> = BTreeMap::new();
+        // Build diagnosis row
+        let mut diag_values: Vec<Option<Diagnosis>> = Vec::new();
         for rep_label in &replicate_labels {
             let value = agg.diagnoses.get(rep_label).cloned().unwrap_or(None);
-            diag_map.insert(rep_label.clone(), value);
+            diag_values.push(value);
         }
+        let diag_consensus = consensus_diagnosis(diag_values.clone());
 
-        let mut diag = Vec::new();
-        for i in diag_map.iter() {
-            diag.push(i.1.clone())
+        // Compute support percentage for consensus (0–100)
+        let (mut positive_count, mut negative_count) = (0usize, 0usize);
+        for d_opt in &diag_values {
+            if let Some(d) = d_opt {
+                match d {
+                    Diagnosis::Infectious => positive_count += 1,
+                    Diagnosis::NonInfectious => negative_count += 1,
+                    _ => {}
+                }
+            }
         }
+        let denom = positive_count + negative_count;
+        let diag_support_pct = if let Some(ref cons) = diag_consensus {
+            if denom == 0 {
+                0.0
+            } else {
+                let num = match cons {
+                    Diagnosis::Infectious => positive_count,
+                    Diagnosis::NonInfectious => negative_count,
+                    _ => 0,
+                };
+                (num as f64) * 100.0 / (denom as f64)
+            }
+        } else {
+            0.0
+        };
 
-        let diag_consensus = consensus_diagnosis(diag);
+        let mut diag_row: Vec<String> = Vec::new();
+        diag_row.push(sample_id.clone());
+        for v in diag_values {
+            diag_row.push(
+                v.map(|d| serde_json::to_string(&d).unwrap().trim_matches('"').to_string())
+                    .unwrap_or_default(),
+            );
+        }
+        diag_row.push(
+            diag_consensus
+                .map(|d| serde_json::to_string(&d).unwrap().trim_matches('"').to_string())
+                .unwrap_or_default(),
+        );
+        diag_row.push(format!("{:.2}", diag_support_pct)); 
+        
+        diag_writer.write_record(&diag_row)?;
 
-        diagnosis_rows.push(DiagnosisRow {
-            sample_id: sample_id.clone(),
-            replicates: diag_map,
-            consensus: diag_consensus,
-        });
-
-        // Build per-replicate columns for pathogens
-        let mut path_map: BTreeMap<String, Option<String>> = BTreeMap::new();
+        // Build pathogen row
+        let mut path_row: Vec<String> = Vec::new();
+        path_row.push(sample_id.clone());
         for rep_label in &replicate_labels {
             let value = agg.pathogens.get(rep_label).cloned().unwrap_or(None);
-            path_map.insert(rep_label.clone(), value);
+            path_row.push(value.unwrap_or_default());
         }
 
         let pathogen_consensus = consensus_pathogen(&agg.diagnoses, &agg.pathogens);
+        let pathogen_support_pct =  consensus_pathogen_support_pct(&agg.diagnoses, &agg.pathogens, &pathogen_consensus);
 
-        pathogen_rows.push(PathogenRow {
-            sample_id,
-            replicates: path_map,
-            consensus: pathogen_consensus,
-        });
+        path_row.push(pathogen_consensus.unwrap_or_default());
+        path_row.push(format!("{:.2}", pathogen_support_pct));
+
+        path_writer.write_record(&path_row)?;
     }
 
-    // Write TSVs using your existing helper
-    write_tsv(&diagnosis_rows, &args.diagnoses, true)?;
-    write_tsv(&pathogen_rows, &args.pathogens, true)?;
+    diag_writer.flush()?;
+    path_writer.flush()?;
 
     Ok(())
 }

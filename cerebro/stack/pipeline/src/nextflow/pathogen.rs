@@ -8,7 +8,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{is_file_empty, read_tsv};
+use crate::utils::{is_file_empty, read_tsv, read_tsv_skip};
 use crate::error::WorkflowError;
 use crate::utils::{get_file_by_name, get_file_component, FileComponent};
 use super::mag::{BlastTaxidMethod, MetagenomeAssemblyFiles, MetagenomeAssemblyOutput};
@@ -261,7 +261,7 @@ impl MetabuliReport {
         Ok(Self { 
             id: id.to_string(), 
             path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? }    
+            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv_skip(path, false, false, '#')? }    
         })
     }
 }

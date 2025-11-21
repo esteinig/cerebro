@@ -1303,6 +1303,11 @@ impl ReferencePlate {
         let rows = reference_plate_to_tsv_rows(&self, species_rank);
         write_tsv(&rows, output, true)
     }
+
+    pub fn write_clinical_tsv(&self, output: &Path) -> Result<(), CiqaError> {
+        let rows = reference_plate_to_clinical_tsv_rows(&self);
+        write_tsv(&rows, output, true)
+    }
 }
 
 
@@ -1320,6 +1325,24 @@ struct PlateTsvRow {
     domain: Option<OrganismDomain>,
     /// organisms any of the orthogonal tested for 
     tested: String
+}
+
+
+#[derive(Serialize)]
+struct PlateClinicalTsvRow {
+    /// sample identifier
+    sample_id: String,
+    /// sample type
+    sample_type: SampleType,
+    /// clinical notes
+    clinical: Option<String>
+}
+
+fn reference_plate_to_clinical_tsv_rows(plate: &ReferencePlate) -> Vec<PlateClinicalTsvRow> {
+
+    plate.reference.iter().map(|r| {
+        PlateClinicalTsvRow { sample_id: r.sample_id.clone(), sample_type: r.sample_type.clone(), clinical: r.clinical.clone() }
+    }).collect()
 }
 
 // Build the TSV rows from a ReferencePlate
