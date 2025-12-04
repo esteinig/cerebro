@@ -87,7 +87,8 @@ workflow PathogenDetection {
             CreateCerebroModel(
                 ProcessOutputIllumina.out.models,
                 taxonomicProfileDatabases.taxonomy,
-                PipelineConfig.out.config
+                PipelineConfig.out.config,
+                productionConfig.runName
             )
 
             UploadCerebroModel(

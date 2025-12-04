@@ -959,7 +959,7 @@ process CreateCerebroModel {
     tuple val(sampleID), path(qualityControlJson), path(pathogenDetectionJson)
     path(taxonomy)
     path(pipelineConfig)
-    
+    val(runName)
 
     output:
     path("${sampleID}.json"), emit: results
@@ -967,7 +967,7 @@ process CreateCerebroModel {
     script:
 
     """
-    cerebro-client --token NOT-USED create-pathogen -o ${sampleId}.json --quality $qualityControlJson --pathogen $pathogenDetectionJson --taxonomy $taxonomy --pipeline-config $pipelineConfig --run-id $params.runName
+    cerebro-client --token NOT-USED create-pathogen -o ${sampleId}.json --quality $qualityControlJson --pathogen $pathogenDetectionJson --taxonomy $taxonomy --pipeline-config $pipelineConfig --run-id $runName
     """  
 }
 
