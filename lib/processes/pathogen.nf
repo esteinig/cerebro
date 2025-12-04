@@ -966,7 +966,7 @@ process CreateCerebroModel {
     script:
 
     """
-    cerebro-client --token NOT-USED create-pathogen -o ${sampleId}.json --quality $qualityControlJson --pathogen $pathogenDetectionJson --taxonomy $taxonomy --pipeline-config $pipelineConfig --run-id $runName
+    cerebro-client --token NOT-USED create-pathogen -o ${sampleID}.json --quality $qualityControlJson --pathogen $pathogenDetectionJson --taxonomy $taxonomy --pipeline-config $pipelineConfig --run-id $runName
     """  
 }
 
