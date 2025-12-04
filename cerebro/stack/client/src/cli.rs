@@ -106,12 +106,16 @@ fn main() -> anyhow::Result<()> {
         // Process and upload sample model to database
         Commands::CreatePathogen( args ) => {
 
+            log::info!("Reading pipeline module output");
+
             let quality = QualityControl::from_json(&args.quality)?;
             let pathogen = PathogenDetection::from_json(&args.pathogen)?;
 
             if quality.id != pathogen.id {
                 return Err(HttpClientError::PathogenIdentifiersNotMatched(quality.id, pathogen.id).into())
             }
+
+            log::info!("Creating Cerebro model");
 
             let cerebro = Cerebro::from(
                 &quality.id,

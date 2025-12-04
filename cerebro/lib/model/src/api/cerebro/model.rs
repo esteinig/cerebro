@@ -143,47 +143,47 @@ impl Cerebro {
         run_date: Option<String>,
     ) -> Result<Self, ModelError> {
             
-
-            let (run_config, sample_config) = match sample_sheet {
-                Some(path) => {
-                    let sample_sheet = SampleSheet::from(&path)?;
-                    (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
-                },
-                None => (
-                    RunConfig::new(
-                    &match run_id { 
-                            Some(id) => id, 
-                            None => String::from("Placeholder") 
-                        },
-                        &match run_date {
-                            Some(date) => date,
-                            None => Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
-                        }
-                    )?, 
-                    SampleConfig::with_default(&id)?
-                )
-            };
-
-            log::info!("Reading workflow config");
-            let workflow_config = match workflow_config {
-                Some(path) => WorkflowConfig::from(&path)?,
-                None => WorkflowConfig::default(),
-            };
-
-            Ok(
-                Cerebro {
-                    schema_version: format!("{}", SCHEMA_VERSION),
-                    id: uuid::Uuid::new_v4().to_string(),
-                    name: id.to_owned(),
-                    fs: None,
-                    run: run_config, 
-                    sample: sample_config, 
-                    workflow: workflow_config,
-                    taxa: taxa.to_owned(),
-                    tax_labels: unique_taxonomic_labels(taxa),
-                    quality: quality.to_owned(),
-                }
+        log::info!("Adding run and sample configs");
+        let (run_config, sample_config) = match sample_sheet {
+            Some(path) => {
+                let sample_sheet = SampleSheet::from(&path)?;
+                (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
+            },
+            None => (
+                RunConfig::new(
+                &match run_id { 
+                        Some(id) => id, 
+                        None => String::from("Placeholder") 
+                    },
+                    &match run_date {
+                        Some(date) => date,
+                        None => Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
+                    }
+                )?, 
+                SampleConfig::with_default(&id)?
             )
+        };
+
+        log::info!("Reading workflow config");
+        let workflow_config = match workflow_config {
+            Some(path) => WorkflowConfig::from(&path)?,
+            None => WorkflowConfig::default(),
+        };
+
+        Ok(
+            Cerebro {
+                schema_version: format!("{}", SCHEMA_VERSION),
+                id: uuid::Uuid::new_v4().to_string(),
+                name: id.to_owned(),
+                fs: None,
+                run: run_config, 
+                sample: sample_config, 
+                workflow: workflow_config,
+                taxa: taxa.to_owned(),
+                tax_labels: unique_taxonomic_labels(taxa),
+                quality: quality.to_owned(),
+            }
+        )
     }
     pub fn size(&self) -> Result<usize, ModelError> {
         match serde_json::to_vec(self) {
