@@ -143,7 +143,7 @@ impl Cerebro {
         run_date: Option<String>,
     ) -> Result<Self, ModelError> {
             
-        log::info!("Adding run and sample configs: {id}");
+        log::info!("Creating run and sample configs: {id}");
         let (run_config, sample_config) = match sample_sheet {
             Some(path) => {
                 let sample_sheet = SampleSheet::from(&path)?;
@@ -369,8 +369,6 @@ impl SampleConfig {
     pub fn with_default(id: &str) -> Result<Self, ModelError> {
 
         let (mut sample_id, tags) = get_sample_regex_matches(id)?;
-
-        log::info!("Regex parsed for id: {id}");
 
         if sample_id.is_empty() {
             sample_id = id.to_string()

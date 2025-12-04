@@ -983,6 +983,6 @@ process UploadCerebroModel {
     script:
 
     """
-    cerebro-client --token $apiToken --url $apiUrl --team $team --database $database --project $project upload-models --models *.json
+    cerebro-client --token $apiToken --url $apiUrl --team $team --db $database --project $project upload-models --models *.json
     """
 }
