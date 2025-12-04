@@ -32,7 +32,7 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Commands::Login( args ) => {
-            api_client.login_user(&args.email, args.password.clone())?
+            api_client.login_user(&args.email, args.password.clone(), false)?
         },
         Commands::Ping(_) => {
             fs_client.ping_status()?;

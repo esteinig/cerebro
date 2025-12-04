@@ -377,7 +377,7 @@ impl CerebroClient {
         Ok(())
     }
     // Login user and save tokens
-    pub fn login_user(&self, email: &str, password: Option<String>) -> Result<(), HttpClientError> {
+    pub fn login_user(&self, email: &str, password: Option<String>, bot: bool) -> Result<(), HttpClientError> {
         let password = password.unwrap_or_else(|| {
             prompt_password(format!("Password [{}]: ", email)).expect("Password input failed")
         });
@@ -385,6 +385,12 @@ impl CerebroClient {
         let login_schema = AuthLoginSchema {
             email: email.to_owned(),
             password,
+        };
+
+        let url = if bot {
+            format!("{}?role=Bot", self.routes.url(Route::AuthLoginUser))
+        } else {
+            self.routes.url(Route::AuthLoginUser)
         };
 
         let response = self.client

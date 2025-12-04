@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use cerebro_model::api::{watchers::model::WatcherFormat, towers::model::Pipeline};
+use cerebro_model::api::{towers::model::Pipeline, users::model::Role, watchers::model::WatcherFormat};
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production stack server
@@ -154,6 +154,9 @@ pub struct LoginArgs {
     /// Registered user password
     #[clap(long, short = 'p', env = "CEREBRO_USER_PASSWORD")]
     pub password: Option<String>,
+    /// Receive token for Role::Bot if the user has the permissions
+    #[clap(long, short = 'b')]
+    pub bot: bool,
 }
 
 

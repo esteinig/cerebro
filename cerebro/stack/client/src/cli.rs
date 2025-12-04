@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
         
         // Login user for access token
         Commands::Login( args ) => {
-            client.login_user(&args.email, args.password.clone())?
+            client.login_user(&args.email, args.password.clone(), args.bot)?
         },
         // Ping servers with token
         Commands::PingServer(_) => {
