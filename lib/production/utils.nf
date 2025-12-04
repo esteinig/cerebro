@@ -5,7 +5,7 @@ import groovy.json.JsonOutput
 def getProductionConfig() {
 
     return [
-        runName: params.runName ? params.runName : error("Sequencing run name (identifier) not provided (params.runName)")
+        runName: params.runName ? params.runName : error("Sequencing run name (identifier) not provided (params.runName)"),
         apiUrl: params.apiUrl ? params.apiUrl : error("URL for Cerebro API was not provided (params.apiUrl)"),
         apiToken: params.apiTokenEnv ? System.getenv(params.apiTokenEnv): error("No token environment variable was provided for production configuration (params.apiTokenEnv)"),
         team: params.teamName ? params.teamName : error("Team name for Cerebro API was not provided (params.teamName)"),
