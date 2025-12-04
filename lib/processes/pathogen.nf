@@ -977,7 +977,7 @@ process UploadCerebroModel {
 
     input:
     path(models)
-    tuple val(apiToken), val(apiUrl)
+    tuple val(apiUrl), val(apiToken)
     tuple val(team), val(database), val(project)
     
     script:
