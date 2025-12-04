@@ -328,7 +328,7 @@ impl RunConfig {
     pub fn new(id: &str, date: &str) -> Result<Self, ModelError> {
         Ok(Self {
             id: id.to_string(),
-            date: parse_and_format_date(date)?
+            date: date.to_string()
         })
     }
 }
@@ -341,19 +341,6 @@ impl Default for RunConfig {
     }
 }
 
-
-fn parse_and_format_date(date_str: &str) -> Result<String, ModelError> {
-    // Parse the date string into a NaiveDate
-    let naive_date = NaiveDate::parse_from_str(date_str, "%Y%m%d")?;
-    
-    // Convert NaiveDate to NaiveDateTime by adding a time component
-    let naive_datetime = naive_date.and_hms_opt(0, 0, 0).unwrap();
-    
-    // Convert NaiveDateTime to a Utc DateTime
-    let rfc3339_date = Utc.from_utc_datetime(&naive_datetime).to_rfc3339_opts(SecondsFormat::Secs, true);
-    
-    Ok(rfc3339_date)
-}
 /*
 ========================
 Sample configuration
