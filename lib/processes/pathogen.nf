@@ -984,7 +984,7 @@ process UploadCerebroModel {
 
     """
     cerebro-client --token $apiToken --url $apiUrl --team $team database create --name $database --description "$database" || true
-    cerebro-client --token $apiToken --url $apiUrl --team $team --database $database project create --name $project --description "$project" || true
+    cerebro-client --token $apiToken --url $apiUrl --team $team --db $database project create --name $project --description "$project" || true
     cerebro-client --token $apiToken --url $apiUrl --team $team --db $database --project $project upload-models --models *.json
     """
 }
