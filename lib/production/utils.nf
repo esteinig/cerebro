@@ -5,9 +5,11 @@ import groovy.json.JsonOutput
 def getProductionConfig() {
 
     return [
-        apiUrl: params.cerebroProduction.authConfig.apiUrl ? params.cerebroProduction.authConfig.apiUrl : error("URL for Cerebro API was not provided (-> params.cerebroProduction.authConfig.apiUrl)"),
-        authToken: params.cerebroProduction.authConfig.tokenEnvironmentVariable ? System.getenv(params.cerebroProduction.authConfig.tokenEnvironmentVariable): error("No token environment variable was provided for production configuration (-> params.cerebroProduction.authConfig.tokenEnvironmentVariable)"),
-        fsTeam: params.cerebroProduction.fsConfig.enabled ? params.cerebroProduction.fsConfig.team ? params.cerebroProduction.fsConfig.team : error("Team name for CerebroFS was not provided (-> params.cerebroProduction.fsConfig.team)") : null
+        apiUrl: params.apiUrl ? params.apiUrl : error("URL for Cerebro API was not provided (-> params.apiUrl)"),
+        authToken: params.apiTokenEnv ? System.getenv(params.apiTokenEnv): error("No token environment variable was provided for production configuration (-> params.apiTokenEnv)"),
+        teamName: params.teamName ? params.teamName : error("Team name for Cerebro API was not provided (-> params.teamName)"),
+        teamName: params.databaseName ? params.databaseName : error("Database name for Cerebro API was not provided (-> params.databaseName)"),
+        teamName: params.projectName ? params.projectName : error("Project name for Cerebro API was not provided (-> params.projectName)")
     ]
 }
 

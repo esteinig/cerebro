@@ -15,6 +15,7 @@ include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "
 include { BlastContigsBitscoreStream as MegahitBlastBitscoreStream; BlastContigsBitscoreStream as MetaSpadesBlastBitscoreStream } from "../processes/pathogen";
 
 include { PipelineConfig } from "./utils";
+include { getProductionConfig } from "./utils";
 
 workflow PathogenDetection {
 
@@ -55,6 +56,7 @@ workflow PathogenDetection {
             )
         }
 
+        /* Post-processing */
 
         results = QualityControl.out.results.mix(
             params.pathogenDetection.taxonomicProfile.enabled ? TaxonomicProfile.out.results : Channel.empty(),
@@ -75,16 +77,19 @@ workflow PathogenDetection {
             workflowStarted
         )
 
-        if (params.cerebroProduction.enabled) {
-            
-            UploadOutput(
-                stagedFileData.mix(ProcessOutputIllumina.out.results) | groupTuple | map { d -> d.flatten() }, 
-                taxonomicProfileDatabases.taxonomy, 
-                PipelineConfig.out.config,
-                productionConfig.apiUrl,
-                productionConfig.authToken
+        /* Production */
+
+        if (params.production) {
+
+            productionConfig = getProductionConfig()
+
+            CreateCerebroModel(
+                ProcessOutputIllumina.out.models,
+                taxonomicProfileDatabases.taxonomy,
+                PipelineConfig.out.config
             )
 
+            CreateCerebroModel.out.results | view
         }
 
 }
@@ -153,14 +158,14 @@ workflow TaxonomicProfile {
 
 
 
-        // if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
-        //     GanonProfile(
-        //         reads,
-        //         databases.ganonDatabase,
-        //         profileParams.ganonDatabasePrefix,
-        //         profileParams.ganonMultipleMatches
-        //     )
-        // }
+        if (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) {
+            GanonProfile(
+                reads,
+                databases.ganonDatabase,
+                profileParams.ganonDatabasePrefix,
+                profileParams.ganonMultipleMatches
+            )
+        }
 
 
         if (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) {
@@ -182,7 +187,7 @@ workflow TaxonomicProfile {
             (profileParams.classifier && profileParams.classifierMethod.contains("metabuli")) ? Metabuli.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("ganon")) ? GanonReads.out.results : Channel.empty(),
             (profileParams.classifier && profileParams.classifierMethod.contains("kraken2")) ? Kraken2.out.results : Channel.empty(),
-            // (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
+            (profileParams.profiler && profileParams.profilerMethod.contains("ganon")) ? GanonProfile.out.results : Channel.empty(),
             (profileParams.profiler && profileParams.profilerMethod.contains("sylph")) ? Sylph.out.results : Channel.empty()
         )
 

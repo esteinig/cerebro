@@ -892,6 +892,7 @@ process ProcessOutputIllumina {
 
     output:
     tuple (path("${sampleID}.qc.json"), path("${sampleID}.pd.json"), emit: results)
+    tuple (val(sampleID), path("${sampleID}.qc.json"), path("${sampleID}.pd.json"), emit: models)
     val(sampleID), emit: samples
 
     script:
@@ -932,8 +933,8 @@ process PathogenDetectionTable {
     publishDir "$params.outputDirectory/results", mode: "copy", pattern: "species.tsv"
 
     input:
-    path(result_files)
-    path(taxonomy_directory)
+    path(resultFiles)
+    path(taxonomyDirectory)
 
     output:
     path("species.tsv")
@@ -942,6 +943,30 @@ process PathogenDetectionTable {
 
     """
     echo '{"ranks": ["Species"]}' > filter.json
-    cerebro-pipeline table pathogen-detection --json *.pd.json --output species.tsv --taxonomy $taxonomy_directory --filter-json filter.json
+    cerebro-pipeline table pathogen-detection --json *.pd.json --output species.tsv --taxonomy $taxonomyDirectory --filter-json filter.json
     """
+}
+
+
+process CreateCerebroModel {
+    
+    tag { sampleID }
+    label "cerebroPipeline"
+
+    publishDir "$params.outputDirectory/results/models", mode: "copy", pattern: "${sampleID}.json"
+
+    input:
+    tuple val(sampleID), path(qualityControlJson), path(pathogenDetectionJson)
+    path(taxonomy)
+    path(pipelineConfig)
+    
+
+    output:
+    path("${sampleID}.json"), emit: results
+
+    script:
+
+    """
+    cerebro-client --token NOT-USED create-pathogen -o ${sampleId}.json --quality $qualityControlJson --pathogen $pathogenDetectionJson --taxonomy $taxonomy --pipeline-config $pipelineConfig --run-id $params.runName
+    """  
 }

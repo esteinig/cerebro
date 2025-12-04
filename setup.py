@@ -15,6 +15,7 @@ setup(
         "pandas",
         "seaborn",
         "scipy",
+        "scikit-learn",
         "scikit-posthocs",
         "ridgeplot",
         "kaleido"

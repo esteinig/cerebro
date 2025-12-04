@@ -187,7 +187,9 @@ def _plot_panel(
     legend: bool,
     hline_y: Optional[float] = None,
     legend_title: Optional[str] = None,
-    reasoning: bool = False
+    reasoning: bool = False,
+    use_labels: bool = False,
+    xlabels: str = None,
 ):
     d_rep = data[data["group"] == "replicate"]
     d_con  = data[data["group"] == "consensus"]
@@ -198,10 +200,21 @@ def _plot_panel(
     print(d_con)
     print("=======================")
 
+    if reasoning:
+        hue = "reasoning"
+    else:
+        if use_labels:
+            hue = "label"
+        else:
+            hue = "clinical"
+    
+    if xlabels:
+        xlabels = [s.strip() for s in xlabels.split(",")]
+
     # Replicate stripplot (positions established by hue+dodge)
     sns.stripplot(
         data=d_rep, x=x_col, y="value",
-        hue="reasoning" if reasoning else "clinical", hue_order=hue_order, order=x_order, dodge=True,
+        hue=hue, hue_order=hue_order, order=x_order, dodge=True,
         alpha=0.7, edgecolor="black", linewidth=1.3, size=6, ax=ax,
         palette=pal_rep,
     )
@@ -210,14 +223,14 @@ def _plot_panel(
     if overlay == "bar":
         sns.barplot(
             data=d_rep, x=x_col, y="value",
-            hue="reasoning" if reasoning else "clinical", hue_order=hue_order, order=x_order, dodge=True,
+            hue=hue, hue_order=hue_order, order=x_order, dodge=True,
             errorbar=None, alpha=0.6, ax=ax, palette=pal_rep, edgecolor="black",
             linewidth=1.5, gap=0.1
         )
     elif overlay == "violin":
         sns.violinplot(
             data=d_rep, x=x_col, y="value",
-            hue="reasoning" if reasoning else "clinical", hue_order=hue_order, order=x_order, dodge=True,
+            hue=hue, hue_order=hue_order, order=x_order, dodge=True,
             cut=0, inner=None, alpha=0.6, ax=ax, palette=pal_rep,
         )
 
@@ -226,7 +239,7 @@ def _plot_panel(
     if include_consensus and not d_con.empty:
         sns.stripplot(
             data=d_con, x=x_col, y="value",
-            hue="reasoning" if reasoning else "clinical", hue_order=hue_order, order=x_order, dodge=True,
+            hue=hue, hue_order=hue_order, order=x_order, dodge=True,
             alpha=0.9, edgecolor="black", linewidth=1.3, size=6, zorder=10,
             ax=ax, palette=pal_con,
         )
@@ -240,6 +253,17 @@ def _plot_panel(
     ax.set_ylabel("Performance (%)", fontsize=12)
     ax.tick_params(axis="both", which="major", labelsize=12, length=4, width=0.8)
     ax.tick_params(axis="both", which="minor", length=2, width=0.6)
+    
+    if xlabels:
+            # xlabels is already split into a list above
+            if len(xlabels) != len(x_order):
+                # Optional: guard against mismatched lengths
+                warnings.warn(
+                    f"xlabels has length {len(xlabels)} but x_order has length {len(x_order)}; "
+                    "tick labels may be misaligned."
+                )
+            ax.set_xticks(range(len(x_order)))
+            ax.set_xticklabels(xlabels)
 
     ax.set_ylim(0, 105)
     ax.yaxis.set_major_locator(MultipleLocator(10))
@@ -446,6 +470,8 @@ def plot_gpt(
     stats_use_adjusted: bool = typer.Option(True, "--stats-use-adjusted/--stats-use-raw", help="Use adjusted p-values for stars"),
     use_labels: bool = typer.Option(False, "--use-labels", help="Use 'id' and 'label' columns from the input TSV for the x-axis in non-comparison mode"),
     xlabel_size: float = typer.Option(False, "--xlabel-size", help="X-axis label size"),
+    label_comparison: str = typer.Option(None, "--label-comparison", help=""),
+    xlabels: str = typer.Option(None, "--xlabels", help=""),
 ):
     """
     If --comparison: original clinical/noclinical layout. With --combined, x is '{params}-{quant}'.
@@ -525,8 +551,26 @@ def plot_gpt(
             typer.echo(f"No rows for metrics {m1} or {m2}.", err=True)
             raise typer.Exit(code=1)
 
-        comparison_condition = ["think", "nothink"] if reasoning else ["clinical", "noclinical"] 
-        comparison_column =  d_pair["reasoning"] if reasoning else d_pair["clinical"] 
+        if reasoning:
+            comparison_condition = ["think", "nothink"] 
+        else: 
+            if use_labels:
+                if label_comparison:
+                    comparison_condition = [s.strip() for s in label_comparison.split(",")]
+                else:
+                    comparison_condition = ["metabuli-v1.0.5", "metabuli-v1.1.1-dev"]
+                
+            else:
+                comparison_condition = ["clinical", "noclinical"] 
+
+        
+        if reasoning:
+            comparison_column = d_pair["reasoning"] 
+        else: 
+            if use_labels:
+                comparison_column = d_pair["label"]
+            else:
+                comparison_column = d_pair["clinical"] 
 
         levels = [
             lvl for lvl in comparison_condition
@@ -587,8 +631,9 @@ def plot_gpt(
                     legend=legend,
                     hline_y=hline,
                     legend_title=metric.capitalize(),  # legend title overrides subplot title,
-                    reasoning=reasoning
-        
+                    reasoning=reasoning,
+                    use_labels=use_labels,
+                    xlabels=xlabels
                 )
                 
                 # --- significance brackets per category using stats_tsv ---
@@ -645,7 +690,9 @@ def plot_gpt(
                         legend=legend,
                         hline_y=hline,
                         legend_title=None, 
-                        reasoning=False
+                        reasoning=False,
+                        use_labels=use_labels,
+                        xlabels=xlabels
                     )
     else:
         m1, m2 = Pairs["sens-spec"]
@@ -823,8 +870,12 @@ def condition_test(
 
         out_rows = []
         for paramq, sub in df.groupby("paramq"):
+            
+            print(sub)
+
             a = sub[sub[condition_col] == level_a].set_index(replicate_col)["value"]
             b = sub[sub[condition_col] == level_b].set_index(replicate_col)["value"]
+            
             # align paired replicates
             pairs = a.index.intersection(b.index)
             if len(pairs) < 1:
@@ -1129,8 +1180,7 @@ def plot_bench(
     minute_major: float = typer.Option(5.0, "--minute-major", help="Major tick every N minutes"),
     minute_minor: float = typer.Option(1.0, "--minute-minor", help="Minor tick every N minutes"),
     minute_max: float = typer.Option(None, "--minute-max", help="Set x-limit of runtime plot"),
-    quant_pairs: Optional[str] = typer.Option(None, "--quant-palette-pairs", "-QP", help="Two comma lists split by '|': TOP(noclinical) | BOTTOM(clinical). Order follows QuantRows, e.g. '#4E79A7,#F28E2B|#A0CBE8,#FFBE7D'"
-)
+    quant_pairs: Optional[str] = typer.Option(None, "--quant-palette-pairs", "-QP", help="Two comma lists split by '|': TOP(noclinical) | BOTTOM(clinical). Order follows QuantRows, e.g. '#4E79A7,#F28E2B|#A0CBE8,#FFBE7D'")
 ):
     """
     Concatenate multiple seconds and VRAM TSVs, then plot.
@@ -1239,3 +1289,26 @@ def plot_bench(
         typer.echo(f"Saved: {output}")
     if show or output is None:
         plt.show()
+
+
+# @app.command()
+# def plot_nxf_bench(
+#     tsv_1: Path = typer.Option(..., "--seconds-tsv", "-s", exists=True, readable=True, help="One or more runtime seconds TSVs"),
+#     tsv_2:    List[Path] = typer.Option(..., "--vram-tsv", "-v", exists=True, readable=True, help="One or more GPU VRAM TSVs"),
+#     output: Optional[Path] = typer.Option("gpu_bench.png", "--output", "-o", help="PNG/PDF/SVG"),
+#     quant_palette: str = typer.Option("C0,C1", "--quant-palette", "-Q", help="Palette for quant levels, comma-separated or seaborn name"),
+#     height: float = typer.Option(4.0, "--height", help="Figure height (in)"),
+#     width: float  = typer.Option(12.0, "--width", help="Figure width (in)"),
+#     tight: bool = typer.Option(True, "--tight/--no-tight", help="tight_layout"),
+#     dpi: int = typer.Option(200, "--dpi", help="DPI when saving"),
+#     show: bool = typer.Option(False, "--show", help="Display window instead of saving"),
+#     legend: bool = typer.Option(True, "--legend/--no-legend", help="Show legend"),
+#     subtitle: str = typer.Option("", "--subtitle", help="Subtitle to append to each title"),
+#     clinical: Optional[str] = typer.Option("noclinical", "--clinical", help="Optional filter: clinical|noclinical"),
+#     legend_title: str = typer.Option("", "--legend-title", help="Legend title to append to each title"),
+#     vram_unit: str = typer.Option("GiB", "--vram-unit", help="bytes|MiB|GiB|GB"),
+#     minute_major: float = typer.Option(5.0, "--minute-major", help="Major tick every N minutes"),
+#     minute_minor: float = typer.Option(1.0, "--minute-minor", help="Minor tick every N minutes"),
+#     minute_max: float = typer.Option(None, "--minute-max", help="Set x-limit of runtime plot"),
+#     quant_pairs: Optional[str] = typer.Option(None, "--quant-palette-pairs", "-QP", help="Two comma lists split by '|': TOP(noclinical) | BOTTOM(clinical). Order follows QuantRows, e.g. '#4E79A7,#F28E2B|#A0CBE8,#FFBE7D'")
+# ):

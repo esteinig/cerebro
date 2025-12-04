@@ -664,6 +664,13 @@ impl DiagnosticData {
             consensus: ConsensusDiagnosticSummary::from_stats(data)
         }
     }
+    pub fn get_replicate_reviews_filtered(&self) -> Vec<Vec<DiagnosticReview>> {
+        self.stats
+            .iter()
+            .filter(|s| !s.name.to_lowercase().contains("consensus"))
+            .map(|s| s.data_filtered.clone()) // or `s.data.clone()` if you prefer
+            .collect()
+    }
     pub fn to_json(&self, path: &Path) -> Result<(), CiqaError> {
         let writer = BufWriter::new(
             File::create(path)?
@@ -2202,7 +2209,8 @@ pub fn plot_diagnostic_matrix(
     header_text: Option<&str>,
     consensus_stats: Option<&DiagnosticStats>
 ) -> Result<(), CiqaError> {
-    // 1. Determine sample IDs and sanity‑check all columns
+
+    // Determine sample IDs and sanity‑check all columns
     let sample_labels: Vec<_> = if let Some(col) = reference {
         col.iter().map(|r| r.sample_id.clone()).collect()
     } else if !data.is_empty() {
@@ -2223,24 +2231,24 @@ pub fn plot_diagnostic_matrix(
         assert_eq!(col.len(), nrows, "Consensus length mismatch");
     }
 
-    // 2. Flatten into a single Vec<&[DiagnosticReview]> in draw order
+    // Flatten into a single Vec<&[DiagnosticReview]> in draw order
     let mut columns: Vec<&[DiagnosticReview]> = Vec::new();
     for col in data { columns.push(col.as_slice()); }
     if let Some(col) = consensus { columns.push(col); }
     if let Some(col) = reference { columns.push(col); }
 
-    // meta column index (always last)
+    // Meta column index (always last)
     let meta_idx = columns.len();
     let total_cols = columns.len() + 1;
 
-    // 3. Panel layout parameters (same as QC function)
+    // Panel layout parameters (same as QC function)
     let chunk_size   = 12;
     let max_panels_x = 4;
     let num_panels   = (nrows + chunk_size - 1) / chunk_size;
     let panels_x     = std::cmp::min(max_panels_x, num_panels);
     let panels_y     = (num_panels + max_panels_x - 1) / max_panels_x;
 
-    // 4. Margins, paddings & cell sizing
+    // Margins, paddings & cell sizing
     let outer_margin        = 20.0;
     let panel_padding_left  = 210.0;
     let panel_padding_right = 40.0;
@@ -2251,7 +2259,7 @@ pub fn plot_diagnostic_matrix(
     let font_size           = (cell_px as f64).clamp(4.0, 14.0).round() as u32;
     let legend_height_px    = 120.0;
 
-    // 5. Compute top‑paddings per panel (for column headers)
+    // Compute top‑paddings per panel (for column headers)
     let base_padding_y   = 10;
     let header_padding_y = 100;
     let (panel_paddings_top, total_padding_top) =
@@ -2259,7 +2267,7 @@ pub fn plot_diagnostic_matrix(
     let panel_column_headers =
         column_header.panel_column_header(panels_x, panels_y);
 
-    // 6. Figure out total SVG size
+    // Figure out total SVG size
 
     let stride = cell_px as f64 + col_padding;
     let consensus_gap_px = stride; // one-cell gap before Consensus
@@ -2282,11 +2290,11 @@ pub fn plot_diagnostic_matrix(
         + (2.0 * outer_margin)
     ).ceil() as u32;
 
-    // 7. Start drawing
+    // Start drawing
     let root = SVGBackend::new(output, (width_px, height_px)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    // 8. Optional title
+    // Optional title
     if let Some(t) = title {
         root.draw_text(
             t,
@@ -2296,16 +2304,16 @@ pub fn plot_diagnostic_matrix(
         )?;
     }
 
-    // 9. Split into panels
+    // Split into panels
     let plot_area = root.margin(outer_margin, outer_margin, outer_margin, outer_margin);
     let panels = plot_area.split_evenly((panels_y, panels_x));
 
-    // 10. Style lookup for each review
+    // Style lookup for each review
     let get_style = |rev: &DiagnosticReview| {
         palette.colors[rev.outcome.index()].filled()
     };
 
-    // helper: x position with gap and meta
+    // Helper: x position with gap and meta
     let x_for = |col_idx: usize| -> f64 {
         let base = (col_idx as f64) * stride;
         match consensus_idx {
@@ -2314,7 +2322,7 @@ pub fn plot_diagnostic_matrix(
         }
     };
 
-    // 11. Draw each panel
+    // Draw each panel
     for (panel, (chunk_idx, chunk)) in
         panels.iter().zip(sample_labels.chunks(chunk_size).enumerate())
     {
@@ -2328,7 +2336,7 @@ pub fn plot_diagnostic_matrix(
 
         let nrows_chunk = chunk.len();
 
-        // 11a. Draw every column (data → consensus → reference)
+        // Draw every column (data → consensus → reference)
         for (col_idx, col) in columns.iter().enumerate() {
             let x0 = x_for(col_idx);
             for row in 0..nrows_chunk {
@@ -2352,7 +2360,7 @@ pub fn plot_diagnostic_matrix(
             }
         }
 
-        // 11b. Sample‐ID labels
+        // Sample‐ID labels
         for (row, label) in chunk.iter().enumerate() {
             let y0 = row as f64 * (cell_px as f64 + row_padding) + (cell_px as f64 / 2.0) + row_padding;
             panel_area.draw_text(
@@ -2365,7 +2373,7 @@ pub fn plot_diagnostic_matrix(
             )?;
         }
 
-        // 11c. Rotated column headers on the first panel row
+        // Rotated column headers on the first panel row
         if panel_column_headers[chunk_idx] {
             for col_idx in 0..columns.len() {           // only real columns get rotated headers
                 let x0 = x_for(col_idx);
@@ -2393,6 +2401,7 @@ pub fn plot_diagnostic_matrix(
     let normal = ("monospace", font_size).into_font();
     let bold   = ("monospace", font_size).into_font().style(FontStyle::Bold);
     let gap_small  = 10i32;
+
     // helper: pixel width of text with a style
     let text_w = |s: &str, bolding: bool| -> i32 {
         let ts = if bolding { bold.clone() } else { normal.clone() }
@@ -2400,7 +2409,7 @@ pub fn plot_diagnostic_matrix(
         root.estimate_text_size(s, &ts).unwrap_or((((font_size as f64) * 0.60).round() as u32, 0.0 as u32)).0 as i32
     };
 
-    // ---- measure total width precisely (center the whole line) ----
+    // Measure total width precisely (center the whole line)
     let sw = 14.0;
 
     let legend = [
@@ -2421,10 +2430,10 @@ pub fn plot_diagnostic_matrix(
 
     let mut stats_fmt: Option<(String,String,String,String,String,String)> = None;
     if let Some(cs) = consensus_stats {
-        let sens = format!("{:.1}%", cs.sensitivity * 100.0);
-        let spec = format!("{:.1}%", cs.specificity * 100.0);
-        let ppv  = format!("{:.1}%", cs.ppv * 100.0);
-        let npv  = format!("{:.1}%", cs.npv * 100.0);
+        let sens = format!("{:.1}%", cs.sensitivity);
+        let spec = format!("{:.1}%", cs.specificity);
+        let ppv  = format!("{:.1}%", cs.ppv);
+        let npv  = format!("{:.1}%", cs.npv);
         let rc: String = format!("{:.1}%", average_replicate_certainty(data, reference));
 
         let nstr = format!("n = {}", cs.total);
@@ -2449,7 +2458,7 @@ pub fn plot_diagnostic_matrix(
     let baseline_y = (height_px as f64 - outer_margin - 8.0).round() as i32;
     let mut x = ((width_px as i32) - total_w) / 2;
 
-    // ---- draw: icons + labels ----
+    // Draw: icons + labels ----
     for (label, out) in legend {
         let style = palette.colors[out.index()].filled();
         let icon_top = baseline_y as f64 - sw;
@@ -2475,7 +2484,7 @@ pub fn plot_diagnostic_matrix(
         x += text_w(label, false) + gap_small;
     }
 
-    // ---- draw: stats ----
+    // Ddraw: stats
     if let Some((sens, spec, ppv, npv, nstr, rc)) = stats_fmt {
         let mut draw_pair = |val: &str| -> Result<(), CiqaError> {
             root.draw_text(

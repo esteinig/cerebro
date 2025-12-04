@@ -47,6 +47,9 @@ pub fn draw_radar_chart<B: DrawingBackend>(
     let tick_px  = (12.0 * s).round() as i32;
     let legend_px= (14.0 * s).round() as i32;
 
+
+    let highlight_vals = series.get(0).map(|(_, vals)| *vals);
+
     // Grid
     if !matches!(gridweight, GridWeight::Off) {
         let levels = 5;
@@ -71,13 +74,48 @@ pub fn draw_radar_chart<B: DrawingBackend>(
     }
 
     if s > 0.0 {
-        let label_font = ("monospace", cat_px).into_font().style(FontStyle::Bold).color(&label_rgb);
+        let label_font = ("monospace", cat_px)
+            .into_font()
+            .style(FontStyle::Bold)
+            .color(&label_rgb);
+    
+        // Slightly larger/bolder for the percentage to make it pop
+        let value_px   = (cat_px as f64 * 1.0).round() as i32; // same or a bit larger than cat_px
+        let value_font = ("monospace", value_px)
+            .into_font()
+            .style(FontStyle::Bold)
+            .color(&label_rgb);
+    
         for (i, &ang) in angles.iter().enumerate() {
-            let (lx, ly) = pt(cx, cy, radius + 22.0, ang);
-            let hpos = if ang.cos() > 0.2 { HPos::Left } else if ang.cos() < -0.2 { HPos::Right } else { HPos::Center };
-            let vpos = if ang.sin() > 0.2 { VPos::Bottom } else if ang.sin() < -0.2 { VPos::Top } else { VPos::Center };
-            let style = TextStyle::from(label_font.clone()).pos(Pos::new(hpos, vpos));
-            root.draw(&Text::new(CATS[i].to_string(), (lx, ly), style))?;
+            // Position slightly further out to leave room for two lines of text
+            let (lx, ly) = pt(cx, cy, radius + 26.0, ang);
+    
+            let hpos = if ang.cos() > 0.2 {
+                HPos::Left
+            } else if ang.cos() < -0.2 {
+                HPos::Right
+            } else {
+                HPos::Center
+            };
+    
+            // We'll manually offset vertically instead of using VPos for both lines
+            let base_style = TextStyle::from(label_font.clone()).pos(Pos::new(hpos, VPos::Center));
+            let val_style  = TextStyle::from(value_font.clone()).pos(Pos::new(hpos, VPos::Center));
+    
+            // Vertical offsets in pixels (text stacked: label above, value below)
+            let cat_offset_y = -(cat_px as f64 * 0.1) as i32;
+            let val_offset_y =  (value_px as f64 * 0.9) as i32;
+    
+            // Category label
+            root.draw(&Text::new(CATS[i].to_string(), (lx, ly + cat_offset_y), base_style.clone()))?;
+    
+            // Value in percent from the highlight series, if present
+            if let Some(vals) = highlight_vals {
+                let v = clamp01(vals[i]) * 100.0;
+                let txt = format!("{:.1}%", v);
+    
+                root.draw(&Text::new(txt, (lx, ly + val_offset_y), val_style.clone()))?;
+            }
         }
     }
 

@@ -801,3 +801,186 @@ def convert_coverage(value: str):
     else:  # Handle the '01', '001', etc. format
         converted = float(value) / (10 ** leading_zeros)
         return converted
+
+
+import re
+from pathlib import Path
+from typing import Optional, List
+
+import typer
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+NAMES_OF_INTEREST = [
+    "Truepera radiovictrix",
+    "Imtechella halotolerans",
+    "Allobacillus halotolerans",
+    "Betacoronavirus muris",
+    "Orthopoxvirus vaccinia",
+    "Saccharomyces cerevisiae",
+    "Pneumocystis jirovecii",
+]
+
+BACTERIA = {
+    "Truepera radiovictrix",
+    "Imtechella halotolerans",
+    "Allobacillus halotolerans",
+}
+
+VIRUSES = {
+    "Betacoronavirus muris",
+    "Orthopoxvirus vaccinia",
+}
+
+EUKARYOTES = {
+    "Saccharomyces cerevisiae",
+    "Pneumocystis jirovecii",
+}
+
+DOMAIN_COLORS = {
+    "bacteria": "tab:blue",
+    "virus": "tab:orange",
+    "eukaryote": "tab:green",
+}
+
+
+def detect_domain(name: str) -> str:
+    if name in BACTERIA:
+        return "bacteria"
+    if name in VIRUSES:
+        return "virus"
+    if name in EUKARYOTES:
+        return "eukaryote"
+    return "bacteria"
+
+
+def parse_substrings(arg: Optional[str]) -> List[str]:
+    if not arg:
+        return []
+    return [s.strip() for s in arg.split(",") if s.strip()]
+
+
+@app.command()
+def plot_grouped(
+    csv_path: Path = typer.Argument(..., exists=True, readable=True),
+    output: Path = typer.Option("tool_panels.png", "--output", "-o"),
+    group1_substrings: Optional[str] = typer.Option(
+        None, "--group1", help="Comma-separated list defining group1 membership by id substring match."
+    ),
+    group2_substrings: Optional[str] = typer.Option(
+        None, "--group2", help="Comma-separated list defining group2 membership by id substring match."
+    ),
+    group1_name: Optional[str] = typer.Option(
+        "group1", "--name1", help="Group1 name"
+    ),
+    group2_name: Optional[str] = typer.Option(
+        "group2", "--name2", help="Group2 name"
+    ),
+):  
+    LEGEND_NAMES = {
+        "group1": group1_name,
+        "group2": group2_name,
+    }
+    
+    df = pd.read_csv(csv_path)
+
+    df = df[df["name"].isin(NAMES_OF_INTEREST)].copy()
+    if df.empty:
+        raise typer.Exit("No rows match the selected names.")
+
+    TOOLS = [
+        "kraken_reads",
+        "bracken_reads",
+        "metabuli_reads",
+        "ganon_reads",
+    ]
+
+    # Filter available columns to the allowed tool list
+    read_cols = [c for c in TOOLS if c in df.columns]
+
+    if not read_cols:
+        raise typer.Exit("None of the specified tool read columns were found in the CSV.")
+
+    g1 = parse_substrings(group1_substrings)
+    g2 = parse_substrings(group2_substrings)
+
+    def match_all(substrings, value):
+        """Return True if every substring appears in the value."""
+        return all(sub in value for sub in substrings)
+
+    df["id_str"] = df["id"].astype(str)
+    df["group"] = None
+
+    # Assign groups using AND logic
+    if g1:
+        df.loc[df["id_str"].apply(lambda x: match_all(g1, x)), "group"] = "group1"
+
+    if g2:
+        df.loc[df["id_str"].apply(lambda x: match_all(g2, x)), "group"] = "group2"
+
+    # Keep only rows that matched at least one group
+    df = df[df["group"].notna()].copy()
+
+
+    if df.empty:
+        raise typer.Exit("No rows matched either group's substring rules.")
+
+    grouped = df.groupby(["name", "group"], as_index=False)[read_cols].sum()
+
+    tools = read_cols
+    n_tools = len(tools)
+
+    fig, axes = plt.subplots(
+        n_tools,
+        1,
+        figsize=(12, 3 * n_tools),
+        sharex=True,
+        constrained_layout=True,
+    )
+
+    if n_tools == 1:
+        axes = [axes]
+
+    x_names = [n for n in NAMES_OF_INTEREST if n in grouped["name"].unique()]
+    x_positions = np.arange(len(x_names))
+
+    groups = ["group1", "group2"]
+    present_groups = [g for g in groups if g in grouped["group"].unique()]
+    bar_width = 0.8 / len(present_groups)
+    hatches = ["", "//"]
+
+    for ax, tool_col in zip(axes, tools):
+        pivot = grouped.pivot(index="name", columns="group", values=tool_col)
+        pivot = pivot.reindex(x_names)
+
+        for i, grp in enumerate(present_groups):
+            offset = (i - (len(present_groups) - 1) / 2) * bar_width
+            heights = pivot[grp].fillna(0).values
+            colors = [DOMAIN_COLORS[detect_domain(n)] for n in x_names]
+
+            ax.bar(
+                x_positions + offset,
+                heights,
+                width=bar_width,
+                label=LEGEND_NAMES[grp],
+                color=colors,
+                edgecolor="black",
+                hatch=hatches[i],
+            )
+
+        ax.set_ylabel(tool_col)
+        ax.set_xlabel(None)
+        ax.set_title(tool_col)
+        ax.set_xticks(x_positions)
+        ax.set_yscale("log")
+        ax.set_xticklabels(x_names, rotation=45, ha="right")
+        ax.grid(axis="y", linestyle="--", alpha=0.4)
+
+    axes[0].legend(title="Group")
+    axes[-1].set_xlabel("Taxon")
+
+    fig.savefig(output, dpi=300)
+    plt.close(fig)
+
+    grouped.to_csv("grouped.csv", index=False)

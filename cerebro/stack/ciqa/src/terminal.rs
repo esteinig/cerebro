@@ -201,6 +201,12 @@ pub struct PredictionSummaryArgs {
 
 #[derive(Debug, Args)]
 pub struct PlotRadarArgs {
+    /// Input diagnostic review files (.json)
+    #[clap(long, short = 'i', num_args=1..)]
+    pub input: Vec<PathBuf>,
+    /// Input diagnostic review files (.json) matching labels
+    #[clap(long, short = 'l', num_args=0..)]
+    pub labels: Vec<String>,
     /// Output plot file (.svg or .png)
     #[clap(long, short = 'o', default_value="diagnostic_radar.png")]
     pub output: PathBuf,
@@ -289,9 +295,27 @@ pub struct McnemarAdjustArgs {
 
 #[derive(Debug, Args)]
 pub struct PlotPlateArgs {
-    /// File paths for 
-    #[clap(long, short = 's')]
-    pub sample: String,
+    /// File path for DiagnosticData file to read for plotting
+    #[clap(long, short = 'd')]
+    pub diagnostic_data: PathBuf,
+    /// Output plot file of diagnostic outcomes (.svg)
+    #[clap(long, short = 'o', default_value="diagnostic_outcomes.svg")]
+    pub output: PathBuf,
+    /// Set plot width
+    #[clap(long, default_value="950")]
+    pub width: u32,
+    /// Set plot height
+    #[clap(long, default_value="600")]
+    pub height: u32,
+    /// Set plot title
+    #[clap(long)]
+    pub title: Option<String>,
+    /// Set column header text
+    #[clap(long)]
+    pub header_text: Option<String>,
+    /// Reference plate review (.json) for plot
+    #[clap(long)]
+    pub reference: Option<PathBuf>,
 }
 
 

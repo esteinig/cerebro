@@ -6,7 +6,7 @@
 
 include { QualityControl } from "./quality";
 include { PipelineConfig } from "./utils";
-include { VirusRecovery; PanviralTable; ProcessOutput; UploadOutput  } from "../processes/panviral";
+include { VirusRecovery; PanviralTable; ProcessOutput  } from "../processes/panviral";
 
 
 workflow PanviralEnrichment {
@@ -44,22 +44,5 @@ workflow PanviralEnrichment {
             cerebroWorkflow, 
             workflowStarted
         )
-
-
-        if (params.cerebroProduction.enabled && params.cerebroProduction.fsConfig.enabled) {
-            
-            // Collect and upload all output files to CerebroFS
-
-        }
-
-        if (params.cerebroProduction.enabled && params.cerebroProduction.uploadConfig.enabled) {
-            
-            UploadOutput(
-                ProcessOutput.out.results.mix(stagedFileData) | groupTuple | map { d -> d.flatten() }, 
-                panviralDatabases.taxonomy, 
-                PipelineConfig.out.config
-            )
-
-        }
 
 }

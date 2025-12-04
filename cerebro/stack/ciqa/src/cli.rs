@@ -11,7 +11,7 @@ use meta_gpt::text::{GeneratorConfig, TextGenerator};
 use cerebro_model::api::{cerebro::{model::Cerebro, schema::{MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig, TieredFilterConfig,}}, files::model::FileType};
 use cerebro_pipeline::{modules::{pathogen::{PathogenDetection, PathogenDetectionTableRecord}, quality::{write_positive_control_summaries, PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl, QualityControlSummary}}, utils::{get_file_component, FileComponent}};
 use clap::Parser;
-use cerebro_ciqa::{error::CiqaError, plate::{DiagnosticData, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SecondsRow, VramRow, aggregate_reference_plates, get_diagnostic_stats, load_diagnostic_stats_from_files, parse_dir_components, plot_plate, plot_qc_summary_matrix, plot_stripplot, write_tsv_seconds, write_tsv_vram}, plots::draw_radar_chart, prefetch::{MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus, counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, tables::summarize_predictions, terminal::{App, Commands}, utils::{init_logger, read_csv, read_tsv, write_tsv}};
+use cerebro_ciqa::{error::CiqaError, plate::{DiagnosticData, DiagnosticReview, DiagnosticStats, MissingOrthogonal, Palette, ReferencePlate, SampleReference, SecondsRow, VramRow, aggregate_reference_plates, average_replicate_certainty, get_diagnostic_stats, load_diagnostic_stats_from_files, parse_dir_components, plot_plate, plot_qc_summary_matrix, plot_stripplot, write_tsv_seconds, write_tsv_vram}, plots::draw_radar_chart, prefetch::{MissedDetectionRow, OverallSummary, PerSampleSummary, PrefetchStatus, counts_by_category, counts_by_category_contam, is_missed_detection, positive_candidate_match, reference_names_from_config}, stats::{mcnemar_batch_adjust, mcnemar_from_reviews}, tables::summarize_predictions, terminal::{App, Commands}, utils::{init_logger, read_csv, read_tsv, write_tsv}};
 use cerebro_client::client::CerebroClient;
 use plotters::prelude::SVGBackend;
 use plotters_bitmap::BitMapBackend;
@@ -48,18 +48,61 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
 
     match cli.command {
         Commands::PlotPlate( args ) => {
-            plot_plate()?
+            
+            let data = DiagnosticData::from_json(args.diagnostic_data)?;
+
+            data.plot_summary(
+                &args.output, 
+                args.title.as_deref(), 
+                args.width, 
+                args.height, 
+                args.reference.clone(),
+                args.header_text.as_deref(),
+                data.get_consensus_stats().as_ref()
+            )?;
+
         },
         Commands::PlotPrefetch( args ) => {
             let prefetch = PrefetchData::from_json(args.prefetch)?;
         },
         Commands::PlotRadar(args) => {
 
-            // Example series: Sensitivity, Specificity, PPV, NPV, Replicate Certainty (values in [0,1])
-            let series: Vec<(String, [f64; 5])> = vec![
-                ("Clinical".into(), [0.92, 0.88, 0.70, 0.95, 0.99]),
-                ("Noclinical".into(), [0.85, 0.93, 0.78, 0.90, 0.75]),
-            ];
+
+            if !args.labels.is_empty() {
+                if args.labels.len() != args.input.len() {
+                    log::error!("Label length must match input file length");
+                    exit(1);
+                }
+            }
+
+            let mut series: Vec<(String, [f64; 5])> = Vec::new();
+            for (i, path) in args.input.iter().enumerate() {
+                let data = DiagnosticData::from_json(path)?;
+                log::info!("{:?}", data.consensus);
+            
+                // Collect replicate columns
+                let replicate_cols: Vec<Vec<DiagnosticReview>> = data.get_replicate_reviews_filtered();
+            
+                // Compute replicate certainty in percent, then normalise to [0,1]
+                let replicate_cert_pct = average_replicate_certainty(&replicate_cols, None);
+                let replicate_cert = replicate_cert_pct / 100.0; 
+                log::info!("{:?} rep cert: {:.1}", data.consensus, replicate_cert_pct);
+            
+                series.push((
+                    if !args.labels.is_empty() {
+                        args.labels[i].clone()
+                    } else {
+                        get_file_component(path, FileComponent::FileStem)?
+                    },
+                    [
+                        data.consensus.npv / 100.0,
+                        data.consensus.specificity / 100.0,
+                        data.consensus.ppv / 100.0,
+                        replicate_cert,
+                        data.consensus.ppv / 100.0,
+                    ],
+                ));
+            }
     
             let ext = args
                 .output
