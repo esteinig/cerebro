@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
+use taxonomy::TaxRank;
 
 use crate::{error::WorkflowError, tools::download::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
 
@@ -64,9 +65,12 @@ pub struct PathogenDetectionTableArgs {
     /// Reference taxonomy to extract rank and name for taxonomic identifiers
     #[clap(long, short = 'x')]
     pub taxonomy: Option<PathBuf>,
-    /// Output table for aggregated taxon reads per million
+    /// Output pathogen detection table
     #[clap(long, short = 'o')]
     pub output: PathBuf,
+    /// Output only identifications at this taxonomic rank
+    #[clap(long, short = 'r')]
+    pub rank: Option<TaxRank>,
 }
 
 

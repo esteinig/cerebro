@@ -281,7 +281,7 @@ impl PathogenDetectionTableRecord {
 }
 
 // Write the evidence table for multiple samples
-pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory: Option<PathBuf>) -> Result<(), WorkflowError> {
+pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory: Option<PathBuf>, rank: Option<TaxRank>) -> Result<(), WorkflowError> {
 
     let taxonomy = match taxonomy_directory {
         Some(dir) => {
@@ -307,6 +307,10 @@ pub fn write_pathogen_table(json: &Vec<PathBuf>, path: &Path, taxonomy_directory
         }
     }
 
+    if let Some(rank) = rank {
+        table_records = table_records.into_iter().filter(|r| r.rank.is_some_and(|t| t == rank)).collect();
+    }
+    
     write_tsv(&table_records, path, true)?;
 
     Ok(())

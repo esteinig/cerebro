@@ -170,6 +170,7 @@ fn main() -> anyhow::Result<()> {
                         &args.json,
                         &args.output, 
                         args.taxonomy.clone(),
+                        args.rank.clone()
                     )?
                 }
 
