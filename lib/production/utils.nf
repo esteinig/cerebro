@@ -6,10 +6,10 @@ def getProductionConfig() {
 
     return [
         apiUrl: params.apiUrl ? params.apiUrl : error("URL for Cerebro API was not provided (-> params.apiUrl)"),
-        authToken: params.apiTokenEnv ? System.getenv(params.apiTokenEnv): error("No token environment variable was provided for production configuration (-> params.apiTokenEnv)"),
-        teamName: params.teamName ? params.teamName : error("Team name for Cerebro API was not provided (-> params.teamName)"),
-        teamName: params.databaseName ? params.databaseName : error("Database name for Cerebro API was not provided (-> params.databaseName)"),
-        teamName: params.projectName ? params.projectName : error("Project name for Cerebro API was not provided (-> params.projectName)")
+        apiToken: params.apiTokenEnv ? System.getenv(params.apiTokenEnv): error("No token environment variable was provided for production configuration (-> params.apiTokenEnv)"),
+        team: params.teamName ? params.teamName : error("Team name for Cerebro API was not provided (-> params.teamName)"),
+        database: params.databaseName ? params.databaseName : error("Database name for Cerebro API was not provided (-> params.databaseName)"),
+        project: params.projectName ? params.projectName : error("Project name for Cerebro API was not provided (-> params.projectName)")
     ]
 }
 

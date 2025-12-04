@@ -13,6 +13,7 @@ include { Metabat2 as MetaSpadesMetabat2; Metabat2 as MegahitMetabat2 } from "..
 include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "../processes/pathogen";
 include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "../processes/pathogen";
 include { BlastContigsBitscoreStream as MegahitBlastBitscoreStream; BlastContigsBitscoreStream as MetaSpadesBlastBitscoreStream } from "../processes/pathogen";
+include { CreateCerebroModel; UploadCerebroModel } from "../processes/pathogen";
 
 include { PipelineConfig } from "./utils";
 include { getProductionConfig } from "./utils";
@@ -89,7 +90,11 @@ workflow PathogenDetection {
                 PipelineConfig.out.config
             )
 
-            CreateCerebroModel.out.results | view
+            UploadCerebroModel(
+                CreateCerebroModel.out.results,
+                [productionConfig.apiUrl, productionConfig.apiToken],
+                [productionConfig.team, productionConfig.database, productionConfig.project]
+            )
         }
 
 }

@@ -880,7 +880,7 @@ process BlastContigsBitscoreStream {
 process ProcessOutputIllumina {
     
     tag { sampleID }
-    label "cerebroPipeline"
+    label "cerebro"
 
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.pd.json"
     publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.qc.json"
@@ -951,7 +951,7 @@ process PathogenDetectionTable {
 process CreateCerebroModel {
     
     tag { sampleID }
-    label "cerebroPipeline"
+    label "cerebro"
 
     publishDir "$params.outputDirectory/results/models", mode: "copy", pattern: "${sampleID}.json"
 
@@ -969,4 +969,21 @@ process CreateCerebroModel {
     """
     cerebro-client --token NOT-USED create-pathogen -o ${sampleId}.json --quality $qualityControlJson --pathogen $pathogenDetectionJson --taxonomy $taxonomy --pipeline-config $pipelineConfig --run-id $params.runName
     """  
+}
+
+process UploadCerebroModel {
+
+    tag { "${team} - ${database} - ${project}" }
+    label "cerebro"
+
+    input:
+    path(models)
+    tuple val(apiToken), val(apiUrl)
+    tuple val(team), val(database), val(project)
+    
+    script:
+
+    """
+    cerebro-client --token $apiToken --url $apiUrl --team $team --database $database --project $project upload-models --models *.json
+    """
 }
