@@ -92,7 +92,7 @@ workflow PathogenDetection {
             )
 
             UploadCerebroModel(
-                CreateCerebroModel.out.results,
+                CreateCerebroModel.out.results | collect,
                 [productionConfig.apiUrl, productionConfig.apiToken],
                 [productionConfig.team, productionConfig.database, productionConfig.project]
             )
