@@ -779,21 +779,33 @@ pub struct WatcherDeleteArgs {
 #[derive(Debug, Subcommand)]
 pub enum TeamCommands {
     // Create a new team
-    Create(TeamCreateArgs)
+    Create(TeamCreateArgs),
 }
 
 
 #[derive(Debug, Subcommand)]
 pub enum DatabaseCommands {
-    // Create a new team
-    Create(DatabaseCreateArgs)
+    // Create a new database
+    Create(DatabaseCreateArgs),
+    // Delete a database
+    Delete(DatabaseDeleteArgs)
 }
 
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectCommands {
-    // Create a new team
-    Create(ProjectCreateArgs)
+    // Create a new project
+    Create(ProjectCreateArgs),
+    // Delete a project
+    Delete(ProjectDeleteArgs)
+}
+
+#[derive(Debug, Args)]
+pub struct DatabaseDeleteArgs {
+}
+
+#[derive(Debug, Args)]
+pub struct ProjectDeleteArgs {
 }
 
 

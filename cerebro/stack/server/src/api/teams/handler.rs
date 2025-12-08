@@ -6,7 +6,7 @@ use cerebro_model::api::teams::model::{TeamId, Team, TeamDatabase, ProjectCollec
 use cerebro_model::api::teams::schema::{RegisterTeamSchema, RegisterDatabaseSchema, RegisterProjectSchema, UpdateTeamSchema};
 use cerebro_model::api::utils::AdminCollection;
 
-use crate::api::auth::jwt::{self, TeamAccessQuery, TeamDatabaseAccessQuery};
+use crate::api::auth::jwt::{self, TeamAccessQuery, TeamDatabaseAccessQuery, TeamProjectAccessQuery};
 use crate::api::server::AppState;
 use crate::api::utils::get_cerebro_db_collection;
 
@@ -140,6 +140,87 @@ async fn register_team_database_handler(
 
 }
 
+#[delete("/teams/database")]
+async fn delete_team_database_handler(
+    data: web::Data<AppState>,
+    auth_query: web::Query<TeamDatabaseAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware
+) -> impl Responder {
+
+    let auth_query = auth_query.into_inner();
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+
+    // Find team with user membership and database
+    let user_team = match team_collection
+        .find_one(
+            doc! {
+                "$and": [
+                    {
+                        "$or": [
+                            { "name": &auth_query.team },
+                            { "id": &auth_query.team }
+                        ]
+                    },
+                    { "users": &auth_guard.user.id },
+                    {
+                        "$or": [
+                            { "databases.name": &auth_query.db },
+                            { "databases.id": &auth_query.db }
+                        ]
+                    },
+                ]
+            }
+        )
+        .await
+    {
+        Ok(Some(team)) => team,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(
+                serde_json::json!({"status": "fail", "message": "Failed to find team or database", "data": serde_json::json!({})})
+            )
+        },
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "error","message": "Failed to retrieve team with database", "data": serde_json::json!({})})
+            )
+        }
+    };
+
+    // Get the database struct from the team
+    let database = match get_database_by_name(&user_team.databases, &auth_query.db) {
+        Ok(db) => db,
+        Err(err) => return err,
+    };
+
+    // Drop the MongoDB database itself
+    let mongo_db = data.db.database(&database.database);
+    if let Err(err) = mongo_db.drop().await {
+        return HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "error", "message": format!("Failed to drop team database: {}", err.to_string())})
+        );
+    }
+
+    // Remove the database entry from the team document
+    match team_collection
+        .update_one(
+            doc! { "id": &user_team.id },
+            doc! { "$pull": { "databases": { "id": &database.id } } },
+        )
+        .await
+    {
+        Ok(_) => {
+            let json_response = serde_json::json!({
+                "status": "success",
+                "message": "Deleted team database",
+                "data": serde_json::json!({"team_id": &user_team.id, "database_id": &database.id})
+            });
+            HttpResponse::Ok().json(json_response)
+        }
+        Err(err) => HttpResponse::InternalServerError().json(
+            serde_json::json!({"status": "error", "message": format!("Failed to remove database from team: {}", err.to_string())})
+        ),
+    }
+}
 
 // Register a new project for a team database
 #[post("/teams/project")]
@@ -229,7 +310,112 @@ async fn register_team_database_project_handler(
 
 }
 
+#[delete("/teams/project")]
+async fn delete_team_database_project_handler(
+    data: web::Data<AppState>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> impl Responder {
 
+    let auth_query = auth_query.into_inner();
+    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+
+    // Find team with user membership and database
+    let user_team = match team_collection
+        .find_one(
+            doc! {
+                "$and": [
+                    {
+                        "$or": [
+                            { "name": &auth_query.team },
+                            { "id": &auth_query.team }
+                        ]
+                    },
+                    { "users": &auth_guard.user.id },
+                    {
+                        "$or": [
+                            { "databases.name": &auth_query.db },
+                            { "databases.id": &auth_query.db }
+                        ]
+                    },
+                ]
+            }
+        )
+        .await
+    {
+        Ok(Some(team)) => team,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(
+                serde_json::json!({"status": "fail", "message": "Failed to find team or database", "data": serde_json::json!({})})
+            )
+        },
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "error","message": "Failed to retrieve team with database", "data": serde_json::json!({})})
+            )
+        }
+    };
+
+    // Get database struct
+    let database = match get_database_by_name(&user_team.databases, &auth_query.db) {
+        Ok(db) => db,
+        Err(err) => return err,
+    };
+
+    // Find the project to delete (by id or name)
+    let project_opt = database
+        .projects
+        .iter()
+        .find(|p| p.id == auth_query.project || p.name == auth_query.project)
+        .cloned();
+
+    let project = match project_opt {
+        Some(p) => p,
+        None => {
+            return HttpResponse::NotFound().json(
+                serde_json::json!({"status": "fail", "message": "Project does not exist for this database", "data": serde_json::json!({})})
+            )
+        }
+    };
+
+    // Build update model to pull the project from the projects array
+    let update_model = mongodb::options::UpdateOneModel::builder()
+        .namespace(team_collection.namespace())
+        .filter(doc! { "id": &user_team.id })
+        .update(
+            doc! {
+                "$pull": {
+                    "databases.$[db].projects": { "id": &project.id }
+                }
+            }
+        )
+        .array_filters(Some(vec![mongodb::bson::Bson::Document(
+            doc! { "db.id": &database.id }
+        )]))
+        .build();
+
+    match data.db.bulk_write(vec![update_model]).await {
+        Ok(_) => {
+            let json_response = serde_json::json!({
+                "status": "success",
+                "message": "Deleted project from team database",
+                "data": serde_json::json!({
+                    "team_id": &user_team.id,
+                    "database_id": &database.id,
+                    "project_id": &project.id
+                })
+            });
+            HttpResponse::Ok().json(json_response)
+        }
+        Err(err) => HttpResponse::InternalServerError().json(
+            serde_json::json!({
+                "status": "error",
+                "message": format!("Failed to delete project from team database: {}", err),
+                "data": serde_json::json!({})
+            })
+        ),
+    }
+}
 
 #[derive(Deserialize)]
 struct TeamQuery {
@@ -549,8 +735,6 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
             }
         }
     }
-    
-    
 }
 
 
@@ -572,5 +756,7 @@ pub fn team_config(cfg: &mut web::ServiceConfig) {
     .service(get_team_handler)
     .service(register_team_database_handler)
     .service(register_team_database_project_handler)
-    .service(update_team_user_handler);
+    .service(update_team_user_handler)
+    .service(delete_team_database_handler)
+    .service(delete_team_database_project_handler);
 }

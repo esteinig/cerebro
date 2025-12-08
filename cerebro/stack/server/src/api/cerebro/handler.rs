@@ -1727,7 +1727,7 @@ pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>
             let project_matches: Vec<&ProjectCollection> = database_match.projects.iter().filter(|x| &x.id == project || &x.name == project).collect();
 
             if project_matches.len() != 1 {
-                return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested project"})))
+                return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": format!("Could not find requested project ({} projects exist with this name)", project_matches.len())})))
             }
 
             let project_match = project_matches[0];

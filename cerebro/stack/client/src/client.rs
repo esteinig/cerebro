@@ -111,7 +111,9 @@ pub enum Route {
     DataCerebroTaxaFiltered,
     DataCerebroTaxaContamination,
     TeamProjectCreate,
+    TeamProjectDelete,
     TeamDatabaseCreate,
+    TeamDatabaseDelete, 
     TeamFilesRegister,
     TeamFilesList,
     TeamFilesDelete,
@@ -160,7 +162,9 @@ impl Route {
             Route::DataCerebroTaxaContamination => "cerebro/taxa/contamination",
             Route::DataCerebroTaxaFiltered => "cerebro/taxa",
             Route::TeamDatabaseCreate => "teams/database",
+            Route::TeamDatabaseDelete => "teams/database",
             Route::TeamProjectCreate => "teams/project",
+            Route::TeamProjectDelete => "teams/project", 
             Route::TeamFilesRegister => "files/register",
             Route::TeamFilesList => "files",
             Route::TeamFilesDelete => "files",
@@ -394,7 +398,7 @@ impl CerebroClient {
         };
 
         let response = self.client
-            .post(self.routes.url(Route::AuthLoginUser))
+            .post(url)
             .json(&login_schema)
             .send()?;
 
@@ -507,7 +511,6 @@ impl CerebroClient {
         Ok(response)
     }
 
-    
     pub fn handle_response<S: DeserializeOwned>(
         &self,
         response: Response,
@@ -587,6 +590,31 @@ impl CerebroClient {
         )?;
         Ok(())
     }
+
+    pub fn delete_project(&self) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+        self.log_project_warning();
+
+        // DELETE /teams/project?team=...&db=...&project=...
+        let response = self.send_request_with_team_db_project(
+            self.client
+                .delete(self.routes.url(Route::TeamProjectDelete))
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some(&format!(
+                "Project `{}` deleted successfully",
+                self.project.as_deref().unwrap_or("<unknown>")
+            )),
+            "Project deletion failed",
+        )?;
+
+        Ok(())
+    }
+
     // Schedule status summary (GET /jobs/schedule/status)
     // Returns a single pretty line-per-item string for "next" and "previous".
     pub fn schedule_status(&self) -> Result<String, HttpClientError> {
@@ -788,6 +816,28 @@ impl CerebroClient {
             Some(&format!("Database `{}` created successfully", name)),
             "Database creation failed",
         )?;
+        Ok(())
+    }
+
+    pub fn delete_database(&self) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+        self.log_db_warning();
+
+        let response = self.send_request_with_team_db(
+            self.client
+                .delete(self.routes.url(Route::TeamDatabaseDelete))
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some(&format!(
+                "Database `{}` deleted successfully",
+                self.db.as_deref().unwrap_or("<unknown>")
+            )),
+            "Database deletion failed",
+        )?;
+
         Ok(())
     }
     

@@ -560,19 +560,30 @@ fn main() -> anyhow::Result<()> {
                         &args.description, 
                     )?
                 }
+
+                // Delete a project
+                ProjectCommands::Delete( args ) => {
+                    client.delete_database()?;
+                }
             }
         },
         Commands::Team( _subcommand ) => { },
         Commands::Database( subcommand ) => {
             match subcommand {
 
-                // Create new project in a team database
+                // Create new team database
                 DatabaseCommands::Create( args ) => {
                     client.create_database(
                         &args.name, 
                         &args.description, 
                     )?
+                },
+
+                // Delete a team database
+                DatabaseCommands::Delete( args ) => {
+                    client.delete_database()?;
                 }
+
             }
         },
         Commands::Jobs(sub) => {
