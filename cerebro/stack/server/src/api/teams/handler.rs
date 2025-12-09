@@ -140,7 +140,7 @@ async fn register_team_database_handler(
 
 }
 
-#[delete("/teams/database")]
+#[delete("/teams-database")]
 async fn delete_team_database_handler(
     data: web::Data<AppState>,
     auth_query: web::Query<TeamDatabaseAccessQuery>,
@@ -310,7 +310,7 @@ async fn register_team_database_project_handler(
 
 }
 
-#[delete("/teams/project")]
+#[delete("/teams-project")]
 async fn delete_team_database_project_handler(
     data: web::Data<AppState>,
     auth_query: web::Query<TeamProjectAccessQuery>,
