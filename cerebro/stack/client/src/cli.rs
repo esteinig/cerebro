@@ -562,8 +562,8 @@ fn main() -> anyhow::Result<()> {
                 }
 
                 // Delete a project
-                ProjectCommands::Delete( args ) => {
-                    client.delete_database()?;
+                ProjectCommands::Delete( _ ) => {
+                    client.delete_project()?;
                 }
             }
         },
@@ -580,7 +580,7 @@ fn main() -> anyhow::Result<()> {
                 },
 
                 // Delete a team database
-                DatabaseCommands::Delete( args ) => {
+                DatabaseCommands::Delete( _ ) => {
                     client.delete_database()?;
                 }
 
