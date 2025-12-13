@@ -67,9 +67,26 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 
 ### Quick start
 
-```
+Pathogen detection with PE Illumina reads from metagneomic sequencing of sterile-site sample types (CSF and ocular fluid tested) - default quality control and taxonomic profiling / metagenome assembly configuration for low-biomass sample types:
 
 ```
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro -profile large,mamba,cns,cipher -entry pathogen \
+  --outputDirectory testRun --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz' --databaseDirectory db/
+```
+
+FASTQ input files should have `tags` in the filename to correctly assign libraries on a sequencing run (samples, controls, repeats, nucleic acid type...) - the sample identifier (biological sample) is parsed before the first double-underscore and a double-underscore (`__`) should preced each tag with a single underscore (`_`) terminating the tag section of the filename:
+
+```
+{sample_id}__{tag1}__{tag2}__{tag3}_R1_001.fastq.gz
+```
+
+The most important tags are (forward read examples, matches reverse read file names):
+
+* `DNA` or `RNA` for example: `DW-63-V01__DNA_R1_001.fastq.gz` and a matching `DW-63-V01__RNA_R1_001.fastq.gz` read file
+* `NTC` and `ENV` for negative template and environmental controls for example: `DW-63-V420__DNA__NTC_R1_001.fastq.gz` for the DNA negative template control library
+* `POS` for a positive control mock sample for extraction and sequencing controls for example `DW-63-V07__DNA__NTC_R1_001.fastq.gz`  for the DNA positive control library
+
+Any other tag outside of the above reserved ones can also be added but has not specific functions in the stack.
 
 ## Cerebro CLI
 
