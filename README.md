@@ -67,9 +67,14 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 
 ### Quick start
 
-```
+Pathogen detection with PE Illumina reads from metagneomic sequencing of sterile-site sample types (vlaidated in ocular fluid and CSF) 
 
 ```
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro -profile dgx,large,mamba,cns,cipher -entry pathogen \
+  --outputDirectory test/ --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz' --databaseDirectory db/
+```
+
+This will run the default quality control and taxonomic profiling and metagenome assembly configuration for pathogen identification in high human biomass, low microbial biomass sample types where distinction from contamination and background microbiomne e.g. skin taxa introduced during sampling is the main challenge for diagnostics ('needle-in-a-haystack' problem). It is not suitable high microbial biomass sample types such as respiratory or environmental samples where a diverse and abundant background microbiome is expected ('haystack-full-of-needles' problem).
 
 ## Cerebro CLI
 
@@ -121,6 +126,24 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 ```
 
 ```
+
+
+### Production
+
+With the stack running (see below) production mode will upload outputs directly to the team database and 
+
+```
+{sample_id}__{tag1}__{tag2}__{tag3}_R1_001.fastq.gz
+```
+
+The most important tags are (forward read examples, matches reverse read file names):
+
+* `DNA` or `RNA` for example: `DW-63-V01__DNA_R1_001.fastq.gz` and a matching `DW-63-V01__RNA_R1_001.fastq.gz` read file
+* `NTC` and `ENV` for negative template and environmental controls for example: `DW-63-V420__DNA__NTC_R1_001.fastq.gz` for the DNA negative template control library
+* `POS` for a positive control mock sample for extraction and sequencing controls for example `DW-63-V07__DNA__NTC_R1_001.fastq.gz`  for the DNA positive control library
+
+Any other tag outside of the above reserved ones can also be added but has not specific functions in the stack.
+
 ## Status
 
 Under active development for production release. Not recommended for deployment at this stage. 
