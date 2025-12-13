@@ -67,14 +67,20 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 
 ### Quick start
 
-Pathogen detection with PE Illumina reads from metagneomic sequencing of sterile-site sample types (vlaidated in ocular fluid and CSF) 
+Pathogen detection with PE Illumina reads from metagenomic sequencing of sterile-site samples (validated for ocular fluid and cerebrospinal fluid):
 
-```
-nextflow run -r v1.0.0 https://github.com/esteinig/cerebro -profile dgx,large,mamba,cns,cipher -entry pathogen \
-  --outputDirectory test/ --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz' --databaseDirectory db/
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile dgx,large,mamba,cns,cipher \
+  -entry pathogen \
+  --outputDirectory outputTest/ \
+  --databaseDirectory db/ \
+  --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz'
 ```
 
-This will run the default quality control and taxonomic profiling and metagenome assembly configuration for pathogen identification in high human biomass, low microbial biomass sample types where distinction from contamination and background microbiomne e.g. skin taxa introduced during sampling is the main challenge for diagnostics ('needle-in-a-haystack' problem). It is not suitable high microbial biomass sample types such as respiratory or environmental samples where a diverse and abundant background microbiome is expected ('haystack-full-of-needles' problem).
+This will run the default quality control and taxonomic profiling and metagenome assembly configuration for pathogen identification in high human - low microbial biomass sample types where distinction from contamination is the main challenge for diagnostics (`needle-in-a-haystack`). It is not suitable for high microbial biomass sample types such as respiratory or environmental samples where a diverse and abundant background microbiome is the mai nchallenge for diagnostics (`haystack-full-of-needles`).
+
+You will need the `Cipher` diagnostic databases, which is an amalgamation of archaeal/bacterial, eukaryotic and viral reference genome collections and taxonomies.
 
 ## Cerebro CLI
 
@@ -128,7 +134,7 @@ This will run the default quality control and taxonomic profiling and metagenome
 ```
 
 
-### Production
+## Production
 
 With the stack running (see below) production mode will upload outputs directly to the team database and 
 
