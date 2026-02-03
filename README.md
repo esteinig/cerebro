@@ -158,19 +158,26 @@ This is a preliminary public release of code for the viral enrichment branch of 
 
 > Michael A Moso, George Taiaroa, Eike Steinig, Madiyar Zhanduisenov, Grace Butel-Simoes, Ivana Savic, Mona L Taouk, Socheata Chea, Jean Moselen, Jacinta O’Keefe, Jacqueline Prestedge, Georgina L Pollock, Mohammad Khan, Katherine Soloczynskyj, Janath Fernando, Genevieve E Martin, Leon Caly, Ian G Barr, Thomas Tran, Julian Druce, Chuan K Lim, Deborah A Williamson - **Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: a laboratory evaluation study** - Lancet Microbe (2024) -[10.1016/S2666-5247(23)00375-0](https://doi.org/10.1016/S2666-5247(23)00375-0)
 
-## Pipeline Testing
+## Supplementary Pipelines
+
+### Aneuploidy from host background
+
+Dependencies:
+
+* Conda/Mamba
+* Nextflow v24
+
+Large segmental copy number variation (CNV) detection across human chromosomes from host background of short-read metagenomic sequencing data with `CNVkit` ([Talevich et al. 2016](https://doi.org/10.1371/journal.pcbi.1004873)).
 
 ```
-# Check for errors during development - this will print the startup and completion
-# messages to the console and exit the pipeline execution gracefully if not errors
-# were found:
-
-nextflow run cerebro/ -profile test_dev
-
-# Check for input checking with minimal database configurations for quality control
-# with the human reference database index and 
-
-nextflow run cerebro/ -profile db,db_ont,test_io
-nextflow run cerebro/ -profile db,db_sr,test_io
-
+nextflow run https://github.com/esteinig/cerebro/lib/standalone/aneuploidy -profile mamba,medium \
+  --pairedReads '*_{R1_001,R2_001}.fastq.gz' \
+  --outdir test_aneuploidy
+  --referenceFasta resources/CHM13v2.fasta
+  --normalControlBam resources/HG007.5x.QC.bam
+  --resources.threads.minimap2 32
 ```
+
+Other control parameters can be found in the [`nextflow.config`](https://github.com/esteinig/cerebro/blob/main/lib/standalone/aneuploidy/nextflow.config). Resource dependencies are the CHM13v2 human reference genome and a sub-sampled (5x) reference alignment of [HG007 (ChineseTrio, mother)](https://github.com/genome-in-a-bottle/giab_data_indexes). We tested the default configuration on Detroit cell-lines which derive from a female pharyngeal cancer patient and show strong patterns of segmental aneuploidy across chromosomes when compared to a known healthy patient sample.
+
+
