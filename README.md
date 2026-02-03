@@ -55,7 +55,7 @@ Let's step through some common tasks and core functions of `Cerebro` and the app
 Minimum requirements:
 
 * Linux OS
-* Nextflow v2024.04
+* Nextflow v24
 * Conda/Mamba/Docker
 
 Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application (if you were so inclined). This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models]() in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations.
@@ -78,9 +78,24 @@ nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
   --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz'
 ```
 
-This will run the default quality control and taxonomic profiling and metagenome assembly configuration for pathogen identification in high human - low microbial biomass sample types where distinction from contamination is the main challenge for diagnostics (`needle-in-a-haystack`). It is not suitable for high microbial biomass sample types such as respiratory or environmental samples where a diverse and abundant background microbiome is the mai nchallenge for diagnostics (`haystack-full-of-needles`).
+This will run the default quality control, taxonomic profiling and metagenome assembly configuration for pathogen identification in low microbial biomass sample types (such as ocular fluids or CSF) where distinction from contamination and incidental background organisms is the main challenge for diagnostics (`needle-in-a-haystack`). 
 
-You will need the `Cipher` diagnostic databases, which is an amalgamation of archaeal/bacterial, eukaryotic and viral reference genome collections and taxonomies.
+> [!WARNING]
+This pipeline is not suitable for high microbial biomass sample types (such as respiratory or environmental samples) where a diverse and abundant background microbiome is the main challenge for diagnostics (`haystack-full-of-needles`).
+
+For the default configuration you will need the `Cipher` diagnostic database in the `--databaseDirectory`, which is an amalgamation of archaeal/bacterial (GTDB), eukaryotic (EuPath, Wormbase) and viral (ICTV) reference genome collections and taxonomies. Depending on sequencing protocol, you will also need a human reference index for alignment-based depletion and additional background sequences (like synthetic spike-ins or internal phage controls) for depletion in the quality control module.
+
+Download the `Cipher v2` database:
+
+```
+
+```
+
+If you are using the associated short-read sequencing protocol also download the following files:
+
+```
+
+```
 
 ## Cerebro CLI
 
