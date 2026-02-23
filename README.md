@@ -55,7 +55,7 @@ Let's step through some common tasks and core functions of `Cerebro` and the app
 Minimum requirements:
 
 * Linux OS
-* Nextflow v2024.04
+* Nextflow v24
 * Conda/Mamba/Docker
 
 Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application (if you were so inclined). This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models]() in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations.
@@ -66,6 +66,32 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 ## Nextflow pipeline 
 
 ### Quick start
+
+Pathogen detection with PE Illumina reads from metagenomic sequencing of sterile-site samples (validated for ocular fluid and cerebrospinal fluid):
+
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile dgx,large,mamba,cns,cipher \
+  -entry pathogen \
+  --outputDirectory outputTest/ \
+  --databaseDirectory db/ \
+  --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz'
+```
+
+This will run the default quality control, taxonomic profiling and metagenome assembly configuration for pathogen identification in low microbial biomass sample types (such as ocular fluids or CSF) where distinction from contamination and incidental background organisms is the main challenge for diagnostics (`needle-in-a-haystack`). 
+
+> [!WARNING]
+This pipeline is not suitable for high microbial biomass sample types (such as respiratory or environmental samples) where a diverse and abundant background microbiome is the main challenge for diagnostics (`haystack-full-of-needles`).
+
+For the default configuration you will need the `Cipher` diagnostic database in the `--databaseDirectory`, which is an amalgamation of archaeal/bacterial (GTDB), eukaryotic (EuPath, Wormbase) and viral (ICTV) reference genome collections and taxonomies. Depending on sequencing protocol, you will also need a human reference index for alignment-based depletion and additional background sequences (like synthetic spike-ins or internal phage controls) for depletion in the quality control module.
+
+Download the `Cipher v2` database:
+
+```
+
+```
+
+If you are using the associated short-read sequencing protocol also download the following files:
 
 ```
 
@@ -121,6 +147,24 @@ You do not need the `Docker` stack for core metagenome diagnostic pipelines and 
 ```
 
 ```
+
+
+## Production
+
+With the stack running (see below) production mode will upload outputs directly to the team database and 
+
+```
+{sample_id}__{tag1}__{tag2}__{tag3}_R1_001.fastq.gz
+```
+
+The most important tags are (forward read examples, matches reverse read file names):
+
+* `DNA` or `RNA` for example: `DW-63-V01__DNA_R1_001.fastq.gz` and a matching `DW-63-V01__RNA_R1_001.fastq.gz` read file
+* `NTC` and `ENV` for negative template and environmental controls for example: `DW-63-V420__DNA__NTC_R1_001.fastq.gz` for the DNA negative template control library
+* `POS` for a positive control mock sample for extraction and sequencing controls for example `DW-63-V07__DNA__NTC_R1_001.fastq.gz`  for the DNA positive control library
+
+Any other tag outside of the above reserved ones can also be added but has not specific functions in the stack.
+
 ## Status
 
 Under active development for production release. Not recommended for deployment at this stage. 
@@ -129,19 +173,34 @@ This is a preliminary public release of code for the viral enrichment branch of 
 
 > Michael A Moso, George Taiaroa, Eike Steinig, Madiyar Zhanduisenov, Grace Butel-Simoes, Ivana Savic, Mona L Taouk, Socheata Chea, Jean Moselen, Jacinta O’Keefe, Jacqueline Prestedge, Georgina L Pollock, Mohammad Khan, Katherine Soloczynskyj, Janath Fernando, Genevieve E Martin, Leon Caly, Ian G Barr, Thomas Tran, Julian Druce, Chuan K Lim, Deborah A Williamson - **Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: a laboratory evaluation study** - Lancet Microbe (2024) -[10.1016/S2666-5247(23)00375-0](https://doi.org/10.1016/S2666-5247(23)00375-0)
 
-## Pipeline Testing
+## Supplementary Pipelines
+
+### Aneuploidy from host background
+
+Dependencies:
+
+* Conda/Mamba
+* Nextflow v24
+
+Large segmental copy number variation (CNV) detection across human chromosomes from host background of short-read metagenomic sequencing data with `CNVkit` ([Talevich et al. 2016](https://doi.org/10.1371/journal.pcbi.1004873)).
+
+This is a supplementary pipeline not intended for production - to execute please clone the repository first:
 
 ```
-# Check for errors during development - this will print the startup and completion
-# messages to the console and exit the pipeline execution gracefully if not errors
-# were found:
+git clone https://github.com/esteinig/cerebro
+```
 
-nextflow run cerebro/ -profile test_dev
-
-# Check for input checking with minimal database configurations for quality control
-# with the human reference database index and 
-
-nextflow run cerebro/ -profile db,db_ont,test_io
-nextflow run cerebro/ -profile db,db_sr,test_io
+Execute with relevant parameters:
 
 ```
+nextflow run ./cerebro/lib/standalone/aneuploidy/main.nf -profile mamba,medium \
+  --pairedReads '*_{R1_001,R2_001}.fastq.gz' \
+  --outdir test_aneuploidy \
+  --referenceFasta resources/CHM13v2.fasta \
+  --normalControlBam resources/HG007.5x.QC.bam \
+  --resources.threads.minimap2 32
+```
+
+Other parameters can be found in the [`nextflow.config`](https://github.com/esteinig/cerebro/blob/main/lib/standalone/aneuploidy/nextflow.config). Resource dependencies are the CHM13v2 human reference genome and a sub-sampled (5x) reference alignment of [HG007 (ChineseTrio, mother)](https://github.com/genome-in-a-bottle/giab_data_indexes). We tested this default configuration on Detroit cell-lines which derive from a female pharyngeal cancer patient and show strong patterns of segmental aneuploidy across chromosomes when compared to a known healthy patient sample.
+
+
