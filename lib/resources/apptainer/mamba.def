@@ -1,0 +1,60 @@
+Bootstrap: docker
+From: debian:bookworm-slim
+
+%labels
+    Author you
+    Description "Apptainer image with micromamba + one user-specified package spec"
+
+%environment
+    # Execute build example: `MAMBA_SPEC="conda-forge:nodejs:20.11.1" apptainer build node.sif mamba.def`
+    export MAMBA_SPEC="${MAMBA_SPEC:-conda-forge:python:3.11.8}"
+    export MAMBA_ROOT_PREFIX="/opt/conda"
+    export MAMBA_EXE="/usr/local/bin/micromamba"
+    export PATH="/opt/conda/bin:$PATH"
+
+%post
+    set -eux
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        bzip2
+
+    rm -rf /var/lib/apt/lists/*
+
+    arch="$(uname -m)"
+    case "$arch" in
+        x86_64) mm_arch="linux-64" ;;
+        aarch64|arm64) mm_arch="linux-aarch64" ;;
+        *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
+    esac
+
+    curl -fsSL "https://micro.mamba.pm/api/micromamba/${mm_arch}/latest" \
+      | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba
+
+    spec="${MAMBA_SPEC:-conda-forge:python:3.11.8}"
+    channel="${spec%%:*}"
+    rest="${spec#*:}"
+    pkg="${rest%%:*}"
+    ver="${rest#*:}"
+
+    if [ -z "$channel" ] || [ -z "$pkg" ] || [ -z "$ver" ] || [ "$rest" = "$spec" ] || [ "$ver" = "$rest" ]; then
+        echo "MAMBA_SPEC must be {channel}:{package}:{version} (got: '$spec')" >&2
+        exit 2
+    fi
+
+    export MAMBA_ROOT_PREFIX="/opt/conda"
+    export MAMBA_EXE="/usr/local/bin/micromamba"
+
+    # Use a root env at /opt/conda (no named env) to keep it simple.
+    "${MAMBA_EXE}" create -y -p "${MAMBA_ROOT_PREFIX}" -c "${channel}" \
+        "${pkg}=${ver}"
+
+    # trim fat
+    "${MAMBA_EXE}" clean -a -y
+    rm -rf /root/.cache
+
+%runscript
+    # Run whatever the user passes, inside the micromamba-installed environment
+    exec "$@"

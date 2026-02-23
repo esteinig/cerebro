@@ -1,6 +1,5 @@
 name: cerebro-metabuli
 channels:
-  - conda-forge        
-  - bioconda    
+  - esteinig  
 dependencies:
-  - metabuli=1.0.5
+  - metabuli=b9ab2a3a164829a9fe9b899e57b0b1f28b0f880b

@@ -972,7 +972,7 @@ process CreateCerebroModel {
 
 process UploadCerebroModel {
 
-    tag { "${team} - ${database} - ${project}" }
+    tag { "${team} - ${database} - ${project} (${apiUrl})" }
     label "cerebro"
 
     input:
