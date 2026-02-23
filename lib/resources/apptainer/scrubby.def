@@ -1,0 +1,48 @@
+Bootstrap: docker
+From: debian:bookworm-slim
+
+%labels
+    Author you
+    Description "Apptainer image for Cerebro development (Anaconda)"
+
+%environment
+    export MAMBA_ROOT_PREFIX="/opt/conda"
+    export MAMBA_EXE="/usr/local/bin/micromamba"
+    export PATH="/opt/conda/bin:$PATH"
+
+%post
+    set -eux
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        bzip2
+
+    rm -rf /var/lib/apt/lists/*
+
+    arch="$(uname -m)"
+    case "$arch" in
+        x86_64) mm_arch="linux-64" ;;
+        aarch64|arm64) mm_arch="linux-aarch64" ;;
+        *) echo "Unsupported arch: $arch" >&2; exit 1 ;;
+    esac
+
+    curl -fsSL "https://micro.mamba.pm/api/micromamba/${mm_arch}/latest" \
+      | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba
+
+
+
+    export MAMBA_ROOT_PREFIX="/opt/conda"
+    export MAMBA_EXE="/usr/local/bin/micromamba"
+
+    # Use a root env at /opt/conda (no named env) to keep it simple - strict channel priority for correct dependencies!
+    "${MAMBA_EXE}" create -y -p "${MAMBA_ROOT_PREFIX}" -c esteinig -c conda-forge -c bioconda scrubby
+
+    # trim fat
+    "${MAMBA_EXE}" clean -a -y
+    rm -rf /root/.cache
+
+%runscript
+    # Run whatever the user passes, inside the micromamba-installed environment
+    exec "$@"

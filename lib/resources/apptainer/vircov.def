@@ -36,8 +36,8 @@ From: debian:bookworm-slim
     export MAMBA_ROOT_PREFIX="/opt/conda"
     export MAMBA_EXE="/usr/local/bin/micromamba"
 
-    # Use a root env at /opt/conda (no named env) to keep it simple.
-    "${MAMBA_EXE}" create -y -p "${MAMBA_ROOT_PREFIX}" -c conda-forge -c bioconda -c esteinig vircov
+    # Use a root env at /opt/conda (no named env) to keep it simple - strict channel priority for correct dependencies!
+    "${MAMBA_EXE}" create -y -p "${MAMBA_ROOT_PREFIX}" -c esteinig -c conda-forge -c bioconda vircov
 
     # trim fat
     "${MAMBA_EXE}" clean -a -y
