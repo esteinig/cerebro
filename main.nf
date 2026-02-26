@@ -16,9 +16,6 @@ operate on a local server in a laboratory or clinical setting, but can be config
 Production pipeline operate as follows:
 
 
-
-
-
 */
 
 
