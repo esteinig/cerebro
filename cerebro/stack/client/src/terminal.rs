@@ -13,7 +13,7 @@ pub struct App {
     #[clap(
         long, 
         short = 'u', 
-        default_value = "http://api.cerebro.localhost", 
+        default_value = "http://localhost:8080", 
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
@@ -482,6 +482,10 @@ pub struct TrainingUploadArgs {
     /// Training collection description
     #[clap(short, long)]
     pub description: String,
+    /// Whether to set the reference organism to 
+    /// show as the selected organism
+    #[clap(short, long)]
+    pub preselect: Option<bool>,
 }
 
 #[derive(Debug, Args)]

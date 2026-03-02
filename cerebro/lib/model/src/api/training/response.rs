@@ -35,6 +35,7 @@ pub struct TrainingPrefetchData {
     pub description: String,
     pub name: String,
     pub prefetch: PrefetchData,
+    pub preselect: Option<bool>
 }
 
 impl TrainingPrefetchData {
@@ -44,7 +45,8 @@ impl TrainingPrefetchData {
             collection: record.collection,
             description: record.description,
             name: record.name,
-            prefetch: prefetch
+            prefetch: prefetch,
+            preselect: record.preselect
         }
     }
 }

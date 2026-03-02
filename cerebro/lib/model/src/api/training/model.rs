@@ -14,6 +14,8 @@ pub struct TrainingPrefetchRecord {
     pub description: String,
     /// Human readable label
     pub name: String,
+    /// Preselect reference organism
+    pub preselect: Option<bool>,
 }
 impl TrainingPrefetchRecord {
     pub fn from_request(req: &CreateTrainingPrefetch) -> Self {
@@ -21,7 +23,8 @@ impl TrainingPrefetchRecord {
             id: req.id.clone(),
             collection: req.collection.clone(),
             description: req.description.clone(),
-            name: req.name.clone()
+            name: req.name.clone(),
+            preselect: req.preselect
         }
     }
 }
@@ -53,16 +56,55 @@ impl TrainingSessionRecord {
 
         let mut recs: Vec<TrainingRecord> = records
             .into_iter()
-            .map(|r| TrainingRecord {
-                id: Uuid::new_v4().to_string(),
-                data_id: r.id,
-                result: TestResult::Negative,
-                candidates: None,
-                sample_name: Some(r.prefetch.config.sample),
-                sample_type: Some(r.prefetch.config.sample_type),
-                reference_result: r.prefetch.config.test_result,
-                reference_candidates: r.prefetch.config.candidates,
-                exclude_lod: r.prefetch.config.exclude_lod
+            .map(|r| {
+                
+                // preselect enabled only if explicitly true
+                let preselect_enabled = r.preselect == Some(true);
+
+                let first_candidate = r
+                    .prefetch
+                    .config
+                    .candidates
+                    .as_ref()
+                    .and_then(|v| {
+                        // First try to find the first "s__" candidate
+                        v.iter()
+                            .find(|s| {
+                                let s = s.trim();
+                                !s.is_empty() && s.starts_with("s__")
+                            })
+                            // Fallback to the first non-empty candidate
+                            .or_else(|| {
+                                v.iter()
+                                    .find(|s| !s.trim().is_empty())
+                            })
+                            .cloned()
+                    });
+
+                // seed user-facing selection if preselect enabled and candidate exists
+                let (result, candidates) = if preselect_enabled {
+                    if let Some(c) = first_candidate.clone() {
+                        // candidate must be trimmed from genus/species prefix that comes with the reference species designation
+                        let c_trim = c.trim_start_matches("s__").trim_start_matches("g__").to_string();
+                        (r.prefetch.config.test_result.clone().unwrap_or(TestResult::Positive), Some(vec![c_trim]))
+                    } else {
+                        (r.prefetch.config.test_result.clone().unwrap_or(TestResult::Negative), None)
+                    }
+                } else {
+                    (r.prefetch.config.test_result.clone().unwrap_or(TestResult::Negative), None)
+                };
+
+                TrainingRecord {
+                    id: Uuid::new_v4().to_string(),
+                    data_id: r.id,
+                    result: result,
+                    candidates: candidates,
+                    sample_name: Some(r.prefetch.config.sample),
+                    sample_type: Some(r.prefetch.config.sample_type),
+                    reference_result: r.prefetch.config.test_result,
+                    reference_candidates: r.prefetch.config.candidates,
+                    exclude_lod: r.prefetch.config.exclude_lod
+                }
             })
             .collect();
 

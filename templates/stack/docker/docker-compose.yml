@@ -47,6 +47,10 @@ services:
     # Production run of build - show latest tag, branch, commit of deployed repository
     command: node -r dotenv/config build
     {{/if}}
+    {{#if dev}}
+    ports:
+      - "8000:8000"
+    {{/if}}
     expose:
       - 8000
     volumes:
@@ -73,6 +77,7 @@ services:
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.localhost.domain }}}`)"
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls: "{{ traefik.localhost.tls }}"
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      traefik.http.services.cerebro-app-{{{ traefik.subdomain.router.app }}}.loadbalancer.server.port: "8000"
       {{else}}
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.web.domain }}}`)"
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "https"
@@ -102,6 +107,10 @@ services:
     {{else}}
     command: cerebro-server run --host 0.0.0.0 --port 8080 --threads 8
     {{/if}}
+    {{#if dev}}
+    ports:
+      - "8080:8080"
+    {{/if}}
     expose:
       - 8080
     volumes:
@@ -119,7 +128,7 @@ services:
     environment:
       FAKTORY_URL: tcp://:devpass@faktory:7419
       CEREBRO_CONFIG_FILE: /run/secrets/cerebro_config
-    depends_on:  
+    depends_on:
       - cerebro-database
       - cerebro-auth-session
       - cerebro-auth-onetime
@@ -134,6 +143,7 @@ services:
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.localhost.domain }}}`)"
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls: "{{ traefik.localhost.tls }}"
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
+      traefik.http.services.cerebro-api-{{{ traefik.subdomain.router.api }}}.loadbalancer.server.port: "8080"
       {{else}}
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.web.domain }}}`)"
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "https"

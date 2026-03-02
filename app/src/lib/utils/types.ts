@@ -2291,6 +2291,7 @@ export type TrainingPrefetchData = {
     identifier: string;
     name: string;
     prefetch: PrefetchData;
+    preselect: boolean | null;
 };
 
 // Enum from #[serde(rename_all = "lowercase")]

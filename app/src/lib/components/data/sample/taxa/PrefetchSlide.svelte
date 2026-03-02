@@ -211,8 +211,4 @@
             collapseByGenus={collapseByGenus} on:select={onSelect} />
           {/if}
         </section>
-      </div>  
-  <style>
-    /* Tailwind assumed; keep minimal if not using Tailwind */
-  </style>
-  
+    </div>  

@@ -11,9 +11,10 @@ pub struct CreateTrainingPrefetch {
     pub collection: String,
     pub description: String,
     pub prefetch: PrefetchData,
+    pub preselect: Option<bool>,
 }
 impl CreateTrainingPrefetch {
-    pub fn from_file(path: &Path, collection: &str, description: &str) -> Result<Self, ModelError> {
+    pub fn from_file(path: &Path, collection: &str, description: &str, preselect: Option<bool>) -> Result<Self, ModelError> {
 
         let prefetch_data = PrefetchData::from_json(path)?;
 
@@ -22,7 +23,8 @@ impl CreateTrainingPrefetch {
             collection: collection.to_string(),
             description: description.to_string(),
             name: prefetch_data.config.sample.clone(),
-            prefetch: prefetch_data
+            prefetch: prefetch_data,
+            preselect,
         })
 
     }

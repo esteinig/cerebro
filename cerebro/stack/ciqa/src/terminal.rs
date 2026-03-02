@@ -19,7 +19,7 @@ pub struct App {
     #[clap(
         long, 
         short = 'u', 
-        default_value = "http://api.cerebro.localhost", 
+        default_value = "http://localhost:8080", 
         env = "CEREBRO_API_URL"
     )]
     pub url: String,

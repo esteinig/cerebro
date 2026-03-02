@@ -1118,14 +1118,14 @@ impl StackConfig {
 
             log::info!("Configure server and application deployment to localhost");
            // Localhost specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.subdomain.app, self.traefik.localhost.domain);
-            server_config.security.cookies.domain = match &subdomain { Some(subd) => format!("{subd}.{}", self.traefik.localhost.domain.clone()), None => self.traefik.localhost.domain.clone()};
+            server_config.security.cors.app_origin_public_url = format!("http://localhost");
+            server_config.security.cookies.domain = String::from("localhost");
             if self.traefik.localhost.tls {
                 server_config.security.cookies.secure = true;
             } else {
                 server_config.security.cookies.secure = false;
             }
-            self.cerebro.app.public_cerebro_api_url = format!("{}://{}.{}", self.traefik.localhost.entrypoint, self.traefik.subdomain.api, self.traefik.localhost.domain);
+            self.cerebro.app.public_cerebro_api_url = format!("http://localhost");
 
         } else {
             log::info!("Configure server and application deployment to web");
