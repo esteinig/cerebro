@@ -33,18 +33,19 @@ services:
   {{/if}}
   
   {{#unless fs.fs_only}}
+
   # Envionment variable file is copied into container from deployment configuration
   # and not loaded as Docker environment variables
   cerebro-app:
+    restart: unless-stopped
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.app
       {{#if dev}}
       args:
-        UID: ${UID}
-        GID: ${GID}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
       {{/if}}
-    restart: unless-stopped
     {{#if dev }}
     # Development run server - DO NOT RUN IN PRODUCTION
     command: npm run dev
@@ -62,7 +63,7 @@ services:
       {{#if dev }}
       # Path mount for linked repository in development deployment (local dev)
       - {{{ outdir }}}/cerebro/app/:/home/appuser/app
-      - cerebro_app_node_modules:/home/appuser/app/node_modules
+      - /home/appuser/app/node_modules
       {{/if}}
       - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
     networks:
@@ -94,6 +95,7 @@ services:
 
   # CEREBRO_CONFIG_FILE is automatically parsed from command-line
   cerebro-api:
+    restart: unless-stopped
     build:
       context: {{{ outdir }}}/cerebro
       dockerfile: {{{ outdir }}}/docker/Dockerfile.server
@@ -102,7 +104,6 @@ services:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
       {{/if}}
-    restart: unless-stopped
     {{#if dev}}
     {{#if trigger}}
     command: cargo watch -w /usr/src/cerebro/trigger --no-vcs-ignores -x "run -p cerebro-server run --host 0.0.0.0 --port 8080 --threads 8"
