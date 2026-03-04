@@ -1174,11 +1174,23 @@ impl StackConfig {
                 log::info!("Configure primary file system path: {}", path.display().to_string().blue());
                 config.path = path;
             };
+        } else {
+            if let Some(ref mut config) = self.fs.primary {
+                let path = self.outdir.join("cerebro_fs").join("primary");
+                log::info!("Configure primary file system path: {}", path.display().to_string().blue());
+                config.path = path;
+            };
         };
 
         if let Some(path) = fs_secondary {
             if let Some(ref mut config) = self.fs.secondary {
                 log::info!("Configure backup file system path: {}", path.display().to_string().blue());
+                config.path = path;
+            };
+        } else {
+            if let Some(ref mut config) = self.fs.secondary {
+                let path = self.outdir.join("cerebro_fs").join("backup");
+                log::info!("Configure primary file system path: {}", path.display().to_string().blue());
                 config.path = path;
             };
         };
