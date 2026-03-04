@@ -2,7 +2,9 @@ use colored::Colorize;
 use thiserror::Error;
 use rust_embed::EmbeddedFile;
 use bcrypt::{DEFAULT_COST, hash};
+use std::env;
 use std::fs::create_dir_all;
+use std::path::Path;
 use std::{path::PathBuf, io::Write};
 use rcgen::generate_simple_self_signed;
 use serde::{Deserialize, Serialize, Deserializer};
@@ -813,8 +815,8 @@ impl StackConfig {
             &cerebro_admin_email,
             &cerebro_admin_name,
             &cerebro_admin_password,
-            &fs_primary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
-            &fs_secondary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             false
         ))
@@ -835,8 +837,8 @@ impl StackConfig {
             "admin@cerebro",
             "Administrator",
             "admin",
-            &fs_primary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
-            &fs_secondary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             false
         ))
@@ -857,8 +859,8 @@ impl StackConfig {
             "admin@cerebro",
             "Administrator",
             "admin",
-            &fs_primary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
-            &fs_secondary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             true
         ))
@@ -1335,5 +1337,14 @@ impl StackConfig {
     }
     pub fn interactive() {
 
+    }
+}
+
+
+fn absolute_path(path: &Path) -> std::io::Result<PathBuf> {
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        Ok(env::current_dir()?.join(path))
     }
 }
