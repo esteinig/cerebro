@@ -772,16 +772,19 @@ impl StackConfig {
         value: Option<&PathBuf>,
         arg_name: &str,
         interactive: bool,
+        default: PathBuf
     ) -> Result<PathBuf, StackConfigError> {
         if let Some(p) = value {
-            Ok(p.clone())
-        } else if interactive {
+            return Ok(p.clone());
+        }
+    
+        if interactive {
             let input = prompt_reply(&format!("Enter path for {}: ", arg_name))
                 .map_err(|_| StackConfigError::MissingArgument(arg_name.to_string()))?;
-            Ok(PathBuf::from(input))
-        } else {
-            Err(StackConfigError::MissingArgument(arg_name.to_string()))
+            return Ok(PathBuf::from(input));
         }
+    
+        Ok(default)
     }
 
     pub fn default_localhost_from_args(
@@ -795,8 +798,10 @@ impl StackConfig {
         let cerebro_admin_email = Self::get_or_prompt(args.cerebro_admin_email.as_ref(), "--cerebro-admin-email", interactive)?;
         let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
         let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
-        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive)?;
-        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive)?;
+
+
+        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
+        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
         Ok(Self::default_localhost(
             &root_username,
@@ -817,8 +822,8 @@ impl StackConfig {
         interactive: bool,
     ) -> Result<Self, StackConfigError> {
 
-        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive)?;
-        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive)?;
+        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
+        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
         Ok(Self::default_localhost(
             "root",
@@ -839,8 +844,8 @@ impl StackConfig {
         interactive: bool,
     ) -> Result<Self, StackConfigError> {
 
-        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive)?;
-        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive)?;
+        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
+        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
         Ok(Self::default_localhost(
             "root",
@@ -1174,23 +1179,11 @@ impl StackConfig {
                 log::info!("Configure primary file system path: {}", path.display().to_string().blue());
                 config.path = path;
             };
-        } else {
-            if let Some(ref mut config) = self.fs.primary {
-                let path = self.outdir.join("cerebro_fs").join("primary");
-                log::info!("Configure primary file system path: {}", path.display().to_string().blue());
-                config.path = path;
-            };
         };
 
         if let Some(path) = fs_secondary {
             if let Some(ref mut config) = self.fs.secondary {
                 log::info!("Configure backup file system path: {}", path.display().to_string().blue());
-                config.path = path;
-            };
-        } else {
-            if let Some(ref mut config) = self.fs.secondary {
-                let path = self.outdir.join("cerebro_fs").join("backup");
-                log::info!("Configure primary file system path: {}", path.display().to_string().blue());
                 config.path = path;
             };
         };
