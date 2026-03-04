@@ -388,7 +388,7 @@ impl TraefikConfig {
             },
             localhost: TraefikLocalhostConfig { 
                 tls: false, 
-                domain: "cerebro.localhost".to_string(), 
+                domain: "localhost".to_string(),
                 entrypoint: "http".to_string(),
             },
             web: TraefikWebConfig {
@@ -419,7 +419,7 @@ impl TraefikConfig {
             },
             localhost: TraefikLocalhostConfig { 
                 tls: false, 
-                domain: "cerebro.localhost".to_string(), 
+                domain: "localhost".to_string(), 
                 entrypoint: "http".to_string(),
             },
             web: TraefikWebConfig {
@@ -985,7 +985,7 @@ impl StackConfig {
             log::info!("Local HTTPS deployment configured, create certificates");
 
             // Create a local certificate for the domain - rcgen for localhost domain
-            let subject_alt_names = vec![self.traefik.localhost.domain.to_string(), "localhost".to_string()];
+            let subject_alt_names = vec![self.traefik.localhost.domain.to_string()];
             let cert = generate_simple_self_signed(subject_alt_names).unwrap();
 
             write_cert(
@@ -1115,17 +1115,16 @@ impl StackConfig {
     
         // Configure server and application
         if self.traefik.is_localhost {
-
             log::info!("Configure server and application deployment to localhost");
            // Localhost specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("http://localhost");
+            server_config.security.cors.app_origin_public_url = format!("http://localhost:8000");
             server_config.security.cookies.domain = String::from("localhost");
             if self.traefik.localhost.tls {
                 server_config.security.cookies.secure = true;
             } else {
                 server_config.security.cookies.secure = false;
             }
-            self.cerebro.app.public_cerebro_api_url = format!("http://localhost");
+            self.cerebro.app.public_cerebro_api_url = format!("http://localhost:8080");
 
         } else {
             log::info!("Configure server and application deployment to web");

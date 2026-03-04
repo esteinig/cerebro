@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "cerebro/cerebro",
     "cerebro/lib/model",
     "cerebro/stack/server",
     "cerebro/stack/client",

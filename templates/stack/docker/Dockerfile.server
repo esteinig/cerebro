@@ -1,6 +1,5 @@
 FROM rust:1.88.0
 
-# Dependencies for Tectonic LaTeX compiler library
 # TODO: add versions for all system packages
 RUN apt-get update && apt-get install -y \
     git \
@@ -10,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libicu-dev \
     libfontconfig-dev \
-    && apt-get clean all
+    && rm -rf /var/lib/apt/lists/*
 
 # Define build arguments
 ARG UID=1000
@@ -18,10 +17,24 @@ ARG GID=1000
 
 {{#if dev}}
 # Host user for development mode should have UID and GID set
-RUN groupadd -g ${GID} cerebro-api && useradd -u ${UID} -g cerebro-api -m cerebro-api
+RUN groupadd -g ${GID} cerebro-api \
+ && useradd -u ${UID} -g cerebro-api -m cerebro-api
 {{else}}
-RUN groupadd -r cerebro-api && useradd -r -g cerebro-api cerebro-api
+RUN groupadd -r cerebro-api \
+ && useradd -r -g cerebro-api cerebro-api
 {{/if}}
+
+# Keep rustup/toolchain where the base image already has it
+ENV RUSTUP_HOME=/usr/local/rustup
+
+# Put cargo registry/cache somewhere writable for non-root user
+ENV CARGO_HOME=/home/cerebro-api/.cargo
+# Ensure both the rust image cargo bin dir and per-user cargo bin dir are on PATH
+ENV PATH=/usr/local/cargo/bin:${CARGO_HOME}/bin:${PATH}
+
+# Create cargo home and ensure ownership
+RUN mkdir -p ${CARGO_HOME} \
+ && chown -R cerebro-api:cerebro-api /home/cerebro-api
 
 # Dependencies and build
 WORKDIR /usr/src/cerebro
@@ -30,24 +43,22 @@ COPY ./cerebro cerebro
 COPY ./templates templates
 COPY ./Cargo.toml Cargo.toml
 
+# Ensure project dir is writable by the non-root user (build artifacts, etc.)
+RUN chown -R cerebro-api:cerebro-api /usr/src/cerebro
+
 {{#if dev}}
-    # For cargo-watch mode...
-    RUN cargo install cargo-watch 
+# Install cargo-watch as the non-root user so it lands in ${CARGO_HOME}/bin
+USER cerebro-api
+RUN cargo install cargo-watch
 {{else}}
 ENV PATH="${PATH}:/opt/cerebro/bin"
 RUN cargo build --release -p cerebro-server && \
     mkdir -p /opt/cerebro/bin && \
     cp target/release/cerebro-server /opt/cerebro/bin
-{{/if}}
 
-# Change ownership of the relevant directories to the new user
-RUN chown -R cerebro-api:cerebro-api /usr/src/cerebro
-
-{{#unless dev}}
 RUN chown -R cerebro-api:cerebro-api /opt/cerebro
 WORKDIR /opt/cerebro
-{{/unless}}
 
-# Switch to non-root user
+# Switch to non-root user (prod runtime)
 USER cerebro-api
-
+{{/if}}
