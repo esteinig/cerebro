@@ -1201,10 +1201,10 @@ impl StackConfig {
 
     }
     /// Clone the repository into the deployment folder and checkout the requested revision (can be done manually after deployment)
-    pub fn clone_and_checkout_repository_process(&self, url: &str, branch: Option<String>, revision: Option<String>) -> Result<(), StackConfigError> {
+    pub fn clone_and_checkout_repository_process(&self, url: &str, branch: Option<String>, revision: Option<String>, trigger: bool) -> Result<(), StackConfigError> {
 
         let repo_dir = self.outdir.join("cerebro");
-        let repo_dir_str = self.outdir.join("cerebro").display().to_string();
+        let repo_dir_str = repo_dir.display().to_string();
         
         if repo_dir.exists() {
             log::warn!("Repository exists at: {}", repo_dir.display());
@@ -1259,6 +1259,17 @@ impl StackConfig {
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 log::error!("Failed to checkout repository for deployment: {}", stderr);
+            }
+        }
+
+        if trigger {
+            let trigger_file = repo_dir.join("trigger");
+            let trigger_message = "Edit and save this file to trigger a rebuild of the server.\nThe file contents are not used; only the modification matters.\n";
+        
+            if let Err(e) = std::fs::write(&trigger_file, trigger_message) {
+                log::error!("Failed to create trigger file: {}", e);
+            } else {
+                log::info!("Trigger file created at {}", trigger_file.display());
             }
         }
 

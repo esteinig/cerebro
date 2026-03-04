@@ -96,7 +96,8 @@ fn main() -> anyhow::Result<(), StackConfigError> {
                     stack.clone_and_checkout_repository_process(
                         &args.git_url, 
                         args.branch.clone(),
-                        args.revision.clone()
+                        args.revision.clone(),
+                        args.trigger
                     )?;
                 },
                 StackCommands::Hash( args ) => {

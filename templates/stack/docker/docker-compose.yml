@@ -65,7 +65,7 @@ services:
       - {{{ outdir }}}/cerebro/app/:/home/appuser/app
       - /home/appuser/app/node_modules
       {{/if}}
-      - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
+      - {{{ outdir }}}/cerebro_api/app.env:/home/appuser/app/.env:ro
     networks:
       - cerebro
       - proxy
