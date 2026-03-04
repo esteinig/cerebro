@@ -59,8 +59,8 @@ services:
     {{else}}
     # Production mode on localhost also needs to expose the ports to host
     {{#if traefik.is_localhost}}
-      ports:
-        - "8000:8000"
+    ports:
+      - "8000:8000"
     {{/if}}
     {{/if}}
     expose:
@@ -125,8 +125,8 @@ services:
     {{else}}
     # Production mode on localhost also needs to expose the ports to host
     {{#if traefik.is_localhost}}
-      ports:
-        - "8080:8080"
+    ports:
+      - "8080:8080"
     {{/if}}
     {{/if}}
     expose:
