@@ -39,6 +39,8 @@ pub enum StackConfigError {
     ConfigFileNotDeserialized(#[from] toml::de::Error),
     #[error("failed to serialize config file")]
     ConfigFileNotSerialized(#[from] toml::ser::Error),
+    #[error("failed to resolve full file system path")]
+    FileSystemPathsNotResolved(#[source] std::io::Error),
     #[error("failed to create output path for embedded file")]
     EmbeddedFileOutputPathInvalid(#[source] std::io::Error),
     #[error("failed to write embedded file to output path")]
@@ -811,8 +813,8 @@ impl StackConfig {
             &cerebro_admin_email,
             &cerebro_admin_name,
             &cerebro_admin_password,
-            &fs_primary,
-            &fs_secondary,
+            &fs_primary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &fs_secondary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             false
         ))
@@ -833,8 +835,8 @@ impl StackConfig {
             "admin@cerebro",
             "Administrator",
             "admin",
-            &fs_primary,
-            &fs_secondary,
+            &fs_primary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &fs_secondary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             false
         ))
@@ -855,8 +857,8 @@ impl StackConfig {
             "admin@cerebro",
             "Administrator",
             "admin",
-            &fs_primary,
-            &fs_secondary,
+            &fs_primary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &fs_secondary.canonicalize().map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             true
         ))
