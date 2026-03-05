@@ -18,35 +18,33 @@ FROM node:18-bookworm
 ARG UID=1000
 ARG GID=1000
 
+ENV PORT=8000
+ENV PROTOCOL_HEADER=x-forwarded-proto
+ENV HOST_HEADER=x-forwarded-host
+
+# single path for both dev/prod
+WORKDIR /app
+
 {{#if dev}}
 ENV NODE_ENV=development
 
-# Create a user/group that matches the host, so bind mounts are writable
-RUN groupadd -g ${GID} appgroup \
- && useradd  -u ${UID} -g appgroup -m appuser
+# Create/reuse UID/GID safely (handles UID/GID=1000 already occupied by node)
+RUN set -eux; \
+    if ! getent group "${GID}" >/dev/null; then groupadd -g "${GID}" appgroup; fi; \
+    if ! getent passwd "${UID}" >/dev/null; then useradd -u "${UID}" -g "${GID}" -m appuser; fi
 
-WORKDIR /home/appuser/app
-
-# Copy deps from builder; ensure ownership for the runtime user
+# copy deps with numeric ownership so we don't care about usernames
 COPY --from=builder /app/package.json ./
-COPY --chown=appuser:appgroup --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
+RUN chown -R ${UID}:${GID} /app
 
-ENV PORT=8000
-ENV PROTOCOL_HEADER=x-forwarded-proto
-ENV HOST_HEADER=x-forwarded-host
-
-USER appuser
+USER ${UID}:${GID}
 {{else}}
 ENV NODE_ENV=production
 
-WORKDIR /home/node/app
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
-
-ENV PORT=8000
-ENV PROTOCOL_HEADER=x-forwarded-proto
-ENV HOST_HEADER=x-forwarded-host
 
 USER node
 {{/if}}

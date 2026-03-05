@@ -5,6 +5,20 @@ import CerebroApi from "$lib/utils/api";
 
 let api = new CerebroApi(private_env.PRIVATE_CEREBRO_API_URL_DOCKER);
 
+async function extractError(res: Response): Promise<string> {
+    const contentType = res.headers.get("content-type") ?? "";
+    const body = await res.text();
+
+    if (contentType.includes("application/json")) {
+        try {
+            const parsed = JSON.parse(body);
+            return parsed?.message ?? body;
+        } catch {}
+    }
+
+    return body || `Request failed with status ${res.status}`;
+}
+
 const fetchUsers = async(fetch: Function, requestInit: RequestInit): Promise<Array<User>> => {
     
     let users: Array<User> = [];
@@ -16,8 +30,7 @@ const fetchUsers = async(fetch: Function, requestInit: RequestInit): Promise<Arr
         let usersResponseData: UsersResponseData = await usersResponse.json();
         users = usersResponseData.data.users;
     } else {
-        let errorResponse: ErrorResponseData = await usersResponse.json();
-        throw error(usersResponse.status, errorResponse.message)
+        throw error(usersResponse.status, await extractError(usersResponse));
     }
     return users
 }
@@ -33,8 +46,7 @@ const fetchTeams = async(fetch: Function, requestInit: RequestInit): Promise<Arr
         let teamsResponseData: TeamsResponseData = await teamsResponse.json();
         teams = teamsResponseData.data.teams;
     } else {
-        let errorResponse: ErrorResponseData = await teamsResponse.json();
-        throw error(teamsResponse.status, errorResponse.message)
+        throw error(teamsResponse.status, await extractError(teamsResponse));
     }
     return teams
 }
@@ -51,8 +63,7 @@ const fetchLogs = async(fetch: Function, requestInit: RequestInit): Promise<Arra
         let logsResponseData: LogsResponseData = await logsResponse.json();
         logs = logsResponseData.data.logs;
     } else {
-        let errorResponse: ErrorResponseData = await logsResponse.json();
-        throw error(logsResponse.status, errorResponse.message)
+        throw error(logsResponse.status, await extractError(logsResponse));
     }
     return logs
 }
@@ -68,8 +79,7 @@ const fetchCriticalLogs = async(fetch: Function, requestInit: RequestInit): Prom
         let logsResponseData: LogsResponseData = await logsResponse.json();
         logs = logsResponseData.data.logs;
     } else {
-        let errorResponse: ErrorResponseData = await logsResponse.json();
-        throw error(logsResponse.status, errorResponse.message)
+        throw error(logsResponse.status, await extractError(logsResponse));
     }
     return logs
 }

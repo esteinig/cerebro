@@ -14,7 +14,7 @@ use clap::Parser;
 
 use cerebro_client::utils::{init_logger, write_models_summary};
 use cerebro_client::client::CerebroClient;
-use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TowerCommands, TrainingCommands, WatcherCommands};
+use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TeamCommands, TowerCommands, TrainingCommands, WatcherCommands};
 
 use cerebro_model::api::cerebro::model::Cerebro;
 use cerebro_pipeline::taxa::taxon::TaxonExtraction;
@@ -567,7 +567,16 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         },
-        Commands::Team( _subcommand ) => { },
+        Commands::Team( subcommand ) => {
+            match subcommand {
+
+                // Create new team
+                TeamCommands::Create( args ) => {
+                    log::warn!("Not implemented yet")
+                }
+            }
+
+        },
         Commands::Database( subcommand ) => {
             match subcommand {
 

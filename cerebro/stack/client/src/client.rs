@@ -33,6 +33,7 @@ use cerebro_model::api::jobs::response::JobsStatusResponse;
 use cerebro_model::api::jobs::schema::EnqueueJobRequest;
 use cerebro_model::api::jobs::schema::ScheduleJobRequest;
 use cerebro_model::api::teams::schema::RegisterDatabaseSchema;
+use cerebro_model::api::teams::schema::RegisterTeamSchema;
 use cerebro_model::api::towers::model::ProductionTower;
 use cerebro_model::api::towers::response::DeleteTowerResponse;
 use cerebro_model::api::towers::response::ListTowersResponse;
@@ -110,6 +111,7 @@ pub enum Route {
     DataCerebroTaxaHistory,
     DataCerebroTaxaFiltered,
     DataCerebroTaxaContamination,
+    TeamCreate,
     TeamProjectCreate,
     TeamProjectDelete,
     TeamDatabaseCreate,
@@ -161,6 +163,7 @@ impl Route {
             Route::DataCerebroTaxaHistory => "cerebro/taxa/history",
             Route::DataCerebroTaxaContamination => "cerebro/taxa/contamination",
             Route::DataCerebroTaxaFiltered => "cerebro/taxa",
+            Route::TeamCreate => "teams",
             Route::TeamDatabaseCreate => "teams/database",
             Route::TeamDatabaseDelete => "teams-database",
             Route::TeamProjectCreate => "teams/project",
@@ -819,6 +822,26 @@ impl CerebroClient {
         Ok(())
     }
 
+    // pub fn create_team(
+    //     &self,
+    //     name: &str,
+    //     description: &str,
+    // ) -> Result<(), HttpClientError> {
+
+    //     self.log_team_warning();
+
+
+    //     let response = self.send_request(
+    //         self.client.post(self.routes.url(Route::TeamCreate)).json(&database_schema), true
+    //     )?;
+
+    //     self.handle_response::<serde_json::Value>(
+    //         response,
+    //         Some(&format!("Team `{}` created successfully", name)),
+    //         "Team creation failed",
+    //     )?;
+    //     Ok(())
+    // }
     pub fn delete_database(&self) -> Result<(), HttpClientError> {
 
         self.log_team_warning();
