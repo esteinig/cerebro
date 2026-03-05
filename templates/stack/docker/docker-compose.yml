@@ -70,8 +70,10 @@ services:
       # Path mount for linked repository in development deployment (local dev)
       - {{{ outdir }}}/cerebro/app/:/home/appuser/app
       - /home/appuser/app/node_modules
-      {{/if}}
       - {{{ outdir }}}/cerebro_api/app.env:/home/appuser/app/.env:ro
+      {{else}}
+      - {{{ outdir }}}/cerebro_api/app.env:/home/node/app/.env:ro
+      {{/if}}
     networks:
       - cerebro
       - proxy
