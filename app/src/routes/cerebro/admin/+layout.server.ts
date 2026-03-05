@@ -75,6 +75,7 @@ const fetchCriticalLogs = async(fetch: Function, requestInit: RequestInit): Prom
     let logsResponse: Response = await fetch(
         `${api.routes.logs.admin}?critical=true`, requestInit
     );
+    
     if (logsResponse.ok) {
         let logsResponseData: LogsResponseData = await logsResponse.json();
         logs = logsResponseData.data.logs;

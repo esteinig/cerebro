@@ -68,12 +68,16 @@ services:
     volumes:
       {{#if dev }}
       - {{{ outdir }}}/cerebro/app/:/app
-      - /home/appuser/app/node_modules
+      - /app/node_modules
       {{/if}}
       - {{{ outdir }}}/cerebro_api/app.env:/app/.env:ro
     networks:
+      {{#if traefik.is_localhost }}
+      - cerebro
+      {{else}}
       - cerebro
       - proxy
+      {{/if}}
     security_opt:
       - no-new-privileges:true
     depends_on:  
@@ -82,14 +86,11 @@ services:
       - cerebro-auth-session
       - cerebro-auth-onetime
     labels:
+      {{#if traefik.is_localhost }}
+      traefik.enable: "false"
+      {{else}}
       traefik.enable: "true"
       traefik.docker.network: "proxy"
-      {{#if traefik.is_localhost }}
-      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.localhost.domain }}}`)"
-      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.tls: "{{ traefik.localhost.tls }}"
-      traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
-      traefik.http.services.cerebro-app-{{{ traefik.subdomain.router.app }}}.loadbalancer.server.port: "8000"
-      {{else}}
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.rule: "Host(`{{{ traefik.subdomain.app }}}.{{{ traefik.web.domain }}}`)"
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.entrypoints: "https"
       traefik.http.routers.cerebro-app-{{{ traefik.subdomain.router.app }}}.middlewares: "default@file"
@@ -140,8 +141,12 @@ services:
       {{/if}}
       - {{{ outdir }}}/cerebro/templates:/data/templates:ro
     networks:
+      {{#if traefik.is_localhost }}
+      - cerebro
+      {{else}}
       - cerebro
       - proxy
+      {{/if}}
     environment:
       FAKTORY_URL: tcp://:devpass@faktory:7419
       CEREBRO_CONFIG_FILE: /run/secrets/cerebro_config
@@ -154,14 +159,11 @@ services:
     secrets:
       - cerebro_config
     labels:
+      {{#if traefik.is_localhost }}
+      traefik.enable: "false"
+      {{else}}
       traefik.enable: "true"
       traefik.docker.network: "proxy"
-      {{#if traefik.is_localhost }}
-      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.localhost.domain }}}`)"
-      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.tls: "{{ traefik.localhost.tls }}"
-      traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "{{{ traefik.localhost.entrypoint }}}"
-      traefik.http.services.cerebro-api-{{{ traefik.subdomain.router.api }}}.loadbalancer.server.port: "8080"
-      {{else}}
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.rule: "Host(`{{{ traefik.subdomain.api }}}.{{{ traefik.web.domain }}}`)"
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.entrypoints: "https"
       traefik.http.routers.cerebro-api-{{{ traefik.subdomain.router.api }}}.middlewares: "default@file"
@@ -225,7 +227,7 @@ services:
 
   {{/unless}}
 
-  # Cerebro file-system
+  # Cerebro file-system - not operational
   
   {{#if fs.enabled }}
   cerebro-fs-master:
@@ -243,18 +245,26 @@ services:
     volumes:
       - cerebro_fs_master:/data
     networks:
+      {{#if traefik.is_localhost }}
+      - cerebro
+      {{else}}
       - cerebro
       - proxy
+      {{/if}}
     security_opt:
       - no-new-privileges:true
     labels:
+      {{#if traefik.is_localhost }}
+      traefik.enable: "false"
+      {{else}}
       traefik.enable: "true"
       traefik.docker.network: "proxy"
       traefik.http.routers.cerebro-fs-test.rule: "Host(`fs.cerebro.localhost`)"
       traefik.http.services.cerebro-fs-test.loadbalancer.server.port: "9333"  
       traefik.http.routers.cerebro-fs-test.tls: "false"
       traefik.http.routers.cerebro-fs-test.entrypoints: "http"
-
+      {{/if}}
+      
   cerebro-fs-primary:
     restart: unless-stopped
     build:
@@ -319,12 +329,19 @@ volumes:
 
 
 networks:
+
+  {{#if traefik.is_localhost }}
+  cerebro:
+    external: false
+    name: {{{ name }}}
+  {{else}}
   cerebro:
     external: false
     name: {{{ name }}}
   proxy:
     name: {{{ traefik.network.name }}}   
     external: {{{ traefik.network.external }}}
+  {{/if}}
 
 # Do not need to use files as secrets necessarily but allows for easier environmental variable settings
 secrets:

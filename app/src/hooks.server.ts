@@ -154,8 +154,8 @@ export async function handle({ event, resolve }) {
 
 
 /** @type {import('@sveltejs/kit').HandleFetch} */
-export async function handleFetch({ event, request, fetch }) {
-
+export async function handleFetch({ event, request }) {
+    
     if (request.url.startsWith(public_env.PUBLIC_CEREBRO_API_URL)) {
         // Clone the original request, but change the URL
         request = new Request(
