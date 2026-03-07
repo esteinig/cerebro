@@ -59,7 +59,7 @@ pub struct App {
     #[clap(
         long, 
         short = 'a',
-        default_value = "http://fs.cerebro.localhost", 
+        default_value = "http://localhost:9333", 
         env = "CEREBRO_FS_URL"
     )]
     pub fs_url: String,
