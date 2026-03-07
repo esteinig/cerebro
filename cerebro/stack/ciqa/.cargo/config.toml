@@ -1,8 +1,8 @@
 [alias]
 update-deps = """
 update \
-  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-client@0.12.0 \
-  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-model@0.12.0 \
-  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-pipeline@0.12.0 \
+  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-client@1.0.0-alpha.1 \
+  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-model@1.0.0-alpha.1 \
+  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-pipeline@1.0.0-alpha.1 \
   -p meta-gpt
 """
