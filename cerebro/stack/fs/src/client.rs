@@ -14,7 +14,8 @@ use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, 
 pub struct FileSystemClient {
     pub api_client: CerebroClient,
     pub fs_url: String,
-    pub fs_port: String
+    pub fs_port: String,
+    pub localhost: bool
 }
 
 #[derive(Clone, Debug)]
@@ -42,11 +43,12 @@ impl FileSystemClient {
     ///
     /// * `api_client` - An instance of `CerebroClient`.
     /// * `weed_master` - The address of the SeaweedFS master server.
-    pub fn new(api_client: &CerebroClient, fs_url: &str, fs_port: &str) -> Self {
+    pub fn new(api_client: &CerebroClient, fs_url: &str, fs_port: &str, localhost: bool) -> Self {
         Self {
             api_client: api_client.clone(),
             fs_url: fs_url.to_string(),
-            fs_port: fs_port.to_string()
+            fs_port: fs_port.to_string(),
+            localhost,
         }
     }
 
@@ -60,7 +62,7 @@ impl FileSystemClient {
     /// * `Ok(())` if the cluster is healthy.
     /// * `Err(FileSystemError)` if the cluster is unhealthy or if a network error occurs.
     pub fn ping_status(&self) -> Result<(), FileSystemError> {
-        let url = format!("{}/cluster/healthz", self.fs_url);
+        let url = format!("{}/cluster/healthz", self.get_url());
         
         let response = reqwest::blocking::Client::new()
             .get(&url)
@@ -75,9 +77,13 @@ impl FileSystemClient {
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
         }
     }
+    // Get localhost or base URL
+    pub fn get_url(&self) -> String {
+        return if self.localhost { format!("{}:{}", self.fs_url, self.fs_port) } else { self.fs_url.to_string() }
+    }
     // Cerebro FS delete file request
     pub fn delete_file(&self, fid: &str) -> Result<(), FileSystemError> {
-        let url = format!("{}/{}", self.fs_url, fid);
+        let url = format!("{}/{}", self.get_url(), fid);
         
         let response = reqwest::blocking::Client::new()
             .delete(&url)

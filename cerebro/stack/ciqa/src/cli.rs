@@ -727,7 +727,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             let fs_client = FileSystemClient::new(
                 &api_client, 
                 &cli.fs_url, 
-                &cli.fs_port
+                &cli.fs_port,
+                true
             );
 
             for file in args.fastq_pe {

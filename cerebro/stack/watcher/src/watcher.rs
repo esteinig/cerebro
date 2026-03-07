@@ -179,9 +179,12 @@ impl CerebroWatcher {
                                     ) {
                                         Ok(_) => {
                                             // ... if there are no changes to the input directory, we start the file registration and upload 
-
+                                            let _glob = watcher.config.glob.clone();
                                             match watcher.config.format.get_fastq_files(&new_dir, Some(watcher.config.glob)) {
-                                                Err(err) => log::error!("Error getting read files: {}", err.to_string()),
+                                                Err(err) => {
+                                                    log::error!("Error getting read files: {}", err.to_string());
+                                                    log::error!("Watching directory '{}' with glob '{}'", new_dir.display(), _glob);
+                                                },
                                                 Ok(fastq_files) => {
 
                                                     match watcher.fs_client.upload_files_from_watcher(

@@ -29,7 +29,6 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Watch( args ) => {
 
-
             let api_client = CerebroClient::new(
                 &cli.url,
                 cli.token,
@@ -44,7 +43,8 @@ fn main() -> anyhow::Result<()> {
             let fs_client = FileSystemClient::new(
                 &api_client, 
                 &cli.fs_url, 
-                &cli.fs_port
+                &cli.fs_port,
+                true
             );
 
             log::info!("Checking status of Cerebro API at {}",  &api_client.url);
