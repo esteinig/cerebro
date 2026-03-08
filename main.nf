@@ -80,7 +80,7 @@ workflow production {
     def pipelineSelection = branchCriteria {
         panviral: it[0] == 'panviral-enrichment'
         pathogen: it[0] == 'pathogen-detection'
-        culture:  it[0] == 'culture-identification'
+        assembly:  it[0] == 'genome-assembly'
     }
 
     /* Staged sample files provided by tower */
@@ -105,18 +105,17 @@ workflow production {
 
     /* Pathogen detection */
     
-    // def pathogenDB = getPathogenDetectionDatabases();
+    def pathogenDB = getPathogenDetectionDatabases();
 
-    // PathogenDetection(
-    //     pairedReadsFromStage(pipelines.pathogen),
-    //     pathogenDB.qualityControl,
-    //     pathogenDB.taxonomicProfile,
-    //     pathogenDB.metagenomeAssembly,
-    //     productionConfig,
-    //     stagedFileDataFromStage(pipelines.pathogen)
-    // )   
+    PathogenDetection(
+        pairedReadsFromStage(pipelines.pathogen),
+        pathogenDB.qualityControl,
+        pathogenDB.taxonomicProfile,
+        pathogenDB.metagenomeAssembly,
+        productionConfig,
+        stagedFileDataFromStage(pipelines.pathogen)
+    )   
    
-
 }
 
 

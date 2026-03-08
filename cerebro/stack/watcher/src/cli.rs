@@ -50,7 +50,7 @@ fn main() -> anyhow::Result<()> {
             log::info!("Checking status of Cerebro API at {}",  &api_client.url);
             api_client.ping_servers()?;
     
-            log::info!("Checking status of SeaweedFS master at {}",  &fs_client.fs_url);
+            log::info!("Checking status of SeaweedFS master at {}",  &fs_client.get_url());
             fs_client.ping_status()?;
 
             let watcher = CerebroWatcher::new(

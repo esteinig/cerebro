@@ -2042,9 +2042,9 @@ export type SeaweedFile = {
  * @file lib/utils/types
  */
 export enum Pipeline {
-    PathogenDetection = "Metagenomics: Pathogen Detection",
-    PanviralEnrichment = "Metagenomics: Panviral Enrichment",
-    CultureIdentification = "Metagenomics: Culture Identification"
+    PathogenDetection = "Metagenomics: Pathogen Detection mNGS",
+    PanviralEnrichment = "Metagenomics: Panviral Enrichment Panels",
+    GenomeAssembly = "Culture: Genome Assembly and Species Typing"
 }
 
 
@@ -2054,8 +2054,8 @@ export const parsePipeline = (pipeline: string): Pipeline => {
             return Pipeline.PathogenDetection;
         case "panviral-enrichment":
             return Pipeline.PanviralEnrichment;
-        case "culture-identification":
-            return Pipeline.CultureIdentification;
+        case "genome-assembly":
+            return Pipeline.GenomeAssembly;
         default:
             throw new Error(`Unknown Pipeline enumeration: ${pipeline}`);
     }

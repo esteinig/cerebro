@@ -44,7 +44,7 @@ fn main() -> Result<()> {
             log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
             api_client.ping_servers()?;
 
-            log::info!("Checking status of SeaweedFS master at {}", &cli.fs_url);
+            log::info!("Checking status of SeaweedFS master at {}", &fs_client.get_url());
             fs_client.ping_status()?;
 
             log::info!("Starting file processing and upload");
