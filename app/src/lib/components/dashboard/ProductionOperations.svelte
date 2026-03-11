@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-
-
     import { ListBox, ListBoxItem } from "@skeletonlabs/skeleton";
+	import { page } from "$app/stores";
 
+    let selectedTeam: string = $page.data.userTeams[0]?.name ?? "None";
     let selectedView: string = "runs";
 
 </script>
 
 <p class="opacity-60">Production interface</p>
 <div class="card border p-4 border-primary-500">
+    <ListBox>
         <a href='/cerebro/production/watchers/team={selectedTeam}&watcher=0' class="block pointer-events-none opacity-90" tabindex="-1">
             <ListBoxItem bind:group={selectedView} name="medium" value="watchers" active='variant-soft' rounded='rounded-token' disabled>
                 <svelte:fragment slot="lead">
