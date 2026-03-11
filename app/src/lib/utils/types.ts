@@ -2120,10 +2120,7 @@ export enum FileTag {
     TMP = "TMP",
     ENV = "ENV",
     HOST = "HOST",
-    SAMPLE = "SAMPLE",
-    PS = "PS",
-    S = "S",
-    NS = "NS"
+    SAMPLE = "SAMPLE"
 }
 
 

@@ -10,28 +10,24 @@
 
 <p class="opacity-60">Production interface</p>
 <div class="card border p-4 border-primary-500">
-    <ListBox class="">
-        <a href="/cerebro/production/watchers" class="block pointer-events-none opacity-90" tabindex="-1">
-            <ListBoxItem bind:group={selectedView} name="medium" value="runs", active='variant-soft' rounded='rounded-token' disabled>
-            
+        <a href='/cerebro/production/watchers/team={selectedTeam}&watcher=0' class="block pointer-events-none opacity-90" tabindex="-1">
+            <ListBoxItem bind:group={selectedView} name="medium" value="watchers" active='variant-soft' rounded='rounded-token' disabled>
                 <svelte:fragment slot="lead">
                     <div class="w-4 h-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-test-tubes"><path d="M9 2v17.5A2.5 2.5 0 0 1 6.5 22v0A2.5 2.5 0 0 1 4 19.5V2"/><path d="M20 2v17.5a2.5 2.5 0 0 1-2.5 2.5v0a2.5 2.5 0 0 1-2.5-2.5V2"/><path d="M3 2h7"/><path d="M14 2h7"/><path d="M9 16H4"/><path d="M20 16h-5"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-satellite-dish"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>
                     </div>
                 </svelte:fragment> 
-                Sequencing Runs 
+                    Pipeline Deployment
             </ListBoxItem>
         </a>
-        <a href="/cerebro/production/reports">
-        <ListBoxItem bind:group={selectedView} name="medium" value="samples" active='variant-soft' rounded='rounded-token'>
+        <ListBoxItem bind:group={selectedView} name="medium" value="qa" active='variant-soft' rounded='rounded-token' disabled>
             <svelte:fragment slot="lead">
                 <div class="w-4 h-4">
-                    <svg xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-microscope"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg>
+                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open-check"><path d="M8 3H2v15h7c1.7 0 3 1.3 3 3V7c0-2.2-1.8-4-4-4Z"/><path d="m16 12 2 2 4-4"/><path d="M22 6V3h-6c-2.2 0-4 1.8-4 4v14c0-1.7 1.3-3 3-3h7v-2.3"/></svg>
                 </div>
-            </svelte:fragment>
-            Clinical Report
+            </svelte:fragment> 
+            Quality Assurance
         </ListBoxItem>
-        </a>
         <ListBoxItem bind:group={selectedView} name="medium" value="contam", active='variant-soft' rounded='rounded-token' disabled>
             <svelte:fragment slot="lead">
                 <div class="w-4 h-4">
