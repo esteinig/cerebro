@@ -40,8 +40,8 @@ refresh_private_key             = ''
 refresh_public_key              = ''
 
 [security.token.expiration]
-access_max_age                  = 720
-refresh_max_age                 = 1440
+access_max_age                  = 2880
+refresh_max_age                 = 2880
 access_max_age_bot              = 43800
 refresh_max_age_bot             = 43800
 onetime_max_age_email           = 720

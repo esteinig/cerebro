@@ -73,8 +73,6 @@ def stagedFileDataFromStage(channel) {
 
 workflow production {
 
-    params.cerebroProduction.enabled = true
-
     productionConfig = getProductionConfig()
 
     def pipelineSelection = branchCriteria {
