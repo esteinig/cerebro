@@ -844,7 +844,7 @@ impl CerebroClient {
         let team_schema = RegisterTeamSchema {
             team_name: name.to_string(),
             team_description: description.to_string(),
-            team_lead: current_user.name,
+            team_lead: current_user.id,
             database_name: name.replace(" ", "-").to_string(),
             database_mongo_name: name.replace(" ", "-").to_string(),
             database_description: "Team default database".to_string(),
