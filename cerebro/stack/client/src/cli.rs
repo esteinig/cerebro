@@ -549,24 +549,6 @@ fn main() -> anyhow::Result<()> {
                 },
             }
         },
-        // Modify (create-delete-update) a project
-        Commands::Project( subcommand ) => {
-            match subcommand {
-
-                // Create new project in a team database
-                ProjectCommands::Create( args ) => {
-                    client.create_project(
-                        &args.name, 
-                        &args.description, 
-                    )?;
-                }
-
-                // Delete a project
-                ProjectCommands::Delete( _ ) => {
-                    client.delete_project()?;
-                }
-            }
-        },
         Commands::Team( subcommand ) => {
             match subcommand {
 
@@ -596,6 +578,24 @@ fn main() -> anyhow::Result<()> {
                     client.delete_database()?;
                 }
 
+            }
+        },
+        // Modify (create-delete-update) a project
+        Commands::Project( subcommand ) => {
+            match subcommand {
+
+                // Create new project in a team database
+                ProjectCommands::Create( args ) => {
+                    client.create_project(
+                        &args.name, 
+                        &args.description, 
+                    )?;
+                }
+
+                // Delete a project
+                ProjectCommands::Delete( _ ) => {
+                    client.delete_project()?;
+                }
             }
         },
         Commands::Jobs(sub) => {
