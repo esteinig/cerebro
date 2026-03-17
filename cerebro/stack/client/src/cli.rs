@@ -558,7 +558,7 @@ fn main() -> anyhow::Result<()> {
                     client.create_project(
                         &args.name, 
                         &args.description, 
-                    )?
+                    )?;
                 }
 
                 // Delete a project
@@ -572,7 +572,10 @@ fn main() -> anyhow::Result<()> {
 
                 // Create new team
                 TeamCommands::Create( args ) => {
-                    log::warn!("Not implemented yet")
+                    client.create_team(
+                        &args.name, 
+                        &args.description
+                    )?;
                 }
             }
 
@@ -585,7 +588,7 @@ fn main() -> anyhow::Result<()> {
                     client.create_database(
                         &args.name, 
                         &args.description, 
-                    )?
+                    )?;
                 },
 
                 // Delete a team database

@@ -157,9 +157,9 @@
                 <ListBox>
                     <ListBoxItem bind:group={selectedView} name="medium" value={DataView.QualityControl} active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.QualityControl}`)}>Quality Control</ListBoxItem>
                     <ListBoxItem bind:group={selectedView} name="medium" value={DataView.TaxonomicProfile}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.TaxonomicProfile}`)}>Taxonomic Profile</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Candidates}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Candidates}`)}>Pathogen Candidates</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Comments}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Comments}`)}>Team Comments</ListBoxItem>
-                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Reports}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Reports}`)}>Clinical Reports</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Candidates}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Candidates}`)} disabled>Pathogen Candidates</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Comments}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Comments}`)} disabled>Team Comments</ListBoxItem>
+                    <ListBoxItem bind:group={selectedView} name="medium" value={DataView.Reports}  active='variant-soft' rounded='rounded-token' on:click={() => goto(`./${DataView.Reports}`)} disabled>Clinical Reports</ListBoxItem>
                 </ListBox>
             </div>
         </div>

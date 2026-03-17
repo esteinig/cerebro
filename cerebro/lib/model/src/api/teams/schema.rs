@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::users::model::UserId;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterTeamSchema {
     pub team_name: String,

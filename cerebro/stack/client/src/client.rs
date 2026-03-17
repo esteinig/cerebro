@@ -48,6 +48,9 @@ use cerebro_model::api::training::response::TrainingPrefetchData;
 use cerebro_model::api::training::response::TrainingResponse;
 use cerebro_model::api::training::response::TrainingSessionData;
 use cerebro_model::api::training::schema::CreateTrainingPrefetch;
+use cerebro_model::api::users::model::User;
+use cerebro_model::api::users::response::FilteredUser;
+use cerebro_model::api::users::response::UserData;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::watchers::response::DeleteWatcherResponse;
 use cerebro_model::api::watchers::response::ListWatchersResponse;
@@ -349,8 +352,8 @@ impl CerebroClient {
         }
     }
 
-    fn send_request(&self, route: Route, auth: bool) -> Result<Response, HttpClientError> {
-        let mut request = self.client.get(self.routes.url(route));
+    fn send_request(&self, mut request: RequestBuilder, auth: bool) -> Result<Response, HttpClientError> {
+        
         if auth {
             request = request.header(AUTHORIZATION, self.get_bearer_token(None));
         }
@@ -366,11 +369,11 @@ impl CerebroClient {
                 format!("Server error: {}", response.status()),
             ))
         }
-    }
+    } 
 
     // Ping server status
     pub fn ping_status(&self) -> Result<(), HttpClientError> {
-        let response = self.send_request(Route::ServerStatus, false)?;
+        let response = self.send_request(self.client.get(self.routes.url(Route::ServerStatus)), false)?;
         self.check_response_status(&response)?;
         log::info!("Cerebro API status: ok");
         Ok(())
@@ -378,11 +381,19 @@ impl CerebroClient {
 
     // Ping server status routes - currently running a single server.
     pub fn ping_servers(&self) -> Result<(), HttpClientError> {
-        let response = self.send_request(Route::AuthServerStatus, true)?;
+        let response = self.send_request(self.client.get(self.routes.url(Route::AuthServerStatus)), true)?;
         self.check_response_status(&response)?;
         log::info!("Cerebro API status: ok");
         Ok(())
     }
+
+    // Get logged in user
+    pub fn get_user(&self) -> Result<FilteredUser, HttpClientError> {
+        let response = self.send_request(self.client.get(self.routes.url(Route::DataUserSelf)), true)?;
+        let user: UserSelfResponse = self.handle_response(response, None, "failed to fetch  current user")?;
+        Ok(user.data.user)
+    }
+
     // Login user and save tokens
     pub fn login_user(&self, email: &str, password: Option<String>, bot: bool) -> Result<(), HttpClientError> {
         let password = password.unwrap_or_else(|| {
@@ -822,26 +833,38 @@ impl CerebroClient {
         Ok(())
     }
 
-    // pub fn create_team(
-    //     &self,
-    //     name: &str,
-    //     description: &str,
-    // ) -> Result<(), HttpClientError> {
+    pub fn create_team(
+        &self,
+        name: &str,
+        description: &str,
+    ) -> Result<(), HttpClientError> {
 
-    //     self.log_team_warning();
+        let current_user = self.get_user()?;
 
+        let team_schema = RegisterTeamSchema {
+            team_name: name.to_string(),
+            team_description: description.to_string(),
+            team_lead: current_user.name,
+            database_name: name.replace(" ", "-").to_string(),
+            database_mongo_name: name.replace(" ", "-").to_string(),
+            database_description: "Team default database".to_string(),
+            project_name: "Data".to_string(),
+            project_mongo_name: "Data".to_string(),
+            project_description: "Default data project for team database".to_string(),
+        };
 
-    //     let response = self.send_request(
-    //         self.client.post(self.routes.url(Route::TeamCreate)).json(&database_schema), true
-    //     )?;
+        let response = self.send_request(
+            self.client.post(self.routes.url(Route::TeamCreate)).json(&team_schema), true
+        )?;
 
-    //     self.handle_response::<serde_json::Value>(
-    //         response,
-    //         Some(&format!("Team `{}` created successfully", name)),
-    //         "Team creation failed",
-    //     )?;
-    //     Ok(())
-    // }
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some(&format!("Team `{}` created successfully", name)),
+            "Team creation failed",
+        )?;
+        Ok(())
+    }
+
     pub fn delete_database(&self) -> Result<(), HttpClientError> {
 
         self.log_team_warning();
