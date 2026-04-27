@@ -34,7 +34,7 @@ def getPanviralEnrichmentVirusDatabases() {
             params.panviralEnrichment.virusAligner,
             "panviral enrichment :: virus"
         ),
-        taxonomy: params.cerebroProduction.enabled ? getPanviralEnrichmentTaxonomy() : Channel.empty() // necessary for production only
+        taxonomy: params.production ? getPanviralEnrichmentTaxonomy() : Channel.empty() // necessary for production only
     ]
 }
 
