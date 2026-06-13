@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 
 use crate::api::watchers::model::ProductionWatcher;
 
-use super::retention::{RetentionClass, StorageTier};
+use super::retention::{LifecycleTransition, RetentionClass, RetentionPolicy, StorageTier};
 use super::schema::RegisterFileSchema;
 
 /*
@@ -81,6 +81,11 @@ pub struct SeaweedFile {
     /// retrieved. Defaulted for documents registered before FS-4.
     #[serde(default)]
     pub archived: bool,
+    /// When the result for this file's case was reported out. Anchors the
+    /// retention clock and triggers the move to cold storage. Defaulted for
+    /// documents registered before FS-7.
+    #[serde(default)]
+    pub reported_at: Option<DateTime<Utc>>,
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {
@@ -103,6 +108,7 @@ impl SeaweedFile {
             legal_hold: register_file_schema.legal_hold,
             replicas: register_file_schema.replicas,
             archived: register_file_schema.archived,
+            reported_at: register_file_schema.reported_at,
         }
     }
     pub fn size_mb(&self) -> f64 {
@@ -131,6 +137,25 @@ impl SeaweedFile {
     /// is directly readable, whereas in Model B it is S3 Glacier.
     pub fn requires_restore(&self) -> bool {
         self.archived
+    }
+
+    /// Apply the report-out lifecycle transition to this record in place.
+    ///
+    /// Records `reported_at`, re-anchors `retain_until` to that moment using the
+    /// supplied [`RetentionPolicy`], and moves the record to the cold tier. The
+    /// returned [`LifecycleTransition`] is what a worker/server persists and acts
+    /// on (e.g. the physical hot→cold/Glacier move). Legal hold is untouched and
+    /// continues to override expiry.
+    pub fn report_out(
+        &mut self,
+        reported_at: DateTime<Utc>,
+        policy: &RetentionPolicy,
+    ) -> LifecycleTransition {
+        let transition = policy.report_out_transition(self.retention, reported_at);
+        self.reported_at = Some(transition.reported_at);
+        self.retain_until = transition.retain_until;
+        self.tier = transition.target_tier;
+        transition
     }
 
     /// Whether the file is eligible for expiry at instant `now`.
@@ -195,7 +220,25 @@ mod tests {
             legal_hold: false,
             replicas: None,
             archived: false,
+            reported_at: None,
         }
+    }
+
+    #[test]
+    fn report_out_anchors_retention_and_moves_to_cold() {
+        use super::super::retention::RetentionPolicy;
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30 };
+        let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
+
+        let mut f = sample_file(); // tier defaults to Hot, retention Diagnostic
+        let transition = f.report_out(reported_at, &policy);
+
+        assert_eq!(f.reported_at, Some(reported_at));
+        assert_eq!(f.tier, StorageTier::Cold);
+        assert_eq!(f.retain_until, Some(reported_at + chrono::Duration::days(365 * 4)));
+        assert_eq!(transition.target_tier, StorageTier::Cold);
+        // legal hold still governs expiry independently
+        assert!(!f.is_expired(reported_at));
     }
 
     #[test]

@@ -42,6 +42,9 @@ pub struct RegisterFileSchema {
     /// and requires a restore before retrieval.
     #[serde(default)]
     pub archived: bool,
+    /// When the result for this file's case was reported out (retention anchor).
+    #[serde(default)]
+    pub reported_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

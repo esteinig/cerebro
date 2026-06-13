@@ -156,6 +156,42 @@ impl RetentionPolicy {
             Some(from + Duration::days(days))
         }
     }
+
+    /// Compute the lifecycle transition for a file reported out at `reported_at`
+    /// under retention `class`.
+    ///
+    /// This anchors the retention clock to the report-out moment — the clinically
+    /// and legally meaningful event — rather than to upload time, and marks the
+    /// data for the cold tier. Whether "cold" means local HDD (Model A) or S3
+    /// Glacier (Model B, where the file also becomes `archived`) is resolved at
+    /// execution time by the deployment-aware lifecycle worker (Stage 3).
+    pub fn report_out_transition(
+        &self,
+        class: RetentionClass,
+        reported_at: DateTime<Utc>,
+    ) -> LifecycleTransition {
+        LifecycleTransition {
+            reported_at,
+            retain_until: self.retain_until(class, reported_at),
+            target_tier: StorageTier::Cold,
+        }
+    }
+}
+
+/// The storage-lifecycle changes implied by reporting a result out.
+///
+/// When a diagnostic result is reported out, its data is no longer active and
+/// the retention clock is anchored to that moment. This captures both decisions
+/// in one value: the new expiry and the tier the data should move to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LifecycleTransition {
+    /// Timestamp the result was reported out (the retention anchor).
+    pub reported_at: DateTime<Utc>,
+    /// Recomputed expiry: `reported_at` plus the retention period for the class
+    /// (`None` for indefinite retention).
+    pub retain_until: Option<DateTime<Utc>>,
+    /// Tier the data should move to once reported out (cold/archival).
+    pub target_tier: StorageTier,
 }
 
 /// Lifecycle state of an archival (Glacier) restore for a cold-tiered object.
@@ -234,5 +270,20 @@ mod tests {
         assert!(p.retain_until(RetentionClass::Diagnostic, from).is_none());
         assert!(p.retain_until(RetentionClass::Intermediate, from).is_none());
         assert!(p.retain_until(RetentionClass::Transient, from).is_some());
+    }
+
+    #[test]
+    fn report_out_anchors_retention_and_targets_cold() {
+        // 4-year diagnostic retention, anchored at the report-out date.
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30 };
+        let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
+        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at);
+
+        assert_eq!(transition.reported_at, reported_at);
+        assert_eq!(transition.target_tier, StorageTier::Cold);
+        assert_eq!(
+            transition.retain_until,
+            Some(reported_at + chrono::Duration::days(365 * 4))
+        );
     }
 }
