@@ -48,9 +48,7 @@ use cerebro_model::api::training::response::TrainingPrefetchData;
 use cerebro_model::api::training::response::TrainingResponse;
 use cerebro_model::api::training::response::TrainingSessionData;
 use cerebro_model::api::training::schema::CreateTrainingPrefetch;
-use cerebro_model::api::users::model::User;
 use cerebro_model::api::users::response::FilteredUser;
-use cerebro_model::api::users::response::UserData;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::watchers::response::DeleteWatcherResponse;
 use cerebro_model::api::watchers::response::ListWatchersResponse;
@@ -1467,7 +1465,7 @@ impl CerebroClient {
             }
         };
 
-        let timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let _timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
         for staged_sample in &staged_samples {
             staged_sample.to_json(&outdir.join(
@@ -2010,7 +2008,7 @@ impl CerebroClient {
 
         Ok(response.data)
     } 
-    pub fn _get_aneuploidy(&self, sample: &str) -> Result<Option<&str>, HttpClientError> {
+    pub fn _get_aneuploidy(&self, _sample: &str) -> Result<Option<&str>, HttpClientError> {
 
         self.log_team_warning();
         self.log_db_warning();

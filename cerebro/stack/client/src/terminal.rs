@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use cerebro_model::api::{towers::model::Pipeline, users::model::Role, watchers::model::WatcherFormat};
+use cerebro_model::api::{towers::model::Pipeline, watchers::model::WatcherFormat};
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 /// Cerebro: production stack server

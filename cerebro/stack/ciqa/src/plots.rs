@@ -67,7 +67,7 @@ pub fn draw_radar_chart<B: DrawingBackend>(
     // Spokes + category labels
     if !matches!(gridweight, GridWeight::Off) {
         let axis_style = ShapeStyle { color: grid_rgba, filled: false, stroke_width: grid_stroke.max(1) };
-        for (i, &ang) in angles.iter().enumerate() {
+        for (_, &ang) in angles.iter().enumerate() {
             let end = pt(cx, cy, radius, ang);
             root.draw(&PathElement::new(vec![(cx, cy), end], axis_style.clone()))?;
         }

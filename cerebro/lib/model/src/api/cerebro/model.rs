@@ -5,12 +5,11 @@ use std::{
     io::{BufReader, Write}, 
     path::PathBuf
 };
-use chrono::{NaiveDate, Utc};
+use chrono::Utc;
 use fancy_regex::Regex;
 use anyhow::Result;
 use serde::{Serialize,Deserialize, Deserializer};
 use thiserror::Error;
-use chrono::{TimeZone, SecondsFormat};
 
 use cerebro_pipeline::{
     error::WorkflowError, 
@@ -30,7 +29,7 @@ use crate::api::cerebro::schema::{
 };
 
 
-const SCHEMA_VERSION: &str = "0.12.0";
+const SCHEMA_VERSION: &str = "1.0.0";
 
 /*
 ========================

@@ -1,7 +1,7 @@
 
 use std::{collections::{HashMap, HashSet}, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::{cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult}, training::model::normalize_candidate};
+use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType, TestResult};
 use cerebro_pipeline::{modules::quality::{QcStatus, QualityControlSummary}};
 use regex::Regex;
 use statrs::distribution::{ContinuousCDF, StudentsT};
@@ -704,7 +704,7 @@ impl DiagnosticData {
         
         Ok(reference_review.first().cloned())
     }
-    pub fn plot_summary(&self, output: &Path, title: Option<&str>, width: u32, height: u32, reference: Option<PathBuf>, header_text: Option<&str>, consensus_stats: Option<&DiagnosticStats>) -> Result<(), CiqaError> {
+    pub fn plot_summary(&self, output: &Path, title: Option<&str>, _width: u32, _height: u32, reference: Option<PathBuf>, header_text: Option<&str>, consensus_stats: Option<&DiagnosticStats>) -> Result<(), CiqaError> {
 
         let data_columns: Vec<Vec<DiagnosticReview>> = self.stats
             .iter()
@@ -2238,7 +2238,7 @@ pub fn plot_diagnostic_matrix(
     if let Some(col) = reference { columns.push(col); }
 
     // Meta column index (always last)
-    let meta_idx = columns.len();
+    let _meta_idx = columns.len();
     let total_cols = columns.len() + 1;
 
     // Panel layout parameters (same as QC function)
@@ -2446,7 +2446,7 @@ pub fn plot_diagnostic_matrix(
             format!("Replicate Certainty: {rc}")
         ];
 
-        for (i, val) in pairs.iter().enumerate() {
+        for (_, val) in pairs.iter().enumerate() {
             total_w += text_w(val, false) + gap_small;
         }
 

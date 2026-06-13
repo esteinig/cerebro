@@ -12,7 +12,7 @@ use cerebro_pipeline::modules::pathogen::PathogenDetection;
 use cerebro_pipeline::modules::quality::QualityControl;
 use clap::Parser;
 
-use cerebro_client::utils::{init_logger, write_models_summary};
+use cerebro_client::utils::init_logger;
 use cerebro_client::client::CerebroClient;
 use cerebro_client::terminal::{App, Commands, DatabaseCommands, JobsCommands, ProjectCommands, StageCommands, TeamCommands, TowerCommands, TrainingCommands, WatcherCommands};
 

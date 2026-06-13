@@ -1,16 +1,15 @@
 use csv::WriterBuilder;
 use meta_gpt::gpt::{Diagnosis, DiagnosticResult};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::{HashMap, BTreeMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::terminal::PredictionSummaryArgs;
-use crate::utils::write_tsv;
 
 // One row per sample for diagnoses.tsv
 #[derive(Debug, Serialize)]
-struct DiagnosisRow {
+struct _DiagnosisRow {
     pub sample_id: String,
     #[serde(flatten)]
     pub replicates: BTreeMap<String, Option<Diagnosis>>,
@@ -19,7 +18,7 @@ struct DiagnosisRow {
 
 // One row per sample for pathogens.tsv
 #[derive(Debug, Serialize)]
-struct PathogenRow {
+struct _PathogenRow {
     pub sample_id: String,
     #[serde(flatten)]
     pub replicates: BTreeMap<String, Option<String>>,

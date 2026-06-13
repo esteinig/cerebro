@@ -3,7 +3,6 @@ use serde_json::Value as JsonValue;
 use chrono::{DateTime, Utc};
 use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime_optional;
-use uuid::Uuid;
 
 /// Primary key type (string UUID works well with existing patterns).
 pub type ScheduleId = String;

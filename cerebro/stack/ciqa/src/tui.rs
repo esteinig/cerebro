@@ -3,7 +3,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use clap::{Parser, Subcommand};
 use ratatui::crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -123,11 +122,11 @@ impl Iterator for SinSignal {
 #[derive(Clone)]
 struct PastelTheme {
     header_models: Style,
-    header_metrics: Style,
+    _header_metrics: Style,
     header_stats: Style,
     header_detail: Style,
-    footer: Style,
-    summary: Style,
+    _footer: Style,
+    _summary: Style,
     perf_sens: Style,
     perf_spec: Style,
     dna_a: Style,
@@ -149,11 +148,11 @@ fn hex_rgb(hex: u32) -> Color {
 fn make_themes()->Vec<PastelTheme>{
     let base = PastelTheme{
         header_models: Style::default().fg(hex_rgb(0xFF66CC)).add_modifier(Modifier::BOLD),
-        header_metrics: Style::default().fg(hex_rgb(0x66FFCC)).add_modifier(Modifier::BOLD),
+        _header_metrics: Style::default().fg(hex_rgb(0x66FFCC)).add_modifier(Modifier::BOLD),
         header_stats: Style::default().fg(hex_rgb(0xC4A1FF)).add_modifier(Modifier::BOLD),
         header_detail: Style::default().fg(hex_rgb(0xFFBF80)).add_modifier(Modifier::BOLD),
-        footer: Style::default().fg(hex_rgb(0x80859A)).add_modifier(Modifier::DIM),
-        summary: Style::default().fg(hex_rgb(0xFFF8A6)),
+        _footer: Style::default().fg(hex_rgb(0x80859A)).add_modifier(Modifier::DIM),
+        _summary: Style::default().fg(hex_rgb(0xFFF8A6)),
         perf_sens: Style::default().fg(hex_rgb(0x5BE3FF)),
         perf_spec: Style::default().fg(hex_rgb(0xF26BFF)),
         dna_a: Style::default().fg(hex_rgb(0x5BE3FF)),
@@ -273,11 +272,10 @@ impl App {
     }
 }
 fn synthesize_matrix(m: &mut Model, samples: usize, replicates: usize, seed: u64) {
-    use rand::{SeedableRng, rngs::StdRng, Rng};
     let mut rng = StdRng::seed_from_u64(seed);
 
     let sens = m.sensitivity();   // copy scalar values
-    let spec = m.specificity();
+    let _spec = m.specificity();
 
     // Build consensus classifications first without referencing m after mutation
     let mut sample_classes: Vec<CellClass> = Vec::with_capacity(samples);
@@ -469,7 +467,7 @@ fn draw_dna_chart(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme
     f.render_widget(chart, area);
 }
 
-fn draw_line_demo(f:&mut ratatui::Frame, area:Rect){
+fn _draw_line_demo(f:&mut ratatui::Frame, area:Rect){
     let ds=Dataset::default().name("Line 2pts").marker(symbols::Marker::Braille)
         .style(Style::default().fg(Color::Yellow)).graph_type(GraphType::Line)
         .data(&[(1.,1.),(4.,4.)]);
@@ -480,7 +478,7 @@ fn draw_line_demo(f:&mut ratatui::Frame, area:Rect){
     f.render_widget(chart, area);
 }
 
-fn draw_bar_demo(f:&mut ratatui::Frame, area:Rect){
+fn _draw_bar_demo(f:&mut ratatui::Frame, area:Rect){
     let ds=Dataset::default().graph_type(GraphType::Bar).marker(symbols::Marker::HalfBlock)
         .style(Style::default().fg(Color::Blue)).data(&[
             (0.,0.4),(10.,2.9),(20.,13.5),(30.,41.1),(40.,80.1),(50.,100.0),
@@ -493,7 +491,7 @@ fn draw_bar_demo(f:&mut ratatui::Frame, area:Rect){
     f.render_widget(chart, area);
 }
 
-fn draw_scatter_demo(f:&mut ratatui::Frame, area:Rect){
+fn _draw_scatter_demo(f:&mut ratatui::Frame, area:Rect){
     let ds1=Dataset::default().name("S").graph_type(GraphType::Scatter).marker(symbols::Marker::Dot)
         .style(Style::default().fg(Color::Cyan)).data(&[(1.,3.),(2.,4.),(3.,5.),(4.,4.)]);
     let ds2=Dataset::default().name("M").graph_type(GraphType::Scatter).marker(symbols::Marker::Braille)
@@ -666,7 +664,7 @@ fn draw_confusion_matrix(f:&mut ratatui::Frame, area:Rect, model:&Model, theme:&
         .constraints([Constraint::Length(7),Constraint::Percentage(50),Constraint::Percentage(50)]).split(rows[2]);
 
     let tp=model.tp; let fn_=model.fn_; let fp=model.fp; let tn=model.tn;
-    let sens=model.sensitivity(); let spec=model.specificity();
+    let _sens=model.sensitivity(); let _spec=model.specificity();
 
     if tcols.len()>=3 {
         render(tcols[0],"True", Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
@@ -806,5 +804,5 @@ fn draw_detail(f:&mut ratatui::Frame, area:Rect, app:&App, theme:&PastelTheme){
 
 }
 
-fn draw_footer(_f:&mut ratatui::Frame, _size:Rect, _theme:&PastelTheme){
+fn _draw_footer(_f:&mut ratatui::Frame, _size:Rect, _theme:&PastelTheme){
 }
