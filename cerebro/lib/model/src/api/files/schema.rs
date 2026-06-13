@@ -1,7 +1,9 @@
 use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Utc};
 use crate::api::{files::model::SeaweedFileId, watchers::model::ProductionWatcher};
 
 use super::model::{FileTag, FileType};
+use super::retention::{RetentionClass, StorageTier};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterFileSchema {
@@ -16,7 +18,26 @@ pub struct RegisterFileSchema {
     pub pipeline_id: Option<String>,
     pub description: Option<String>,
     pub ftype: Option<FileType>,
-    pub watcher: Option<ProductionWatcher>
+    pub watcher: Option<ProductionWatcher>,
+    /// Filer object path when stored via the path-addressed filer (FS-2).
+    #[serde(default)]
+    pub path: Option<String>,
+    /// Physical storage tier at registration.
+    #[serde(default)]
+    pub tier: StorageTier,
+    /// Retention category assigned to the file.
+    #[serde(default)]
+    pub retention: RetentionClass,
+    /// Absolute expiry computed by the registering client from its retention
+    /// policy. `None` means "retain indefinitely".
+    #[serde(default)]
+    pub retain_until: Option<DateTime<Utc>>,
+    /// When set, the file is exempt from expiry.
+    #[serde(default)]
+    pub legal_hold: bool,
+    /// Requested/observed replica count, when known.
+    #[serde(default)]
+    pub replicas: Option<u32>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

@@ -1,7 +1,9 @@
 use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Utc};
 
 use crate::api::watchers::model::ProductionWatcher;
 
+use super::retention::{RetentionClass, StorageTier};
 use super::schema::RegisterFileSchema;
 
 /*
@@ -52,7 +54,28 @@ pub struct SeaweedFile {
     pub run_id: Option<String>,
     pub sample_id: Option<String>,
     pub ftype: Option<FileType>,
-    pub watcher: Option<ProductionWatcher>
+    pub watcher: Option<ProductionWatcher>,
+    /// Filer object path, when the file was stored via the path-addressed filer
+    /// rather than as a fid-addressed weed object. Preferred over `fid` for
+    /// retrieval when present. Defaulted for documents registered before FS-2.
+    #[serde(default)]
+    pub path: Option<String>,
+    /// Physical storage tier the file currently occupies.
+    #[serde(default)]
+    pub tier: StorageTier,
+    /// Retention category assigned at registration.
+    #[serde(default)]
+    pub retention: RetentionClass,
+    /// Absolute expiry computed from the retention policy in force at
+    /// registration. `None` means "retain indefinitely".
+    #[serde(default)]
+    pub retain_until: Option<DateTime<Utc>>,
+    /// When set, the file is exempt from expiry regardless of `retain_until`.
+    #[serde(default)]
+    pub legal_hold: bool,
+    /// Observed replica count, populated by topology/health checks (FS-6).
+    #[serde(default)]
+    pub replicas: Option<u32>,
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {
@@ -67,11 +90,45 @@ impl SeaweedFile {
             fid: register_file_schema.fid.clone(),
             size: register_file_schema.size.clone(),
             watcher: register_file_schema.watcher.clone(),
-            tags: Vec::new()
+            tags: Vec::new(),
+            path: register_file_schema.path.clone(),
+            tier: register_file_schema.tier,
+            retention: register_file_schema.retention,
+            retain_until: register_file_schema.retain_until,
+            legal_hold: register_file_schema.legal_hold,
+            replicas: register_file_schema.replicas,
         }
     }
     pub fn size_mb(&self) -> f64 {
         bytes_to_mb(self.size)
+    }
+
+    /// Identifier preferred for retrieval: the filer `path` when present and
+    /// non-empty, otherwise the weed `fid`.
+    ///
+    /// This lets retrieval transparently handle both path-addressed (filer) and
+    /// fid-addressed (weed) objects without the caller needing to know which
+    /// backend stored the file.
+    pub fn effective_identifier(&self) -> &str {
+        match &self.path {
+            Some(path) if !path.is_empty() => path.as_str(),
+            _ => self.fid.as_str(),
+        }
+    }
+
+    /// Whether the file is eligible for expiry at instant `now`.
+    ///
+    /// Always `false` while under [`SeaweedFile::legal_hold`]; otherwise `true`
+    /// once `now` has reached `retain_until`. A file with no `retain_until`
+    /// (indefinite retention) never expires.
+    pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
+        if self.legal_hold {
+            return false;
+        }
+        match self.retain_until {
+            Some(until) => now >= until,
+            None => false,
+        }
     }
 }
 
@@ -94,4 +151,59 @@ pub struct SeaweedReads {
 fn bytes_to_mb(bytes: u64) -> f64 {
     const BYTES_PER_MB: f64 = 1024.0 * 1024.0; // 1 MB = 1024 * 1024 bytes
     bytes as f64 / BYTES_PER_MB
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    fn sample_file() -> SeaweedFile {
+        SeaweedFile {
+            id: "id".into(),
+            date: "2025-01-01".into(),
+            name: "reads_R1.fastq.gz".into(),
+            hash: "abc".into(),
+            size: 1024,
+            fid: "3,01abcd".into(),
+            tags: Vec::new(),
+            run_id: None,
+            sample_id: None,
+            ftype: None,
+            watcher: None,
+            path: None,
+            tier: StorageTier::default(),
+            retention: RetentionClass::default(),
+            retain_until: None,
+            legal_hold: false,
+            replicas: None,
+        }
+    }
+
+    #[test]
+    fn effective_identifier_prefers_non_empty_path() {
+        let mut f = sample_file();
+        assert_eq!(f.effective_identifier(), "3,01abcd");
+        f.path = Some(String::new());
+        assert_eq!(f.effective_identifier(), "3,01abcd"); // empty path ignored
+        f.path = Some("/run/sample/reads_R1.fastq.gz".into());
+        assert_eq!(f.effective_identifier(), "/run/sample/reads_R1.fastq.gz");
+    }
+
+    #[test]
+    fn legal_hold_blocks_expiry() {
+        let now = Utc.with_ymd_and_hms(2030, 1, 1, 0, 0, 0).unwrap();
+        let mut f = sample_file();
+        f.retain_until = Some(Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap());
+        assert!(f.is_expired(now)); // past retain_until, no hold
+        f.legal_hold = true;
+        assert!(!f.is_expired(now)); // hold overrides expiry
+    }
+
+    #[test]
+    fn no_retain_until_never_expires() {
+        let now = Utc.with_ymd_and_hms(2030, 1, 1, 0, 0, 0).unwrap();
+        let f = sample_file();
+        assert!(!f.is_expired(now));
+    }
 }
