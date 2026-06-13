@@ -31,14 +31,16 @@ use cerebro_model::api::files::response::WeedUploadResponse;
 ///
 /// ```no_run
 /// use std::path::PathBuf;
-///
+/// use cerebro_fs::weed::weed_upload;
+/// 
 /// let input_file = PathBuf::from("path/to/your/file.pdf");
 /// let response = weed_upload(
 ///     &input_file,
 ///     None,
 ///     None,
-///     Some("localhost:9333"),
-///     Some(4),
+///     Some("localhost".to_string()),
+///     Some("9333".to_string()),
+///     None,
 ///     None,
 ///     None,
 ///     None,
@@ -208,9 +210,11 @@ pub fn get_upload_command(
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
+/// use cerebro_fs::weed::download_and_install_weed;
+/// 
 /// let bin_path = std::path::PathBuf::from("/usr/local/bin/weed");
-/// download_and_install_weed("latest", &bin_path).expect("Failed to download and install `weed`");
+/// download_and_install_weed("4.33", &bin_path).expect("Failed to download and install `weed`");
 /// ```
 pub fn download_and_install_weed(version: &str, bin_path: &PathBuf) -> Result<(), WeedDownloadError> {
     let url = format!(

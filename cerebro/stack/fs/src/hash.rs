@@ -19,6 +19,7 @@ use crate::error::FileSystemError;
 ///
 /// ```
 /// use std::path::PathBuf;
+/// use cerebro_fs::hash::fast_file_hash;
 ///
 /// let file_path = PathBuf::from("path/to/your/file.txt");
 /// match fast_file_hash(&file_path) {
