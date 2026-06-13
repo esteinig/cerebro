@@ -122,7 +122,7 @@ fn main() -> Result<()> {
             };
 
             // Retention durations are deployment configuration; the default policy
-            // is used for this preview (FS-5 surfaces the configured policy).
+            // is used for this preview.
             let policy = cerebro_model::api::files::retention::RetentionPolicy::default();
 
             log::info!("Planning report-out lifecycle at {}", reported_at.to_rfc3339());

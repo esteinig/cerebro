@@ -1,13 +1,13 @@
 //! Integrity verification and replica repair for Cerebro FS.
 //!
-//! Files are registered with a BLAKE3 hash at upload (FS-1). This module sweeps
+//! Files are registered with a BLAKE3 hash at upload. This module sweeps
 //! registered files, re-reads their bytes, and confirms the hash still matches —
 //! the core of an accreditation-grade integrity check. On a mismatch it can
 //! **repair** the local copy by re-fetching from an alternate SeaweedFS replica
 //! (a fid is served by every volume server that holds a copy), and it reports
 //! the observed replica count per file.
 //!
-//! Archived (Glacier) objects are skipped: they must be restored first (FS-4).
+//! Archived (Glacier) objects are skipped: they must be restored first.
 //!
 //! ## SeaweedFS endpoints
 //!

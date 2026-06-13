@@ -121,7 +121,7 @@ pub struct LifecycleEntry {
 
 /// Plan of the lifecycle transitions a report-out would apply to a run/sample.
 ///
-/// FS-7 computes the plan (the re-anchored `retain_until` and the move to the
+///  computes the plan (the re-anchored `retain_until` and the move to the
 /// cold tier per file). Persisting it and performing the physical hot→cold /
 /// Glacier move is the deployment-aware lifecycle worker's job (Stage 3).
 #[derive(Debug, Clone)]
@@ -168,7 +168,7 @@ pub fn is_filer_path(identifier: &str) -> bool {
 ///
 /// Returns [`FileSystemError::IntegrityMismatch`] on a mismatch. This is the
 /// basic verification primitive; replica-aware retry and `last_verified`
-/// stamping are added in FS-6.
+/// stamping are added.
 pub(crate) fn verify_file(path: &PathBuf, expected_hash: &str) -> Result<(), FileSystemError> {
     let actual = fast_file_hash(path)?;
     if actual != expected_hash {
@@ -444,11 +444,10 @@ impl FileSystemClient {
     /// file this returns [`RestoreState::Pending`]; for directly retrievable
     /// files it returns [`RestoreState::NotRequired`].
     ///
-    /// FS-4 establishes the contract: the actual S3 Glacier `RestoreObject`
-    /// execution is an operational step (or a future `s3` cargo feature). This
-    /// method tells the caller precisely what must be restored and lets
-    /// [`download_files`](Self::download_files) avoid blocking on Glacier
-    /// objects in the meantime.
+    /// The actual S3 Glacier `RestoreObject`  execution is an operational step
+    /// (or a future `s3` cargo feature). This method tells the caller precisely 
+    /// what must be restored and lets [`download_files`](Self::download_files) 
+    /// avoid blocking on Glacier objects in the meantime.
     pub fn restore_files(
         &self,
         run_id: Option<String>,
@@ -826,6 +825,7 @@ mod tests {
             ftype: None,
             watcher: None,
             path: None,
+            reported_at: None,
             tier: StorageTier::Cold,
             retention: RetentionClass::Diagnostic,
             retain_until: None,

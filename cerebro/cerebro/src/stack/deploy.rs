@@ -672,7 +672,7 @@ impl DiskTier {
 /// SeaweedFS filer deployment configuration.
 ///
 /// The filer provides the path-addressed HTTP API used by `cerebro-fs` when
-/// `--fs-access filer` is selected (FS-2). Its metadata store is MongoDB,
+/// `--fs-access filer` is selected. Its metadata store is MongoDB,
 /// reusing the existing `cerebro-database` service (the `filer.toml` template
 /// is rendered with the stack's MongoDB credentials).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -796,17 +796,16 @@ pub struct FileSystemConfig {
     pub replication: String,
     pub primary: Option<DataCenterConfig>,
     pub secondary: Option<DataCenterConfig>,
-    /// Filer deployment configuration (FS-3). Defaulted for configs written
-    /// before FS-3.
+    /// Filer deployment configuration.
     #[serde(default)]
     pub filer: FilerConfig,
     /// Hot storage tier for the single-server (Model A) deployment.
     #[serde(default)]
     pub hot: Option<DiskTier>,
-    /// Warm storage tier (HDD) for the three-tier Model B deployment — retains
+    /// Warm storage tier (HDD) for the three-tier HPC deployment — retains
     /// reported-out data on directly-readable disk for recovery and
     /// re-inspection before it is archived to the S3 cold tier. `None` for
-    /// Model A and for configs written before FS-8.
+    /// single server deployment.
     #[serde(default)]
     pub warm: Option<DiskTier>,
     /// Cold storage tier for the single-server (Model A) deployment.
@@ -818,11 +817,11 @@ pub struct FileSystemConfig {
     /// Pre-computed comma-separated `-disk` value for the tiered volume server.
     #[serde(default)]
     pub volume_disks: String,
-    /// S3 archival remote for the Model B Glacier cold tier (FS-4). When set, a
+    /// S3 archival remote for the Model B Glacier cold tier. When set, a
     /// `remote.conf` is rendered and mounted into the filer.
     #[serde(default)]
     pub remote: Option<S3RemoteConfig>,
-    /// Selected deployment model (FS-5). Informational on the config; the
+    /// Selected deployment model. Informational on the config; the
     /// builders set it to match the topology they produce.
     #[serde(default)]
     pub model: FsDeploymentModel,
@@ -898,7 +897,7 @@ impl FileSystemConfig {
     /// The warm (HDD) tier keeps reported-out data on directly-readable disk for
     /// recovery and re-inspection; the S3 remote is the archival cold tier that
     /// warm/read-only volumes are eventually tier-moved to (and which follows the
-    /// FS-4 restore contract). There is no *local* cold disk in Model B — cold is
+    /// restore contract). There is no *local* cold disk in Model B — cold is
     /// the remote.
     ///
     /// Replication is `000` because Model B currently renders a single volume

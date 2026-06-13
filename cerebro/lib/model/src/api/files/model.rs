@@ -57,7 +57,7 @@ pub struct SeaweedFile {
     pub watcher: Option<ProductionWatcher>,
     /// Filer object path, when the file was stored via the path-addressed filer
     /// rather than as a fid-addressed weed object. Preferred over `fid` for
-    /// retrieval when present. Defaulted for documents registered before FS-2.
+    /// retrieval when present.
     #[serde(default)]
     pub path: Option<String>,
     /// Physical storage tier the file currently occupies.
@@ -73,17 +73,16 @@ pub struct SeaweedFile {
     /// When set, the file is exempt from expiry regardless of `retain_until`.
     #[serde(default)]
     pub legal_hold: bool,
-    /// Observed replica count, populated by topology/health checks (FS-6).
+    /// Observed replica count, populated by topology/health checks.
     #[serde(default)]
     pub replicas: Option<u32>,
     /// Whether the object's data has been tier-moved to remote archival storage
     /// (S3 Glacier, Model B) and therefore requires a restore before it can be
-    /// retrieved. Defaulted for documents registered before FS-4.
+    /// retrieved.
     #[serde(default)]
     pub archived: bool,
     /// When the result for this file's case was reported out. Anchors the
-    /// retention clock and triggers the move to cold storage. Defaulted for
-    /// documents registered before FS-7.
+    /// retention clock and triggers the move to cold storage.
     #[serde(default)]
     pub reported_at: Option<DateTime<Utc>>,
 }

@@ -10,10 +10,8 @@
 //!   deployment), enabling directory listings and lifecycle operations; and
 //! * auto-chunks large objects server-side, so uploads/downloads can be
 //!   **streamed** from/to disk without buffering whole files in memory.
-//!
-//! Only the operations required by FS-1 are implemented here (upload, download,
-//! delete and a lightweight reachability check). Directory listing and tiering
-//! operations are added in later components.
+//! 
+//! Directory listing and tiering operations are added in later components.
 //!
 //! ## Large files
 //!
@@ -186,8 +184,8 @@ impl FilerClient {
     /// Lightweight reachability check: a successful GET of the filer root is
     /// treated as healthy.
     ///
-    /// A full topology health check (master + filer + volumes + S3) is added in
-    /// FS-6; this method exists so callers can fail fast on an unreachable filer.
+    /// A full topology health check (master + filer + volumes + S3); this method 
+    /// exists so callers can fail fast on an unreachable filer.
     pub fn health(&self) -> Result<(), FilerError> {
         let url = format!("{}/", self.base_url);
         let response = self.http.get(&url).send()?;

@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
 
             client.ping_servers().await?;
 
-            // Cerebro FS client (FS-5): the tower constructs a FileSystemClient
+            // Cerebro FS client: the tower constructs a FileSystemClient
             // so it can stage inputs and — in Stage 2 — capture and upload
             // pipeline output artefacts. The same API credentials are reused.
             let api_client = CerebroClient::new(

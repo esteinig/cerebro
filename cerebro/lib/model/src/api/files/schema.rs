@@ -19,7 +19,7 @@ pub struct RegisterFileSchema {
     pub description: Option<String>,
     pub ftype: Option<FileType>,
     pub watcher: Option<ProductionWatcher>,
-    /// Filer object path when stored via the path-addressed filer (FS-2).
+    /// Filer object path when stored via the path-addressed filer.
     #[serde(default)]
     pub path: Option<String>,
     /// Physical storage tier at registration.

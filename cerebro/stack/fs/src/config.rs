@@ -3,7 +3,7 @@
 //! [`FsConfig`] centralises the endpoints and access policy used to reach a
 //! SeaweedFS deployment. It replaces the previous ad-hoc `(fs_url, fs_port,
 //! localhost)` triplet that was threaded through the client, giving every
-//! consumer (`cerebro-fs`, `cerebro-watcher`, and — via FS-5 — `cerebro-tower`)
+//! consumer (`cerebro-fs`, `cerebro-watcher`, and `cerebro-tower`)
 //! a single, environment-driven source of truth for the master, filer, and
 //! (later) S3 endpoints.
 //!
@@ -19,7 +19,7 @@
 //!   (path-addressed; see [`crate::filer`]). Uploads/downloads stream from/to
 //!   disk and the filer auto-chunks large objects, so this path is also safe
 //!   for large files. In the Cerebro deployment the filer is backed by MongoDB
-//!   (reusing the existing `cerebro-database`); see the FS-3 deployment notes.
+//!   (reusing the existing `cerebro-database`); see the deployment notes.
 
 use std::env;
 

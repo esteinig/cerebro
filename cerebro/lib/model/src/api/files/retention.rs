@@ -3,7 +3,7 @@
 //! These types describe *where* a file currently lives ([`StorageTier`]) and
 //! *how long* it must be kept ([`RetentionClass`] resolved through a
 //! [`RetentionPolicy`]). They are the data-model foundation that the deployment
-//! models (FS-3 single-server hot/cold, FS-4 HPC + S3 cold) and the lifecycle
+//! models (ingle-server hot/cold, HPC + S3 cold) and the lifecycle
 //! workers (Stage 3) act on, and that the audit/chain-of-custody layer
 //! (Stage 2 · S2-6) records against.
 //!
@@ -14,7 +14,7 @@
 //! The durations in [`RetentionPolicy::default`] are therefore **placeholders**
 //! intended only to give a safe, keep-rather-than-delete ordering out of the
 //! box — they are not legal advice. Configure them to your laboratory's
-//! accreditation scope (FS-5 surfaces them as deployment configuration).
+//! accreditation scope.
 //!
 //! Two further design points support compliance:
 //!
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn days_for_maps_each_class() {
-        let p = RetentionPolicy { diagnostic_days: 100, intermediate_days: 50, transient_days: 5 };
+        let p = RetentionPolicy { diagnostic_days: 100, intermediate_days: 50, transient_days: 5, warm_days: 90 };
         assert_eq!(p.days_for(RetentionClass::Diagnostic), 100);
         assert_eq!(p.days_for(RetentionClass::Intermediate), 50);
         assert_eq!(p.days_for(RetentionClass::Transient), 5);
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn retain_until_adds_configured_days() {
-        let p = RetentionPolicy { diagnostic_days: 10, intermediate_days: 1, transient_days: 1 };
+        let p = RetentionPolicy { diagnostic_days: 10, intermediate_days: 1, transient_days: 1, warm_days: 90 };
         let from = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
         let until = p.retain_until(RetentionClass::Diagnostic, from).unwrap();
         assert_eq!(until, Utc.with_ymd_and_hms(2025, 1, 11, 0, 0, 0).unwrap());
