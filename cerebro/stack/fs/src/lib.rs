@@ -4,4 +4,5 @@ pub mod terminal;
 pub mod utils;
 pub mod client;
 pub mod hash;
+pub mod config;
 
