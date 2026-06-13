@@ -111,6 +111,7 @@ impl TemplateFiles {
                 docker_app: outdir.join(&names.docker_app), 
                 docker_fs: outdir.join(&names.docker_fs), 
                 docker_filer: outdir.join(&names.docker_filer), 
+                docker_remote: outdir.join(&names.docker_remote), 
                 mongodb_init_sh: outdir.join(&names.mongodb_init_sh), 
                 mongodb_init_env: outdir.join(&names.mongodb_init_env),
                 cerebro_server: outdir.join(&names.cerebro_server),
@@ -130,6 +131,7 @@ pub struct TemplateFilePaths {
     docker_app: PathBuf,
     docker_fs: PathBuf,
     docker_filer: PathBuf,
+    docker_remote: PathBuf,
     mongodb_init_sh: PathBuf,
     mongodb_init_env: PathBuf,
     cerebro_server: PathBuf,
@@ -145,6 +147,7 @@ pub struct TemplateFileNames {
     docker_app: String,
     docker_fs: String,
     docker_filer: String,
+    docker_remote: String,
     mongodb_init_sh: String,
     mongodb_init_env: String,
     cerebro_server: String,
@@ -162,6 +165,7 @@ impl TemplateFileNames {
             docker_app: String::from("Dockerfile.app.hbs"),
             docker_fs: String::from("Dockerfile.fs.hbs"),
             docker_filer: String::from("filer.toml.hbs"),
+            docker_remote: String::from("remote.conf.hbs"),
             mongodb_init_sh: String::from("mongo-init.sh.hbs"),
             mongodb_init_env: String::from("database.env.hbs"),
             cerebro_server: String::from("server.toml"),
@@ -214,6 +218,7 @@ impl StackAssets {
         write_embedded_file(&self.docker.app, &self.templates.paths.docker_app)?;
         write_embedded_file(&self.docker.fs, &self.templates.paths.docker_fs)?;
         write_embedded_file(&self.docker.filer, &self.templates.paths.docker_filer)?;
+        write_embedded_file(&self.docker.remote, &self.templates.paths.docker_remote)?;
         write_embedded_file(&self.mongodb.init_sh, &self.templates.paths.mongodb_init_sh)?;
         write_embedded_file(&self.mongodb.init_env, &self.templates.paths.mongodb_init_env)?;
         write_embedded_file(&self.cerebro.server, &self.templates.paths.cerebro_server)?;
@@ -263,6 +268,7 @@ pub struct DockerFiles {
     app: EmbeddedFile,
     fs: EmbeddedFile,
     filer: EmbeddedFile,
+    remote: EmbeddedFile,
     compose: EmbeddedFile,
     compose_traefik: EmbeddedFile
 }
@@ -273,6 +279,7 @@ impl DockerFiles {
             app: match DockerTemplates::get("docker/Dockerfile.app") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.app"))) },
             fs: match DockerTemplates::get("docker/Dockerfile.fs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.fs"))) },
             filer: match DockerTemplates::get("docker/filer.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/filer.toml"))) },
+            remote: match DockerTemplates::get("docker/remote.conf") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/remote.conf"))) },
             compose: match DockerTemplates::get("docker/docker-compose.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/docker-compose.yml"))) },
             compose_traefik: match DockerTemplates::get("docker/docker-compose.traefik.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/docker-compose.traefik.yml"))) },
         })
@@ -702,6 +709,47 @@ pub(crate) fn build_volume_args(hot: &Option<DiskTier>, cold: &Option<DiskTier>)
     (dirs.join(","), disks.join(","))
 }
 
+/// Configuration for an S3-compatible remote used as the archival (cold) tier
+/// in Model B (HPC distributed).
+///
+/// Cold/read-only volumes are tier-moved to this remote (S3 Glacier or
+/// DEEP_ARCHIVE). Because Glacier retrievals are not immediate, objects served
+/// from here are surfaced to `cerebro-fs` as `archived` and follow the restore
+/// contract (`SeaweedFile::requires_restore`, `cerebro-fs restore`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct S3RemoteConfig {
+    /// Logical remote name (`weed remote.configure -name`).
+    pub name: String,
+    /// S3 endpoint URL (e.g. `https://s3.ap-southeast-2.amazonaws.com`).
+    pub endpoint: String,
+    /// S3 region.
+    pub region: String,
+    /// Target bucket for archival storage.
+    pub bucket: String,
+    /// S3 storage class for cold data (e.g. `GLACIER`, `DEEP_ARCHIVE`).
+    pub storage_class: String,
+    /// Access key id. In production prefer injecting via environment/secret
+    /// rather than rendering into a file.
+    pub access_key: String,
+    /// Secret access key. In production prefer injecting via environment/secret.
+    pub secret_key: String,
+}
+impl S3RemoteConfig {
+    /// An S3 Glacier archival remote with empty credentials (to be supplied at
+    /// deploy time).
+    pub fn default_glacier(endpoint: &str, region: &str, bucket: &str) -> Self {
+        Self {
+            name: "cerebro-archive".to_string(),
+            endpoint: endpoint.to_string(),
+            region: region.to_string(),
+            bucket: bucket.to_string(),
+            storage_class: "GLACIER".to_string(),
+            access_key: String::new(),
+            secret_key: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSystemConfig {
     pub enabled: bool,
@@ -725,6 +773,10 @@ pub struct FileSystemConfig {
     /// Pre-computed comma-separated `-disk` value for the tiered volume server.
     #[serde(default)]
     pub volume_disks: String,
+    /// S3 archival remote for the Model B Glacier cold tier (FS-4). When set, a
+    /// `remote.conf` is rendered and mounted into the filer.
+    #[serde(default)]
+    pub remote: Option<S3RemoteConfig>,
 }
 impl Default for FileSystemConfig {
     fn default() -> Self {
@@ -739,6 +791,7 @@ impl Default for FileSystemConfig {
             cold: None,
             volume_dirs: String::new(),
             volume_disks: String::new(),
+            remote: None,
         }
     }
 }
@@ -783,7 +836,26 @@ impl FileSystemConfig {
             cold: Some(cold),
             volume_dirs,
             volume_disks,
+            remote: None,
         }
+    }
+    /// Model B: the single-server tiered topology plus an S3 archival (Glacier)
+    /// cold tier.
+    ///
+    /// Local hot/cold tiers are retained for active data; the S3 remote backs
+    /// the archival tier that cold/read-only volumes are tier-moved to.
+    /// Horizontal multi-node scale-out (additional volume servers across
+    /// racks/data-centres) is generalised in FS-5; FS-4 contributes the remote
+    /// archival tier and the restore contract.
+    pub fn default_distributed_hpc(
+        hot_path: &PathBuf,
+        cold_path: &PathBuf,
+        remote: S3RemoteConfig,
+        fs_only: bool,
+    ) -> Self {
+        let mut config = Self::default_single_server(hot_path, cold_path, fs_only);
+        config.remote = Some(remote);
+        config
     }
     pub fn default_web() -> Self {
         Self {
@@ -843,6 +915,26 @@ mod fs_config_tests {
         assert!(!cfg.filer.enabled);
         assert!(cfg.hot.is_none());
         assert!(cfg.secondary.is_some());
+        assert!(cfg.remote.is_none());
+    }
+
+    #[test]
+    fn distributed_hpc_adds_s3_glacier_remote() {
+        let remote = S3RemoteConfig::default_glacier(
+            "https://s3.ap-southeast-2.amazonaws.com",
+            "ap-southeast-2",
+            "cerebro-archive",
+        );
+        let cfg = FileSystemConfig::default_distributed_hpc(
+            &PathBuf::from("/srv/hot"),
+            &PathBuf::from("/srv/cold"),
+            remote,
+            true,
+        );
+        assert!(cfg.filer.enabled);
+        let remote = cfg.remote.expect("remote configured");
+        assert_eq!(remote.storage_class, "GLACIER");
+        assert_eq!(remote.bucket, "cerebro-archive");
     }
 }
 
@@ -1518,6 +1610,12 @@ impl StackConfig {
             handlebars.register_template_file(&stack_assets.templates.names.docker_filer, &stack_assets.templates.paths.docker_filer).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
             let render = handlebars.render(&stack_assets.templates.names.docker_filer, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
             write_rendered_template(render.as_bytes(), &dir_tree.docker.join("filer.toml"))?;
+        }
+
+        if self.fs.remote.is_some() {
+            handlebars.register_template_file(&stack_assets.templates.names.docker_remote, &stack_assets.templates.paths.docker_remote).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+            let render = handlebars.render(&stack_assets.templates.names.docker_remote, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+            write_rendered_template(render.as_bytes(), &dir_tree.docker.join("remote.conf"))?;
         }
 
         handlebars.register_template_file(&stack_assets.templates.names.mongodb_init_sh, &stack_assets.templates.paths.mongodb_init_sh).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;

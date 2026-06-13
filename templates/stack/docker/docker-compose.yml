@@ -339,6 +339,9 @@ services:
     command: 'weed -config_dir=/etc/seaweedfs filer -master="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port={{{ fs.filer.port }}} -metricsPort={{{ fs.filer.metrics_port }}}'
     volumes:
       - {{{ outdir }}}/docker/filer.toml:/etc/seaweedfs/filer.toml:ro
+      {{#if fs.remote}}
+      - {{{ outdir }}}/docker/remote.conf:/etc/seaweedfs/remote.conf:ro
+      {{/if}}
       - cerebro_fs_filer:/data
     networks:
       - cerebro
