@@ -245,6 +245,10 @@ pub struct ReportOutArgs {
     /// Report-out timestamp (RFC 3339, e.g. 2026-06-13T00:00:00Z); defaults to now
     #[clap(long)]
     pub reported_at: Option<String>,
+    /// Deployment has a warm tier (three-tier Model B): move to warm for
+    /// re-inspection and schedule a later warm→cold (S3) move, instead of cold
+    #[clap(long)]
+    pub warm: bool,
 }
 
 #[derive(Debug, Args)]

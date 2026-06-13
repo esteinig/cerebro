@@ -493,17 +493,20 @@ impl FileSystemClient {
     /// Compute the lifecycle plan for reporting a run/sample out at
     /// `reported_at`, using `policy` to re-anchor retention.
     ///
-    /// Returns, per file, the move to the cold tier and the re-anchored
-    /// `retain_until` (`reported_at` + the retention period for the file's
-    /// class). This is a plan/preview: FS-7 does not persist it or move data —
-    /// the Stage 3 lifecycle worker applies it (and resolves whether "cold" is
-    /// local HDD or S3 Glacier for the deployment).
+    /// Returns, per file, the immediate tier move and the re-anchored
+    /// `retain_until`. When `warm_available` is set (three-tier Model B), files
+    /// move to the warm tier with a scheduled warm→cold (S3) move
+    /// ([`LifecycleTransition::cold_move_at`](cerebro_model::api::files::retention::LifecycleTransition));
+    /// otherwise they move straight to cold. This is a plan/preview: the Stage 3
+    /// lifecycle worker applies it, passing `warm_available = config.warm.is_some()`
+    /// for the deployment.
     pub fn plan_report_out(
         &self,
         run_id: Option<String>,
         sample_id: Option<String>,
         reported_at: chrono::DateTime<chrono::Utc>,
         policy: &RetentionPolicy,
+        warm_available: bool,
     ) -> Result<LifecycleReport, FileSystemError> {
         let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
 
@@ -521,7 +524,7 @@ impl FileSystemClient {
             .map(|file| LifecycleEntry {
                 identifier: file.effective_identifier().to_string(),
                 name: file.name.clone(),
-                transition: policy.report_out_transition(file.retention, reported_at, false),
+                transition: policy.report_out_transition(file.retention, reported_at, warm_available),
             })
             .collect();
 

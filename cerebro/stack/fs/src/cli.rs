@@ -131,20 +131,30 @@ fn main() -> Result<()> {
                 args.sample_id.clone(),
                 reported_at,
                 &policy,
+                args.warm,
             )?;
             for entry in &report.entries {
                 let until = entry.transition.retain_until
                     .map(|t| t.to_rfc3339())
                     .unwrap_or_else(|| "indefinite".to_string());
-                log::info!(
-                    "{}: -> tier {} , retain until {}",
-                    entry.name,
-                    entry.transition.target_tier,
-                    until
-                );
+                match entry.transition.cold_move_at {
+                    Some(cold_at) => log::info!(
+                        "{}: -> tier {} (warm→cold at {}) , retain until {}",
+                        entry.name,
+                        entry.transition.target_tier,
+                        cold_at.to_rfc3339(),
+                        until
+                    ),
+                    None => log::info!(
+                        "{}: -> tier {} , retain until {}",
+                        entry.name,
+                        entry.transition.target_tier,
+                        until
+                    ),
+                }
             }
             log::info!(
-                "Planned report-out for {} file(s) (preview; persistence and cold-move are applied by the Stage 3 worker)",
+                "Planned report-out for {} file(s) (preview; persistence and tier moves are applied by the Stage 3 worker)",
                 report.entries.len()
             );
         },
