@@ -1199,12 +1199,36 @@ impl StackConfig {
         let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
         let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
-        // Model A (single high-performance server): the fs-focused deployment
-        // maps --fs-primary -> hot (SSD) and --fs-secondary -> cold (HDD), and
-        // enables the MongoDB-backed filer. FS-5 will add explicit --fs-hot /
-        // --fs-cold flags and the deployment-model discriminator.
-        let hot = absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?;
-        let cold = absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        // Hot/cold tier directories: prefer the explicit --fs-hot/--fs-cold
+        // flags, falling back to --fs-primary/--fs-secondary for compatibility.
+        let hot_src = args.fs_hot.clone().unwrap_or(fs_primary);
+        let cold_src = args.fs_cold.clone().unwrap_or(fs_secondary);
+        let hot = absolute_path(&hot_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let cold = absolute_path(&cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+
+        // For Model B, assemble the S3 archival remote from the --fs-s3-* flags
+        // when endpoint/region/bucket are all provided; otherwise from_model
+        // attaches a placeholder remote to be completed at deploy time.
+        let remote = match args.fs_model {
+            FsDeploymentModel::DistributedHpc => match (
+                &args.fs_s3_endpoint,
+                &args.fs_s3_region,
+                &args.fs_s3_bucket,
+            ) {
+                (Some(endpoint), Some(region), Some(bucket)) => {
+                    let mut remote = S3RemoteConfig::default_glacier(endpoint, region, bucket);
+                    if let Some(access_key) = &args.fs_s3_access_key {
+                        remote.access_key = access_key.clone();
+                    }
+                    if let Some(secret_key) = &args.fs_s3_secret_key {
+                        remote.secret_key = secret_key.clone();
+                    }
+                    Some(remote)
+                }
+                _ => None,
+            },
+            FsDeploymentModel::SingleServer => None,
+        };
 
         let mut config = Self::default_localhost(
             "root",
@@ -1219,7 +1243,7 @@ impl StackConfig {
             false,
             true
         );
-        config.fs = FileSystemConfig::default_single_server(&hot, &cold, true);
+        config.fs = FileSystemConfig::from_model(args.fs_model, &hot, &cold, remote, true);
         Ok(config)
     }
     pub fn default_web_from_args(

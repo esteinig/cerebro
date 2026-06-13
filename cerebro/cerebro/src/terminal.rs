@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
-use crate::stack::deploy::StackConfigTemplate;
+use crate::stack::deploy::{FsDeploymentModel, StackConfigTemplate};
 
 /// Cerebro: metagenomic diagnostic for clinical production
 #[derive(Debug, Parser)]
@@ -88,6 +88,30 @@ pub struct StackDeployArgs {
     /// Secondary file system path if using Cerebro FS
     #[clap(long)]
     pub fs_secondary: Option<PathBuf>,
+    /// Cerebro FS deployment model: single-server (Model A) or distributed-hpc (Model B)
+    #[clap(long, value_enum, default_value = "single-server")]
+    pub fs_model: FsDeploymentModel,
+    /// Hot tier (SSD) directory; falls back to --fs-primary when omitted
+    #[clap(long)]
+    pub fs_hot: Option<PathBuf>,
+    /// Cold tier (HDD) directory; falls back to --fs-secondary when omitted
+    #[clap(long)]
+    pub fs_cold: Option<PathBuf>,
+    /// S3 archival endpoint URL (distributed-hpc cold tier)
+    #[clap(long)]
+    pub fs_s3_endpoint: Option<String>,
+    /// S3 archival region (distributed-hpc cold tier)
+    #[clap(long)]
+    pub fs_s3_region: Option<String>,
+    /// S3 archival bucket (distributed-hpc cold tier)
+    #[clap(long)]
+    pub fs_s3_bucket: Option<String>,
+    /// S3 access key id (distributed-hpc cold tier)
+    #[clap(long, env = "CEREBRO_FS_S3_ACCESS_KEY")]
+    pub fs_s3_access_key: Option<String>,
+    /// S3 secret access key (distributed-hpc cold tier)
+    #[clap(long, env = "CEREBRO_FS_S3_SECRET_KEY")]
+    pub fs_s3_secret_key: Option<String>,
     /// Database root username
     #[clap(long)]
     pub db_root_username: Option<String>,
