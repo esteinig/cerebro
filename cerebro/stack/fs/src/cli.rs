@@ -77,14 +77,36 @@ fn main() -> Result<()> {
             fs_client.ping_status()?;
 
             log::info!("Starting file download");
-            let written = fs_client.download_files(
+            let report = fs_client.download_files(
                 &args.fids,
                 args.run_id.clone(),
                 args.sample_id.clone(),
                 &args.outdir,
                 args.verify,
             )?;
-            log::info!("Downloaded {} file(s) to {}", written.len(), args.outdir.display());
+            log::info!("Downloaded {} file(s) to {}", report.written.len(), args.outdir.display());
+            if report.restore_required() {
+                log::warn!(
+                    "{} file(s) require an archival restore before download; run `cerebro-fs restore` first: {:?}",
+                    report.restore_pending.len(),
+                    report.restore_pending
+                );
+            }
+        },
+        Commands::Restore( args ) => {
+
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
+            api_client.ping_servers()?;
+
+            let outcomes = fs_client.restore_files(
+                args.run_id.clone(),
+                args.sample_id.clone(),
+            )?;
+            let pending = outcomes.iter().filter(|o| o.state == cerebro_model::api::files::retention::RestoreState::Pending).count();
+            for outcome in &outcomes {
+                log::info!("{}: {} ({})", outcome.identifier, outcome.state, outcome.message);
+            }
+            log::info!("{} of {} file(s) require an archival restore", pending, outcomes.len());
         },
         Commands::Stage( args ) => {
             fs_client.stage_files(

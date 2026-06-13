@@ -112,6 +112,8 @@ pub enum Commands {
     Upload(UploadFileArgs),
     /// Download of files from CerebroFS
     Download(DownloadFileArgs),
+    /// Report and initiate archival (Glacier) restores for cold-tier files
+    Restore(RestoreFileArgs),
     /// Delete a file from CerebroFS
     Delete(DeleteFileArgs),
     /// List accessible files from CerebroFS
@@ -214,6 +216,16 @@ pub struct DownloadFileArgs {
     /// Verify each downloaded file against its registered BLAKE3 hash
     #[clap(long)]
     pub verify: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct RestoreFileArgs {
+    /// Sequence run identifier to evaluate for archival restores
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Restrict to a single biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
 }
 
 #[derive(Debug, Args)]

@@ -7,7 +7,7 @@ use reqwest::StatusCode;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use cerebro_model::api::files::retention::{RetentionClass, RetentionPolicy, StorageTier};
+use cerebro_model::api::files::retention::{RestoreState, RetentionClass, RetentionPolicy, StorageTier};
 use crate::config::{FsConfig, FsAccessMode};
 use crate::filer::FilerClient;
 use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, weed_upload}};
@@ -83,6 +83,47 @@ fn sanitize_segment(segment: &str) -> String {
     } else {
         trimmed.to_string()
     }
+}
+
+/// Outcome of a download request, separating files written to disk from those
+/// that could not be retrieved because their data is archived (Glacier) and
+/// requires a restore first.
+#[derive(Debug, Clone)]
+pub struct DownloadReport {
+    /// Paths of files successfully written to the output directory.
+    pub written: Vec<PathBuf>,
+    /// Identifiers of files that require an archival restore before download.
+    pub restore_pending: Vec<String>,
+}
+impl DownloadReport {
+    /// Whether any requested file requires a restore before it can be retrieved.
+    pub fn restore_required(&self) -> bool {
+        !self.restore_pending.is_empty()
+    }
+}
+
+/// Per-file result of a restore request: the object identifier, its
+/// [`RestoreState`], and a human-readable message.
+#[derive(Debug, Clone)]
+pub struct RestoreOutcome {
+    pub identifier: String,
+    pub state: RestoreState,
+    pub message: String,
+}
+
+/// Split resolved files into those directly retrievable and the identifiers of
+/// those whose data is archived and must be restored first.
+fn partition_archived(files: Vec<SeaweedFile>) -> (Vec<SeaweedFile>, Vec<String>) {
+    let mut retrievable = Vec::new();
+    let mut pending = Vec::new();
+    for file in files {
+        if file.requires_restore() {
+            pending.push(file.effective_identifier().to_string());
+        } else {
+            retrievable.push(file);
+        }
+    }
+    (retrievable, pending)
 }
 
 /// Heuristic used to route a stored identifier to the correct retrieval backend.
@@ -289,18 +330,20 @@ impl FileSystemClient {
     ///   `/` is treated as a filer path and retrieved via [`FilerClient`];
     ///   otherwise it is treated as a SeaweedFS fid and retrieved with
     ///   `weed download`. No Cerebro API lookup is performed, so integrity
-    ///   metadata is unavailable and `verify` is skipped (with a warning).
+    ///   metadata is unavailable, `verify` is skipped (with a warning), and the
+    ///   archival/restore state is unknown.
     /// * **By run/sample** — when `fids` is empty and `run_id` is provided, the
     ///   matching [`SeaweedFile`] records are listed from the Cerebro API
-    ///   (optionally filtered by `sample_id`) and each is downloaded by its
-    ///   stored identifier. When `verify` is set, each file's BLAKE3 hash is
-    ///   recomputed and compared against the registered hash.
+    ///   (optionally filtered by `sample_id`). Files whose data has been
+    ///   archived to remote storage (Glacier, Model B) are **not** downloaded;
+    ///   their identifiers are reported in [`DownloadReport::restore_pending`] so
+    ///   the caller can run a restore first. The rest are downloaded, and when
+    ///   `verify` is set each file's BLAKE3 hash is checked against the registered
+    ///   value.
     ///
     /// Paired-end Illumina read sets are returned as their two constituent
     /// `ReadPaired` files; original file names are preserved so downstream
     /// pairing by name continues to work.
-    ///
-    /// Returns the list of written file paths.
     pub fn download_files(
         &self,
         fids: &Vec<String>,
@@ -308,7 +351,7 @@ impl FileSystemClient {
         sample_id: Option<String>,
         outdir: &PathBuf,
         verify: bool,
-    ) -> Result<Vec<PathBuf>, FileSystemError> {
+    ) -> Result<DownloadReport, FileSystemError> {
 
         if !outdir.exists() {
             std::fs::create_dir_all(outdir)?;
@@ -326,7 +369,7 @@ impl FileSystemClient {
                     written.push(path);
                 }
             }
-            return Ok(written);
+            return Ok(DownloadReport { written, restore_pending: Vec::new() });
         }
 
         // Run/sample download via the Cerebro API
@@ -347,7 +390,18 @@ impl FileSystemClient {
             log::warn!("No files matched the requested run/sample");
         }
 
-        for file in &files {
+        // Separate archived (Glacier) objects: these need a restore first.
+        let (retrievable, restore_pending) = partition_archived(files);
+
+        if !restore_pending.is_empty() {
+            log::warn!(
+                "{} object(s) are in archival storage and require a restore before download: {:?}",
+                restore_pending.len(),
+                restore_pending
+            );
+        }
+
+        for file in &retrievable {
             let identifier = file.effective_identifier();
             log::info!("Downloading {} ({})", file.name, identifier);
             let path = self
@@ -362,7 +416,60 @@ impl FileSystemClient {
             written.push(path);
         }
 
-        Ok(written)
+        Ok(DownloadReport { written, restore_pending })
+    }
+
+    /// Report which files in a run/sample require an archival restore, and
+    /// surface the restore contract for each.
+    ///
+    /// Resolution is by run (optionally narrowed by sample). For each archived
+    /// file this returns [`RestoreState::Pending`]; for directly retrievable
+    /// files it returns [`RestoreState::NotRequired`].
+    ///
+    /// FS-4 establishes the contract: the actual S3 Glacier `RestoreObject`
+    /// execution is an operational step (or a future `s3` cargo feature). This
+    /// method tells the caller precisely what must be restored and lets
+    /// [`download_files`](Self::download_files) avoid blocking on Glacier
+    /// objects in the meantime.
+    pub fn restore_files(
+        &self,
+        run_id: Option<String>,
+        sample_id: Option<String>,
+    ) -> Result<Vec<RestoreOutcome>, FileSystemError> {
+        let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
+
+        let files = self.api_client.list_files(Some(run_id), None, 0, 100_000, false)?;
+        let files: Vec<SeaweedFile> = match &sample_id {
+            Some(sid) => files
+                .into_iter()
+                .filter(|f| f.sample_id.as_deref() == Some(sid.as_str()))
+                .collect(),
+            None => files,
+        };
+
+        let mut outcomes = Vec::new();
+        for file in &files {
+            let identifier = file.effective_identifier().to_string();
+            if file.requires_restore() {
+                log::info!(
+                    "Restore required for {} ({}); initiate archival (S3 Glacier) restore",
+                    file.name,
+                    identifier
+                );
+                outcomes.push(RestoreOutcome {
+                    identifier,
+                    state: RestoreState::Pending,
+                    message: "data is archived; restore must complete before retrieval".to_string(),
+                });
+            } else {
+                outcomes.push(RestoreOutcome {
+                    identifier,
+                    state: RestoreState::NotRequired,
+                    message: "directly retrievable".to_string(),
+                });
+            }
+        }
+        Ok(outcomes)
     }
 
     /// Download a single identifier (filer path or weed fid) into `outdir`.
@@ -641,5 +748,42 @@ mod tests {
         assert_eq!(sanitize_segment("../etc"), "_etc");
         assert_eq!(sanitize_segment(".."), "_");
         assert_eq!(sanitize_segment("a/b"), "a_b");
+    }
+
+    fn file_with(identifier: &str, archived: bool) -> cerebro_model::api::files::model::SeaweedFile {
+        use cerebro_model::api::files::retention::{RetentionClass, StorageTier};
+        cerebro_model::api::files::model::SeaweedFile {
+            id: "id".into(),
+            date: "2025-01-01".into(),
+            name: "reads.fastq.gz".into(),
+            hash: "h".into(),
+            size: 1,
+            fid: identifier.into(),
+            tags: Vec::new(),
+            run_id: None,
+            sample_id: None,
+            ftype: None,
+            watcher: None,
+            path: None,
+            tier: StorageTier::Cold,
+            retention: RetentionClass::Diagnostic,
+            retain_until: None,
+            legal_hold: false,
+            replicas: None,
+            archived,
+        }
+    }
+
+    #[test]
+    fn partition_archived_separates_glacier_objects() {
+        use super::partition_archived;
+        let files = vec![
+            file_with("3,01", false),
+            file_with("3,02", true),
+            file_with("3,03", false),
+        ];
+        let (retrievable, pending) = partition_archived(files);
+        assert_eq!(retrievable.len(), 2);
+        assert_eq!(pending, vec!["3,02".to_string()]);
     }
 }
