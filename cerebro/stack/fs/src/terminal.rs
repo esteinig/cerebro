@@ -75,6 +75,21 @@ pub struct App {
         default_value = "9333", 
     )]
     pub fs_port: String,
+    /// SeaweedFS filer HTTP API base URL (path-addressed access)
+    #[clap(
+        long,
+        env = "CEREBRO_FS_FILER_URL",
+        default_value = "http://localhost:8888"
+    )]
+    pub fs_filer_url: String,
+    /// Object I/O access mode: weed (fid-addressed, default) or filer (path-addressed)
+    #[clap(
+        long,
+        value_enum,
+        env = "CEREBRO_FS_ACCESS",
+        default_value = "weed"
+    )]
+    pub fs_access: crate::config::FsAccessMode,
     /// SSL certificate verification is ignored [DANGER]
     #[clap(
         long, 
@@ -172,8 +187,23 @@ pub struct UploadFileArgs {
 
 
 #[derive(Debug, Args)]
-pub struct DownloadFileArgs {   
-
+pub struct DownloadFileArgs {
+    /// File identifiers to download directly (SeaweedFS fid or filer path).
+    /// Bypasses the API lookup; integrity verification is unavailable for these.
+    #[clap(long, short = 'f', num_args(0..))]
+    pub fids: Vec<String>,
+    /// Sequence run identifier (lists and downloads all registered files for the run)
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Restrict a run download to a single biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+    /// Output directory for downloaded files
+    #[clap(long, short = 'o', default_value = ".")]
+    pub outdir: PathBuf,
+    /// Verify each downloaded file against its registered BLAKE3 hash
+    #[clap(long)]
+    pub verify: bool,
 }
 
 #[derive(Debug, Args)]

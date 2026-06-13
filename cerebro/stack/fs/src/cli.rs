@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use cerebro_fs::{client::UploadConfig, utils::init_logger, weed::download_and_install_weed};
 use cerebro_fs::client::FileSystemClient;
+use cerebro_fs::config::FsConfig;
 use cerebro_client::client::CerebroClient;
 use cerebro_fs::terminal::{App, Commands};
 
@@ -24,12 +25,15 @@ fn main() -> Result<()> {
         cli.db,
         cli.project,
     )?;
-    let fs_client = FileSystemClient::new(
-        &api_client, 
-        &cli.fs_url, 
-        &cli.fs_port,
-        true
-    );
+    let fs_config = FsConfig {
+        master_url: cli.fs_url.clone(),
+        master_port: cli.fs_port.clone(),
+        localhost: true,
+        filer_url: cli.fs_filer_url.clone(),
+        access: cli.fs_access.clone(),
+        danger_invalid_certificate: cli.danger_invalid_certificate,
+    };
+    let fs_client = FileSystemClient::with_config(&api_client, fs_config);
 
     match &cli.command {
         Commands::Login( args ) => {
@@ -60,7 +64,22 @@ fn main() -> Result<()> {
             )?;
         },
         Commands::Download( args ) => {
-            
+
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
+            api_client.ping_servers()?;
+
+            log::info!("Checking status of SeaweedFS master at {}", &fs_client.get_url());
+            fs_client.ping_status()?;
+
+            log::info!("Starting file download");
+            let written = fs_client.download_files(
+                &args.fids,
+                args.run_id.clone(),
+                args.sample_id.clone(),
+                &args.outdir,
+                args.verify,
+            )?;
+            log::info!("Downloaded {} file(s) to {}", written.len(), args.outdir.display());
         },
         Commands::Stage( args ) => {
             fs_client.stage_files(
