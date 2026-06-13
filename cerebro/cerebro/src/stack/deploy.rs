@@ -709,6 +709,33 @@ pub(crate) fn build_volume_args(hot: &Option<DiskTier>, cold: &Option<DiskTier>)
     (dirs.join(","), disks.join(","))
 }
 
+/// Cerebro FS deployment model selected at stack-configuration time.
+///
+/// * [`FsDeploymentModel::SingleServer`] — Model A: one high-performance server
+///   with local hot (SSD) and cold (HDD) tiers plus a MongoDB-backed filer.
+/// * [`FsDeploymentModel::DistributedHpc`] — Model B: the Model A topology plus
+///   an S3 Glacier archival (cold) tier and its restore contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+pub enum FsDeploymentModel {
+    /// Model A — single high-performance server.
+    SingleServer,
+    /// Model B — distributed HPC with an S3 Glacier cold tier.
+    DistributedHpc,
+}
+impl Default for FsDeploymentModel {
+    fn default() -> Self {
+        FsDeploymentModel::SingleServer
+    }
+}
+impl std::fmt::Display for FsDeploymentModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FsDeploymentModel::SingleServer => write!(f, "single-server"),
+            FsDeploymentModel::DistributedHpc => write!(f, "distributed-hpc"),
+        }
+    }
+}
+
 /// Configuration for an S3-compatible remote used as the archival (cold) tier
 /// in Model B (HPC distributed).
 ///
@@ -777,6 +804,10 @@ pub struct FileSystemConfig {
     /// `remote.conf` is rendered and mounted into the filer.
     #[serde(default)]
     pub remote: Option<S3RemoteConfig>,
+    /// Selected deployment model (FS-5). Informational on the config; the
+    /// builders set it to match the topology they produce.
+    #[serde(default)]
+    pub model: FsDeploymentModel,
 }
 impl Default for FileSystemConfig {
     fn default() -> Self {
@@ -792,6 +823,7 @@ impl Default for FileSystemConfig {
             volume_dirs: String::new(),
             volume_disks: String::new(),
             remote: None,
+            model: FsDeploymentModel::SingleServer,
         }
     }
 }
@@ -837,6 +869,7 @@ impl FileSystemConfig {
             volume_dirs,
             volume_disks,
             remote: None,
+            model: FsDeploymentModel::SingleServer,
         }
     }
     /// Model B: the single-server tiered topology plus an S3 archival (Glacier)
@@ -855,7 +888,30 @@ impl FileSystemConfig {
     ) -> Self {
         let mut config = Self::default_single_server(hot_path, cold_path, fs_only);
         config.remote = Some(remote);
+        config.model = FsDeploymentModel::DistributedHpc;
         config
+    }
+    /// Build a file-system configuration for the selected deployment model.
+    ///
+    /// `hot`/`cold` are the local tier directories. For
+    /// [`FsDeploymentModel::DistributedHpc`] an S3 archival `remote` is attached
+    /// (a placeholder Glacier remote with empty credentials is used when none is
+    /// supplied, to be completed at deploy time).
+    pub fn from_model(
+        model: FsDeploymentModel,
+        hot: &PathBuf,
+        cold: &PathBuf,
+        remote: Option<S3RemoteConfig>,
+        fs_only: bool,
+    ) -> Self {
+        match model {
+            FsDeploymentModel::SingleServer => Self::default_single_server(hot, cold, fs_only),
+            FsDeploymentModel::DistributedHpc => {
+                let remote = remote
+                    .unwrap_or_else(|| S3RemoteConfig::default_glacier("", "", ""));
+                Self::default_distributed_hpc(hot, cold, remote, fs_only)
+            }
+        }
     }
     pub fn default_web() -> Self {
         Self {
@@ -932,9 +988,24 @@ mod fs_config_tests {
             true,
         );
         assert!(cfg.filer.enabled);
+        assert_eq!(cfg.model, FsDeploymentModel::DistributedHpc);
         let remote = cfg.remote.expect("remote configured");
         assert_eq!(remote.storage_class, "GLACIER");
         assert_eq!(remote.bucket, "cerebro-archive");
+    }
+
+    #[test]
+    fn from_model_dispatches_topology() {
+        let hot = PathBuf::from("/srv/hot");
+        let cold = PathBuf::from("/srv/cold");
+
+        let a = FileSystemConfig::from_model(FsDeploymentModel::SingleServer, &hot, &cold, None, true);
+        assert_eq!(a.model, FsDeploymentModel::SingleServer);
+        assert!(a.remote.is_none());
+
+        let b = FileSystemConfig::from_model(FsDeploymentModel::DistributedHpc, &hot, &cold, None, true);
+        assert_eq!(b.model, FsDeploymentModel::DistributedHpc);
+        assert!(b.remote.is_some()); // placeholder remote attached
     }
 }
 
