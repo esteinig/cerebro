@@ -1,0 +1,13 @@
+# SeaweedFS filer configuration — rendered by `cerebro stack deploy`.
+#
+# Metadata store: MongoDB, reusing the Cerebro database service
+# (`cerebro-database`). Credentials are taken from the stack's MongoDB root
+# account; this file is mounted read-only into the filer container.
+#
+# Do not edit by hand: regenerated on each deploy.
+
+[mongodb]
+enabled = true
+uri = "mongodb://{{{ mongodb.root_username }}}:{{{ mongodb.root_password }}}@cerebro-database:27017/?authSource=admin"
+option_pool_size = 0
+database = "{{{ fs.filer.database }}}"

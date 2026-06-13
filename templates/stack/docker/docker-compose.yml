@@ -241,7 +241,7 @@ services:
       - "9333:9333"
       {{/if}}
       - "19333:19333"  # gRPC port required to be open for current `weed` file upload implementation (weed volume to master node communication)
-    command: "weed master -mdir=/data -ip=cerebro-fs-master -ip.bind=0.0.0.0 -metricsPort=9324 -defaultReplication={{{ fs.default_replication }}}" # diff data center replication to replicate to backup
+    command: "weed master -mdir=/data -ip=cerebro-fs-master -ip.bind=0.0.0.0 -metricsPort=9324 -defaultReplication={{{ fs.replication }}}" # diff data center replication to replicate to backup
     expose:
       - 9324
       - 9333
@@ -278,15 +278,28 @@ services:
       - 8010
       - 18010
       - 9325
+    {{#if fs.hot}}
+    # Model A: a single volume server serving hot (SSD) and cold (HDD) tiers
+    # via SeaweedFS -disk tags.
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8010 -metricsPort=9325 -dataCenter={{{ fs.primary.center }}} -rack={{{ fs.primary.rack }}} -dir={{{ fs.volume_dirs }}} -disk={{{ fs.volume_disks }}}'
+    volumes:
+      # Host-mounted tier directories
+      - {{{ fs.hot.path }}}:{{{ fs.hot.mount }}}
+      {{#if fs.cold}}
+      - {{{ fs.cold.path }}}:{{{ fs.cold.mount }}}
+      {{/if}}
+    {{else}}
     command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8010 -metricsPort=9325 -dataCenter={{{ fs.primary.center }}} -rack={{{ fs.primary.rack }}} -dir /data'
     volumes:
       # Host mounted disk
       - {{{ fs.primary.path }}}:/data
+    {{/if}}
     networks:
       - cerebro
     depends_on:
       - cerebro-fs-master
 
+  {{#unless fs.hot}}
   {{#if fs.secondary }}
   cerebro-fs-secondary:
     restart: unless-stopped
@@ -305,6 +318,33 @@ services:
       - cerebro
     depends_on:
       - cerebro-fs-master
+  {{/if}}
+  {{/unless}}
+
+  {{#if fs.filer.enabled }}
+  # Path-addressed SeaweedFS filer (MongoDB metadata store). Used by cerebro-fs
+  # when `--fs-access filer` is selected. Reads filer.toml mounted read-only.
+  cerebro-fs-filer:
+    restart: unless-stopped
+    build:
+      context: {{{ outdir }}}/cerebro
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
+    {{#if traefik.is_localhost }}
+    ports:
+      - "{{{ fs.filer.port }}}:{{{ fs.filer.port }}}"
+    {{/if}}
+    expose:
+      - {{{ fs.filer.port }}}
+      - {{{ fs.filer.metrics_port }}}
+    command: 'weed -config_dir=/etc/seaweedfs filer -master="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port={{{ fs.filer.port }}} -metricsPort={{{ fs.filer.metrics_port }}}'
+    volumes:
+      - {{{ outdir }}}/docker/filer.toml:/etc/seaweedfs/filer.toml:ro
+      - cerebro_fs_filer:/data
+    networks:
+      - cerebro
+    depends_on:
+      - cerebro-fs-master
+      - cerebro-database
   {{/if}}
   
   {{/if}}
@@ -327,6 +367,10 @@ volumes:
   {{/unless}}
   {{#if fs.enabled }}
   cerebro_fs_master:
+    driver: local
+  {{/if}}
+  {{#if fs.filer.enabled }}
+  cerebro_fs_filer:
     driver: local
   {{/if}}
 
