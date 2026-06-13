@@ -7,7 +7,8 @@ use reqwest::StatusCode;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use crate::config::FsConfig;
+use cerebro_model::api::files::retention::{RetentionClass, RetentionPolicy, StorageTier};
+use crate::config::{FsConfig, FsAccessMode};
 use crate::filer::FilerClient;
 use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, weed_upload}};
 
@@ -24,6 +25,14 @@ pub struct UploadConfig {
     pub max_mb: Option<i32>,
     pub replication: Option<String>,
     pub ttl: Option<String>,
+    /// Storage tier to register the file under (default [`StorageTier::Hot`]).
+    pub tier: StorageTier,
+    /// Retention category to assign (default [`RetentionClass::Diagnostic`]).
+    pub retention: RetentionClass,
+    /// Whether to register the file under legal hold (exempt from expiry).
+    pub legal_hold: bool,
+    /// Policy used to compute `retain_until` from the retention category.
+    pub retention_policy: RetentionPolicy,
 }
 impl Default for UploadConfig {
     fn default() -> Self {
@@ -31,8 +40,48 @@ impl Default for UploadConfig {
             data_center: None,
             max_mb: Some(16),
             replication: None,
-            ttl: None
+            ttl: None,
+            tier: StorageTier::default(),
+            retention: RetentionClass::default(),
+            legal_hold: false,
+            retention_policy: RetentionPolicy::default(),
         }
+    }
+}
+
+/// Result of storing a single object, abstracting over the access mode.
+struct StoredObject {
+    /// Weed fid (may be empty for filer-stored, path-addressed objects).
+    fid: String,
+    /// Filer object path, when stored via the filer.
+    path: Option<String>,
+    /// Stored file name.
+    name: String,
+    /// Object size in bytes.
+    size: u64,
+}
+
+/// Build a filer object path of the form `run/sample/name`, substituting a
+/// placeholder segment when the run or sample is unknown.
+fn build_remote_path(run_id: Option<&str>, sample_id: Option<&str>, name: &str) -> String {
+    let run = sanitize_segment(run_id.unwrap_or("_unassigned"));
+    let sample = sanitize_segment(sample_id.unwrap_or("_"));
+    let file = sanitize_segment(name);
+    format!("{run}/{sample}/{file}")
+}
+
+/// Sanitise a single path segment: replace separators and reject empty/`.`-only
+/// segments to avoid path traversal.
+fn sanitize_segment(segment: &str) -> String {
+    let replaced: String = segment
+        .chars()
+        .map(|c| if c == '/' || c == '\\' { '_' } else { c })
+        .collect();
+    let trimmed = replaced.trim_matches('.');
+    if trimmed.is_empty() {
+        "_".to_string()
+    } else {
+        trimmed.to_string()
     }
 }
 
@@ -299,9 +348,10 @@ impl FileSystemClient {
         }
 
         for file in &files {
-            log::info!("Downloading {} ({})", file.name, file.fid);
+            let identifier = file.effective_identifier();
+            log::info!("Downloading {} ({})", file.name, identifier);
             let path = self
-                .download_identifier(&file.fid, Some(file.name.as_str()), outdir)?
+                .download_identifier(identifier, Some(file.name.as_str()), outdir)?
                 .unwrap_or_else(|| outdir.join(&file.name));
 
             if verify {
@@ -350,6 +400,74 @@ impl FileSystemClient {
         }
     }
 
+    /// Store a single local file in SeaweedFS according to the configured
+    /// access mode, returning the resulting identifier(s).
+    ///
+    /// * [`FsAccessMode::Weed`] (default) — upload via `weed upload`, which
+    ///   chunks large files into a single manifest fid; `path` is `None`.
+    /// * [`FsAccessMode::Filer`] — stream the file to the filer at a
+    ///   `run/sample/name` path; `path` is set and later used for retrieval via
+    ///   [`SeaweedFile::effective_identifier`](cerebro_model::api::files::model::SeaweedFile::effective_identifier).
+    ///
+    /// Both paths are safe for multi-gigabyte read sets: `weed` chunks on the
+    /// client side and the filer streams from disk and auto-chunks server-side.
+    fn store_object(
+        &self,
+        file: &PathBuf,
+        run_id: Option<&str>,
+        sample_id: Option<&str>,
+        upload_config: &UploadConfig,
+    ) -> Result<StoredObject, FileSystemError> {
+        match self.config.access {
+            FsAccessMode::Filer => {
+                let name = file
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .ok_or(FileSystemError::FileNameExtraction)?
+                    .to_string();
+                let remote_path = build_remote_path(run_id, sample_id, &name);
+
+                let filer = FilerClient::new(
+                    &self.config.filer_base(),
+                    self.config.danger_invalid_certificate,
+                )?;
+                let response = filer.upload(file, &remote_path)?;
+
+                let size = match response.size {
+                    Some(size) => size,
+                    None => std::fs::metadata(file)?.len(),
+                };
+
+                Ok(StoredObject {
+                    fid: response.fid.unwrap_or_default(),
+                    path: Some(remote_path),
+                    name,
+                    size,
+                })
+            }
+            FsAccessMode::Weed => {
+                let response = weed_upload(
+                    file,
+                    upload_config.data_center.clone(),
+                    None,
+                    Some(self.config.master_url.clone()),
+                    Some(self.config.master_port.clone()),
+                    upload_config.max_mb,
+                    None,
+                    upload_config.replication.clone(),
+                    upload_config.ttl.clone(),
+                    false,
+                )?;
+                Ok(StoredObject {
+                    fid: response.fid,
+                    path: None,
+                    name: response.file_name,
+                    size: response.size,
+                })
+            }
+        }
+    }
+
     pub fn upload_files(
         &self,
         files: &Vec<PathBuf>,
@@ -371,19 +489,18 @@ impl FileSystemClient {
             log::info!("Generating file hash with BLAKE3: {}", file.display());
             let file_hash = fast_file_hash(&file)?;
 
-            log::info!("Uploading file to SeaweedFS storage");
-            let upload_response = weed_upload(
+            log::info!("Uploading file to SeaweedFS storage ({} access)", self.config.access);
+            let stored = self.store_object(
                 file,
-                upload_config.data_center.clone(),
-                None,
-                Some(self.config.master_url.clone()),
-                Some(self.config.master_port.clone()),
-                upload_config.max_mb,
-                None,
-                upload_config.replication.clone(),
-                upload_config.ttl.clone(),
-                false
+                run_id.as_deref(),
+                sample_id.as_deref(),
+                &upload_config,
             )?;
+
+            let now = Utc::now();
+            let retain_until = upload_config
+                .retention_policy
+                .retain_until(upload_config.retention, now);
 
             let file_schema = RegisterFileSchema {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -391,13 +508,19 @@ impl FileSystemClient {
                 sample_id: sample_id.clone(),
                 pipeline_id: pipeline_id.clone(),
                 description: description.clone(),
-                date: Utc::now().to_string(),
-                name: upload_response.file_name,
+                date: now.to_string(),
+                name: stored.name,
                 hash: file_hash,
-                fid: upload_response.fid,
+                fid: stored.fid,
                 ftype: file_type.clone(),
-                size: upload_response.size,
-                watcher: watcher.clone()
+                size: stored.size,
+                watcher: watcher.clone(),
+                path: stored.path,
+                tier: upload_config.tier,
+                retention: upload_config.retention,
+                retain_until,
+                legal_hold: upload_config.legal_hold,
+                replicas: None,
             };
 
             log::info!("Registering file with Cerebro API");
@@ -428,19 +551,18 @@ impl FileSystemClient {
                 log::info!("Generating file hash with BLAKE3: {}", file.display());
                 let file_hash = fast_file_hash(&file)?;
 
-                log::info!("Uploading file to SeaweedFS storage");
-                let upload_response = weed_upload(
+                log::info!("Uploading file to SeaweedFS storage ({} access)", self.config.access);
+                let stored = self.store_object(
                     file,
-                    upload_config.data_center.clone(),
-                    None,
-                    Some(self.config.master_url.clone()),
-                    Some(self.config.master_port.clone()),
-                    upload_config.max_mb,
-                    None,
-                    upload_config.replication.clone(),
-                    upload_config.ttl.clone(),
-                    false
+                    Some(run_id.as_str()),
+                    Some(sample_id.as_str()),
+                    &upload_config,
                 )?;
+
+                let now = Utc::now();
+                let retain_until = upload_config
+                    .retention_policy
+                    .retain_until(upload_config.retention, now);
 
                 let file_id = uuid::Uuid::new_v4().to_string();
                 let file_schema = RegisterFileSchema {
@@ -449,13 +571,19 @@ impl FileSystemClient {
                     sample_id: Some(sample_id.clone()),
                     pipeline_id: None,
                     description: None,
-                    date: Utc::now().to_string(),
-                    name: upload_response.file_name,
+                    date: now.to_string(),
+                    name: stored.name,
                     hash: file_hash,
-                    size: upload_response.size,
-                    fid: upload_response.fid,
+                    size: stored.size,
+                    fid: stored.fid,
                     ftype: file_type.clone(),
-                    watcher: Some(watcher.clone())
+                    watcher: Some(watcher.clone()),
+                    path: stored.path,
+                    tier: upload_config.tier,
+                    retention: upload_config.retention,
+                    retain_until,
+                    legal_hold: upload_config.legal_hold,
+                    replicas: None,
                 };
 
                 log::debug!("{:#?}", file_schema);
@@ -476,7 +604,7 @@ impl FileSystemClient {
 
 #[cfg(test)]
 mod tests {
-    use super::is_filer_path;
+    use super::{build_remote_path, is_filer_path, sanitize_segment};
 
     #[test]
     fn weed_fid_is_not_a_filer_path() {
@@ -488,5 +616,28 @@ mod tests {
     fn filer_paths_are_detected() {
         assert!(is_filer_path("/run01/sample01/reads_R1.fastq.gz"));
         assert!(is_filer_path("run01/reads.fastq.gz"));
+    }
+
+    #[test]
+    fn remote_path_uses_run_sample_name() {
+        assert_eq!(
+            build_remote_path(Some("RUN01"), Some("S1"), "reads_R1.fastq.gz"),
+            "RUN01/S1/reads_R1.fastq.gz"
+        );
+    }
+
+    #[test]
+    fn remote_path_substitutes_missing_segments() {
+        assert_eq!(
+            build_remote_path(None, None, "reads.fastq.gz"),
+            "_unassigned/_/reads.fastq.gz"
+        );
+    }
+
+    #[test]
+    fn sanitize_segment_blocks_traversal() {
+        assert_eq!(sanitize_segment("../etc"), "_etc");
+        assert_eq!(sanitize_segment(".."), "_");
+        assert_eq!(sanitize_segment("a/b"), "a_b");
     }
 }

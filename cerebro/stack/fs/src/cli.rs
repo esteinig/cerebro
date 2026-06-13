@@ -59,7 +59,12 @@ fn main() -> Result<()> {
                 args.pipeline_id.clone(),
                 args.description.clone(),
                 args.file_type.clone(),
-                UploadConfig::default(),
+                UploadConfig {
+                    tier: args.tier,
+                    retention: args.retention,
+                    legal_hold: args.legal_hold,
+                    ..UploadConfig::default()
+                },
                 None,
             )?;
         },

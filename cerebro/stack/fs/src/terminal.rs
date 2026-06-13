@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
 use cerebro_model::api::files::model::FileType;
+use cerebro_model::api::files::retention::{RetentionClass, StorageTier};
 use cerebro_client::terminal::StatusArgs;
 use cerebro_client::terminal::LoginArgs;
 
@@ -182,6 +183,15 @@ pub struct UploadFileArgs {
     /// File description
     #[clap(long, short = 'd')]
     pub description: Option<String>,
+    /// Storage tier to register the file under
+    #[clap(long, value_enum, default_value = "hot")]
+    pub tier: StorageTier,
+    /// Retention category to assign (resolved to an expiry by the retention policy)
+    #[clap(long, value_enum, default_value = "diagnostic")]
+    pub retention: RetentionClass,
+    /// Register the file under legal hold (exempt from expiry)
+    #[clap(long)]
+    pub legal_hold: bool,
 }
 
 
