@@ -621,6 +621,80 @@ impl DataCenterConfig {
     }
 }
 
+/// A single SeaweedFS storage tier backed by a host directory and advertised to
+/// the cluster with a disk-type tag.
+///
+/// Model A (single high-performance server) places a hot tier on fast local
+/// storage (SSD) and a cold tier on capacity storage (HDD), both served by one
+/// volume server using SeaweedFS `-disk` tags.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskTier {
+    /// Host path bind-mounted into the volume server for this tier.
+    pub path: PathBuf,
+    /// SeaweedFS disk-type tag advertised for this tier (e.g. `ssd`, `hdd`).
+    pub disk: String,
+    /// Container mount point for this tier (e.g. `/hot`, `/cold`).
+    pub mount: String,
+}
+impl DiskTier {
+    /// Hot tier: SSD-backed, mounted at `/hot`.
+    pub fn hot(path: &PathBuf) -> Self {
+        Self { path: path.to_path_buf(), disk: "ssd".to_string(), mount: "/hot".to_string() }
+    }
+    /// Cold tier: HDD-backed, mounted at `/cold`.
+    pub fn cold(path: &PathBuf) -> Self {
+        Self { path: path.to_path_buf(), disk: "hdd".to_string(), mount: "/cold".to_string() }
+    }
+}
+
+/// SeaweedFS filer deployment configuration.
+///
+/// The filer provides the path-addressed HTTP API used by `cerebro-fs` when
+/// `--fs-access filer` is selected (FS-2). Its metadata store is MongoDB,
+/// reusing the existing `cerebro-database` service (the `filer.toml` template
+/// is rendered with the stack's MongoDB credentials).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FilerConfig {
+    /// Whether to deploy a filer service.
+    pub enabled: bool,
+    /// Filer HTTP API port.
+    pub port: u16,
+    /// Filer Prometheus metrics port.
+    pub metrics_port: u16,
+    /// MongoDB database used for the filer metadata store.
+    pub database: String,
+}
+impl Default for FilerConfig {
+    fn default() -> Self {
+        Self { enabled: false, port: 8888, metrics_port: 9327, database: String::from("cerebro_fs") }
+    }
+}
+impl FilerConfig {
+    /// A filer configuration with the service enabled and default ports/store.
+    pub fn default_enabled() -> Self {
+        Self { enabled: true, ..Default::default() }
+    }
+}
+
+/// Build the paired `-dir` and `-disk` argument values for a SeaweedFS volume
+/// server from the configured tiers.
+///
+/// SeaweedFS accepts comma-separated, positionally-paired directory and disk
+/// lists, e.g. `-dir=/hot,/cold -disk=ssd,hdd`. Returns `(dirs, disks)`.
+pub(crate) fn build_volume_args(hot: &Option<DiskTier>, cold: &Option<DiskTier>) -> (String, String) {
+    let mut dirs = Vec::new();
+    let mut disks = Vec::new();
+    if let Some(h) = hot {
+        dirs.push(h.mount.clone());
+        disks.push(h.disk.clone());
+    }
+    if let Some(c) = cold {
+        dirs.push(c.mount.clone());
+        disks.push(c.disk.clone());
+    }
+    (dirs.join(","), disks.join(","))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSystemConfig {
     pub enabled: bool,
@@ -628,6 +702,22 @@ pub struct FileSystemConfig {
     pub replication: String,
     pub primary: Option<DataCenterConfig>,
     pub secondary: Option<DataCenterConfig>,
+    /// Filer deployment configuration (FS-3). Defaulted for configs written
+    /// before FS-3.
+    #[serde(default)]
+    pub filer: FilerConfig,
+    /// Hot storage tier for the single-server (Model A) deployment.
+    #[serde(default)]
+    pub hot: Option<DiskTier>,
+    /// Cold storage tier for the single-server (Model A) deployment.
+    #[serde(default)]
+    pub cold: Option<DiskTier>,
+    /// Pre-computed comma-separated `-dir` value for the tiered volume server.
+    #[serde(default)]
+    pub volume_dirs: String,
+    /// Pre-computed comma-separated `-disk` value for the tiered volume server.
+    #[serde(default)]
+    pub volume_disks: String,
 }
 impl Default for FileSystemConfig {
     fn default() -> Self {
@@ -636,11 +726,19 @@ impl Default for FileSystemConfig {
             fs_only: false,
             replication: String::from("100"),
             primary: None,
-            secondary: None
+            secondary: None,
+            filer: FilerConfig::default(),
+            hot: None,
+            cold: None,
+            volume_dirs: String::new(),
+            volume_disks: String::new(),
         }
     }
 }
 impl FileSystemConfig {
+    /// Legacy two-data-centre localhost layout (master + primary/secondary
+    /// volume servers, no filer, no tiering). Unchanged behaviour for the plain
+    /// localhost deployment.
     pub fn default_localhost(fs_primary: &PathBuf, fs_secondary: &PathBuf, fs_only: bool) -> Self {
         Self {
             enabled: true,
@@ -648,6 +746,36 @@ impl FileSystemConfig {
             replication: String::from("100"),
             primary: Some(DataCenterConfig::default_primary(fs_primary)),
             secondary: Some(DataCenterConfig::default_secondary(fs_secondary)),
+            ..Default::default()
+        }
+    }
+    /// Model A: a single high-performance server with hot (SSD) and cold (HDD)
+    /// tiers served by one volume server, plus a MongoDB-backed filer.
+    ///
+    /// `hot_path` and `cold_path` are host directories bind-mounted into the
+    /// volume server. No cross-server replication is configured (`000`) since a
+    /// single server holds one copy; durability comes from the underlying
+    /// storage and from backup (Stage 4).
+    pub fn default_single_server(hot_path: &PathBuf, cold_path: &PathBuf, fs_only: bool) -> Self {
+        let hot = DiskTier::hot(hot_path);
+        let cold = DiskTier::cold(cold_path);
+        let (volume_dirs, volume_disks) = build_volume_args(&Some(hot.clone()), &Some(cold.clone()));
+        Self {
+            enabled: true,
+            fs_only,
+            replication: String::from("000"),
+            primary: Some(DataCenterConfig {
+                enabled: true,
+                center: "primary".to_string(),
+                rack: "tiered".to_string(),
+                path: hot_path.to_path_buf(),
+            }),
+            secondary: None,
+            filer: FilerConfig::default_enabled(),
+            hot: Some(hot),
+            cold: Some(cold),
+            volume_dirs,
+            volume_disks,
         }
     }
     pub fn default_web() -> Self {
@@ -657,7 +785,57 @@ impl FileSystemConfig {
             replication: String::from("100"),
             primary: None,
             secondary: None,
+            ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod fs_config_tests {
+    use super::*;
+
+    #[test]
+    fn volume_args_pair_dirs_and_disks() {
+        let hot = DiskTier::hot(&PathBuf::from("/srv/hot"));
+        let cold = DiskTier::cold(&PathBuf::from("/srv/cold"));
+        let (dirs, disks) = build_volume_args(&Some(hot), &Some(cold));
+        assert_eq!(dirs, "/hot,/cold");
+        assert_eq!(disks, "ssd,hdd");
+    }
+
+    #[test]
+    fn volume_args_hot_only() {
+        let hot = DiskTier::hot(&PathBuf::from("/srv/hot"));
+        let (dirs, disks) = build_volume_args(&Some(hot), &None);
+        assert_eq!(dirs, "/hot");
+        assert_eq!(disks, "ssd");
+    }
+
+    #[test]
+    fn single_server_enables_filer_and_tiers() {
+        let cfg = FileSystemConfig::default_single_server(
+            &PathBuf::from("/srv/hot"),
+            &PathBuf::from("/srv/cold"),
+            true,
+        );
+        assert!(cfg.enabled);
+        assert!(cfg.filer.enabled);
+        assert!(cfg.secondary.is_none());
+        assert_eq!(cfg.volume_dirs, "/hot,/cold");
+        assert_eq!(cfg.volume_disks, "ssd,hdd");
+        assert_eq!(cfg.replication, "000");
+    }
+
+    #[test]
+    fn localhost_remains_two_datacentre_without_filer() {
+        let cfg = FileSystemConfig::default_localhost(
+            &PathBuf::from("/srv/p"),
+            &PathBuf::from("/srv/s"),
+            false,
+        );
+        assert!(!cfg.filer.enabled);
+        assert!(cfg.hot.is_none());
+        assert!(cfg.secondary.is_some());
     }
 }
 
@@ -851,7 +1029,14 @@ impl StackConfig {
         let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
         let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
-        Ok(Self::default_localhost(
+        // Model A (single high-performance server): the fs-focused deployment
+        // maps --fs-primary -> hot (SSD) and --fs-secondary -> cold (HDD), and
+        // enables the MongoDB-backed filer. FS-5 will add explicit --fs-hot /
+        // --fs-cold flags and the deployment-model discriminator.
+        let hot = absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let cold = absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+
+        let mut config = Self::default_localhost(
             "root",
             "root",
             "admin",
@@ -859,11 +1044,13 @@ impl StackConfig {
             "admin@cerebro",
             "Administrator",
             "admin",
-            &absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
-            &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
+            &hot,
+            &cold,
             false,
             true
-        ))
+        );
+        config.fs = FileSystemConfig::default_single_server(&hot, &cold, true);
+        Ok(config)
     }
     pub fn default_web_from_args(
         args: &StackDeployArgs,
