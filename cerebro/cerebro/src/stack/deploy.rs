@@ -659,6 +659,14 @@ impl DiskTier {
     pub fn cold(path: &PathBuf) -> Self {
         Self { path: path.to_path_buf(), disk: "hdd".to_string(), mount: "/cold".to_string() }
     }
+    /// Warm tier: HDD-backed recovery/re-inspection tier, mounted at `/warm`.
+    ///
+    /// Used by the three-tier Model B deployment to keep reported-out data on
+    /// directly-readable disk (for re-inspection) before it is archived to the
+    /// S3 cold tier.
+    pub fn warm(path: &PathBuf) -> Self {
+        Self { path: path.to_path_buf(), disk: "hdd".to_string(), mount: "/warm".to_string() }
+    }
 }
 
 /// SeaweedFS filer deployment configuration.
@@ -691,20 +699,24 @@ impl FilerConfig {
 }
 
 /// Build the paired `-dir` and `-disk` argument values for a SeaweedFS volume
-/// server from the configured tiers.
+/// server from the configured local tiers.
 ///
 /// SeaweedFS accepts comma-separated, positionally-paired directory and disk
-/// lists, e.g. `-dir=/hot,/cold -disk=ssd,hdd`. Returns `(dirs, disks)`.
-pub(crate) fn build_volume_args(hot: &Option<DiskTier>, cold: &Option<DiskTier>) -> (String, String) {
+/// lists, e.g. `-dir=/hot,/warm -disk=ssd,hdd`. Tiers are emitted in
+/// hot → warm → cold order; only the local tiers are included (Model B's cold
+/// tier is the S3 remote, not a local disk). Returns `(dirs, disks)`.
+pub(crate) fn build_volume_args(
+    hot: &Option<DiskTier>,
+    warm: &Option<DiskTier>,
+    cold: &Option<DiskTier>,
+) -> (String, String) {
     let mut dirs = Vec::new();
     let mut disks = Vec::new();
-    if let Some(h) = hot {
-        dirs.push(h.mount.clone());
-        disks.push(h.disk.clone());
-    }
-    if let Some(c) = cold {
-        dirs.push(c.mount.clone());
-        disks.push(c.disk.clone());
+    for tier in [hot, warm, cold] {
+        if let Some(t) = tier {
+            dirs.push(t.mount.clone());
+            disks.push(t.disk.clone());
+        }
     }
     (dirs.join(","), disks.join(","))
 }
@@ -791,6 +803,12 @@ pub struct FileSystemConfig {
     /// Hot storage tier for the single-server (Model A) deployment.
     #[serde(default)]
     pub hot: Option<DiskTier>,
+    /// Warm storage tier (HDD) for the three-tier Model B deployment — retains
+    /// reported-out data on directly-readable disk for recovery and
+    /// re-inspection before it is archived to the S3 cold tier. `None` for
+    /// Model A and for configs written before FS-8.
+    #[serde(default)]
+    pub warm: Option<DiskTier>,
     /// Cold storage tier for the single-server (Model A) deployment.
     #[serde(default)]
     pub cold: Option<DiskTier>,
@@ -819,6 +837,7 @@ impl Default for FileSystemConfig {
             secondary: None,
             filer: FilerConfig::default(),
             hot: None,
+            warm: None,
             cold: None,
             volume_dirs: String::new(),
             volume_disks: String::new(),
@@ -851,7 +870,7 @@ impl FileSystemConfig {
     pub fn default_single_server(hot_path: &PathBuf, cold_path: &PathBuf, fs_only: bool) -> Self {
         let hot = DiskTier::hot(hot_path);
         let cold = DiskTier::cold(cold_path);
-        let (volume_dirs, volume_disks) = build_volume_args(&Some(hot.clone()), &Some(cold.clone()));
+        let (volume_dirs, volume_disks) = build_volume_args(&Some(hot.clone()), &None, &Some(cold.clone()));
         Self {
             enabled: true,
             fs_only,
@@ -865,6 +884,7 @@ impl FileSystemConfig {
             secondary: None,
             filer: FilerConfig::default_enabled(),
             hot: Some(hot),
+            warm: None,
             cold: Some(cold),
             volume_dirs,
             volume_disks,
@@ -872,34 +892,61 @@ impl FileSystemConfig {
             model: FsDeploymentModel::SingleServer,
         }
     }
-    /// Model B: the single-server tiered topology plus an S3 archival (Glacier)
-    /// cold tier.
+    /// Model B: a three-tier deployment — hot (SSD) and warm (HDD) local tiers
+    /// served by a volume server, with an S3 Glacier archival **cold** tier.
     ///
-    /// Local hot/cold tiers are retained for active data; the S3 remote backs
-    /// the archival tier that cold/read-only volumes are tier-moved to.
-    /// Horizontal multi-node scale-out (additional volume servers across
-    /// racks/data-centres) is generalised in FS-5; FS-4 contributes the remote
-    /// archival tier and the restore contract.
+    /// The warm (HDD) tier keeps reported-out data on directly-readable disk for
+    /// recovery and re-inspection; the S3 remote is the archival cold tier that
+    /// warm/read-only volumes are eventually tier-moved to (and which follows the
+    /// FS-4 restore contract). There is no *local* cold disk in Model B — cold is
+    /// the remote.
+    ///
+    /// Replication is `000` because Model B currently renders a single volume
+    /// server: a replication code the topology cannot satisfy would make writes
+    /// fail. Raise it (e.g. `010` across racks, `001` across servers) together
+    /// with the multi-node topology follow-on that renders ≥2 volume servers; S3
+    /// cold provides archival durability in the meantime.
     pub fn default_distributed_hpc(
         hot_path: &PathBuf,
-        cold_path: &PathBuf,
+        warm_path: &PathBuf,
         remote: S3RemoteConfig,
         fs_only: bool,
     ) -> Self {
-        let mut config = Self::default_single_server(hot_path, cold_path, fs_only);
-        config.remote = Some(remote);
-        config.model = FsDeploymentModel::DistributedHpc;
-        config
+        let hot = DiskTier::hot(hot_path);
+        let warm = DiskTier::warm(warm_path);
+        let (volume_dirs, volume_disks) = build_volume_args(&Some(hot.clone()), &Some(warm.clone()), &None);
+        Self {
+            enabled: true,
+            fs_only,
+            replication: String::from("000"),
+            primary: Some(DataCenterConfig {
+                enabled: true,
+                center: "primary".to_string(),
+                rack: "tiered".to_string(),
+                path: hot_path.to_path_buf(),
+            }),
+            secondary: None,
+            filer: FilerConfig::default_enabled(),
+            hot: Some(hot),
+            warm: Some(warm),
+            cold: None,
+            volume_dirs,
+            volume_disks,
+            remote: Some(remote),
+            model: FsDeploymentModel::DistributedHpc,
+        }
     }
     /// Build a file-system configuration for the selected deployment model.
     ///
-    /// `hot`/`cold` are the local tier directories. For
-    /// [`FsDeploymentModel::DistributedHpc`] an S3 archival `remote` is attached
-    /// (a placeholder Glacier remote with empty credentials is used when none is
-    /// supplied, to be completed at deploy time).
+    /// `hot` is the SSD tier (both models). For [`FsDeploymentModel::SingleServer`]
+    /// `cold` is the local HDD cold tier. For [`FsDeploymentModel::DistributedHpc`]
+    /// `warm` is the local HDD recovery/re-inspection tier and an S3 archival
+    /// `remote` is the cold tier (a placeholder Glacier remote with empty
+    /// credentials is used when none is supplied, to be completed at deploy time).
     pub fn from_model(
         model: FsDeploymentModel,
         hot: &PathBuf,
+        warm: &PathBuf,
         cold: &PathBuf,
         remote: Option<S3RemoteConfig>,
         fs_only: bool,
@@ -909,7 +956,7 @@ impl FileSystemConfig {
             FsDeploymentModel::DistributedHpc => {
                 let remote = remote
                     .unwrap_or_else(|| S3RemoteConfig::default_glacier("", "", ""));
-                Self::default_distributed_hpc(hot, cold, remote, fs_only)
+                Self::default_distributed_hpc(hot, warm, remote, fs_only)
             }
         }
     }
@@ -933,15 +980,24 @@ mod fs_config_tests {
     fn volume_args_pair_dirs_and_disks() {
         let hot = DiskTier::hot(&PathBuf::from("/srv/hot"));
         let cold = DiskTier::cold(&PathBuf::from("/srv/cold"));
-        let (dirs, disks) = build_volume_args(&Some(hot), &Some(cold));
+        let (dirs, disks) = build_volume_args(&Some(hot), &None, &Some(cold));
         assert_eq!(dirs, "/hot,/cold");
+        assert_eq!(disks, "ssd,hdd");
+    }
+
+    #[test]
+    fn volume_args_hot_warm_three_tier() {
+        let hot = DiskTier::hot(&PathBuf::from("/srv/hot"));
+        let warm = DiskTier::warm(&PathBuf::from("/srv/warm"));
+        let (dirs, disks) = build_volume_args(&Some(hot), &Some(warm), &None);
+        assert_eq!(dirs, "/hot,/warm");
         assert_eq!(disks, "ssd,hdd");
     }
 
     #[test]
     fn volume_args_hot_only() {
         let hot = DiskTier::hot(&PathBuf::from("/srv/hot"));
-        let (dirs, disks) = build_volume_args(&Some(hot), &None);
+        let (dirs, disks) = build_volume_args(&Some(hot), &None, &None);
         assert_eq!(dirs, "/hot");
         assert_eq!(disks, "ssd");
     }
@@ -956,6 +1012,7 @@ mod fs_config_tests {
         assert!(cfg.enabled);
         assert!(cfg.filer.enabled);
         assert!(cfg.secondary.is_none());
+        assert!(cfg.warm.is_none());
         assert_eq!(cfg.volume_dirs, "/hot,/cold");
         assert_eq!(cfg.volume_disks, "ssd,hdd");
         assert_eq!(cfg.replication, "000");
@@ -975,7 +1032,7 @@ mod fs_config_tests {
     }
 
     #[test]
-    fn distributed_hpc_adds_s3_glacier_remote() {
+    fn distributed_hpc_is_three_tier_with_s3_cold() {
         let remote = S3RemoteConfig::default_glacier(
             "https://s3.ap-southeast-2.amazonaws.com",
             "ap-southeast-2",
@@ -983,12 +1040,20 @@ mod fs_config_tests {
         );
         let cfg = FileSystemConfig::default_distributed_hpc(
             &PathBuf::from("/srv/hot"),
-            &PathBuf::from("/srv/cold"),
+            &PathBuf::from("/srv/warm"),
             remote,
             true,
         );
         assert!(cfg.filer.enabled);
         assert_eq!(cfg.model, FsDeploymentModel::DistributedHpc);
+        // hot (SSD) + warm (HDD) are the local tiers; cold is the S3 remote.
+        assert!(cfg.hot.is_some());
+        assert!(cfg.warm.is_some());
+        assert!(cfg.cold.is_none());
+        assert_eq!(cfg.volume_dirs, "/hot,/warm");
+        assert_eq!(cfg.volume_disks, "ssd,hdd");
+        // Single volume server today: replication stays 000 until multi-node.
+        assert_eq!(cfg.replication, "000");
         let remote = cfg.remote.expect("remote configured");
         assert_eq!(remote.storage_class, "GLACIER");
         assert_eq!(remote.bucket, "cerebro-archive");
@@ -997,15 +1062,18 @@ mod fs_config_tests {
     #[test]
     fn from_model_dispatches_topology() {
         let hot = PathBuf::from("/srv/hot");
+        let warm = PathBuf::from("/srv/warm");
         let cold = PathBuf::from("/srv/cold");
 
-        let a = FileSystemConfig::from_model(FsDeploymentModel::SingleServer, &hot, &cold, None, true);
+        let a = FileSystemConfig::from_model(FsDeploymentModel::SingleServer, &hot, &warm, &cold, None, true);
         assert_eq!(a.model, FsDeploymentModel::SingleServer);
         assert!(a.remote.is_none());
+        assert!(a.warm.is_none());
 
-        let b = FileSystemConfig::from_model(FsDeploymentModel::DistributedHpc, &hot, &cold, None, true);
+        let b = FileSystemConfig::from_model(FsDeploymentModel::DistributedHpc, &hot, &warm, &cold, None, true);
         assert_eq!(b.model, FsDeploymentModel::DistributedHpc);
         assert!(b.remote.is_some()); // placeholder remote attached
+        assert!(b.warm.is_some());
     }
 }
 
@@ -1199,12 +1267,16 @@ impl StackConfig {
         let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
         let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
-        // Hot/cold tier directories: prefer the explicit --fs-hot/--fs-cold
+        // Tier directories: prefer the explicit --fs-hot/--fs-warm/--fs-cold
         // flags, falling back to --fs-primary/--fs-secondary for compatibility.
+        // Model A uses hot (SSD) + cold (HDD); Model B uses hot (SSD) + warm
+        // (HDD) with S3 as the cold tier.
         let hot_src = args.fs_hot.clone().unwrap_or(fs_primary);
-        let cold_src = args.fs_cold.clone().unwrap_or(fs_secondary);
+        let cold_src = args.fs_cold.clone().unwrap_or_else(|| fs_secondary.clone());
+        let warm_src = args.fs_warm.clone().unwrap_or(fs_secondary);
         let hot = absolute_path(&hot_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
         let cold = absolute_path(&cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let warm = absolute_path(&warm_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
 
         // For Model B, assemble the S3 archival remote from the --fs-s3-* flags
         // when endpoint/region/bucket are all provided; otherwise from_model
@@ -1243,7 +1315,7 @@ impl StackConfig {
             false,
             true
         );
-        config.fs = FileSystemConfig::from_model(args.fs_model, &hot, &cold, remote, true);
+        config.fs = FileSystemConfig::from_model(args.fs_model, &hot, &warm, &cold, remote, true);
         Ok(config)
     }
     pub fn default_web_from_args(

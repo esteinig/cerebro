@@ -94,7 +94,12 @@ pub struct StackDeployArgs {
     /// Hot tier (SSD) directory; falls back to --fs-primary when omitted
     #[clap(long)]
     pub fs_hot: Option<PathBuf>,
-    /// Cold tier (HDD) directory; falls back to --fs-secondary when omitted
+    /// Warm tier (HDD) directory for the three-tier distributed-hpc model
+    /// (recovery / re-inspection); falls back to --fs-secondary when omitted
+    #[clap(long)]
+    pub fs_warm: Option<PathBuf>,
+    /// Cold tier (HDD) directory for the single-server model; falls back to
+    /// --fs-secondary when omitted (distributed-hpc uses S3 as the cold tier)
     #[clap(long)]
     pub fs_cold: Option<PathBuf>,
     /// S3 archival endpoint URL (distributed-hpc cold tier)
