@@ -7,7 +7,7 @@ use reqwest::StatusCode;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use cerebro_model::api::files::retention::{RestoreState, RetentionClass, RetentionPolicy, StorageTier};
+use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
 use crate::config::{FsConfig, FsAccessMode};
 use crate::filer::FilerClient;
 use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, weed_upload}};
@@ -109,6 +109,24 @@ pub struct RestoreOutcome {
     pub identifier: String,
     pub state: RestoreState,
     pub message: String,
+}
+
+/// The planned lifecycle transition for one file when its case is reported out.
+#[derive(Debug, Clone)]
+pub struct LifecycleEntry {
+    pub identifier: String,
+    pub name: String,
+    pub transition: LifecycleTransition,
+}
+
+/// Plan of the lifecycle transitions a report-out would apply to a run/sample.
+///
+/// FS-7 computes the plan (the re-anchored `retain_until` and the move to the
+/// cold tier per file). Persisting it and performing the physical hot→cold /
+/// Glacier move is the deployment-aware lifecycle worker's job (Stage 3).
+#[derive(Debug, Clone)]
+pub struct LifecycleReport {
+    pub entries: Vec<LifecycleEntry>,
 }
 
 /// Split resolved files into those directly retrievable and the identifiers of
@@ -470,6 +488,44 @@ impl FileSystemClient {
             }
         }
         Ok(outcomes)
+    }
+
+    /// Compute the lifecycle plan for reporting a run/sample out at
+    /// `reported_at`, using `policy` to re-anchor retention.
+    ///
+    /// Returns, per file, the move to the cold tier and the re-anchored
+    /// `retain_until` (`reported_at` + the retention period for the file's
+    /// class). This is a plan/preview: FS-7 does not persist it or move data —
+    /// the Stage 3 lifecycle worker applies it (and resolves whether "cold" is
+    /// local HDD or S3 Glacier for the deployment).
+    pub fn plan_report_out(
+        &self,
+        run_id: Option<String>,
+        sample_id: Option<String>,
+        reported_at: chrono::DateTime<chrono::Utc>,
+        policy: &RetentionPolicy,
+    ) -> Result<LifecycleReport, FileSystemError> {
+        let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
+
+        let files = self.api_client.list_files(Some(run_id), None, 0, 100_000, false)?;
+        let files: Vec<SeaweedFile> = match &sample_id {
+            Some(sid) => files
+                .into_iter()
+                .filter(|f| f.sample_id.as_deref() == Some(sid.as_str()))
+                .collect(),
+            None => files,
+        };
+
+        let entries = files
+            .iter()
+            .map(|file| LifecycleEntry {
+                identifier: file.effective_identifier().to_string(),
+                name: file.name.clone(),
+                transition: policy.report_out_transition(file.retention, reported_at),
+            })
+            .collect();
+
+        Ok(LifecycleReport { entries })
     }
 
     /// Download a single identifier (filer path or weed fid) into `outdir`.

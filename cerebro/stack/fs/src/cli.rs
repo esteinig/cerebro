@@ -108,6 +108,46 @@ fn main() -> Result<()> {
             }
             log::info!("{} of {} file(s) require an archival restore", pending, outcomes.len());
         },
+        Commands::ReportOut( args ) => {
+
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
+            api_client.ping_servers()?;
+
+            // Anchor timestamp: explicit RFC 3339, else now.
+            let reported_at = match &args.reported_at {
+                Some(ts) => chrono::DateTime::parse_from_rfc3339(ts)
+                    .map_err(|e| anyhow::anyhow!("invalid --reported-at timestamp '{ts}': {e}"))?
+                    .with_timezone(&chrono::Utc),
+                None => chrono::Utc::now(),
+            };
+
+            // Retention durations are deployment configuration; the default policy
+            // is used for this preview (FS-5 surfaces the configured policy).
+            let policy = cerebro_model::api::files::retention::RetentionPolicy::default();
+
+            log::info!("Planning report-out lifecycle at {}", reported_at.to_rfc3339());
+            let report = fs_client.plan_report_out(
+                args.run_id.clone(),
+                args.sample_id.clone(),
+                reported_at,
+                &policy,
+            )?;
+            for entry in &report.entries {
+                let until = entry.transition.retain_until
+                    .map(|t| t.to_rfc3339())
+                    .unwrap_or_else(|| "indefinite".to_string());
+                log::info!(
+                    "{}: -> tier {} , retain until {}",
+                    entry.name,
+                    entry.transition.target_tier,
+                    until
+                );
+            }
+            log::info!(
+                "Planned report-out for {} file(s) (preview; persistence and cold-move are applied by the Stage 3 worker)",
+                report.entries.len()
+            );
+        },
         Commands::Verify( args ) => {
 
             log::info!("Checking status of authenticated Cerebro API {}", &cli.url);

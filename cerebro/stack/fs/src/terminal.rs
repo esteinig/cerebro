@@ -114,6 +114,8 @@ pub enum Commands {
     Download(DownloadFileArgs),
     /// Report and initiate archival (Glacier) restores for cold-tier files
     Restore(RestoreFileArgs),
+    /// Preview the lifecycle plan (cold-move + retention re-anchor) for a report-out
+    ReportOut(ReportOutArgs),
     /// Verify file integrity against registered BLAKE3 hashes (optionally repair)
     Verify(VerifyFileArgs),
     /// Report health of the Cerebro FS topology (master, filer)
@@ -230,6 +232,19 @@ pub struct RestoreFileArgs {
     /// Restrict to a single biological sample identifier
     #[clap(long, short = 's')]
     pub sample_id: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct ReportOutArgs {
+    /// Sequence run identifier being reported out
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Restrict to a single biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+    /// Report-out timestamp (RFC 3339, e.g. 2026-06-13T00:00:00Z); defaults to now
+    #[clap(long)]
+    pub reported_at: Option<String>,
 }
 
 #[derive(Debug, Args)]
