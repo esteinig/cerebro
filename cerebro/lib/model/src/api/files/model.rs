@@ -76,6 +76,11 @@ pub struct SeaweedFile {
     /// Observed replica count, populated by topology/health checks (FS-6).
     #[serde(default)]
     pub replicas: Option<u32>,
+    /// Whether the object's data has been tier-moved to remote archival storage
+    /// (S3 Glacier, Model B) and therefore requires a restore before it can be
+    /// retrieved. Defaulted for documents registered before FS-4.
+    #[serde(default)]
+    pub archived: bool,
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {
@@ -97,6 +102,7 @@ impl SeaweedFile {
             retain_until: register_file_schema.retain_until,
             legal_hold: register_file_schema.legal_hold,
             replicas: register_file_schema.replicas,
+            archived: register_file_schema.archived,
         }
     }
     pub fn size_mb(&self) -> f64 {
@@ -114,6 +120,17 @@ impl SeaweedFile {
             Some(path) if !path.is_empty() => path.as_str(),
             _ => self.fid.as_str(),
         }
+    }
+
+    /// Whether the object must be restored from archival storage before it can
+    /// be retrieved.
+    ///
+    /// True when the data has been tier-moved to remote Glacier storage
+    /// (`archived`). Note that [`StorageTier::Cold`](crate::api::files::retention::StorageTier::Cold)
+    /// alone does **not** imply this: in Model A the cold tier is local HDD and
+    /// is directly readable, whereas in Model B it is S3 Glacier.
+    pub fn requires_restore(&self) -> bool {
+        self.archived
     }
 
     /// Whether the file is eligible for expiry at instant `now`.
@@ -177,7 +194,18 @@ mod tests {
             retain_until: None,
             legal_hold: false,
             replicas: None,
+            archived: false,
         }
+    }
+
+    #[test]
+    fn requires_restore_tracks_archived_flag() {
+        let mut f = sample_file();
+        assert!(!f.requires_restore());
+        f.tier = StorageTier::Cold; // cold alone does not imply restore (Model A = local HDD)
+        assert!(!f.requires_restore());
+        f.archived = true; // tier-moved to Glacier (Model B)
+        assert!(f.requires_restore());
     }
 
     #[test]

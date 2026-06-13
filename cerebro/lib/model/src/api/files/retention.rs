@@ -158,6 +158,42 @@ impl RetentionPolicy {
     }
 }
 
+/// Lifecycle state of an archival (Glacier) restore for a cold-tiered object.
+///
+/// In Model B (HPC distributed), the cold tier is S3 Glacier: a file whose data
+/// has been tier-moved there is `archived` and cannot be read directly. A
+/// restore must first be initiated and completed, after which the object is
+/// temporarily retrievable. This enum models that contract; see
+/// [`SeaweedFile::requires_restore`](crate::api::files::model::SeaweedFile::requires_restore).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+pub enum RestoreState {
+    /// The object is directly retrievable; no restore is needed.
+    NotRequired,
+    /// A restore has been requested and is in progress.
+    Pending,
+    /// A restore has completed and the object is temporarily retrievable.
+    Available,
+    /// The most recent restore attempt failed.
+    Failed,
+}
+
+impl Default for RestoreState {
+    fn default() -> Self {
+        RestoreState::NotRequired
+    }
+}
+
+impl std::fmt::Display for RestoreState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RestoreState::NotRequired => write!(f, "not-required"),
+            RestoreState::Pending => write!(f, "pending"),
+            RestoreState::Available => write!(f, "available"),
+            RestoreState::Failed => write!(f, "failed"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

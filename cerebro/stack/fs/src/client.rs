@@ -521,6 +521,7 @@ impl FileSystemClient {
                 retain_until,
                 legal_hold: upload_config.legal_hold,
                 replicas: None,
+                archived: false,
             };
 
             log::info!("Registering file with Cerebro API");
@@ -584,6 +585,7 @@ impl FileSystemClient {
                     retain_until,
                     legal_hold: upload_config.legal_hold,
                     replicas: None,
+                    archived: false,
                 };
 
                 log::debug!("{:#?}", file_schema);

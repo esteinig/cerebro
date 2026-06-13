@@ -38,6 +38,10 @@ pub struct RegisterFileSchema {
     /// Requested/observed replica count, when known.
     #[serde(default)]
     pub replicas: Option<u32>,
+    /// Whether the object's data resides in remote archival storage (Glacier)
+    /// and requires a restore before retrieval.
+    #[serde(default)]
+    pub archived: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
