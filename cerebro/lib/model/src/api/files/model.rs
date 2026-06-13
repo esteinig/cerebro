@@ -142,16 +142,20 @@ impl SeaweedFile {
     /// Apply the report-out lifecycle transition to this record in place.
     ///
     /// Records `reported_at`, re-anchors `retain_until` to that moment using the
-    /// supplied [`RetentionPolicy`], and moves the record to the cold tier. The
-    /// returned [`LifecycleTransition`] is what a worker/server persists and acts
-    /// on (e.g. the physical hot→cold/Glacier move). Legal hold is untouched and
-    /// continues to override expiry.
+    /// supplied [`RetentionPolicy`], and moves the record to its post-report
+    /// tier: **warm** when `warm_available` (and a positive warm dwell is
+    /// configured) so the data stays directly re-inspectable, otherwise
+    /// **cold**. The returned [`LifecycleTransition`] is what a worker/server
+    /// persists and acts on — including [`LifecycleTransition::cold_move_at`],
+    /// the later warm→cold (S3) move. Legal hold is untouched and continues to
+    /// override expiry.
     pub fn report_out(
         &mut self,
         reported_at: DateTime<Utc>,
         policy: &RetentionPolicy,
+        warm_available: bool,
     ) -> LifecycleTransition {
-        let transition = policy.report_out_transition(self.retention, reported_at);
+        let transition = policy.report_out_transition(self.retention, reported_at, warm_available);
         self.reported_at = Some(transition.reported_at);
         self.retain_until = transition.retain_until;
         self.tier = transition.target_tier;
@@ -225,13 +229,13 @@ mod tests {
     }
 
     #[test]
-    fn report_out_anchors_retention_and_moves_to_cold() {
+    fn report_out_without_warm_moves_to_cold() {
         use super::super::retention::RetentionPolicy;
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30 };
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
 
         let mut f = sample_file(); // tier defaults to Hot, retention Diagnostic
-        let transition = f.report_out(reported_at, &policy);
+        let transition = f.report_out(reported_at, &policy, false);
 
         assert_eq!(f.reported_at, Some(reported_at));
         assert_eq!(f.tier, StorageTier::Cold);
@@ -239,6 +243,21 @@ mod tests {
         assert_eq!(transition.target_tier, StorageTier::Cold);
         // legal hold still governs expiry independently
         assert!(!f.is_expired(reported_at));
+    }
+
+    #[test]
+    fn report_out_with_warm_moves_to_warm() {
+        use super::super::retention::RetentionPolicy;
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
+        let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
+
+        let mut f = sample_file();
+        let transition = f.report_out(reported_at, &policy, true);
+
+        assert_eq!(f.tier, StorageTier::Warm);
+        assert_eq!(transition.cold_move_at, Some(reported_at + chrono::Duration::days(90)));
+        // retention unchanged by the warm placement
+        assert_eq!(f.retain_until, Some(reported_at + chrono::Duration::days(365 * 4)));
     }
 
     #[test]

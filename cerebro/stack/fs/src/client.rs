@@ -521,7 +521,7 @@ impl FileSystemClient {
             .map(|file| LifecycleEntry {
                 identifier: file.effective_identifier().to_string(),
                 name: file.name.clone(),
-                transition: policy.report_out_transition(file.retention, reported_at),
+                transition: policy.report_out_transition(file.retention, reported_at, false),
             })
             .collect();
 

@@ -101,6 +101,19 @@ pub struct RetentionPolicy {
     pub intermediate_days: i64,
     /// Retention period (days) for [`RetentionClass::Transient`].
     pub transient_days: i64,
+    /// How long reported-out data dwells on the **warm** tier (directly-readable
+    /// HDD, for re-inspection) before ageing to the cold (S3) tier, in days.
+    /// Only meaningful when the deployment has a warm tier (three-tier Model B);
+    /// non-positive means "no warm dwell" (move straight to cold).
+    #[serde(default = "default_warm_days")]
+    pub warm_days: i64,
+}
+
+/// Default warm-tier dwell (re-inspection window) in days — placeholder, confirm
+/// against your accreditation scope. Used by serde for configs written before the
+/// `warm_days` field existed.
+fn default_warm_days() -> i64 {
+    90
 }
 
 impl Default for RetentionPolicy {
@@ -112,6 +125,7 @@ impl Default for RetentionPolicy {
             diagnostic_days: 365 * 7, // ~7 years, placeholder only
             intermediate_days: 365,   // ~1 year, placeholder only
             transient_days: 30,       // ~1 month, placeholder only
+            warm_days: 90,            // ~3 month re-inspection window, placeholder only
         }
     }
 }
@@ -138,7 +152,7 @@ impl RetentionPolicy {
     /// use chrono::{TimeZone, Utc};
     /// use cerebro_model::api::files::retention::{RetentionClass, RetentionPolicy};
     ///
-    /// let policy = RetentionPolicy { diagnostic_days: 10, intermediate_days: 0, transient_days: 1 };
+    /// let policy = RetentionPolicy { diagnostic_days: 10, intermediate_days: 0, transient_days: 1, warm_days: 0 };
     /// let from = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
     ///
     /// assert!(policy.retain_until(RetentionClass::Diagnostic, from).is_some());
@@ -160,20 +174,37 @@ impl RetentionPolicy {
     /// Compute the lifecycle transition for a file reported out at `reported_at`
     /// under retention `class`.
     ///
-    /// This anchors the retention clock to the report-out moment — the clinically
-    /// and legally meaningful event — rather than to upload time, and marks the
-    /// data for the cold tier. Whether "cold" means local HDD (Model A) or S3
-    /// Glacier (Model B, where the file also becomes `archived`) is resolved at
-    /// execution time by the deployment-aware lifecycle worker (Stage 3).
+    /// Anchors the retention clock to the report-out moment (the clinically and
+    /// legally meaningful event) rather than to upload time, and decides the tier
+    /// the data should move to:
+    ///
+    /// * **`warm_available` and `warm_days > 0`** (three-tier Model B): move to
+    ///   the warm tier (directly-readable HDD) for re-inspection, and schedule a
+    ///   later move to cold (S3) at `reported_at + warm_days`
+    ///   ([`LifecycleTransition::cold_move_at`]).
+    /// * **otherwise** (Model A, or no warm dwell configured): move straight to
+    ///   the cold tier; there is no scheduled cold move.
+    ///
+    /// Whether "cold" is local HDD (Model A) or S3 Glacier (Model B, where the
+    /// file also becomes `archived`) is resolved at execution time by the
+    /// deployment-aware lifecycle worker (Stage 3). Retention (`retain_until`) is
+    /// independent of placement and is unchanged by the later warm→cold move.
     pub fn report_out_transition(
         &self,
         class: RetentionClass,
         reported_at: DateTime<Utc>,
+        warm_available: bool,
     ) -> LifecycleTransition {
+        let (target_tier, cold_move_at) = if warm_available && self.warm_days > 0 {
+            (StorageTier::Warm, Some(reported_at + Duration::days(self.warm_days)))
+        } else {
+            (StorageTier::Cold, None)
+        };
         LifecycleTransition {
             reported_at,
             retain_until: self.retain_until(class, reported_at),
-            target_tier: StorageTier::Cold,
+            target_tier,
+            cold_move_at,
         }
     }
 }
@@ -190,8 +221,12 @@ pub struct LifecycleTransition {
     /// Recomputed expiry: `reported_at` plus the retention period for the class
     /// (`None` for indefinite retention).
     pub retain_until: Option<DateTime<Utc>>,
-    /// Tier the data should move to once reported out (cold/archival).
+    /// Tier the data should move to immediately on report-out: warm when the
+    /// deployment has a warm tier (and a positive dwell), otherwise cold.
     pub target_tier: StorageTier,
+    /// When the data should subsequently age from warm to the cold (S3) tier
+    /// (`reported_at + warm_days`). `None` when it moves straight to cold.
+    pub cold_move_at: Option<DateTime<Utc>>,
 }
 
 /// Lifecycle state of an archival (Glacier) restore for a cold-tiered object.
@@ -265,7 +300,7 @@ mod tests {
 
     #[test]
     fn non_positive_duration_means_no_expiry() {
-        let p = RetentionPolicy { diagnostic_days: 0, intermediate_days: -1, transient_days: 1 };
+        let p = RetentionPolicy { diagnostic_days: 0, intermediate_days: -1, transient_days: 1, warm_days: 0 };
         let from = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
         assert!(p.retain_until(RetentionClass::Diagnostic, from).is_none());
         assert!(p.retain_until(RetentionClass::Intermediate, from).is_none());
@@ -273,17 +308,40 @@ mod tests {
     }
 
     #[test]
-    fn report_out_anchors_retention_and_targets_cold() {
+    fn report_out_without_warm_targets_cold() {
         // 4-year diagnostic retention, anchored at the report-out date.
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30 };
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
-        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at);
+        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at, false);
 
         assert_eq!(transition.reported_at, reported_at);
         assert_eq!(transition.target_tier, StorageTier::Cold);
+        assert_eq!(transition.cold_move_at, None);
         assert_eq!(
             transition.retain_until,
             Some(reported_at + chrono::Duration::days(365 * 4))
         );
+    }
+
+    #[test]
+    fn report_out_with_warm_targets_warm_then_schedules_cold() {
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
+        let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
+        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at, true);
+
+        // Re-inspection tier first, with the cold (S3) move scheduled after the dwell.
+        assert_eq!(transition.target_tier, StorageTier::Warm);
+        assert_eq!(transition.cold_move_at, Some(reported_at + chrono::Duration::days(90)));
+        // Retention is independent of placement and still anchored at report-out.
+        assert_eq!(transition.retain_until, Some(reported_at + chrono::Duration::days(365 * 4)));
+    }
+
+    #[test]
+    fn report_out_with_warm_but_zero_dwell_targets_cold() {
+        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 0 };
+        let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
+        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at, true);
+        assert_eq!(transition.target_tier, StorageTier::Cold);
+        assert_eq!(transition.cold_move_at, None);
     }
 }
