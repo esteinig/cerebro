@@ -6,4 +6,5 @@ pub mod client;
 pub mod hash;
 pub mod config;
 pub mod filer;
+pub mod integrity;
 

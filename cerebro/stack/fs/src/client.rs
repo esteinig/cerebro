@@ -151,7 +151,7 @@ pub fn is_filer_path(identifier: &str) -> bool {
 /// Returns [`FileSystemError::IntegrityMismatch`] on a mismatch. This is the
 /// basic verification primitive; replica-aware retry and `last_verified`
 /// stamping are added in FS-6.
-fn verify_file(path: &PathBuf, expected_hash: &str) -> Result<(), FileSystemError> {
+pub(crate) fn verify_file(path: &PathBuf, expected_hash: &str) -> Result<(), FileSystemError> {
     let actual = fast_file_hash(path)?;
     if actual != expected_hash {
         return Err(FileSystemError::IntegrityMismatch {
@@ -477,7 +477,7 @@ impl FileSystemClient {
     /// When the identifier is a filer path the resolved local file path is
     /// returned. For a weed fid the file is written by `weed download` using its
     /// stored name; the resolved path is returned only when `name` is known.
-    fn download_identifier(
+    pub(crate) fn download_identifier(
         &self,
         id: &str,
         name: Option<&str>,
