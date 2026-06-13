@@ -5,4 +5,5 @@ pub mod utils;
 pub mod client;
 pub mod hash;
 pub mod config;
+pub mod filer;
 

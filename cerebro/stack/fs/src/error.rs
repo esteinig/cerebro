@@ -37,6 +37,32 @@ pub enum WeedDownloadError {
     MoveError,
 }
 
+/// Errors raised by the SeaweedFS filer HTTP client ([`crate::filer`]).
+#[derive(Error, Debug)]
+pub enum FilerError {
+    /// Underlying HTTP/transport error.
+    #[error("filer request failed")]
+    Http(#[from] reqwest::Error),
+    /// I/O error reading the local file or writing the downloaded object.
+    #[error(transparent)]
+    Io(#[from] IoError),
+    /// Failed to deserialise the filer response body.
+    #[error("failed to parse filer response")]
+    Parse(#[from] SerdeError),
+    /// The local file to upload does not exist.
+    #[error("local file does not exist: {0}")]
+    LocalFileMissing(String),
+    /// The requested remote object was not found.
+    #[error("remote object not found: {0}")]
+    NotFound(String),
+    /// The filer reported an application-level error during upload.
+    #[error("filer upload error: {0}")]
+    Upload(String),
+    /// The filer returned an unexpected HTTP status.
+    #[error("unexpected filer response status: {0}")]
+    UnexpectedStatus(StatusCode),
+}
+
 #[derive(Error, Debug)]
 pub enum FileSystemError {
     #[error("network error occurred")]
@@ -61,4 +87,20 @@ pub enum FileSystemError {
     ModelError(#[from] ModelError),
     #[error(transparent)]
     CsvError(#[from] csv::Error),
+    /// Error during a SeaweedFS filer operation.
+    #[error("error during filer operation")]
+    FilerError(#[from] FilerError),
+    /// A downloaded file failed BLAKE3 integrity verification.
+    #[error("integrity verification failed for {path}: expected {expected}, got {actual}")]
+    IntegrityMismatch {
+        /// Local path of the file whose hash did not match.
+        path: String,
+        /// Hash registered with the Cerebro API.
+        expected: String,
+        /// Hash recomputed from the downloaded bytes.
+        actual: String,
+    },
+    /// A download was requested without sufficient query parameters.
+    #[error("invalid download query: provide --fid, or --run-id (optionally with --sample-id)")]
+    InvalidDownloadQuery,
 }
