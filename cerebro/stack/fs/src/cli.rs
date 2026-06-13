@@ -108,6 +108,46 @@ fn main() -> Result<()> {
             }
             log::info!("{} of {} file(s) require an archival restore", pending, outcomes.len());
         },
+        Commands::Verify( args ) => {
+
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
+            api_client.ping_servers()?;
+
+            log::info!("Checking status of SeaweedFS master at {}", &fs_client.get_url());
+            fs_client.ping_status()?;
+
+            log::info!("Verifying file integrity{}", if args.repair { " (repair enabled)" } else { "" });
+            let report = fs_client.verify_files(
+                args.run_id.clone(),
+                args.sample_id.clone(),
+                args.repair,
+            )?;
+            for outcome in &report.outcomes {
+                let replicas = outcome.replicas.map(|n| n.to_string()).unwrap_or_else(|| "?".to_string());
+                log::info!("{} [{} replica(s)]: {:?}", outcome.name, replicas, outcome.status);
+            }
+            log::info!(
+                "Integrity: {} ok, {} failed of {} file(s)",
+                report.ok_count(),
+                report.failed_count(),
+                report.outcomes.len()
+            );
+            if !report.ok() {
+                log::warn!("Integrity verification found unrecoverable mismatches");
+            }
+        },
+        Commands::Health => {
+
+            let health = fs_client.topology_health();
+            for component in &health.components {
+                if component.reachable {
+                    log::info!("{}: ok ({})", component.component, component.detail);
+                } else {
+                    log::warn!("{}: UNREACHABLE ({})", component.component, component.detail);
+                }
+            }
+            log::info!("Cerebro FS topology health: {}", if health.healthy() { "healthy" } else { "degraded" });
+        },
         Commands::Stage( args ) => {
             fs_client.stage_files(
                 &args.json,

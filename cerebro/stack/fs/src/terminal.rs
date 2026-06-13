@@ -114,6 +114,10 @@ pub enum Commands {
     Download(DownloadFileArgs),
     /// Report and initiate archival (Glacier) restores for cold-tier files
     Restore(RestoreFileArgs),
+    /// Verify file integrity against registered BLAKE3 hashes (optionally repair)
+    Verify(VerifyFileArgs),
+    /// Report health of the Cerebro FS topology (master, filer)
+    Health,
     /// Delete a file from CerebroFS
     Delete(DeleteFileArgs),
     /// List accessible files from CerebroFS
@@ -226,6 +230,19 @@ pub struct RestoreFileArgs {
     /// Restrict to a single biological sample identifier
     #[clap(long, short = 's')]
     pub sample_id: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct VerifyFileArgs {
+    /// Sequence run identifier to verify
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Restrict verification to a single biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+    /// Attempt to repair a hash mismatch from an alternate replica
+    #[clap(long)]
+    pub repair: bool,
 }
 
 #[derive(Debug, Args)]
