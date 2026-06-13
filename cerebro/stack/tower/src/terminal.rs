@@ -71,6 +71,21 @@ pub struct App {
         default_value = "9333", 
     )]
     pub fs_port: String,
+    /// SeaweedFS filer HTTP API base URL (path-addressed access)
+    #[clap(
+        long,
+        env = "CEREBRO_FS_FILER_URL",
+        default_value = "http://localhost:8888"
+    )]
+    pub fs_filer_url: String,
+    /// Object I/O access mode: weed (fid, default) or filer (path)
+    #[clap(
+        long,
+        value_enum,
+        env = "CEREBRO_FS_ACCESS",
+        default_value = "weed"
+    )]
+    pub fs_access: cerebro_fs::config::FsAccessMode,
     /// SSL certificate verification is ignored [DANGER]
     #[clap(
         long, 

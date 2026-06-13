@@ -29,6 +29,8 @@ name = "cerebro_tower"
 # Model library dependency to access shared module structs and definitions
 # to use in endpoints and client responses
 cerebro-model = { path = "../../lib/model" }
+cerebro-fs = { path = "../fs" }
+cerebro-client = { path = "../client" }
 
 anyhow = "1.0"
 thiserror = "1.0"

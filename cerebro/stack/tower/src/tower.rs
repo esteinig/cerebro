@@ -10,6 +10,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 
 use crate::client::TowerClient;
+use cerebro_fs::client::FileSystemClient;
 use crate::error::TowerError;
 
 #[derive(Clone, Debug)]
@@ -135,16 +136,24 @@ impl NextflowConfig {
 #[derive(Clone, Debug)]
 pub struct CerebroTower {
     client: TowerClient,
-    nextflow: NextflowConfig
+    nextflow: NextflowConfig,
+    fs_client: FileSystemClient,
 }
 
 impl CerebroTower {
     pub fn new(
         client: TowerClient,
         nextflow: NextflowConfig,
+        fs_client: FileSystemClient,
     ) -> Result<Self, TowerError> {
 
-        Ok(Self { client, nextflow })
+        Ok(Self { client, nextflow, fs_client })
+    }
+
+    /// Cerebro FS client used to stage inputs and (Stage 2) capture and upload
+    /// pipeline output artefacts before the execution directory is cleaned up.
+    pub fn fs_client(&self) -> &FileSystemClient {
+        &self.fs_client
     }
 
     pub async fn watch(&self, tower_id: &str, delete_from_stage: bool) -> Result<(), TowerError> {
