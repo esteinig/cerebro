@@ -71,4 +71,51 @@ impl WorkerContext {
     pub fn fs(&self) -> Result<&FileSystemClient, WorkerError> {
         self.fs.as_ref().ok_or(WorkerError::ClientNotConfigured("FS"))
     }
+
+    /// Run a blocking client/storage call on the blocking thread pool, off the
+    /// async executor. This is the S3-1 concurrency decision made concrete: the
+    /// Faktory protocol stays async, but lifecycle work is blocking and offloaded
+    /// here, so the executor is never parked on I/O/CPU/subprocess work.
+    ///
+    /// Clone the client out of the context first, then move it into `f`:
+    ///
+    /// ```ignore
+    /// let api = ctx.api()?.clone();
+    /// let file = ctx.run_blocking(move || {
+    ///     api.get_file(&id).map_err(|e| WorkerError::Api(e.to_string()))
+    /// }).await?;
+    /// ```
+    pub async fn run_blocking<T, F>(&self, f: F) -> Result<T, WorkerError>
+    where
+        F: FnOnce() -> Result<T, WorkerError> + Send + 'static,
+        T: Send + 'static,
+    {
+        tokio::task::spawn_blocking(f)
+            .await
+            .map_err(|e| WorkerError::Other(format!("blocking task join error: {e}")))?
+    }
+
+    /// Enqueue a Faktory job (producer side). Used by `*_scan` runners that fan out
+    /// one job per due item. Opens a short-lived Faktory client from `FAKTORY_URL`
+    /// (the same connection the server's enqueue path uses). `reserve_for` bounds
+    /// how long the job may run before Faktory re-delivers it — set generously for
+    /// long-running moves.
+    pub async fn enqueue(
+        &self,
+        kind: &str,
+        args: serde_json::Value,
+        queue: &str,
+        reserve_for: Option<std::time::Duration>,
+    ) -> Result<(), WorkerError> {
+        let mut client = faktory::Client::connect()
+            .await
+            .map_err(|e| WorkerError::Other(format!("faktory connect: {e}")))?;
+        let mut job = faktory::Job::new(kind, vec![args]).on_queue(queue);
+        job.reserve_for = reserve_for;
+        client
+            .enqueue(job)
+            .await
+            .map_err(|e| WorkerError::Other(format!("faktory enqueue: {e}")))?;
+        Ok(())
+    }
 }

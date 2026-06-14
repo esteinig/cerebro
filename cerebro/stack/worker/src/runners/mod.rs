@@ -10,9 +10,11 @@
 
 pub mod ping;
 pub mod stub;
+pub mod tier_move;
 
 pub use ping::Ping;
 pub use stub::LifecycleStub;
+pub use tier_move::{TierMove, TierMoveScan};
 
 use faktory::Job;
 use serde::Deserialize;

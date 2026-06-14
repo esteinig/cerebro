@@ -30,6 +30,11 @@ pub struct WorkerConfig {
     pub queues: Vec<String>,
     /// `host:port` for the worker's health/metrics HTTP server.
     pub metrics_addr: String,
+    /// Run the deep integrity gate (download + BLAKE3) before committing a tier
+    /// move (S3-2a). Heavy for large artefacts; off by default — deep verification
+    /// is the scheduled verify worker's job (S3-3a). Per-job override via the
+    /// `tier_move` arg `verify: true`.
+    pub verify_on_move: bool,
 }
 
 fn env_opt(key: &str) -> Option<String> {
@@ -75,6 +80,7 @@ impl WorkerConfig {
 
             queues: if queues.is_empty() { vec!["default".to_string()] } else { queues },
             metrics_addr: env_or("CEREBRO_WORKER_METRICS_ADDR", "0.0.0.0:9464"),
+            verify_on_move: env_bool("CEREBRO_WORKER_VERIFY_ON_MOVE"),
         }
     }
 
