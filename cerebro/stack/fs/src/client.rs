@@ -7,11 +7,11 @@ use reqwest::StatusCode;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
+use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier, ExpiryState};
+
 use crate::config::{FsConfig, FsAccessMode};
 use crate::filer::FilerClient;
 use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, weed_upload}};
-
 
 #[derive(Clone, Debug)]
 pub struct FileSystemClient {
@@ -776,7 +776,9 @@ impl FileSystemClient {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_remote_path, is_filer_path, sanitize_segment};
+    use cerebro_model::api::files::retention::{ExpiryState, RestoreState, RetentionClass, StorageTier};
+
+use super::{build_remote_path, is_filer_path, sanitize_segment};
 
     #[test]
     fn weed_fid_is_not_a_filer_path() {
@@ -814,7 +816,6 @@ mod tests {
     }
 
     fn file_with(identifier: &str, archived: bool) -> cerebro_model::api::files::model::SeaweedFile {
-        use cerebro_model::api::files::retention::{ExpiryState, RestoreState, RetentionClass, StorageTier};
         cerebro_model::api::files::model::SeaweedFile {
             id: "id".into(),
             date: "2025-01-01".into(),
@@ -835,12 +836,14 @@ mod tests {
             legal_hold: false,
             replicas: None,
             archived,
-            reported_at: None,
             restore_state: RestoreState::NotArchived,
             expiry_state: ExpiryState::Active,
             quarantined_at: None,
             pending_tier: None,
             tier_moved_at: None,
+            restore_requested_at: None,
+            restore_available_at: None,
+            restore_expires_at: None
         }
     }
 

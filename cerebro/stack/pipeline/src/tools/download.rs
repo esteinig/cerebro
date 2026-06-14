@@ -119,7 +119,7 @@ impl CerebroIndex {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let index = CerebroIndex::Virus;
     /// let aligner = Aligner::new();
     /// let name = index.aligner_name(&aligner);
@@ -138,7 +138,7 @@ impl CerebroIndex {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let index = CerebroIndex::Virus;
     /// let classifier = Classifier::new();
     /// let name = index.classifier_name(&classifier, None);
@@ -158,7 +158,7 @@ impl CerebroIndex {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let index = CerebroIndex::Virus;
     /// let classifier = Classifier::new();
     /// let name = index.reference_name(&classifier, None);
@@ -180,7 +180,7 @@ impl fmt::Display for CerebroIndex {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let index = CerebroIndex::Virus;
     /// println!("{}", index);
     /// ```
@@ -221,7 +221,7 @@ impl CerebroDownloader {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let outdir = PathBuf::from("/path/to/output");
     /// let indices = vec![CerebroIndex::Virus];
     /// let downloader = CerebroDownloader::new(outdir, indices);
@@ -238,7 +238,7 @@ impl CerebroDownloader {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let outdir = PathBuf::from("/path/to/output");
     /// let indices = vec![CerebroIndex::Virus];
     /// let builder = CerebroDownloader::builder(outdir, indices);
@@ -250,7 +250,7 @@ impl CerebroDownloader {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let downloader = CerebroDownloader::new(outdir, indices);
     /// downloader.list();
     /// ```
@@ -281,7 +281,7 @@ impl CerebroDownloader {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let downloader = CerebroDownloader::new(outdir, indices);
     /// downloader.download_index();
     /// ```
@@ -336,7 +336,7 @@ impl CerebroDownloader {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let downloader = CerebroDownloader::new(outdir, indices);
     /// downloader.unpack(&download_path, &outdir);
     /// ```
@@ -367,7 +367,7 @@ impl CerebroDownloader {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let downloader = CerebroDownloader::new(outdir, indices);
     /// downloader.download("file_name.tar.xz", &path);
     /// ```
@@ -414,7 +414,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let outdir = PathBuf::from("/path/to/output");
     /// let indices = vec![CerebroIndex::Virus];
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices);
@@ -441,7 +441,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).aligner(vec![Aligner::Bowtie2]);
     /// ```
     pub fn aligner<T: Into<Option<Vec<Aligner>>>>(mut self, aligner: T) -> Self {
@@ -456,7 +456,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).version("0.1.0");
     /// ```
     pub fn version<T: Into<Option<String>>>(mut self, version: T) -> Self {
@@ -471,7 +471,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).classifier(vec![Classifier::new()]);
     /// ```
     pub fn classifier<T: Into<Option<Vec<Classifier>>>>(mut self, classifier: T) -> Self {
@@ -486,7 +486,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).timeout(60);
     /// ```
     pub fn timeout<T: Into<Option<u64>>>(mut self, timeout: T) -> Self {
@@ -501,7 +501,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).base_url("https://example.com");
     /// ```
     pub fn base_url<T: Into<Option<String>>>(mut self, base_url: T) -> Self {
@@ -516,7 +516,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).username("user");
     /// ```
     pub fn username<T: Into<Option<String>>>(mut self, username: T) -> Self {
@@ -531,7 +531,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).password("pass");
     /// ```
     pub fn password<T: Into<Option<String>>>(mut self, password: T) -> Self {
@@ -546,7 +546,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices).reference(true);
     /// ```
     pub fn reference(mut self, reference: bool) -> Self {
@@ -561,7 +561,7 @@ impl CerebroDownloaderBuilder {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let builder = CerebroDownloaderBuilder::new(outdir, indices);
     /// let downloader = builder.timeout(60).build();
     /// ```

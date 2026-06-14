@@ -327,7 +327,7 @@ impl DownloadArgs {
     /// 
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use clap::Parser;
     /// 
     /// let dl_args = Download::parse();

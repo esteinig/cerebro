@@ -186,7 +186,7 @@ async fn delete_files(
         .await
     {
         Ok(cursor) => {
-            let deleted_ids = cursor.try_collect().await
+            let deleted_ids: Vec<String> = cursor.try_collect().await
                 .unwrap_or_else(|_| vec![])
                 .into_iter()
                 .map(|f| f.fid)

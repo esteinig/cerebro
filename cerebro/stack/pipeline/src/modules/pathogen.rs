@@ -1,11 +1,11 @@
 use std::{collections::HashMap, fs::File, io::{BufReader, BufWriter}, path::{Path, PathBuf}};
-use crate::taxa::taxon::{collapse_taxa, LineageOperations};
+use crate::taxa::taxon::collapse_taxa;
 
 use serde::{Deserialize, Serialize};
 use taxonomy::{ncbi, GeneralTaxonomy, TaxRank, Taxonomy};
 use vircov::vircov::VircovRecord;
 
-use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{lineage_to_gtdb_str, rank_index_and_prefix, Taxon, TaxonEvidence, TaxonExtraction}, utils::{read_tsv, write_tsv}};
+use crate::{error::WorkflowError, nextflow::pathogen::{PathogenDetectionOutput, SylphReportRecord}, taxa::taxon::{lineage_to_gtdb_str, Taxon, TaxonExtraction}, utils::{read_tsv, write_tsv}};
 
 use super::{alignment::Alignment, assembly::{MetagenomeAssembly, ContigRecord}, quality::QualityControl};
 

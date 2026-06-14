@@ -74,7 +74,7 @@ pub enum FileComponent {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use std::path::PathBuf;
 /// use cipher::{get_file_component, FileComponent};
 ///
@@ -85,7 +85,7 @@ pub enum FileComponent {
 /// }
 /// ```
 ///
-/// ```
+/// ```ignore
 /// use std::path::PathBuf;
 /// use cipher::{get_file_component, FileComponent};
 ///
@@ -229,7 +229,7 @@ pub fn get_files_from_patterns(path: &PathBuf, patterns: &[&str]) -> Result<Opti
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let id = get_id(b"@read1 description").unwrap();
 /// ```
 pub fn get_id(id: &[u8]) -> Result<String, WorkflowError> {

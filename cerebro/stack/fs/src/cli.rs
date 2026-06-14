@@ -7,6 +7,7 @@ use cerebro_fs::client::FileSystemClient;
 use cerebro_fs::config::FsConfig;
 use cerebro_client::client::CerebroClient;
 use cerebro_fs::terminal::{App, Commands};
+use cerebro_fs::capture::{CaptureStatus, CaptureRule};
 
 
 fn main() -> Result<()> {
@@ -120,7 +121,7 @@ fn main() -> Result<()> {
                 retention_policy: cerebro_model::api::files::retention::RetentionPolicy::from_env(),
                 ..UploadConfig::default()
             };
-            let rules = crate::capture::CaptureRule::default_ruleset();
+            let rules = CaptureRule::default_ruleset();
 
             log::info!("Capturing pipeline outputs from {}", args.output_dir.display());
             let report = fs_client.capture_outputs(
@@ -134,11 +135,11 @@ fn main() -> Result<()> {
 
             for outcome in &report.outcomes {
                 match &outcome.status {
-                    crate::capture::CaptureStatus::Captured { ftype, retention } =>
+                    CaptureStatus::Captured { ftype, retention } =>
                         log::info!("captured {} [{:?}, {:?}]", outcome.relative_path, ftype, retention),
-                    crate::capture::CaptureStatus::Ignored =>
+                    CaptureStatus::Ignored =>
                         log::debug!("ignored {}", outcome.relative_path),
-                    crate::capture::CaptureStatus::Failed(err) =>
+                    CaptureStatus::Failed(err) =>
                         log::warn!("FAILED {}: {}", outcome.relative_path, err),
                 }
             }
@@ -314,7 +315,7 @@ fn main() -> Result<()> {
             
         },
         Commands::Hash( args ) => {
-            let n = crate::hash::hash_directory(&args.outdir, &args.output)?;
+            let n = cerebro_fs::hash::hash_directory(&args.outdir, &args.output)?;
             log::info!("Wrote {} BLAKE3 checksum(s) to {}", n, args.output.display());
         },
         Commands::Delete( args ) => {

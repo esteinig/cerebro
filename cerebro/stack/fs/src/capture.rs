@@ -61,7 +61,7 @@ impl CaptureRule {
     pub fn default_ruleset() -> Vec<CaptureRule> {
         vec![
             // Scratch / logs — never captured.
-            CaptureRule::ignore("/work/"),
+            CaptureRule::ignore("work/"),
             CaptureRule::ignore(".command."),
             CaptureRule::ignore(".nextflow"),
             CaptureRule::ignore(".log"),
