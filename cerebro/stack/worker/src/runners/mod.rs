@@ -1,24 +1,26 @@
-//! Job runners (S3-1).
+//! Job runners (Stage 3).
 //!
-//! Each Faktory job `kind` maps to a [`faktory::JobRunner`]. S3-1 ships:
-//! * [`ping::Ping`] — a real liveness job (end-to-end smoke test), and
-//! * [`stub::LifecycleStub`] — registered under every lifecycle kind, surfacing an
-//!   explicit "not yet implemented" error so the seam is honest. The real bodies
-//!   land in S3-2 (movement) and S3-3 (integrity/restore).
+//! Each Faktory job `kind` maps to a [`faktory::JobRunner`]. The full lifecycle
+//! taxonomy is now implemented:
+//! * [`ping::Ping`] — liveness smoke test (S3-1);
+//! * [`tier_move`] — `tier_move` + `tier_move_scan` (S3-2a);
+//! * [`retention_sweep`] — `retention_sweep` + `purge_reclaim` (S3-2b);
+//! * [`restore_drive`] — archival restore state machine (S3-3b);
+//! * [`verify`] — `verify_file` + `verify_scan` integrity checks (S3-3a).
 //!
 //! Every runner records a `started` then a terminal outcome on the worker metrics.
 
 pub mod ping;
 pub mod restore_drive;
 pub mod retention_sweep;
-pub mod stub;
 pub mod tier_move;
+pub mod verify;
 
 pub use ping::Ping;
 pub use restore_drive::RestoreDrive;
 pub use retention_sweep::{PurgeReclaim, RetentionSweep};
-pub use stub::LifecycleStub;
 pub use tier_move::{TierMove, TierMoveScan};
+pub use verify::{VerifyFile, VerifyScan};
 
 use faktory::Job;
 use serde::Deserialize;

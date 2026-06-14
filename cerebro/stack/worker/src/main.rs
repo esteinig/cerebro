@@ -5,10 +5,10 @@
 //! API server and its `Scheduler` *enqueue* jobs (on demand or periodically); this
 //! process *runs* them. Workers are never spawned inside API request handlers.
 //!
-//! S3-1 establishes the foundation — shared context (API + FS clients), worker
-//! telemetry + health endpoints, and the full job taxonomy — with a real `ping`
-//! liveness job and explicit stubs for the lifecycle kinds. Movement workers land
-//! in S3-2, integrity/restore workers in S3-3.
+//! S3-1 established the foundation — shared context (API + FS clients), worker
+//! telemetry + health endpoints, and the job taxonomy. The lifecycle runners are
+//! now all real: tier mover (S3-2a), retention sweep + purge/reclaim (S3-2b),
+//! restore executor (S3-3b), and integrity verify (S3-3a).
 
 mod config;
 mod context;
@@ -22,14 +22,10 @@ use tracing::Level;
 
 use crate::config::WorkerConfig;
 use crate::context::WorkerContext;
-use crate::runners::{LifecycleStub, Ping, PurgeReclaim, RestoreDrive, RetentionSweep, TierMove, TierMoveScan};
+use crate::runners::{
+    Ping, PurgeReclaim, RestoreDrive, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyScan,
+};
 use crate::telemetry::Metrics;
-
-/// Lifecycle job kinds still registered as stubs (real runners land in S3-3a).
-/// S3-2 (movement) and S3-3b (restore_drive) are real.
-const LIFECYCLE_KINDS: &[&str] = &[
-    "verify_scan",      // S3-3a — scheduled integrity verification + repair
-];
 
 fn init_tracing() {
     tracing_subscriber::fmt()
@@ -63,9 +59,8 @@ async fn main() -> std::io::Result<()> {
             .map_err(error::io_err)?
     };
 
-    // Register runners: a real liveness ping, the S3-2a tier mover + scan, the
-    // S3-2b retention sweep + purge/reclaim, and the remaining lifecycle taxonomy
-    // as stubs.
+    // Register runners: a liveness ping plus the full lifecycle taxonomy
+    // (movement, retention, restore, integrity).
     let mut builder = Worker::builder();
     builder.register("ping", Ping::new(metrics.clone()));
     builder.register("tier_move", TierMove::new(ctx.clone(), metrics.clone()));
@@ -73,16 +68,17 @@ async fn main() -> std::io::Result<()> {
     builder.register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()));
     builder.register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()));
     builder.register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone()));
-    for kind in LIFECYCLE_KINDS {
-        builder.register(*kind, LifecycleStub::new(*kind, ctx.clone(), metrics.clone()));
-    }
+    builder.register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone()));
+    builder.register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()));
 
     let mut worker = builder.connect().await.expect("connect to faktory");
 
     let queues: Vec<&str> = config.queues.iter().map(String::as_str).collect();
     tracing::info!(
-        real = ?["ping", "tier_move", "tier_move_scan", "retention_sweep", "purge_reclaim", "restore_drive"],
-        stubs = ?LIFECYCLE_KINDS,
+        kinds = ?[
+            "ping", "tier_move", "tier_move_scan", "retention_sweep",
+            "purge_reclaim", "restore_drive", "verify_file", "verify_scan"
+        ],
         "registered runners; consuming queues"
     );
 
