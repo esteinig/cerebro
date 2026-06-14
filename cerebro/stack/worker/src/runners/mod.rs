@@ -9,10 +9,12 @@
 //! Every runner records a `started` then a terminal outcome on the worker metrics.
 
 pub mod ping;
+pub mod retention_sweep;
 pub mod stub;
 pub mod tier_move;
 
 pub use ping::Ping;
+pub use retention_sweep::{PurgeReclaim, RetentionSweep};
 pub use stub::LifecycleStub;
 pub use tier_move::{TierMove, TierMoveScan};
 
