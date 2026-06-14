@@ -22,14 +22,13 @@ use tracing::Level;
 
 use crate::config::WorkerConfig;
 use crate::context::WorkerContext;
-use crate::runners::{LifecycleStub, Ping, PurgeReclaim, RetentionSweep, TierMove, TierMoveScan};
+use crate::runners::{LifecycleStub, Ping, PurgeReclaim, RestoreDrive, RetentionSweep, TierMove, TierMoveScan};
 use crate::telemetry::Metrics;
 
-/// Lifecycle job kinds still registered as stubs (real runners land in S3-3).
-/// S3-2a (tier_move/tier_move_scan) and S3-2b (retention_sweep/purge_reclaim) are real.
+/// Lifecycle job kinds still registered as stubs (real runners land in S3-3a).
+/// S3-2 (movement) and S3-3b (restore_drive) are real.
 const LIFECYCLE_KINDS: &[&str] = &[
     "verify_scan",      // S3-3a — scheduled integrity verification + repair
-    "restore_drive",    // S3-3b — drive the archival restore state machine
 ];
 
 fn init_tracing() {
@@ -73,6 +72,7 @@ async fn main() -> std::io::Result<()> {
     builder.register("tier_move_scan", TierMoveScan::new(ctx.clone(), metrics.clone()));
     builder.register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()));
     builder.register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()));
+    builder.register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone()));
     for kind in LIFECYCLE_KINDS {
         builder.register(*kind, LifecycleStub::new(*kind, ctx.clone(), metrics.clone()));
     }
@@ -81,7 +81,7 @@ async fn main() -> std::io::Result<()> {
 
     let queues: Vec<&str> = config.queues.iter().map(String::as_str).collect();
     tracing::info!(
-        real = ?["ping", "tier_move", "tier_move_scan", "retention_sweep", "purge_reclaim"],
+        real = ?["ping", "tier_move", "tier_move_scan", "retention_sweep", "purge_reclaim", "restore_drive"],
         stubs = ?LIFECYCLE_KINDS,
         "registered runners; consuming queues"
     );

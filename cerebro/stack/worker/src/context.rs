@@ -107,11 +107,33 @@ impl WorkerContext {
         queue: &str,
         reserve_for: Option<std::time::Duration>,
     ) -> Result<(), WorkerError> {
+        self.enqueue_at(kind, args, queue, None, reserve_for, None).await
+    }
+
+    /// Enqueue a Faktory job, optionally scheduled for a future time (`at`) and with
+    /// an explicit `retry` count. This is the mechanism behind **poll-by-re-enqueue**
+    /// (S3-3b restore): instead of parking a worker on a multi-hour archival thaw,
+    /// the job checks status and, if not ready, re-enqueues *itself* at
+    /// `now + poll_interval`. Poll jobs set `retry = 0` so Faktory's own retry never
+    /// races the explicit poll chain.
+    pub async fn enqueue_at(
+        &self,
+        kind: &str,
+        args: serde_json::Value,
+        queue: &str,
+        at: Option<chrono::DateTime<chrono::Utc>>,
+        reserve_for: Option<std::time::Duration>,
+        retry: Option<isize>,
+    ) -> Result<(), WorkerError> {
         let mut client = faktory::Client::connect()
             .await
             .map_err(|e| WorkerError::Other(format!("faktory connect: {e}")))?;
         let mut job = faktory::Job::new(kind, vec![args]).on_queue(queue);
+        job.at = at;
         job.reserve_for = reserve_for;
+        if let Some(r) = retry {
+            job.retry = Some(r);
+        }
         client
             .enqueue(job)
             .await

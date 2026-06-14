@@ -35,6 +35,11 @@ pub struct WorkerConfig {
     /// is the scheduled verify worker's job (S3-3a). Per-job override via the
     /// `tier_move` arg `verify: true`.
     pub verify_on_move: bool,
+    /// Dev/test simulation for the restore executor (S3-3b): when set, an archival
+    /// restore is treated as ready this many seconds after it was requested,
+    /// letting the state machine be exercised end-to-end without a real S3 Glacier
+    /// integration. Unset in production (where the real provider drives readiness).
+    pub restore_simulate_seconds: Option<i64>,
 }
 
 fn env_opt(key: &str) -> Option<String> {
@@ -81,6 +86,8 @@ impl WorkerConfig {
             queues: if queues.is_empty() { vec!["default".to_string()] } else { queues },
             metrics_addr: env_or("CEREBRO_WORKER_METRICS_ADDR", "0.0.0.0:9464"),
             verify_on_move: env_bool("CEREBRO_WORKER_VERIFY_ON_MOVE"),
+            restore_simulate_seconds: env_opt("CEREBRO_RESTORE_SIMULATE_SECONDS")
+                .and_then(|v| v.parse::<i64>().ok()),
         }
     }
 
