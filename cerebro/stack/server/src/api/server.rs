@@ -114,15 +114,24 @@ pub async fn main() -> std::io::Result<()> {
                 }
             };
 
-            // let faktory_scheduler = Scheduler::new(
-            //     &mongo_client,
-            //     config.database.names.admin_database_name.clone(),
-            //     config.database.names.admin_database_jobs_collection.clone(), 
-            //     config.database.names.admin_database_locks_collection.clone()
-            // );
-
-            // log::info!("Running Faktory job scheduler");
-            // faktory_scheduler.clone().spawn();
+            // Faktory job scheduler (Stage 3): the periodic *producer* of lifecycle
+            // jobs. It runs in-process as a background task and only *enqueues* to
+            // Faktory — it never runs jobs (that is the cerebro-worker process). A
+            // leased lock (SchedulerLock) guarantees exactly one API replica
+            // enqueues, so it is safe to run on every replica. Opt-in via env so
+            // existing deployments are unaffected until Stage 3 schedules are seeded.
+            if matches!(std::env::var("CEREBRO_SCHEDULER_ENABLED").ok().as_deref(), Some("true") | Some("1")) {
+                let faktory_scheduler = Scheduler::new(
+                    &mongo_client,
+                    config.database.names.admin_database_name.clone(),
+                    config.database.names.admin_database_jobs_collection.clone(),
+                    config.database.names.admin_database_locks_collection.clone(),
+                );
+                log::info!("Faktory job scheduler enabled; spawning periodic producer");
+                faktory_scheduler.spawn();
+            } else {
+                log::info!("Faktory job scheduler disabled (set CEREBRO_SCHEDULER_ENABLED=true to enable)");
+            }
 
             // Database connection checks
             match mongo_client.list_database_names().await {

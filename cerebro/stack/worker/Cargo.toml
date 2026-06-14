@@ -22,11 +22,16 @@ name = "cerebro-worker"
 path = "src/main.rs"
 
 [dependencies]
+cerebro-model = { path = "../../lib/model" }
+cerebro-client = { path = "../client" }
+cerebro-fs = { path = "../fs" }
 faktory = "0.13"
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 futures = "0.3"
 actix-web = "4"
+prometheus = "0.13"
+chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }

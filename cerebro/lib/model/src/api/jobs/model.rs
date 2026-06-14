@@ -12,7 +12,7 @@ pub struct ScheduleJob {
     /// App-level identifier (UUID string).
     pub id: ScheduleId,
 
-    /// Worker type (Faktory "kind"), e.g. "gridfs_process".
+    /// Worker type (Faktory "kind"), e.g. "verify_scan".
     pub kind: String,
 
     /// Single JSON object with job arguments (will be wrapped as [ { ... } ] for Faktory).

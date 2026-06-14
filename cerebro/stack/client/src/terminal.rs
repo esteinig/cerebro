@@ -398,7 +398,7 @@ pub struct TaxonHistoryArgs {
 pub enum JobsCommands {
     /// Enqueue a job to run ASAP
     LaunchJob {
-        /// Worker type, e.g. "gridfs_process"
+        /// Worker type, e.g. "verify_scan"
         #[arg(long)]
         kind: String,
         /// JSON string for object-form args (e.g. '{"db":"...","project":"..."}')

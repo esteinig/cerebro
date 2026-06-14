@@ -1,174 +1,87 @@
-use std::io;
-use async_trait::async_trait;
-use faktory::{Job, JobRunner, Worker};
-use serde::Deserialize;
+//! cerebro-worker — Faktory consumer for the Cerebro lifecycle (Stage 3).
+//!
+//! A standalone, independently-scaled process that pulls jobs from Faktory and
+//! executes them. It is the **consumer** half of the producer/consumer split: the
+//! API server and its `Scheduler` *enqueue* jobs (on demand or periodically); this
+//! process *runs* them. Workers are never spawned inside API request handlers.
+//!
+//! S3-1 establishes the foundation — shared context (API + FS clients), worker
+//! telemetry + health endpoints, and the full job taxonomy — with a real `ping`
+//! liveness job and explicit stubs for the lifecycle kinds. Movement workers land
+//! in S3-2, integrity/restore workers in S3-3.
+
+mod config;
+mod context;
+mod error;
+mod health;
+mod runners;
+mod telemetry;
+
+use faktory::Worker;
 use tracing::Level;
 
-// =======================
-// helpers
-// =======================
-fn io_err<E: std::fmt::Display>(e: E) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, e.to_string())
-}
+use crate::config::WorkerConfig;
+use crate::context::WorkerContext;
+use crate::runners::{LifecycleStub, Ping};
+use crate::telemetry::Metrics;
 
-/// Pull the first JSON object from job.args() and deserialize into T.
-fn parse_args<T: for<'de> Deserialize<'de>>(job: &Job) -> Result<T, io::Error> {
-    let first = job
-        .args()
-        .get(0)
-        .ok_or_else(|| io_err("missing job args (expected single JSON object)"))?;
-    serde_json::from_value::<T>(first.clone()).map_err(io_err)
-}
+/// Lifecycle job kinds registered as stubs in S3-1 (real runners land in S3-2/S3-3).
+const LIFECYCLE_KINDS: &[&str] = &[
+    "tier_move",        // S3-2a — physical hot/warm/cold relocation (claim→verify→commit)
+    "tier_move_scan",   // S3-2a — find due moves and fan out per-file tier_move jobs
+    "retention_sweep",  // S3-2b — quarantine lapsed files (expire)
+    "purge_reclaim",    // S3-2b — purge past grace and reclaim fids
+    "verify_scan",      // S3-3a — scheduled integrity verification + repair
+    "restore_drive",    // S3-3b — drive the archival restore state machine
+];
 
-// =======================
-// 1) generate_report
-// =======================
-#[derive(Debug, Deserialize)]
-struct ReportArgs {
-    range: String,                 // e.g. "yesterday"
-    #[serde(default)]
-    format: Option<String>,        // e.g. "pdf"
-}
-
-struct GenerateReport;
-
-#[async_trait]
-impl JobRunner for GenerateReport {
-    type Error = io::Error;
-
-    async fn run(&self, job: Job) -> Result<(), Self::Error> {
-        let args: ReportArgs = parse_args(&job)?;
-        let format = args.format.as_deref().unwrap_or("pdf");
-
-        tracing::info!(kind=%job.kind(), range=%args.range, %format, "generate_report started");
-        // Simulate heavy work
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        tracing::info!("generate_report done");
-        Ok(())
-    }
-}
-
-// =======================
-// 2) aggregate_metrics
-// =======================
-#[derive(Debug, Deserialize)]
-struct AggregateArgs {
-    region: String,                // e.g. "eu-west"
-    #[serde(default = "default_hours")]
-    hours: u32,                    // default 24
-}
-fn default_hours() -> u32 { 24 }
-
-struct AggregateMetrics;
-
-#[async_trait]
-impl JobRunner for AggregateMetrics {
-    type Error = io::Error;
-
-    async fn run(&self, job: Job) -> Result<(), Self::Error> {
-        let args: AggregateArgs = parse_args(&job)?;
-        tracing::info!(kind=%job.kind(), region=%args.region, hours=%args.hours, "aggregate_metrics started");
-
-        for step in 1..=3 {
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            tracing::info!(%step, "aggregate_metrics progress");
-        }
-
-        tracing::info!("aggregate_metrics done");
-        Ok(())
-    }
-}
-
-// =======================
-// 3) ping
-// =======================
-#[derive(Debug, Deserialize)]
-struct PingArgs {
-    #[serde(default = "default_n")]
-    n: u64,
-}
-fn default_n() -> u64 { 1 }
-
-struct Ping;
-
-#[async_trait]
-impl JobRunner for Ping {
-    type Error = io::Error;
-
-    async fn run(&self, job: Job) -> Result<(), Self::Error> {
-        let args: PingArgs = parse_args(&job)?;
-        for i in 1..=args.n {
-            tracing::info!(i, "pong");
-            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
-        }
-        Ok(())
-    }
-}
-
-// =======================
-// 4) gridfs_process
-//     downloads from Mongo GridFS and processes
-// =======================
-#[derive(Debug, Deserialize)]
-struct GridFsArgs {
-    file_id: String,               // hex ObjectId
-    #[serde(default = "default_bucket")]
-    bucket: String,                // default "fs"
-}
-fn default_bucket() -> String { "fs".into() }
-
-struct GridFsProcess;
-
-#[async_trait]
-impl JobRunner for GridFsProcess {
-    type Error = io::Error;
-
-    async fn run(&self, job: Job) -> Result<(), Self::Error> {
-
-        let args: GridFsArgs = parse_args(&job)?;
-
-        // Bucket access
-
-        tracing::info!(bytes=0, file_id=%args.file_id, bucket=%args.bucket, "gridfs_process done");
-        Ok(())
-    }
-}
-
-
-// =======================
-// main: bootstrap worker
-// =======================
-#[tokio::main]
-async fn main() -> io::Result<()> {
-
+fn init_tracing() {
     tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info,faktory_worker=info".into()),
-        )
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()))
         .with_level(true)
         .with_target(false)
         .with_max_level(Level::INFO)
         .init();
+}
 
-    // Uses FAKTORY_URL if present (e.g. tcp://:devpass@faktory:7419)
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    init_tracing();
+
+    let config = WorkerConfig::from_env();
+    tracing::info!(queues = ?config.queues, metrics = %config.metrics_addr, "cerebro-worker starting");
     match std::env::var("FAKTORY_URL") {
-        Ok(url) => println!("FAKTORY_URL={}", url),
-        Err(_)  => println!("FAKTORY_URL not set; using faktory::Client defaults"),
+        Ok(url) => tracing::info!(faktory = %url, "FAKTORY_URL set"),
+        Err(_) => tracing::warn!("FAKTORY_URL not set; using faktory client defaults"),
     }
 
-    let mut w = Worker::builder()
-        .register("generate_report", GenerateReport)
-        .register("aggregate_metrics", AggregateMetrics)
-        .register("ping", Ping)
-        .register("gridfs_process", GridFsProcess)
-        .connect()
-        .await
-        .expect("connect to faktory");
+    // Worker telemetry + health/metrics endpoint.
+    let metrics = Metrics::new();
+    health::spawn(metrics.clone(), config.metrics_addr.clone())?;
 
-    // Match queues the app uses for this worker
-    if let Err(e) = w.run(&["default", "backend", "maintenance"]).await {
-        eprintln!("worker failed: {e}");
+    // Build the shared context (blocking reqwest clients) off the async executor.
+    let ctx = {
+        let cfg = config.clone();
+        tokio::task::spawn_blocking(move || WorkerContext::build(cfg))
+            .await
+            .map_err(error::io_err)?
+    };
+
+    // Register runners: a real liveness ping + the lifecycle taxonomy as stubs.
+    let mut builder = Worker::builder();
+    builder.register("ping", Ping::new(metrics.clone()));
+    for kind in LIFECYCLE_KINDS {
+        builder.register(*kind, LifecycleStub::new(*kind, ctx.clone(), metrics.clone()));
     }
 
+    let mut worker = builder.connect().await.expect("connect to faktory");
+
+    let queues: Vec<&str> = config.queues.iter().map(String::as_str).collect();
+    tracing::info!(kinds = ?LIFECYCLE_KINDS, "registered runners; consuming queues");
+
+    if let Err(e) = worker.run(&queues).await {
+        tracing::error!(error = %e, "worker run loop exited with error");
+        return Err(error::io_err(e));
+    }
     Ok(())
 }
