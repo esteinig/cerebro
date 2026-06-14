@@ -151,7 +151,9 @@ services:
       FAKTORY_URL: tcp://:devpass@faktory:7419
       CEREBRO_CONFIG_FILE: /run/secrets/cerebro_config
       CEREBRO_RETENTION_CONFIG_FILE: /run/secrets/retention_config
+      CEREBRO_SCHEDULER_ENABLED: "true"   # Stage 3: run the in-process periodic job producer
     depends_on:
+      - faktory
       - cerebro-database
       - cerebro-auth-session
       - cerebro-auth-onetime
@@ -359,6 +361,81 @@ services:
   {{/if}}
 
 
+  {{#unless fs.fs_only}}
+  # === Stage 3: job system ===============================================
+  # Producer/consumer split. cerebro-api (+ its Scheduler) ENQUEUE jobs to
+  # Faktory; cerebro-worker CONSUMES and runs them. Workers are never run inside
+  # API request handlers. Scale heavy-job throughput by running more worker
+  # replicas (each handles a bounded number of jobs) — see the blocking-work
+  # rationale in the S3-1 notes.
+
+  # Faktory job server: durable queue + web dashboard. OSS image; pin a version
+  # and move the password to a secret in production.
+  faktory:
+    restart: unless-stopped
+    image: contribsys/faktory:1.8.0
+    command: ["/faktory", "-b", "0.0.0.0:7419", "-w", "0.0.0.0:7420", "-e", "production"]
+    environment:
+      FAKTORY_PASSWORD: devpass   # must match the FAKTORY_URL used by api + worker
+    {{#if dev}}
+    ports:
+      - "7419:7419"   # job protocol
+      - "7420:7420"   # web dashboard -> http://localhost:7420
+    {{/if}}
+    expose:
+      - 7419
+      - 7420
+    volumes:
+      - cerebro_faktory:/var/lib/faktory
+    networks:
+      - cerebro
+    security_opt:
+      - no-new-privileges:true
+
+  # Cerebro lifecycle worker (Stage 3): consumes Faktory jobs. In dev it reuses
+  # the server image (cargo-watch hot-reload); in production it builds the slim
+  # Dockerfile.worker. Uses the filer HTTP API (no `weed` binary needed in the
+  # slim image). Provide a service-account token via CEREBRO_WORKER_TOKEN.
+  cerebro-worker:
+    restart: unless-stopped
+    build:
+      context: {{{ outdir }}}/cerebro
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.{{#if dev}}server{{else}}worker{{/if}}
+      {{#if dev}}
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+      {{/if}}
+    {{#if dev}}
+    command: cargo watch -w /usr/src/cerebro/cerebro/lib/model -w /usr/src/cerebro/cerebro/stack/worker -w /usr/src/cerebro/Cargo.toml -x "run -p cerebro-worker"
+    ports:
+      - "9464:9464"   # worker /metrics + /health
+    volumes:
+      - {{{ outdir }}}/cerebro:/usr/src/cerebro
+    {{/if}}
+    expose:
+      - 9464
+    networks:
+      - cerebro
+    environment:
+      FAKTORY_URL: tcp://:devpass@faktory:7419
+      CEREBRO_API_URL: http://cerebro-api:8080
+      CEREBRO_API_TOKEN: ${CEREBRO_WORKER_TOKEN:-}
+      CEREBRO_FS_URL: http://cerebro-fs-master
+      CEREBRO_FS_PORT: "9333"
+      CEREBRO_FS_FILER_URL: http://cerebro-fs-filer:{{{ fs.filer.port }}}
+      CEREBRO_FS_ACCESS: filer
+      CEREBRO_WORKER_QUEUES: default,lifecycle,maintenance
+      CEREBRO_WORKER_METRICS_ADDR: 0.0.0.0:9464
+      RUST_LOG: info
+    depends_on:
+      - faktory
+      - cerebro-api
+    security_opt:
+      - no-new-privileges:true
+  {{/unless}}
+
+
 volumes:
   {{#unless fs.fs_only}}
   cerebro_app:
@@ -372,6 +449,8 @@ volumes:
   cerebro_auth_session:
     driver: local
   cerebro_auth_onetime:
+    driver: local
+  cerebro_faktory:
     driver: local
   {{/unless}}
   {{#if fs.enabled }}
