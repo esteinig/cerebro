@@ -20,6 +20,12 @@ pub enum TowerError {
     #[error(transparent)]
     SerdeFailure(#[from] serde_json::Error),
 
+    #[error(transparent)]
+    FileSystem(#[from] cerebro_fs::error::FileSystemError),
+
+    #[error("Run finalisation failed: {0}")]
+    Finalize(String),
+
     #[error("Failed to execute system process: {0}")]
     TowerProcessFailed(String),
 

@@ -114,6 +114,10 @@ pub enum Commands {
     Download(DownloadFileArgs),
     /// Report and initiate archival (Glacier) restores for cold-tier files
     Restore(RestoreFileArgs),
+    /// Capture a completed pipeline run's output directory into Cerebro FS
+    Capture(CaptureOutputArgs),
+    /// Build, seal and capture a run provenance manifest into Cerebro FS
+    Manifest(ManifestArgs),
     /// Preview the lifecycle plan (cold-move + retention re-anchor) for a report-out
     ReportOut(ReportOutArgs),
     /// Verify file integrity against registered BLAKE3 hashes (optionally repair)
@@ -126,8 +130,21 @@ pub enum Commands {
     List(ListFileArgs),
     /// Stage samples in CerebroAPI / CerebroFS for production pipelines
     Stage(StageFileArgs),
+    /// Compute BLAKE3 checksums of a directory tree into a b3sum-style sidecar
+    Hash(HashArgs),
     /// Get the SeaweedFS executable
     Weed(GetWeedArgs),
+}
+
+/// Arguments for the `hash` subcommand (produce-time checksum sidecar).
+#[derive(Debug, Args)]
+pub struct HashArgs {
+    /// Directory to hash recursively
+    #[clap(long, short = 'd')]
+    pub outdir: PathBuf,
+    /// Output checksum file (`<hash>  <relative-path>` per line)
+    #[clap(long, short = 'o', default_value = "checksums.b3")]
+    pub output: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -235,6 +252,45 @@ pub struct RestoreFileArgs {
 }
 
 #[derive(Debug, Args)]
+pub struct ManifestArgs {
+    /// Sequence run identifier to build the manifest for
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Restrict the manifest to a single biological sample identifier
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+    /// Pipeline identifier (run/workflow instance) to record
+    #[clap(long, short = 'p')]
+    pub pipeline_id: Option<String>,
+    /// Pipeline name (overrides the value in --metadata when given)
+    #[clap(long)]
+    pub pipeline_name: Option<String>,
+    /// Pipeline version (overrides the value in --metadata when given)
+    #[clap(long)]
+    pub pipeline_version: Option<String>,
+    /// Optional JSON file of provenance metadata (parameters, tool and
+    /// reference-database versions) emitted by the pipeline
+    #[clap(long)]
+    pub metadata: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct CaptureOutputArgs {
+    /// Pipeline output directory to capture
+    #[clap(long, short = 'o')]
+    pub output_dir: PathBuf,
+    /// Sequence run identifier to link captured files to
+    #[clap(long, short = 'r')]
+    pub run_id: Option<String>,
+    /// Biological sample identifier to link captured files to
+    #[clap(long, short = 's')]
+    pub sample_id: Option<String>,
+    /// Pipeline identifier (run/workflow instance) to record on captured files
+    #[clap(long, short = 'p')]
+    pub pipeline_id: Option<String>,
+}
+
+#[derive(Debug, Args)]
 pub struct ReportOutArgs {
     /// Sequence run identifier being reported out
     #[clap(long, short = 'r')]
@@ -249,6 +305,10 @@ pub struct ReportOutArgs {
     /// re-inspection and schedule a later warm→cold (S3) move, instead of cold
     #[clap(long)]
     pub warm: bool,
+    /// Persist the computed lifecycle (reported_at, retain_until, tier) via the
+    /// API instead of only previewing it
+    #[clap(long)]
+    pub persist: bool,
 }
 
 #[derive(Debug, Args)]

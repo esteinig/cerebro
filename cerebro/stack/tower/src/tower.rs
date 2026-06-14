@@ -78,6 +78,14 @@ impl NextflowConfig {
         Ok(path)
 
     }
+    /// The execution directory for the current/most recent run, set by `create`.
+    ///
+    /// Used by the orchestration to capture outputs from this directory before it
+    /// is cleaned up.
+    pub fn execution_directory(&self) -> Option<&PathBuf> {
+        self.execution_directory.as_ref()
+    }
+
     pub async fn cleanup(&self) -> Result<(), TowerError> {
 
         if let Some(ref dir) = self.execution_directory {
@@ -181,6 +189,7 @@ impl CerebroTower {
             process_manager_task(
             self.nextflow.clone(),
             self.client.clone(),
+            self.fs_client.clone(),
             tower_id.to_string(),
                 rx, 
                 semaphore
@@ -247,6 +256,7 @@ async fn watchtower_task(
 async fn process_manager_task(
     nextflow: NextflowConfig,
     client: TowerClient,
+    fs_client: FileSystemClient,
     tower_id: String, 
     mut rx: mpsc::Receiver<WatchtowerCommand>,
     semaphore: Arc<Semaphore>,
@@ -259,6 +269,7 @@ async fn process_manager_task(
                 let permit = semaphore.clone().acquire_owned().await.unwrap();
 
                 let mut pipeline = nextflow.clone();
+                let fs_client = fs_client.clone();
                 // Spawn a new task to handle the process
                 task::spawn(async move {
                     if let Ok(mut child) = pipeline.launch(&data).await {
@@ -269,8 +280,47 @@ async fn process_manager_task(
                             },
                             Ok(exit_status) => {
                                 log::info!("Process completed with {exit_status}");
-                                if let Err(err) = pipeline.cleanup().await {
-                                    log::error!("Failed to cleanup execution directory: {}", err.to_string())
+
+                                // Capture-before-cleanup: a successful run's
+                                // outputs and provenance manifest are captured
+                                // into Cerebro FS *before* the execution
+                                // directory is removed. Cleanup is allowed only
+                                // when capture succeeds (or the run failed and has
+                                // nothing to capture), so successful artefacts are
+                                // never lost to scratch reclamation.
+                                let mut allow_cleanup = true;
+
+                                if exit_status.success() {
+                                    if let Some(execution_dir) = pipeline.execution_directory().cloned() {
+                                        match crate::orchestrate::finalize_run(fs_client.clone(), execution_dir, data).await {
+                                            Ok(report) if report.ok() => {
+                                                log::info!(
+                                                    "Finalised {} run(s); {} target(s) captured",
+                                                    report.runs, report.captured
+                                                );
+                                            }
+                                            Ok(report) => {
+                                                allow_cleanup = false;
+                                                for failure in &report.failures {
+                                                    log::error!("Capture failure: {}", failure);
+                                                }
+                                            }
+                                            Err(e) => {
+                                                allow_cleanup = false;
+                                                log::error!("Run finalisation failed: {}", e);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    log::warn!("Pipeline exited unsuccessfully ({exit_status}); no outputs to capture");
+                                }
+
+                                if allow_cleanup {
+                                    if let Err(err) = pipeline.cleanup().await {
+                                        log::error!("Failed to cleanup execution directory: {}", err.to_string())
+                                    }
+                                } else {
+                                    log::warn!("Preserving execution directory: capture incomplete, retry required");
                                 }
                             }
                         }

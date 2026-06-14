@@ -8,4 +8,6 @@ pub mod config;
 pub mod filer;
 pub mod integrity;
 pub mod health;
+pub mod capture;
+pub mod manifest;
 

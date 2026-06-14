@@ -26,6 +26,13 @@ use cerebro_model::api::files::model::SeaweedFileId;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::DeleteFilesResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
+use cerebro_model::api::files::response::{GetFileResponse, ReportOutResponse};
+use cerebro_model::api::files::response::{ExpireResponse, PurgeResponse};
+use cerebro_model::api::files::response::RestoreTransitionResponse;
+use cerebro_model::api::files::schema::RestoreTransitionSchema;
+use cerebro_model::api::files::response::AuditTrailResponse;
+use cerebro_model::api::files::audit::AuditEvent;
+use cerebro_model::api::files::schema::{ExpireSchema, PurgeSchema, ReportOutSchema};
 use cerebro_model::api::jobs::response::CreateScheduleResponse;
 use cerebro_model::api::jobs::response::EnqueueJobResponse;
 use cerebro_model::api::jobs::response::JobCompletionResponse;
@@ -81,6 +88,8 @@ use cerebro_model::api::users::response::UserSelfResponse;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
 use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
+use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
+use cerebro_model::api::files::retention::{RestoreState, StorageTier};
 
 use crate::error::HttpClientError;
 use crate::regression::RpmAnalysisResult;
@@ -120,6 +129,13 @@ pub enum Route {
     TeamFilesRegister,
     TeamFilesList,
     TeamFilesDelete,
+    TeamFilesLifecycle,
+    TeamFilesGet,
+    TeamFilesReportOut,
+    TeamFilesExpire,
+    TeamFilesPurge,
+    TeamFilesRestore,
+    TeamFilesAudit,
     TeamTowersRegister,
     TeamTowersList,
     TeamTowersDelete,
@@ -172,6 +188,13 @@ impl Route {
             Route::TeamFilesRegister => "files/register",
             Route::TeamFilesList => "files",
             Route::TeamFilesDelete => "files",
+            Route::TeamFilesLifecycle => "files",
+            Route::TeamFilesGet => "files",
+            Route::TeamFilesReportOut => "files",
+            Route::TeamFilesExpire => "files",
+            Route::TeamFilesPurge => "files",
+            Route::TeamFilesRestore => "files",
+            Route::TeamFilesAudit => "audit",
             Route::TeamTowersRegister => "tower/register",
             Route::TeamTowersList => "tower",
             Route::TeamTowersDelete => "tower",
@@ -904,6 +927,228 @@ impl CerebroClient {
             "File registration failed",
         )?;
         Ok(())
+    }
+
+    /// Persist a partial lifecycle update for a single file.
+    ///
+    /// Sends only the fields present in `schema` to `PATCH /files/{id}/lifecycle`;
+    /// unset fields are left unchanged server-side. Used by the report-out,
+    /// restore, and integrity flows to persist their computed lifecycle state.
+    pub fn update_file_lifecycle(
+        &self,
+        id: &str,
+        schema: &UpdateFileLifecycleSchema,
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/{}/lifecycle", self.routes.url(Route::TeamFilesLifecycle), id);
+
+        let response = self.send_request_with_team(
+            self.client.patch(url).json(schema),
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some("File lifecycle updated"),
+            "File lifecycle update failed",
+        )?;
+        Ok(())
+    }
+
+    /// Claim an in-flight tier move (S2-10): set `pending_tier = target`, applied
+    /// only if the file's current tier equals `expected` (compare-and-set). A
+    /// `409` (precondition not met) means another mover already handled it — safe
+    /// to treat as success under at-least-once delivery.
+    pub fn claim_tier_move(&self, id: &str, target: StorageTier, expected: StorageTier) -> Result<(), HttpClientError> {
+        let schema = UpdateFileLifecycleSchema {
+            pending_tier: Some(target),
+            expected_tier: Some(expected),
+            ..Default::default()
+        };
+        self.update_file_lifecycle(id, &schema)
+    }
+
+    /// Commit a verified tier move (S2-10): set `tier = target` (stamping
+    /// `tier_moved_at` and clearing the claim), applied only if the current tier
+    /// still equals `expected`. Call only after verifying the destination hash
+    /// matches the stored hash; delete the source bytes afterwards.
+    pub fn commit_tier_move(&self, id: &str, target: StorageTier, expected: StorageTier) -> Result<(), HttpClientError> {
+        let schema = UpdateFileLifecycleSchema {
+            tier: Some(target),
+            expected_tier: Some(expected),
+            ..Default::default()
+        };
+        self.update_file_lifecycle(id, &schema)
+    }
+
+    /// Run a non-destructive expiry sweep (`POST /files/expire`): quarantine
+    /// files past retention (optionally scoped to a run/sample). Returns the
+    /// number quarantined (or eligible, when `dry_run`) and the dry-run flag.
+    pub fn expire_files(
+        &self,
+        run_id: Option<String>,
+        sample_id: Option<String>,
+        dry_run: bool,
+    ) -> Result<(u64, bool), HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/expire", self.routes.url(Route::TeamFilesExpire));
+        let schema = ExpireSchema { run_id, sample_id, dry_run };
+
+        let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
+
+        let data = self
+            .handle_response::<ExpireResponse>(response, Some("Expiry sweep complete"), "Failed to run expiry sweep")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No expiry data returned"),
+                )
+            })?;
+        Ok((data.quarantined, data.dry_run))
+    }
+
+    /// Run a gated hard purge (`POST /files/purge`): permanently remove
+    /// quarantined files past the grace window. Returns their storage `fid`s (for
+    /// byte reclamation) and the dry-run flag.
+    pub fn purge_files(
+        &self,
+        run_id: Option<String>,
+        sample_id: Option<String>,
+        dry_run: bool,
+    ) -> Result<(Vec<String>, bool), HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/purge", self.routes.url(Route::TeamFilesPurge));
+        let schema = PurgeSchema { run_id, sample_id, dry_run };
+
+        let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
+
+        let data = self
+            .handle_response::<PurgeResponse>(response, Some("Purge complete"), "Failed to run purge")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No purge data returned"),
+                )
+            })?;
+        Ok((data.fids, data.dry_run))
+    }
+
+    /// Drive a restore state-machine transition (`POST /files/{id}/restore`,
+    /// S2-11). The server validates `target` against the current state and stamps
+    /// the relevant timestamps; returns the resulting state. A `409` means the
+    /// transition was invalid or already superseded.
+    pub fn transition_restore(&self, id: &str, target: RestoreState) -> Result<RestoreState, HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/{}/restore", self.routes.url(Route::TeamFilesRestore), id);
+        let schema = RestoreTransitionSchema { target };
+
+        let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
+
+        let data = self
+            .handle_response::<RestoreTransitionResponse>(response, None, "Restore transition failed")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No restore data returned"),
+                )
+            })?;
+        Ok(data.restore_state)
+    }
+
+    /// Request an archival restore (`NotArchived → Requested`).
+    pub fn request_restore(&self, id: &str) -> Result<RestoreState, HttpClientError> {
+        self.transition_restore(id, RestoreState::Requested)
+    }
+
+    /// Fetch the audit trail (optionally filtered by file or run), returning the
+    /// matching events and whether the full team chain verified intact.
+    pub fn get_audit_trail(
+        &self,
+        file_id: Option<String>,
+        run_id: Option<String>,
+    ) -> Result<(Vec<AuditEvent>, bool), HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = self.build_request_url(
+            self.routes.url(Route::TeamFilesAudit),
+            &[("file_id", file_id), ("run_id", run_id)],
+        );
+
+        let response = self.send_request_with_team(self.client.get(&url))?;
+
+        let data = self
+            .handle_response::<AuditTrailResponse>(response, None, "Failed to retrieve audit trail")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No audit data returned"),
+                )
+            })?;
+        Ok((data.events, data.verified))
+    }
+
+    /// Fetch a single file record by id (`GET /files/{id}`).
+    pub fn get_file(&self, id: &str) -> Result<SeaweedFile, HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/{}", self.routes.url(Route::TeamFilesGet), id);
+
+        let response = self.send_request_with_team(self.client.get(&url))?;
+
+        let file = self
+            .handle_response::<GetFileResponse>(response, None, "Failed to retrieve file")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No file data returned"),
+                )
+            })?;
+        Ok(file)
+    }
+
+    /// Trigger the report-out lifecycle for a run (optionally a single sample).
+    ///
+    /// Calls `POST /files/report-out`; the server applies its configured retention
+    /// policy and warm-tier availability, persisting the re-anchored retention and
+    /// new tier. Returns the number of files transitioned.
+    pub fn report_out_files(
+        &self,
+        run_id: &str,
+        sample_id: Option<String>,
+        reported_at: Option<chrono::DateTime<Utc>>,
+    ) -> Result<u64, HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/report-out", self.routes.url(Route::TeamFilesReportOut));
+        let schema = ReportOutSchema { run_id: run_id.to_string(), sample_id, reported_at };
+
+        let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
+
+        let data = self
+            .handle_response::<ReportOutResponse>(response, Some("Reported out files"), "Failed to report out files")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("No report-out data returned"),
+                )
+            })?;
+        Ok(data.updated)
     }
 
     pub fn delete_file(&self, id: &str) -> Result<SeaweedFile, HttpClientError> {

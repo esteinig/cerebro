@@ -607,7 +607,7 @@ process ContigCoverage {
     tag { sampleID }
     label "pathogenAssemblyContigCoverage"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "symlink", pattern: "${sampleID}.${assembler}.bam*"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "${sampleID}.${assembler}.bam*"  /* S2 intermission-3: copy (not symlink) so capture/backup get real bytes; output dir is cleaned post-capture, so the duplication is transient. Use "move" if disk-constrained. */
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
@@ -708,7 +708,7 @@ process SemiBin2 {
     tag { sampleID }
     label "pathogenAssemblySemiBin2"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "symlink", pattern: "semibin2"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "semibin2"  /* S2 intermission-3: copy (not symlink) so capture/backup get real bytes */
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)
@@ -728,7 +728,7 @@ process Vamb {
     tag { sampleID }
     label "pathogenAssemblySemiBin2"
 
-    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "symlink", pattern: "semibin2"
+    publishDir "$params.outputDirectory/pathogen/$sampleID", mode: "copy", pattern: "semibin2"  /* S2 intermission-3: copy (not symlink) so capture/backup get real bytes */
 
     input:
     tuple val(sampleID), val(assembler), path(contigs)

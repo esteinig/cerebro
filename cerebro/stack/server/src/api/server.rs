@@ -44,6 +44,8 @@ pub struct AppState {
     pub auth_onetime: RedisClient,
     pub scheduler: Option<Scheduler>,
     pub env: cerebro_model::api::config::Config,
+    /// Operational telemetry registry (S2-14). Shared across workers.
+    pub metrics: crate::api::telemetry::Metrics,
 }
 
 /// Main controller function for the async server
@@ -147,6 +149,10 @@ pub async fn main() -> std::io::Result<()> {
                 }
             };
 
+            // S2-14: build the telemetry registry once and share it across
+            // workers (registry + counters are Arc-backed, so clone shares state).
+            let metrics = crate::api::telemetry::Metrics::new();
+
             HttpServer::new(move || {
                 App::new()
                     .wrap(
@@ -173,8 +179,11 @@ pub async fn main() -> std::io::Result<()> {
                         auth_onetime: redis_client_auth_onetime.clone(),
                         scheduler: None,
                         env: config.clone(),
+                        metrics: metrics.clone(),
                     }))
                     .configure(app_config)
+                    // Operational telemetry endpoint (S2-14): GET /metrics
+                    .configure(crate::api::telemetry::telemetry_config)
                     // Email authentication configuration for global activation
                     .configure(|cfg| auth_config(cfg, &config))
                     // Endpoint configurations

@@ -58,6 +58,7 @@ anstyle = "1.0.1"
 tokio = { version = "1.47.1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 faktory = "0.13.1"
 sha2 = "0.10.9"
+prometheus = "0.13"   # S2-14 operational telemetry
 hex = "0.4.3"
 
 [features]

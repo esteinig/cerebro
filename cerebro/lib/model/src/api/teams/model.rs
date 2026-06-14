@@ -12,7 +12,8 @@ pub enum TeamAdminCollection {
     Watchers,
     Towers,
     TrainingData,
-    TrainingSessions
+    TrainingSessions,
+    AuditLogs
 }
 impl TeamAdminCollection {
     pub fn name(&self) -> String {
@@ -23,7 +24,8 @@ impl TeamAdminCollection {
             TeamAdminCollection::Watchers => String::from("watchers"),
             TeamAdminCollection::Towers => String::from("towers"),
             TeamAdminCollection::TrainingData => String::from("training_data"),
-            TeamAdminCollection::TrainingSessions => String::from("training_sessions")
+            TeamAdminCollection::TrainingSessions => String::from("training_sessions"),
+            TeamAdminCollection::AuditLogs => String::from("audit_logs")
         }
     }
 }

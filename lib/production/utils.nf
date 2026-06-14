@@ -147,7 +147,7 @@ def getPathogenProfileVircovDatabase(profileParams) {
         profileParams.alignmentReference, 
         profileParams.alignmentIndex, 
         profileParams.alignmentMethod,
-        "pathofen detection :: tax profile :: vircov"
+        "pathogen detection :: tax profile :: vircov"
     )
 }
 def getPathogenProfileKrakenDatabase(profileParams) {
@@ -325,7 +325,7 @@ def getClassifierIndex(String index, String description) {
     
 }
 
-/* Wrapper alignment infex/reference database functions */
+/* Wrapper alignment index/reference database functions */
 
 def getAlignmentReferenceIndex(String reference, String index, String aligner, String description) {
 
@@ -362,7 +362,7 @@ def getReads(String fastqPaired, String fastqNanopore, String sampleSheet, Boole
     def nanoporeReads = fastqNanopore ? fastqNanopore.split(/\s+/) as List<String> : fastqNanopore
 
     if (sampleSheet){
-        return readSampleSheet(sampleSheet, false)
+        return readSampleSheet(sampleSheet, false) | map { tuple(it[0], it[1], it[2]) }
     } else if (fastqPaired) {
         return channel.fromFilePairs(pairedReads, flat: true, checkIfExists: true)
     } else if (fastqNanopore) {
@@ -418,14 +418,35 @@ def readSampleSheet(file, production){
 
         row_number++
 
-        return tuple(row.sample_id, row.forward_path, row.reverse_path, row.aneuploidy.toBoolean())
+        // Carry per-sample controls as a map so they survive into a joinable
+        // channel instead of being dropped (S2 intermission). The reads channels
+        // stay (sample_id, forward, reverse); controls are exposed separately via
+        // getSampleControls, so the core analysis wiring/outputs are unchanged.
+        def controls = [
+            aneuploidy:   row.aneuploidy   ? row.aneuploidy.toBoolean() : false,
+            sample_type:  row.sample_type,
+            sample_group: row.sample_group,
+            sample_date:  row.sample_date,
+            ercc_input:   row.ercc_input
+        ]
+
+        return tuple(row.sample_id, row.forward_path, row.reverse_path, controls)
 
     }
 
     fastqFiles | ifEmpty { exit 1, "Could not find read files specified in sample sheet." }
 
-    return fastqFiles | map { tuple(it[0], it[1], it[2]) }
+    return fastqFiles
 
+}
+
+
+/* Per-sample controls (aneuploidy consent, sample type/group/date, ercc input)
+   keyed by sample_id — a joinable channel for control-gated steps (e.g. consent-
+   gated aneuploidy detection). Additive: does not alter the reads channels or the
+   current outputs; it exposes the controls the sample sheet already carries. */
+def getSampleControls(file) {
+    return readSampleSheet(file, false) | map { tuple(it[0], it[3]) }
 }
 
 /* Formatted messages for users */
@@ -536,7 +557,7 @@ def helpMessage(){
     ${c_light_blue}C E R E B R O
     ${c_indigo}=====================${c_reset}
 
-    Version:              ${c_light_indigo}v${workflow.mainfest.version}${c_reset}
+    Version:              ${c_light_indigo}v${workflow.manifest.version}${c_reset}
     Documentation:        ${c_light_blue}https://cerebro.meta-gp.org${c_reset}
 
     """.stripIndent()
@@ -544,9 +565,28 @@ def helpMessage(){
 }
 
 
+// S2-12: flatten Nextflow params (which nest config blocks) into a flat
+// String -> String map with dotted keys, so the emitted provenance.json
+// deserialises cleanly into ManifestProvenance.parameters
+// (a BTreeMap<String, String> on the Rust side). Lists are comma-joined.
+def flattenParams(String prefix, value, Map acc) {
+    if (value instanceof Map) {
+        value.each { k, v -> flattenParams(prefix ? "${prefix}.${k}" : "${k}".toString(), v, acc) }
+    } else if (value instanceof List) {
+        acc[prefix] = value.collect { it == null ? "" : it.toString() }.join(",")
+    } else {
+        acc[prefix] = value == null ? "" : value.toString()
+    }
+    return acc
+}
+
+
 process PipelineConfig {
 
     publishDir "$params.outputDirectory", mode: "copy", pattern: "config.json"
+    publishDir "$params.outputDirectory", mode: "copy", pattern: "provenance.json"
+    publishDir "$params.outputDirectory", mode: "copy", pattern: "reference_dbs.tsv"
+    publishDir "$params.outputDirectory", mode: "copy", pattern: "outputs.json"
 
     input:
         val samples
@@ -555,6 +595,9 @@ process PipelineConfig {
 
     output:
         path 'config.json', emit: config
+        path 'provenance.json', emit: provenance
+        path 'reference_dbs.tsv', emit: reference_dbs
+        path 'outputs.json', emit: outputs
 
     script:
 
@@ -574,8 +617,125 @@ process PipelineConfig {
         json = JsonOutput.toJson(config)
         json_pretty = JsonOutput.prettyPrint(json)
 
+        // S2-12: emit ManifestProvenance-shaped provenance so cerebro-tower's
+        // finalize_run seals real run provenance. tool_versions arrive via the
+        // ToolVersions process (tool_versions.tsv); reference_dbs via the inventory
+        // below (reference_dbs.tsv). cerebro-tower assembles all three when sealing.
+        provenance = [
+            pipeline_name: "$workflow.manifest.name".toString(),
+            pipeline_version: "$workflow.manifest.version".toString(),
+            parameters: flattenParams("", params, [:]),
+            tool_versions: [],
+            reference_dbs: []
+        ]
+        provenance_json = JsonOutput.prettyPrint(JsonOutput.toJson(provenance))
+
+        // Reference-database inventory (intermission-3): name<TAB>path, one per
+        // line. The path identifies the DB build used; cerebro-tower records these
+        // as ReferenceDb entries. (Semantic versions/hashes can come from a future
+        // 'db.manifest' sidecar next to each path.)
+        def dbCandidates = [
+            ["host_depletion",     params.qualityControl?.hostDepletionIndex],
+            ["internal_controls",  params.qualityControl?.internalControlsIndex],
+            ["background",         params.qualityControl?.backgroundDepletionIndex],
+            ["taxonomy",          params.pathogenDetection?.taxonomicProfile?.taxonomy],
+            ["kraken2",           params.pathogenDetection?.taxonomicProfile?.krakenIndex],
+            ["metabuli",          params.pathogenDetection?.taxonomicProfile?.metabuliIndex],
+            ["sylph",             params.pathogenDetection?.taxonomicProfile?.sylphIndex],
+            ["kmcp",              params.pathogenDetection?.taxonomicProfile?.kmcpIndex],
+            ["ganon",             params.pathogenDetection?.taxonomicProfile?.ganonIndex],
+            ["vircov",            params.pathogenDetection?.taxonomicProfile?.alignmentIndex],
+            ["panviral_virus",    params.panviralEnrichment?.virusIndex]
+        ]
+        reference_dbs_tsv = dbCandidates.findAll { it[1] != null }.collect { "${it[0]}\t${it[1]}" }.join("\n")
+
+        // Authoritative outputs manifest (intermission-3): the pipeline declares
+        // how its artefacts should be classified for capture/retention, so the
+        // cerebro-fs capture step classifies by declaration rather than filename
+        // heuristics (its built-in ruleset remains the fallback). ftype/retention
+        // strings match the Rust FileType/RetentionClass variants verbatim.
+        def outputsManifest = [
+            run_id: "$workflow.runName".toString(),
+            rules: [
+                [ pattern: ".cerebro.json",   ftype: "CerebroModel",   retention: "Diagnostic",   report_out: true ],
+                [ pattern: "provenance.json", ftype: "RunManifest",    retention: "Diagnostic" ],
+                [ pattern: "/results/",       ftype: "PathogenOutput", retention: "Diagnostic",   report_out: true ],
+                [ pattern: "consensus",       ftype: "Consensus",      retention: "Diagnostic" ],
+                [ pattern: "/panviral/",      ftype: "PanviralOutput", retention: "Diagnostic" ],
+                [ pattern: "/pathogen/",      ftype: "PathogenOutput", retention: "Diagnostic" ],
+                [ pattern: ".bam",            ftype: "Other",          retention: "Transient" ],
+                [ pattern: "semibin2",        ftype: "Other",          retention: "Transient" ],
+                [ pattern: "/quality/",       ftype: "QualityOutput",  retention: "Intermediate" ],
+                [ pattern: ".qc.json",        ftype: "QualityOutput",  retention: "Intermediate" ],
+                [ pattern: "config.json",     ftype: "Other",          retention: "Intermediate" ]
+            ]
+        ]
+        outputs_json = JsonOutput.prettyPrint(JsonOutput.toJson(outputsManifest))
+
         """
         echo '${json_pretty}' > config.json
+        echo '${provenance_json}' > provenance.json
+        printf '%s\\n' '${reference_dbs_tsv}' > reference_dbs.tsv
+        echo '${outputs_json}' > outputs.json
         """
         
+}
+
+
+/*
+ * ToolVersions (intermission-3) — capture the exact versions of the tools used,
+ * once per execution, into tool_versions.tsv (name<TAB>version). Probe commands
+ * come from params.cerebro.toolVersions and are tolerated individually: a missing
+ * or failing tool is recorded as 'unavailable' rather than failing the run.
+ *
+ * This runs in whatever environment/profile the pipeline uses. For container-per-
+ * process precision, prefer adding a per-process `eval(...) , topic: versions`
+ * output and aggregating `channel.topic('versions')` — this side process is the
+ * environment-agnostic default that still records a version row per tool.
+ */
+process ToolVersions {
+
+    publishDir "$params.outputDirectory", mode: "copy", pattern: "tool_versions.tsv"
+
+    output:
+        path "tool_versions.tsv", emit: versions
+
+    script:
+        def cmds = params.cerebro?.toolVersions ?: [:]
+        def probes = cmds.collect { name, cmd -> "probe '${name}' ${cmd}" }.join("\n        ")
+        """
+        probe() {
+            local name="\$1"; shift
+            local ver
+            ver=\$("\$@" 2>&1 | head -n 1 | sed 's/\\t/ /g' || true)
+            [ -z "\$ver" ] && ver="unavailable"
+            printf '%s\\t%s\\n' "\$name" "\$ver" >> tool_versions.tsv
+        }
+        : > tool_versions.tsv
+        ${probes}
+        true
+        """
+}
+
+
+/*
+ * Checksums (intermission-3) — emit produce-time BLAKE3 of the published outputs
+ * (checksums.b3, `<hash>  <relpath>` per line) so the integrity chain is
+ * produce -> capture -> scheduled verify. Uses `cerebro-fs hash`, which is already
+ * on PATH in the production environment (StageInputFiles uses `cerebro-fs stage`).
+ */
+process Checksums {
+
+    publishDir "$params.outputDirectory", mode: "copy", pattern: "checksums.b3"
+
+    input:
+        val ready          // gate: run after outputs have been published
+
+    output:
+        path "checksums.b3", emit: checksums
+
+    script:
+        """
+        cerebro-fs hash --outdir "$params.outputDirectory" --output checksums.b3 || : > checksums.b3
+        """
 }

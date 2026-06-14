@@ -63,6 +63,8 @@ pub enum StackConfigError {
     CertificateFilePathInvalid(#[source] std::io::Error),
     #[error("failed to write certificate file")]
     CertificateFileNotWritten(#[source] std::io::Error),
+    #[error("failed to write retention env file")]
+    RetentionEnvNotWritten(#[source] std::io::Error),
     #[error("failed to create certificate key file path")]
     CertificateKeyFilePathInvalid(#[source] std::io::Error),
     #[error("failed to write certificate key file")]
@@ -87,6 +89,10 @@ pub enum StackConfigError {
     StackBaseConfigNotProvided,
     #[error("Missing required argument: {0}")]
     MissingArgument(String),
+    #[error("file-system replication code '{0}' is not a valid SeaweedFS code (expected three digits, e.g. 000)")]
+    ReplicationInvalid(String),
+    #[error("file-system replication '{replication}' requires {copies} copies but the topology renders only {servers} volume server(s); SeaweedFS writes would fail. Use '000' for a single-node deployment, or render a multi-node topology before raising replication")]
+    ReplicationUnsatisfiable { replication: String, copies: u32, servers: u32 },
 }
 
 fn write_embedded_file(embedded_file: &EmbeddedFile, outfile: &PathBuf) -> Result<(), StackConfigError> {
@@ -969,6 +975,66 @@ impl FileSystemConfig {
             ..Default::default()
         }
     }
+
+    /// Number of independent volume servers the rendered topology provides.
+    ///
+    /// The Model A / Model B builders render a single tiered volume server
+    /// (`primary` only); the legacy localhost layout renders two (`primary` +
+    /// `secondary`). A replication code that demands more copies than there are
+    /// servers cannot be satisfied, and SeaweedFS would reject writes.
+    fn volume_server_count(&self) -> usize {
+        let mut n = 0;
+        if self.primary.is_some() { n += 1; }
+        if self.secondary.is_some() { n += 1; }
+        n.max(1)
+    }
+
+    /// Total copies a SeaweedFS `xyz` replication code requires (`x+y+z+1`).
+    /// `None` if the code is not three digits.
+    fn replication_copies(code: &str) -> Option<u32> {
+        if code.len() != 3 || !code.chars().all(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        let sum: u32 = code.chars().map(|c| c.to_digit(10).unwrap_or(0)).sum();
+        Some(sum + 1)
+    }
+
+    /// Validate the replication code against the rendered topology (S2-13).
+    ///
+    /// * **Refuses** (hard error) when the code is malformed, or demands more
+    ///   copies than the topology has volume servers — SeaweedFS would reject
+    ///   writes, so deploying would produce a broken cluster.
+    /// * Returns a **non-fatal durability warning** when the code is `000` (a
+    ///   single copy). This is the accepted interim posture for the single-node
+    ///   models: there is no in-cluster redundancy, so durability rests on the
+    ///   underlying storage, the Model B S3 cold tier (when configured), and
+    ///   Stage 4 backup. Raising replication requires a multi-node topology.
+    ///
+    /// Returns `Ok(None)` when the code is satisfiable and provides redundancy.
+    pub fn validate_durability(&self) -> Result<Option<String>, StackConfigError> {
+        if !self.enabled {
+            return Ok(None);
+        }
+        let copies = Self::replication_copies(&self.replication)
+            .ok_or_else(|| StackConfigError::ReplicationInvalid(self.replication.clone()))?;
+        let servers = self.volume_server_count() as u32;
+        if copies > servers {
+            return Err(StackConfigError::ReplicationUnsatisfiable {
+                replication: self.replication.clone(),
+                copies,
+                servers,
+            });
+        }
+        if self.replication == "000" {
+            return Ok(Some(format!(
+                "replication '000' (single copy) — no in-cluster redundancy. Durability rests on the \
+                 underlying storage{}, and Stage 4 backup. Raise replication with a multi-node topology \
+                 to add redundancy.",
+                if self.remote.is_some() { ", the S3 cold tier" } else { "" }
+            )));
+        }
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -1073,6 +1139,76 @@ mod fs_config_tests {
         assert_eq!(b.model, FsDeploymentModel::DistributedHpc);
         assert!(b.remote.is_some()); // placeholder remote attached
         assert!(b.warm.is_some());
+    }
+
+    #[test]
+    fn replication_copies_parses_codes() {
+        assert_eq!(FileSystemConfig::replication_copies("000"), Some(1));
+        assert_eq!(FileSystemConfig::replication_copies("100"), Some(2));
+        assert_eq!(FileSystemConfig::replication_copies("011"), Some(3));
+        assert_eq!(FileSystemConfig::replication_copies("22"), None);   // too short
+        assert_eq!(FileSystemConfig::replication_copies("a00"), None);  // non-digit
+    }
+
+    #[test]
+    fn single_node_000_is_allowed_but_warns() {
+        let cfg = FileSystemConfig::default_single_server(
+            &PathBuf::from("/srv/hot"),
+            &PathBuf::from("/srv/cold"),
+            true,
+        );
+        // 000 is satisfiable by one volume server, but warns about single-copy risk.
+        let warning = cfg.validate_durability().expect("000 is satisfiable");
+        assert!(warning.is_some(), "expected a single-copy durability warning");
+    }
+
+    #[test]
+    fn single_node_with_replication_demand_is_refused() {
+        // One volume server but a code demanding a second copy on another server.
+        let mut cfg = FileSystemConfig::default_single_server(
+            &PathBuf::from("/srv/hot"),
+            &PathBuf::from("/srv/cold"),
+            true,
+        );
+        cfg.replication = "001".to_string();
+        match cfg.validate_durability() {
+            Err(StackConfigError::ReplicationUnsatisfiable { copies, servers, .. }) => {
+                assert_eq!(copies, 2);
+                assert_eq!(servers, 1);
+            }
+            other => panic!("expected ReplicationUnsatisfiable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn two_datacentre_100_is_satisfiable_and_redundant() {
+        let cfg = FileSystemConfig::default_localhost(
+            &PathBuf::from("/srv/p"),
+            &PathBuf::from("/srv/s"),
+            false,
+        );
+        // primary + secondary => 2 servers; 100 needs 2 copies => OK, no warning.
+        assert_eq!(cfg.validate_durability().expect("100 satisfiable"), None);
+    }
+
+    #[test]
+    fn invalid_replication_code_is_refused() {
+        let mut cfg = FileSystemConfig::default_single_server(
+            &PathBuf::from("/srv/hot"),
+            &PathBuf::from("/srv/cold"),
+            true,
+        );
+        cfg.replication = "zz".to_string();
+        assert!(matches!(
+            cfg.validate_durability(),
+            Err(StackConfigError::ReplicationInvalid(_))
+        ));
+    }
+
+    #[test]
+    fn disabled_fs_skips_durability_checks() {
+        let cfg = FileSystemConfig::default_web(); // enabled = false
+        assert_eq!(cfg.validate_durability().expect("disabled => Ok"), None);
     }
 }
 
@@ -1545,6 +1681,14 @@ impl StackConfig {
                     log::warn!("Secondary data center path exists or is not a directory - skipping creation, please ensure this is addressed")
                 }
             }
+
+            // S2-13 durability gate: refuse a replication code the rendered
+            // topology cannot satisfy (writes would fail); warn on the single-copy
+            // interim posture so the operator acknowledges the durability stance.
+            match self.fs.validate_durability()? {
+                Some(warning) => log::warn!("Durability: {warning}"),
+                None => log::info!("Durability: replication '{}' is satisfiable and redundant for this topology", self.fs.replication),
+            }
         }
 
         let dir_tree = StackConfigTree::new(outdir);
@@ -1811,4 +1955,41 @@ fn absolute_path(path: &Path) -> std::io::Result<PathBuf> {
     } else {
         Ok(env::current_dir()?.join(path))
     }
+}
+
+/// Write a `retention.env` file capturing the deployment's retention policy
+/// (S2-7), for the server / fs / tower services to load via `env_file`.
+///
+/// Values come from the `--retention-*-days` / `--quarantine-grace-days` flags,
+/// falling back to the platform defaults (diagnostic 1460 = 4 years, intermediate
+/// 90, transient 30, warm 365, grace 30). `CEREBRO_FS_WARM_AVAILABLE` is derived
+/// from whether a warm tier (`--fs-warm`) was configured, so report-out targets
+/// the warm tier only when one exists.
+pub fn write_retention_env(
+    outdir: &std::path::Path,
+    args: &crate::terminal::StackDeployArgs,
+) -> Result<std::path::PathBuf, StackConfigError> {
+    let diagnostic = args.retention_diagnostic_days.unwrap_or(365 * 4);
+    let intermediate = args.retention_intermediate_days.unwrap_or(90);
+    let transient = args.retention_transient_days.unwrap_or(30);
+    let warm = args.retention_warm_days.unwrap_or(365);
+    let grace = args.quarantine_grace_days.unwrap_or(30);
+    let warm_available = args.fs_warm.is_some();
+
+    let contents = format!(
+        "# Cerebro retention policy (S2-7) - generated by `cerebro stack deploy`.\n\
+         # Load into the server / fs / tower services via `env_file`.\n\
+         CEREBRO_RETENTION_DIAGNOSTIC_DAYS={diagnostic}\n\
+         CEREBRO_RETENTION_INTERMEDIATE_DAYS={intermediate}\n\
+         CEREBRO_RETENTION_TRANSIENT_DAYS={transient}\n\
+         CEREBRO_RETENTION_WARM_DAYS={warm}\n\
+         CEREBRO_QUARANTINE_GRACE_DAYS={grace}\n\
+         CEREBRO_FS_WARM_AVAILABLE={warm_available}\n"
+    );
+
+    let fs_dir = outdir.join("fs");
+    std::fs::create_dir_all(&fs_dir).map_err(StackConfigError::RetentionEnvNotWritten)?;
+    let path = fs_dir.join("retention.env");
+    std::fs::write(&path, contents).map_err(StackConfigError::RetentionEnvNotWritten)?;
+    Ok(path)
 }

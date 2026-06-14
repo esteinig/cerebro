@@ -150,6 +150,21 @@ pub struct StackDeployArgs {
     /// User password for Traefik web dashboard (BasicAuth)
     #[clap(long)]
     pub traefik_password: Option<String>,
+    /// Diagnostic retention period in days (default 1460 = 4 years)
+    #[clap(long)]
+    pub retention_diagnostic_days: Option<i64>,
+    /// Intermediate retention period in days (default 90)
+    #[clap(long)]
+    pub retention_intermediate_days: Option<i64>,
+    /// Transient retention period in days (default 30)
+    #[clap(long)]
+    pub retention_transient_days: Option<i64>,
+    /// Warm-tier re-inspection dwell in days before ageing to cold (default 365)
+    #[clap(long)]
+    pub retention_warm_days: Option<i64>,
+    /// Quarantine grace window in days between expiry and eligible hard purge (default 30)
+    #[clap(long)]
+    pub quarantine_grace_days: Option<i64>,
 }
 
 #[derive(Debug, Args)]

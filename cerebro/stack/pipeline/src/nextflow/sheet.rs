@@ -15,6 +15,7 @@ pub struct SampleSheetEntry{
     pub sample_id: String,
     pub run_id: String,
     pub run_date: String,
+    #[serde(default)]
     pub aneuploidy: bool,
     pub comment: Option<String>,
     pub sample_group: Option<String>,
@@ -92,9 +93,9 @@ impl SampleSheet {
                     &date, 
                     &run, 
                     sample_id, 
-                    sample_date.as_deref(), 
                     sample_group.as_deref(), 
                     sample_type.as_deref(),
+                    sample_date.as_deref(), 
                     ercc_input,
                     false,
                     file_paths
@@ -163,7 +164,7 @@ impl SampleSheet {
         let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
         match matches.len() {
             0 => None,
-            1 => match &matches[0].sample_group {
+            1 => match &matches[0].sample_type {
                 Some(v) => Some(v.to_owned()),
                 None => Some(String::from(""))
             },
@@ -174,13 +175,21 @@ impl SampleSheet {
         let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
         match matches.len() {
             0 => None,
-            1 => match &matches[0].sample_group {
+            1 => match &matches[0].sample_date {
                 Some(v) => Some(v.to_owned()),
                 None => Some(String::from(""))
             },
             _ => None // sample_id should be unique
         }
     }  
+    /// Per-sample aneuploidy detection consent/control flag from the sample sheet.
+    pub fn get_aneuploidy(&self, sample_id: &str) -> Option<bool> {
+        let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
+        match matches.len() {
+            1 => Some(matches[0].aneuploidy),
+            _ => None // 0 or non-unique
+        }
+    }
     pub fn get_ercc_input(&self, sample_id: &str) -> Option<f64> {
         let matches: Vec<&SampleSheetEntry> = self.entries.iter().filter(|record| record.sample_id == sample_id).collect();
         match matches.len() {

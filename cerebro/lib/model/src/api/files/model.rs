@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 
 use crate::api::watchers::model::ProductionWatcher;
 
-use super::retention::{LifecycleTransition, RetentionClass, RetentionPolicy, StorageTier};
+use super::retention::{ExpiryState, LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
 use super::schema::RegisterFileSchema;
 
 /*
@@ -12,13 +12,20 @@ File system and storage
 ========================
 */
 
-#[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 pub enum FileType {
     ReadPaired,
     ReadSingle,
     QualityOutput,
     PanviralOutput,
     PathogenOutput,
+    /// A consensus genome assembled by the pipeline (diagnostic artefact).
+    Consensus,
+    /// The Cerebro model / released result document (primary diagnostic artefact).
+    CerebroModel,
+    /// A run provenance manifest (pipeline version, params, reference DBs, input
+    /// hashes); a diagnostic chain-of-custody artefact.
+    RunManifest,
     Other
 }
 
@@ -85,6 +92,38 @@ pub struct SeaweedFile {
     /// retention clock and triggers the move to cold storage.
     #[serde(default)]
     pub reported_at: Option<DateTime<Utc>>,
+    /// Archival restore state for cold (Glacier) objects (Model B): tracks an
+    /// in-flight or completed restore so retrieval can be gated correctly.
+    /// Defaulted ([`RestoreState::NotArchived`]) for documents registered before
+    /// S2-1; set at upload time only for archival objects, otherwise via the
+    /// lifecycle update endpoint.
+    #[serde(default)]
+    pub restore_state: RestoreState,
+    /// Soft-delete expiry state. [`ExpiryState::Active`] until a retention sweep
+    /// quarantines the file (S2-7). Defaulted for documents registered before S2-7.
+    #[serde(default)]
+    pub expiry_state: ExpiryState,
+    /// When the file was quarantined by expiry (`None` while active). Anchors the
+    /// quarantine grace window before an eligible hard purge.
+    #[serde(default)]
+    pub quarantined_at: Option<DateTime<Utc>>,
+    /// In-flight tier move target claimed by a mover (S2-10). `Some` while a
+    /// physical move is in progress; cleared when the move commits, so the DB
+    /// never reports a final `tier` whose bytes aren't verified at destination.
+    #[serde(default)]
+    pub pending_tier: Option<StorageTier>,
+    /// When the file's `tier` was last committed by a verified move.
+    #[serde(default)]
+    pub tier_moved_at: Option<DateTime<Utc>>,
+    /// When an archival restore was requested (S2-11).
+    #[serde(default)]
+    pub restore_requested_at: Option<DateTime<Utc>>,
+    /// When a restore completed and the object became retrievable.
+    #[serde(default)]
+    pub restore_available_at: Option<DateTime<Utc>>,
+    /// When the restored object's availability window elapses.
+    #[serde(default)]
+    pub restore_expires_at: Option<DateTime<Utc>>,
 }
 impl SeaweedFile {
     pub fn from_schema(register_file_schema: &RegisterFileSchema) -> Self {
@@ -108,7 +147,34 @@ impl SeaweedFile {
             replicas: register_file_schema.replicas,
             archived: register_file_schema.archived,
             reported_at: register_file_schema.reported_at,
+            restore_state: RestoreState::default(),
+            expiry_state: ExpiryState::default(),
+            quarantined_at: None,
+            pending_tier: None,
+            tier_moved_at: None,
+            restore_requested_at: None,
+            restore_available_at: None,
+            restore_expires_at: None,
         }
+    }
+
+    /// Whether this file is eligible to be quarantined by an expiry sweep at
+    /// `now`: it is past its `retain_until`, not under legal hold, and still
+    /// active. Files with no `retain_until` (indefinite retention) are never
+    /// eligible.
+    pub fn is_expiry_eligible(&self, now: DateTime<Utc>) -> bool {
+        matches!(self.expiry_state, ExpiryState::Active)
+            && !self.legal_hold
+            && matches!(self.retain_until, Some(until) if until <= now)
+    }
+
+    /// Whether this quarantined file is eligible for a hard purge at `now`: it is
+    /// quarantined, not under legal hold, and its quarantine grace window
+    /// (`grace_days`) has elapsed since `quarantined_at`.
+    pub fn is_purge_eligible(&self, now: DateTime<Utc>, grace_days: i64) -> bool {
+        matches!(self.expiry_state, ExpiryState::Quarantined)
+            && !self.legal_hold
+            && matches!(self.quarantined_at, Some(at) if at + chrono::Duration::days(grace_days) <= now)
     }
     pub fn size_mb(&self) -> f64 {
         bytes_to_mb(self.size)
@@ -224,7 +290,55 @@ mod tests {
             replicas: None,
             archived: false,
             reported_at: None,
+            restore_state: super::super::retention::RestoreState::NotArchived,
+            expiry_state: super::super::retention::ExpiryState::Active,
+            quarantined_at: None,
+            pending_tier: None,
+            tier_moved_at: None,
+            restore_requested_at: None,
+            restore_available_at: None,
+            restore_expires_at: None,
         }
+    }
+
+    #[test]
+    fn expiry_eligible_only_when_lapsed_active_and_unheld() {
+        use super::super::retention::ExpiryState;
+        let now = Utc.with_ymd_and_hms(2026, 6, 14, 0, 0, 0).unwrap();
+        let past = now - chrono::Duration::days(1);
+        let future = now + chrono::Duration::days(1);
+
+        let mut f = sample_file();
+        // No retain_until => indefinite => never eligible.
+        assert!(!f.is_expiry_eligible(now));
+
+        f.retain_until = Some(future);
+        assert!(!f.is_expiry_eligible(now)); // not yet lapsed
+
+        f.retain_until = Some(past);
+        assert!(f.is_expiry_eligible(now)); // lapsed, active, unheld
+
+        f.legal_hold = true;
+        assert!(!f.is_expiry_eligible(now)); // hold overrides
+        f.legal_hold = false;
+
+        f.expiry_state = ExpiryState::Quarantined;
+        assert!(!f.is_expiry_eligible(now)); // already quarantined
+    }
+
+    #[test]
+    fn purge_eligible_after_grace_window() {
+        use super::super::retention::ExpiryState;
+        let now = Utc.with_ymd_and_hms(2026, 6, 14, 0, 0, 0).unwrap();
+        let mut f = sample_file();
+
+        f.expiry_state = ExpiryState::Quarantined;
+        f.quarantined_at = Some(now - chrono::Duration::days(10));
+        assert!(!f.is_purge_eligible(now, 30)); // within grace
+        assert!(f.is_purge_eligible(now, 7));   // grace elapsed
+
+        f.legal_hold = true;
+        assert!(!f.is_purge_eligible(now, 7));  // hold overrides
     }
 
     #[test]

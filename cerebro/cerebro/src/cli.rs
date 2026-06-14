@@ -93,6 +93,11 @@ fn main() -> anyhow::Result<(), StackConfigError> {
                         args.fs_secondary.clone()
                     )?;
 
+                    // S2-7: emit the deployment's retention policy for the
+                    // server / fs / tower services to load via env_file.
+                    let retention_env = cerebro::stack::deploy::write_retention_env(&args.outdir, args)?;
+                    log::info!("Wrote retention policy to {} (load via env_file)", retention_env.display());
+
                     stack.clone_and_checkout_repository_process(
                         &args.git_url, 
                         args.branch.clone(),

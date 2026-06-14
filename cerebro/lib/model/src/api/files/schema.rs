@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use crate::api::{files::model::SeaweedFileId, watchers::model::ProductionWatcher};
 
 use super::model::{FileTag, FileType};
-use super::retention::{RetentionClass, StorageTier};
+use super::retention::{RestoreState, RetentionClass, StorageTier};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterFileSchema {
@@ -51,4 +51,155 @@ pub struct RegisterFileSchema {
 pub struct UpdateFileTagsSchema {
     pub ids: Vec<String>,
     pub tags: Vec<FileTag>
+}
+
+/// Partial update of a file's lifecycle fields (S2-1).
+///
+/// Every field is optional: one left unset (`None`/`false`) is **unchanged**.
+/// This backs the `PATCH /files/{id}/lifecycle` endpoint and lets the report-out
+/// (FS-7/FS-9), restore (FS-4), and integrity (FS-6) flows persist their computed
+/// state without re-registering the file. Placement (`tier`) and compliance
+/// (`retain_until`, `legal_hold`) remain independent axes.
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+pub struct UpdateFileLifecycleSchema {
+    /// Move the file to this storage tier (placement).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tier: Option<StorageTier>,
+    /// Set the retention expiry to this timestamp (compliance).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retain_until: Option<DateTime<Utc>>,
+    /// Clear the retention expiry (retain indefinitely). Takes precedence over
+    /// `retain_until` when both are supplied.
+    #[serde(default)]
+    pub clear_retain_until: bool,
+    /// Record the report-out timestamp (the retention anchor).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reported_at: Option<DateTime<Utc>>,
+    /// Place (`true`) or release (`false`) a legal hold.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub legal_hold: Option<bool>,
+    /// Mark the object archived on Glacier (`true`) or not (`false`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archived: Option<bool>,
+    /// Update the archival restore state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restore_state: Option<RestoreState>,
+    /// Update the observed replica count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replicas: Option<u32>,
+    /// Claim an in-flight tier move to this target (S2-10). Set during the move;
+    /// cleared automatically when `tier` is committed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_tier: Option<StorageTier>,
+    /// Clear the pending tier claim (e.g. aborting a move). Takes precedence over
+    /// `pending_tier`.
+    #[serde(default)]
+    pub clear_pending_tier: bool,
+    /// Compare-and-set precondition (S2-10): the update applies only if the file's
+    /// current `tier` equals this. Makes mover updates idempotent under
+    /// at-least-once delivery. Not itself a mutation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_tier: Option<StorageTier>,
+}
+
+impl UpdateFileLifecycleSchema {
+    /// True when the update would change nothing — used by the endpoint to reject
+    /// no-op requests. `expected_tier` is a precondition, not a mutation, so it
+    /// does not count.
+    pub fn is_empty(&self) -> bool {
+        self.tier.is_none()
+            && self.retain_until.is_none()
+            && !self.clear_retain_until
+            && self.reported_at.is_none()
+            && self.legal_hold.is_none()
+            && self.archived.is_none()
+            && self.restore_state.is_none()
+            && self.replicas.is_none()
+            && self.pending_tier.is_none()
+            && !self.clear_pending_tier
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lifecycle_update_partial_deserialize() {
+        // Only two fields supplied; the rest must remain unset.
+        let json = r#"{"tier":"Cold","legal_hold":true}"#;
+        let schema: UpdateFileLifecycleSchema = serde_json::from_str(json).unwrap();
+        assert_eq!(schema.tier, Some(StorageTier::Cold));
+        assert_eq!(schema.legal_hold, Some(true));
+        assert!(schema.retain_until.is_none());
+        assert!(schema.reported_at.is_none());
+        assert!(!schema.clear_retain_until);
+        assert!(!schema.is_empty());
+    }
+
+    #[test]
+    fn lifecycle_update_empty_is_noop() {
+        let schema: UpdateFileLifecycleSchema = serde_json::from_str("{}").unwrap();
+        assert!(schema.is_empty());
+    }
+
+    #[test]
+    fn clear_retain_until_is_not_empty() {
+        let schema = UpdateFileLifecycleSchema { clear_retain_until: true, ..Default::default() };
+        assert!(!schema.is_empty());
+    }
+}
+
+
+/// Trigger the report-out lifecycle for a run (optionally a single sample).
+///
+/// Backs the server-authoritative `POST /files/report-out`: the server applies
+/// its configured retention policy to every matching file, anchoring retention at
+/// `reported_at` and moving the data off the hot tier (S2-4 / FS-7/FS-9).
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ReportOutSchema {
+    pub run_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample_id: Option<String>,
+    /// Report-out timestamp; defaults to now server-side when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reported_at: Option<DateTime<Utc>>,
+}
+
+
+/// Trigger a non-destructive expiry sweep (S2-7): quarantine files whose
+/// retention has lapsed (and which are not under legal hold), optionally scoped
+/// to a run/sample. `dry_run` previews the eligible set without changing state.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ExpireSchema {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample_id: Option<String>,
+    #[serde(default)]
+    pub dry_run: bool,
+}
+
+/// Trigger a gated hard purge (S2-7): permanently remove quarantined files that
+/// have cleared the quarantine grace window (and are not under legal hold).
+/// `dry_run` previews the eligible set without deleting anything.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct PurgeSchema {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample_id: Option<String>,
+    #[serde(default)]
+    pub dry_run: bool,
+}
+
+
+/// Drive a restore state-machine transition (S2-11).
+///
+/// The restore worker advances `target` (e.g. `Requested` → `InProgress` →
+/// `Restored`); the server validates the transition and stamps the relevant
+/// timestamps.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct RestoreTransitionSchema {
+    pub target: RestoreState,
 }

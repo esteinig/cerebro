@@ -150,6 +150,7 @@ services:
     environment:
       FAKTORY_URL: tcp://:devpass@faktory:7419
       CEREBRO_CONFIG_FILE: /run/secrets/cerebro_config
+      CEREBRO_RETENTION_CONFIG_FILE: /run/secrets/retention_config
     depends_on:
       - cerebro-database
       - cerebro-auth-session
@@ -158,6 +159,7 @@ services:
       - no-new-privileges:true
     secrets:
       - cerebro_config
+      - retention_config
     labels:
       {{#if traefik.is_localhost }}
       traefik.enable: "false"
@@ -404,4 +406,6 @@ secrets:
     file: {{{ outdir }}}/cerebro_api/server.toml
   mongodb_config:
     file: {{{ outdir }}}/mongodb/database.env
+  retention_config:
+    file: {{{ outdir }}}/fs/retention.env
   

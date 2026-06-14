@@ -5,7 +5,7 @@
 
 
 include { QualityControl } from "./quality";
-include { PipelineConfig } from "./utils";
+include { PipelineConfig; ToolVersions; Checksums } from "./utils";
 include { VirusRecovery; PanviralTable; ProcessOutput  } from "../processes/panviral";
 
 
@@ -44,5 +44,9 @@ workflow PanviralEnrichment {
             cerebroWorkflow, 
             workflowStarted
         )
+
+        // Lifecycle metadata sidecars (intermission-3; additive, no output change)
+        if (params.cerebro.emitToolVersions) { ToolVersions() }
+        if (params.cerebro.emitChecksums)    { Checksums(PipelineConfig.out.config) }
 
 }

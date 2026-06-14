@@ -50,15 +50,15 @@ impl Default for UploadConfig {
 }
 
 /// Result of storing a single object, abstracting over the access mode.
-struct StoredObject {
+pub(crate) struct StoredObject {
     /// Weed fid (may be empty for filer-stored, path-addressed objects).
-    fid: String,
+    pub(crate) fid: String,
     /// Filer object path, when stored via the filer.
-    path: Option<String>,
+    pub(crate) path: Option<String>,
     /// Stored file name.
-    name: String,
+    pub(crate) name: String,
     /// Object size in bytes.
-    size: u64,
+    pub(crate) size: u64,
 }
 
 /// Build a filer object path of the form `run/sample/name`, substituting a
@@ -114,6 +114,8 @@ pub struct RestoreOutcome {
 /// The planned lifecycle transition for one file when its case is reported out.
 #[derive(Debug, Clone)]
 pub struct LifecycleEntry {
+    /// The file record identifier (`SeaweedFile.id`), used to persist the update.
+    pub id: String,
     pub identifier: String,
     pub name: String,
     pub transition: LifecycleTransition,
@@ -441,8 +443,8 @@ impl FileSystemClient {
     /// surface the restore contract for each.
     ///
     /// Resolution is by run (optionally narrowed by sample). For each archived
-    /// file this returns [`RestoreState::Pending`]; for directly retrievable
-    /// files it returns [`RestoreState::NotRequired`].
+    /// file this returns [`RestoreState::Requested`]; for directly retrievable
+    /// files it returns [`RestoreState::NotArchived`].
     ///
     /// The actual S3 Glacier `RestoreObject`  execution is an operational step
     /// (or a future `s3` cargo feature). This method tells the caller precisely 
@@ -475,13 +477,13 @@ impl FileSystemClient {
                 );
                 outcomes.push(RestoreOutcome {
                     identifier,
-                    state: RestoreState::Pending,
+                    state: RestoreState::Requested,
                     message: "data is archived; restore must complete before retrieval".to_string(),
                 });
             } else {
                 outcomes.push(RestoreOutcome {
                     identifier,
-                    state: RestoreState::NotRequired,
+                    state: RestoreState::NotArchived,
                     message: "directly retrievable".to_string(),
                 });
             }
@@ -521,6 +523,7 @@ impl FileSystemClient {
         let entries = files
             .iter()
             .map(|file| LifecycleEntry {
+                id: file.id.clone(),
                 identifier: file.effective_identifier().to_string(),
                 name: file.name.clone(),
                 transition: policy.report_out_transition(file.retention, reported_at, warm_available),
@@ -576,7 +579,7 @@ impl FileSystemClient {
     ///
     /// Both paths are safe for multi-gigabyte read sets: `weed` chunks on the
     /// client side and the filer streams from disk and auto-chunks server-side.
-    fn store_object(
+    pub(crate) fn store_object(
         &self,
         file: &PathBuf,
         run_id: Option<&str>,
@@ -811,7 +814,7 @@ mod tests {
     }
 
     fn file_with(identifier: &str, archived: bool) -> cerebro_model::api::files::model::SeaweedFile {
-        use cerebro_model::api::files::retention::{RetentionClass, StorageTier};
+        use cerebro_model::api::files::retention::{ExpiryState, RestoreState, RetentionClass, StorageTier};
         cerebro_model::api::files::model::SeaweedFile {
             id: "id".into(),
             date: "2025-01-01".into(),
@@ -832,6 +835,12 @@ mod tests {
             legal_hold: false,
             replicas: None,
             archived,
+            reported_at: None,
+            restore_state: RestoreState::NotArchived,
+            expiry_state: ExpiryState::Active,
+            quarantined_at: None,
+            pending_tier: None,
+            tier_moved_at: None,
         }
     }
 

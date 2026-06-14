@@ -15,7 +15,7 @@ include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "
 include { BlastContigsBitscoreStream as MegahitBlastBitscoreStream; BlastContigsBitscoreStream as MetaSpadesBlastBitscoreStream } from "../processes/pathogen";
 include { CreateCerebroModel; UploadCerebroModel } from "../processes/pathogen";
 
-include { PipelineConfig } from "./utils";
+include { PipelineConfig; ToolVersions; Checksums } from "./utils";
 include { getProductionConfig } from "./utils";
 
 workflow PathogenDetection {
@@ -77,6 +77,10 @@ workflow PathogenDetection {
             cerebroWorkflow, 
             workflowStarted
         )
+
+        // Lifecycle metadata sidecars (intermission-3; additive, no output change)
+        if (params.cerebro.emitToolVersions) { ToolVersions() }
+        if (params.cerebro.emitChecksums)    { Checksums(PipelineConfig.out.config) }
 
         /* Production */
 

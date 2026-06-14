@@ -13,3 +13,4 @@ pub mod stage;
 pub mod jobs;
 pub mod scheduler;
 pub mod training;
+pub mod telemetry;

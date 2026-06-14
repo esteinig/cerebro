@@ -15,6 +15,7 @@ pub struct SampleSheetEntry{
     pub sample_id: String,
     pub run_id: String,
     pub run_date: String,
+    #[serde(default)]
     pub aneuploidy: bool,
     pub comment: Option<String>,
     pub sample_date: Option<String>,

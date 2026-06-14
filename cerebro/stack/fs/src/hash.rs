@@ -43,3 +43,48 @@ pub fn fast_file_hash(path: &PathBuf) -> Result<String, FileSystemError> {
 
     Ok(hasher.finalize().to_hex().to_string())
 }
+
+/// Computes a BLAKE3 hash of an in-memory byte slice.
+///
+/// Used to seal the run manifest over its canonical JSON body.
+pub fn hash_bytes(data: &[u8]) -> String {
+    let mut hasher = Hasher::new();
+    hasher.update(data);
+    hasher.finalize().to_hex().to_string()
+}
+
+/// Walk `dir` recursively, computing the BLAKE3 of each file, and write a
+/// b3sum-style checksum file (`<hash>  <relative-path>` per line, sorted) to
+/// `output`. Produce-time integrity snapshot for the produce -> capture -> verify
+/// chain (intermission-3). Returns the number of files hashed.
+pub fn hash_directory(dir: &std::path::Path, output: &std::path::Path) -> Result<usize, FileSystemError> {
+    let mut entries: Vec<PathBuf> = Vec::new();
+    collect_files_recursive(dir, &mut entries)?;
+    entries.sort();
+
+    let mut out = String::new();
+    let mut count = 0usize;
+    for path in &entries {
+        if path.as_path() == output {
+            continue; // never hash the checksum file itself
+        }
+        let hash = fast_file_hash(path)?;
+        let rel = path.strip_prefix(dir).unwrap_or(path).to_string_lossy();
+        out.push_str(&format!("{}  {}\n", hash, rel));
+        count += 1;
+    }
+    std::fs::write(output, out)?;
+    Ok(count)
+}
+
+fn collect_files_recursive(dir: &std::path::Path, acc: &mut Vec<PathBuf>) -> Result<(), FileSystemError> {
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_files_recursive(&path, acc)?;
+        } else if path.is_file() {
+            acc.push(path);
+        }
+    }
+    Ok(())
+}

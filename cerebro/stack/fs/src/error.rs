@@ -73,6 +73,8 @@ pub enum FileSystemError {
     FileNameExtraction,
     #[error("file does not exist: {0}")]
     FileDoesNotExist(PathBuf),
+    #[error("failed to serialise run manifest: {0}")]
+    ManifestSerialization(String),
     #[error("unexpected response status: {0}")]
     UnexpectedResponseStatus(StatusCode),
     #[error("I/O error occurred")]

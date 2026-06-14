@@ -102,11 +102,99 @@ fn main() -> Result<()> {
                 args.run_id.clone(),
                 args.sample_id.clone(),
             )?;
-            let pending = outcomes.iter().filter(|o| o.state == cerebro_model::api::files::retention::RestoreState::Pending).count();
+            let pending = outcomes.iter().filter(|o| o.state == cerebro_model::api::files::retention::RestoreState::Requested).count();
             for outcome in &outcomes {
                 log::info!("{}: {} ({})", outcome.identifier, outcome.state, outcome.message);
             }
             log::info!("{} of {} file(s) require an archival restore", pending, outcomes.len());
+        },
+        Commands::Capture( args ) => {
+
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
+            api_client.ping_servers()?;
+
+            log::info!("Checking status of SeaweedFS master at {}", &fs_client.get_url());
+            fs_client.ping_status()?;
+
+            let upload_config = UploadConfig {
+                retention_policy: cerebro_model::api::files::retention::RetentionPolicy::from_env(),
+                ..UploadConfig::default()
+            };
+            let rules = crate::capture::CaptureRule::default_ruleset();
+
+            log::info!("Capturing pipeline outputs from {}", args.output_dir.display());
+            let report = fs_client.capture_outputs(
+                args.run_id.clone(),
+                args.sample_id.clone(),
+                args.pipeline_id.clone(),
+                &args.output_dir,
+                &rules,
+                &upload_config,
+            )?;
+
+            for outcome in &report.outcomes {
+                match &outcome.status {
+                    crate::capture::CaptureStatus::Captured { ftype, retention } =>
+                        log::info!("captured {} [{:?}, {:?}]", outcome.relative_path, ftype, retention),
+                    crate::capture::CaptureStatus::Ignored =>
+                        log::debug!("ignored {}", outcome.relative_path),
+                    crate::capture::CaptureStatus::Failed(err) =>
+                        log::warn!("FAILED {}: {}", outcome.relative_path, err),
+                }
+            }
+            log::info!(
+                "Capture complete: {} captured, {} ignored, {} failed",
+                report.captured(), report.ignored(), report.failed()
+            );
+            if !report.ok() {
+                log::warn!("Some pipeline outputs failed to capture");
+            }
+        },
+        Commands::Manifest( args ) => {
+
+            log::info!("Checking status of authenticated Cerebro API {}", &cli.url);
+            api_client.ping_servers()?;
+
+            log::info!("Checking status of SeaweedFS master at {}", &fs_client.get_url());
+            fs_client.ping_status()?;
+
+            // Provenance metadata: load from --metadata if given, then let the
+            // explicit pipeline name/version flags override.
+            let mut provenance = match &args.metadata {
+                Some(path) => {
+                    let bytes = std::fs::read(path)
+                        .map_err(|e| anyhow::anyhow!("failed to read metadata file {}: {e}", path.display()))?;
+                    serde_json::from_slice::<cerebro_model::api::files::manifest::ManifestProvenance>(&bytes)
+                        .map_err(|e| anyhow::anyhow!("invalid provenance metadata file: {e}"))?
+                }
+                None => cerebro_model::api::files::manifest::ManifestProvenance::default(),
+            };
+            if let Some(name) = &args.pipeline_name { provenance.pipeline_name = name.clone(); }
+            if let Some(version) = &args.pipeline_version { provenance.pipeline_version = version.clone(); }
+
+            let upload_config = UploadConfig {
+                retention_policy: cerebro_model::api::files::retention::RetentionPolicy::from_env(),
+                ..UploadConfig::default()
+            };
+
+            log::info!("Building run provenance manifest");
+            let manifest = fs_client.build_run_manifest(
+                args.run_id.clone(),
+                args.sample_id.clone(),
+                args.pipeline_id.clone(),
+                provenance,
+            )?;
+            log::info!(
+                "Manifest for pipeline {} {} : {} input(s), {} output(s), seal {}",
+                manifest.pipeline_name,
+                manifest.pipeline_version,
+                manifest.inputs.len(),
+                manifest.outputs.len(),
+                manifest.content_hash.as_deref().unwrap_or("none")
+            );
+
+            let id = fs_client.capture_manifest(&manifest, &upload_config)?;
+            log::info!("Captured run manifest as file {}", id);
         },
         Commands::ReportOut( args ) => {
 
@@ -123,7 +211,7 @@ fn main() -> Result<()> {
 
             // Retention durations are deployment configuration; the default policy
             // is used for this preview.
-            let policy = cerebro_model::api::files::retention::RetentionPolicy::default();
+            let policy = cerebro_model::api::files::retention::RetentionPolicy::from_env();
 
             log::info!("Planning report-out lifecycle at {}", reported_at.to_rfc3339());
             let report = fs_client.plan_report_out(
@@ -153,10 +241,29 @@ fn main() -> Result<()> {
                     ),
                 }
             }
-            log::info!(
-                "Planned report-out for {} file(s) (preview; persistence and tier moves are applied by the Stage 3 worker)",
-                report.entries.len()
-            );
+
+            if args.persist {
+                use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
+                log::info!("Persisting report-out lifecycle for {} file(s)", report.entries.len());
+                for entry in &report.entries {
+                    let mut schema = UpdateFileLifecycleSchema {
+                        tier: Some(entry.transition.target_tier),
+                        reported_at: Some(entry.transition.reported_at),
+                        ..Default::default()
+                    };
+                    match entry.transition.retain_until {
+                        Some(retain_until) => schema.retain_until = Some(retain_until),
+                        None => schema.clear_retain_until = true,
+                    }
+                    api_client.update_file_lifecycle(&entry.id, &schema)?;
+                }
+                log::info!("Report-out lifecycle persisted (physical tier moves are applied by the Stage 3 worker)");
+            } else {
+                log::info!(
+                    "Planned report-out for {} file(s) (preview; re-run with --persist to write, tier moves are applied by the Stage 3 worker)",
+                    report.entries.len()
+                );
+            }
         },
         Commands::Verify( args ) => {
 
@@ -205,6 +312,10 @@ fn main() -> Result<()> {
                 args.pipeline.clone()
             )?;
             
+        },
+        Commands::Hash( args ) => {
+            let n = crate::hash::hash_directory(&args.outdir, &args.output)?;
+            log::info!("Wrote {} BLAKE3 checksum(s) to {}", n, args.output.display());
         },
         Commands::Delete( args ) => {
             fs_client.delete_files(

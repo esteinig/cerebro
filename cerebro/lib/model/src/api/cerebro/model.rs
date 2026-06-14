@@ -358,6 +358,7 @@ pub struct SampleConfig {
     pub sample_group: Option<String>,
     pub sample_type: Option<String>,
     pub sample_date: Option<String>,
+    pub aneuploidy: Option<bool>,             // per-sample aneuploidy detection consent/control from the sample sheet
     pub comments: Vec<SampleComment>,
     pub priority: Vec<PriorityTaxon>,        // priority taxa set from the user interface
     pub reports: Vec<ReportEntry>,           // reports generated for this sample - links to a report log in the team database
@@ -387,11 +388,13 @@ impl SampleConfig {
 
         let sample_type = sample_sheet.get_sample_type(&id);
 
-        let sample_date = sample_sheet.get_sample_type(&id);
+        let sample_date = sample_sheet.get_sample_date(&id);
+
+        let aneuploidy = sample_sheet.get_aneuploidy(&id);
 
         let ercc_input_mass = sample_sheet.get_ercc_input(&id);
 
-        Ok(Self{ id, tags, description: None, sample_group, sample_type, sample_date, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
+        Ok(Self{ id, tags, description: None, sample_group, sample_type, sample_date, aneuploidy, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
     }
 }
 impl Default for SampleConfig {
@@ -403,6 +406,7 @@ impl Default for SampleConfig {
             sample_group: None,
             sample_type: None,
             sample_date: None,
+            aneuploidy: None,
             comments: Vec::new(),
             priority: Vec::new(),
             reports: Vec::new(),
