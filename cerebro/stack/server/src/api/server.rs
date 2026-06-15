@@ -129,6 +129,22 @@ pub async fn main() -> std::io::Result<()> {
                 );
                 log::info!("Faktory job scheduler enabled; spawning periodic producer");
                 faktory_scheduler.spawn();
+
+                // S3-4: ensure the default lifecycle schedules exist (idempotent,
+                // insert-if-absent). Gated separately so operators can manage
+                // schedules by hand if they prefer.
+                if matches!(std::env::var("CEREBRO_SEED_LIFECYCLE_SCHEDULES").ok().as_deref(), Some("true") | Some("1")) {
+                    match crate::api::jobs::seed::seed_lifecycle_schedules(
+                        &mongo_client,
+                        &config.database.names.admin_database_name,
+                        &config.database.names.admin_database_jobs_collection,
+                    )
+                    .await
+                    {
+                        Ok(n) => log::info!("Lifecycle schedules ensured ({n} newly seeded)"),
+                        Err(e) => log::error!("Failed to seed lifecycle schedules: {e}"),
+                    }
+                }
             } else {
                 log::info!("Faktory job scheduler disabled (set CEREBRO_SCHEDULER_ENABLED=true to enable)");
             }

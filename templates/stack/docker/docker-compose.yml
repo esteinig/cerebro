@@ -152,6 +152,7 @@ services:
       CEREBRO_CONFIG_FILE: /run/secrets/cerebro_config
       CEREBRO_RETENTION_CONFIG_FILE: /run/secrets/retention_config
       CEREBRO_SCHEDULER_ENABLED: "true"   # Stage 3: run the in-process periodic job producer
+      CEREBRO_SEED_LIFECYCLE_SCHEDULES: "true"   # S3-4: ensure default lifecycle schedules exist (idempotent)
     depends_on:
       - faktory
       - cerebro-database
