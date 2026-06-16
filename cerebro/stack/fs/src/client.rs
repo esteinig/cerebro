@@ -7,7 +7,7 @@ use reqwest::StatusCode;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier, ExpiryState};
+use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
 
 use crate::config::{FsConfig, FsAccessMode};
 use crate::filer::FilerClient;
@@ -880,7 +880,9 @@ use super::{build_remote_path, is_filer_path, sanitize_segment};
             tier_moved_at: None,
             restore_requested_at: None,
             restore_available_at: None,
-            restore_expires_at: None
+            restore_expires_at: None,
+            pending_since: None,
+            verified_at: None
         }
     }
 

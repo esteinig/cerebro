@@ -86,18 +86,21 @@ async fn main() -> std::io::Result<()> {
 
     // Register runners: a liveness ping plus the full lifecycle taxonomy
     // (movement, retention, restore, integrity).
-    let mut builder = Worker::builder();
-    builder.register("ping", Ping::new(metrics.clone()));
-    builder.register("tier_move", TierMove::new(ctx.clone(), metrics.clone()));
-    builder.register("tier_move_scan", TierMoveScan::new(ctx.clone(), metrics.clone()));
-    builder.register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()));
-    builder.register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()));
-    builder.register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone()));
-    builder.register("restore_scan", RestoreScan::new(ctx.clone(), metrics.clone()));
-    builder.register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone()));
-    builder.register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()));
-
-    let mut worker = builder.connect().await.expect("connect to faktory");
+        // Register runners: a liveness ping plus the full lifecycle taxonomy
+    // (movement, retention, restore, integrity).
+    let mut worker = Worker::builder()
+        .register("ping", Ping::new(metrics.clone()))
+        .register("tier_move", TierMove::new(ctx.clone(), metrics.clone()))
+        .register("tier_move_scan", TierMoveScan::new(ctx.clone(), metrics.clone()))
+        .register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()))
+        .register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()))
+        .register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone()))
+        .register("restore_scan", RestoreScan::new(ctx.clone(), metrics.clone()))
+        .register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone()))
+        .register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()))
+        .connect()
+        .await
+        .expect("connect to faktory");
 
     let queues: Vec<&str> = config.queues.iter().map(String::as_str).collect();
     tracing::info!(

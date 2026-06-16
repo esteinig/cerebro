@@ -286,7 +286,7 @@ pub struct McnemarAdjustArgs {
     #[clap(long)]
     pub baseline: PathBuf,
     /// One or more ablation DiagnosticData JSONs
-    #[clap(long, short = 'c', num_args=(1..), required = true)]
+    #[clap(long, short = 'c', num_args=1.., required = true)]
     pub comparisons: Vec<PathBuf>,
     /// Multiple-comparison adjustment
     #[clap(long, value_enum, default_value_t = AdjMethod::BenjaminiHochberg)]
