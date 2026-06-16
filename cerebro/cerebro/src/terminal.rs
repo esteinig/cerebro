@@ -88,7 +88,9 @@ pub struct StackDeployArgs {
     /// Secondary file system path if using Cerebro FS
     #[clap(long)]
     pub fs_secondary: Option<PathBuf>,
-    /// Cerebro FS deployment model: single-server (Model A) or distributed-hpc (Model B)
+    /// Cerebro FS deployment model: single-server (Model A), single-server-replicated
+    /// (Model A + a second tiered volume server on separate disks, replication 001),
+    /// or distributed-hpc (Model B)
     #[clap(long, value_enum, default_value = "single-server")]
     pub fs_model: FsDeploymentModel,
     /// Hot tier (SSD) directory; falls back to --fs-primary when omitted
@@ -102,6 +104,17 @@ pub struct StackDeployArgs {
     /// --fs-secondary when omitted (distributed-hpc uses S3 as the cold tier)
     #[clap(long)]
     pub fs_cold: Option<PathBuf>,
+    /// Replica hot tier (SSD) directory for the single-server-replicated model
+    /// (S4-1). Use a physically SEPARATE disk from --fs-hot so a single-disk
+    /// failure cannot lose both copies; falls back to <outdir>/cerebro_fs/
+    /// fs_replica_hot when omitted.
+    #[clap(long)]
+    pub fs_replica_hot: Option<PathBuf>,
+    /// Replica cold tier (HDD) directory for the single-server-replicated model
+    /// (S4-1). Use a physically SEPARATE disk from --fs-cold; falls back to
+    /// <outdir>/cerebro_fs/fs_replica_cold when omitted.
+    #[clap(long)]
+    pub fs_replica_cold: Option<PathBuf>,
     /// S3 archival endpoint URL (distributed-hpc cold tier)
     #[clap(long)]
     pub fs_s3_endpoint: Option<String>,

@@ -774,6 +774,11 @@ pub(crate) fn build_volume_args(
 pub enum FsDeploymentModel {
     /// Model A — single high-performance server.
     SingleServer,
+    /// Model A-R — single host, replicated (S4-1). Model A plus a second tiered
+    /// volume server on separate disks (replication `001`), so the loss of one
+    /// server's disks does not lose data. Single-host: protects against disk
+    /// failure, not host failure (see the multi-host topology notes).
+    SingleServerReplicated,
     /// Model B — distributed HPC with an S3 Glacier cold tier.
     DistributedHpc,
 }
@@ -786,6 +791,7 @@ impl std::fmt::Display for FsDeploymentModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FsDeploymentModel::SingleServer => write!(f, "single-server"),
+            FsDeploymentModel::SingleServerReplicated => write!(f, "single-server-replicated"),
             FsDeploymentModel::DistributedHpc => write!(f, "distributed-hpc"),
         }
     }
@@ -832,6 +838,32 @@ impl S3RemoteConfig {
     }
 }
 
+/// Single-host replica volume server (S4-1).
+///
+/// A second tiered volume server placed in the **same** data centre and rack as
+/// the primary but on **separate disks**. With SeaweedFS replication `001` (one
+/// replica on a different server in the same rack) the master keeps a second copy
+/// of every volume here, so the loss of one server's disks does not lose data.
+///
+/// The replica mirrors the primary's tier *structure* (same mount points and
+/// `-disk` tags, so the primary's `volume_dirs`/`volume_disks` apply unchanged);
+/// only the host paths differ. Use genuinely independent physical disks for the
+/// replica tiers or the redundancy is only nominal.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplicaConfig {
+    /// Data centre label — same as the primary, so replication `001` (same rack,
+    /// different server) applies.
+    pub center: String,
+    /// Rack label — same as the primary.
+    pub rack: String,
+    /// Replica hot (SSD) tier: a separate host disk, mounted where the primary
+    /// mounts its hot tier.
+    pub hot: DiskTier,
+    /// Replica cold (HDD) tier, when the primary has a local cold tier.
+    #[serde(default)]
+    pub cold: Option<DiskTier>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSystemConfig {
     pub enabled: bool,
@@ -868,6 +900,11 @@ pub struct FileSystemConfig {
     /// builders set it to match the topology they produce.
     #[serde(default)]
     pub model: FsDeploymentModel,
+    /// Single-host replica volume server (S4-1). `Some` only for the
+    /// single-server-replicated model; renders a second tiered volume server on
+    /// separate disks and lifts replication to `001`.
+    #[serde(default)]
+    pub replica: Option<ReplicaConfig>,
 }
 impl Default for FileSystemConfig {
     fn default() -> Self {
@@ -885,6 +922,7 @@ impl Default for FileSystemConfig {
             volume_disks: String::new(),
             remote: None,
             model: FsDeploymentModel::SingleServer,
+            replica: None,
         }
     }
 }
@@ -932,7 +970,43 @@ impl FileSystemConfig {
             volume_disks,
             remote: None,
             model: FsDeploymentModel::SingleServer,
+            replica: None,
         }
+    }
+    /// Model A-R: single-server topology (hot SSD + cold HDD) plus a **replica**
+    /// tiered volume server on separate disks (S4-1).
+    ///
+    /// Both volume servers sit in the same data centre and rack, so SeaweedFS
+    /// replication `001` (one replica on a different server in the same rack)
+    /// keeps a second copy of every volume across the two disk sets. This is the
+    /// minimum durable single-host posture: it survives the loss of one server's
+    /// disks. It does **not** survive loss of the whole host — for that, run the
+    /// replica on a second machine (see the multi-host topology notes). The
+    /// existing durability gate validates `001` against the two volume servers.
+    ///
+    /// `replica_hot_path`/`replica_cold_path` should be on physically independent
+    /// disks from `hot_path`/`cold_path`, otherwise the second copy shares a
+    /// failure domain with the first and the redundancy is only nominal.
+    pub fn default_single_server_replicated(
+        hot_path: &PathBuf,
+        cold_path: &PathBuf,
+        replica_hot_path: &PathBuf,
+        replica_cold_path: &PathBuf,
+        fs_only: bool,
+    ) -> Self {
+        // Start from Model A and layer replication + the replica server on top, so
+        // the tier structure (mounts, disk tags, volume_dirs/disks) stays identical
+        // across the two servers — a requirement for SeaweedFS to place replicas.
+        let mut cfg = Self::default_single_server(hot_path, cold_path, fs_only);
+        cfg.replication = String::from("001"); // one replica, same rack, different server
+        cfg.model = FsDeploymentModel::SingleServerReplicated;
+        cfg.replica = Some(ReplicaConfig {
+            center: "primary".to_string(), // same DC + rack as the primary => `001`
+            rack: "tiered".to_string(),
+            hot: DiskTier::hot(replica_hot_path),
+            cold: Some(DiskTier::cold(replica_cold_path)),
+        });
+        cfg
     }
     /// Model B: a three-tier deployment — hot (SSD) and warm (HDD) local tiers
     /// served by a volume server, with an S3 Glacier archival **cold** tier.
@@ -976,6 +1050,7 @@ impl FileSystemConfig {
             volume_disks,
             remote: Some(remote),
             model: FsDeploymentModel::DistributedHpc,
+            replica: None,
         }
     }
     /// Build a file-system configuration for the selected deployment model.
@@ -990,11 +1065,16 @@ impl FileSystemConfig {
         hot: &PathBuf,
         warm: &PathBuf,
         cold: &PathBuf,
+        replica_hot: &PathBuf,
+        replica_cold: &PathBuf,
         remote: Option<S3RemoteConfig>,
         fs_only: bool,
     ) -> Self {
         match model {
             FsDeploymentModel::SingleServer => Self::default_single_server(hot, cold, fs_only),
+            FsDeploymentModel::SingleServerReplicated => {
+                Self::default_single_server_replicated(hot, cold, replica_hot, replica_cold, fs_only)
+            }
             FsDeploymentModel::DistributedHpc => {
                 let remote = remote
                     .unwrap_or_else(|| S3RemoteConfig::default_glacier("", "", ""));
@@ -1017,12 +1097,15 @@ impl FileSystemConfig {
     ///
     /// The Model A / Model B builders render a single tiered volume server
     /// (`primary` only); the legacy localhost layout renders two (`primary` +
-    /// `secondary`). A replication code that demands more copies than there are
-    /// servers cannot be satisfied, and SeaweedFS would reject writes.
+    /// `secondary`); the single-server-replicated model (S4-1) renders the
+    /// `primary` plus a `replica`. A replication code that demands more copies
+    /// than there are servers cannot be satisfied, and SeaweedFS would reject
+    /// writes.
     fn volume_server_count(&self) -> usize {
         let mut n = 0;
         if self.primary.is_some() { n += 1; }
         if self.secondary.is_some() { n += 1; }
+        if self.replica.is_some() { n += 1; }
         n.max(1)
     }
 
@@ -1166,16 +1249,45 @@ mod fs_config_tests {
         let hot = PathBuf::from("/srv/hot");
         let warm = PathBuf::from("/srv/warm");
         let cold = PathBuf::from("/srv/cold");
+        let rep_hot = PathBuf::from("/srv2/hot");
+        let rep_cold = PathBuf::from("/srv2/cold");
 
-        let a = FileSystemConfig::from_model(FsDeploymentModel::SingleServer, &hot, &warm, &cold, None, true);
+        let a = FileSystemConfig::from_model(FsDeploymentModel::SingleServer, &hot, &warm, &cold, &rep_hot, &rep_cold, None, true);
         assert_eq!(a.model, FsDeploymentModel::SingleServer);
         assert!(a.remote.is_none());
         assert!(a.warm.is_none());
+        assert!(a.replica.is_none());
 
-        let b = FileSystemConfig::from_model(FsDeploymentModel::DistributedHpc, &hot, &warm, &cold, None, true);
+        let b = FileSystemConfig::from_model(FsDeploymentModel::DistributedHpc, &hot, &warm, &cold, &rep_hot, &rep_cold, None, true);
         assert_eq!(b.model, FsDeploymentModel::DistributedHpc);
         assert!(b.remote.is_some()); // placeholder remote attached
         assert!(b.warm.is_some());
+
+        let r = FileSystemConfig::from_model(FsDeploymentModel::SingleServerReplicated, &hot, &warm, &cold, &rep_hot, &rep_cold, None, true);
+        assert_eq!(r.model, FsDeploymentModel::SingleServerReplicated);
+        assert_eq!(r.replication, "001");
+        let replica = r.replica.expect("replicated model carries a replica");
+        assert_eq!(replica.hot.path, rep_hot);          // replica on the separate disk
+        assert_eq!(replica.hot.mount, "/hot");          // same mount as the primary
+        assert_eq!(replica.center, "primary");          // same DC + rack => 001 applies
+        assert_eq!(replica.rack, "tiered");
+    }
+
+    #[test]
+    fn single_server_replicated_001_is_satisfiable_and_redundant() {
+        // Primary + replica = two volume servers, so 001 (two copies) is satisfiable
+        // and provides in-cluster redundancy — the gate returns no warning.
+        let cfg = FileSystemConfig::default_single_server_replicated(
+            &PathBuf::from("/srv/hot"),
+            &PathBuf::from("/srv/cold"),
+            &PathBuf::from("/srv2/hot"),
+            &PathBuf::from("/srv2/cold"),
+            true,
+        );
+        assert_eq!(cfg.replication, "001");
+        assert_eq!(cfg.volume_server_count(), 2);
+        let warning = cfg.validate_durability().expect("001 with two servers is satisfiable");
+        assert!(warning.is_none(), "001 across two servers is redundant; expected no warning");
     }
 
     #[test]
@@ -1459,6 +1571,17 @@ impl StackConfig {
         let cold = absolute_path(&cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
         let warm = absolute_path(&warm_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
 
+        // Replica disks for the single-server-replicated model (S4-1). Default to
+        // dedicated subdirectories under the FS output dir; for real durability the
+        // operator points these at physically separate disks via
+        // --fs-replica-hot/--fs-replica-cold. Ignored by the non-replicated models.
+        let replica_hot_src = args.fs_replica_hot.clone()
+            .unwrap_or_else(|| args.outdir.join("cerebro_fs").join("fs_replica_hot"));
+        let replica_cold_src = args.fs_replica_cold.clone()
+            .unwrap_or_else(|| args.outdir.join("cerebro_fs").join("fs_replica_cold"));
+        let replica_hot = absolute_path(&replica_hot_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let replica_cold = absolute_path(&replica_cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+
         // For Model B, assemble the S3 archival remote from the --fs-s3-* flags
         // when endpoint/region/bucket are all provided; otherwise from_model
         // attaches a placeholder remote to be completed at deploy time.
@@ -1481,6 +1604,7 @@ impl StackConfig {
                 _ => None,
             },
             FsDeploymentModel::SingleServer => None,
+            FsDeploymentModel::SingleServerReplicated => None,
         };
 
         let mut config = Self::default_localhost(
@@ -1496,7 +1620,7 @@ impl StackConfig {
             false,
             true
         );
-        config.fs = FileSystemConfig::from_model(args.fs_model, &hot, &warm, &cold, remote, true);
+        config.fs = FileSystemConfig::from_model(args.fs_model, &hot, &warm, &cold, &replica_hot, &replica_cold, remote, true);
         Ok(config)
     }
     pub fn default_web_from_args(

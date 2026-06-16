@@ -308,6 +308,38 @@ services:
     depends_on:
       - cerebro-fs-master
 
+  {{#if fs.replica}}
+  # Single-host replica volume server (S4-1): a second tiered volume server on
+  # SEPARATE disks, same data centre + rack as cerebro-fs-primary. With
+  # replication `001` the master keeps a second copy of every volume here, so the
+  # loss of one server's disks does not lose data. It reuses the primary's tier
+  # layout ({{{ fs.volume_dirs }}} / {{{ fs.volume_disks }}}) on the replica's own
+  # host disks.
+  # NOTE: single-host — this protects against DISK failure, not HOST failure. For
+  # host-failure durability run this service (and its disks) on a second machine;
+  # see the multi-host topology notes in docs/fs-replication.md.
+  cerebro-fs-replica:
+    restart: unless-stopped
+    build:
+      context: {{{ outdir }}}/cerebro
+      dockerfile: {{{ outdir }}}/docker/Dockerfile.fs
+    expose:
+      - 8012
+      - 18012
+      - 9328
+    command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8012 -metricsPort=9328 -dataCenter={{{ fs.replica.center }}} -rack={{{ fs.replica.rack }}} -dir={{{ fs.volume_dirs }}} -disk={{{ fs.volume_disks }}}'
+    volumes:
+      # Replica tier disks — must be physically separate from the primary's.
+      - {{{ fs.replica.hot.path }}}:{{{ fs.replica.hot.mount }}}
+      {{#if fs.replica.cold}}
+      - {{{ fs.replica.cold.path }}}:{{{ fs.replica.cold.mount }}}
+      {{/if}}
+    networks:
+      - cerebro
+    depends_on:
+      - cerebro-fs-master
+  {{/if}}
+
   {{#unless fs.hot}}
   {{#if fs.secondary }}
   cerebro-fs-secondary:
