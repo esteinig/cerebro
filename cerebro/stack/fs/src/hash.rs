@@ -44,6 +44,28 @@ pub fn fast_file_hash(path: &PathBuf) -> Result<String, FileSystemError> {
     Ok(hasher.finalize().to_hex().to_string())
 }
 
+/// Computes a BLAKE3 hash by streaming an arbitrary reader, without persisting
+/// it to disk.
+///
+/// This is the basis for object integrity verification (S3-5 #6): an HTTP
+/// response body (filer or volume GET) implements [`Read`], so the bytes are
+/// hashed in flight, in constant memory, and discarded — no temp file, no
+/// second pass. Returns the lowercase hex digest, matching [`fast_file_hash`].
+pub fn hash_reader<R: Read>(mut reader: R) -> Result<String, FileSystemError> {
+    let mut hasher = Hasher::new();
+    let mut buffer = [0; 65536]; // 64KB chunks: fewer syscalls on large objects.
+
+    loop {
+        let count = reader.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
 /// Computes a BLAKE3 hash of an in-memory byte slice.
 ///
 /// Used to seal the run manifest over its canonical JSON body.

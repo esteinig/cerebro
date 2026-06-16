@@ -16,10 +16,17 @@ use cerebro_fs::client::FileSystemClient;
 use crate::config::WorkerConfig;
 use crate::error::WorkerError;
 
+/// The authenticated client pair, rebuilt atomically on (re-)login (S3-5 #3).
+struct Clients {
+    api: CerebroClient,
+    fs: FileSystemClient,
+}
+
 pub struct WorkerContext {
     pub config: WorkerConfig,
-    api: Option<CerebroClient>,
-    fs: Option<FileSystemClient>,
+    /// API + FS clients behind a lock so a periodic Bot re-login can rebuild them
+    /// in place (decision #3) without a shared mutable token cell.
+    clients: std::sync::RwLock<Option<Clients>>,
 }
 
 impl WorkerContext {
@@ -27,49 +34,112 @@ impl WorkerContext {
     /// worker still boots (for health/ping smoke tests). Lifecycle runners surface
     /// [`WorkerError::ClientNotConfigured`] until the `CEREBRO_*` env is supplied.
     ///
-    /// Synchronous on purpose: call it from `spawn_blocking` so the blocking
-    /// `reqwest` clients are constructed off the async executor.
+    /// No login happens here — call [`WorkerContext::login`] after building (from an
+    /// async context) to authenticate as the service Bot.
     pub fn build(config: WorkerConfig) -> Arc<Self> {
-        let (api, fs) = match &config.api_url {
-            Some(url) => match CerebroClient::new(
-                url,
-                config.api_token.clone(),
-                false,
-                config.danger_invalid_certificate,
-                config.api_token_file.clone(),
-                config.team.clone(),
-                config.db.clone(),
-                config.project.clone(),
-            ) {
-                Ok(api) => {
-                    let fs = FileSystemClient::with_config(&api, config.fs_config());
-                    tracing::info!(api_url = %url, "Cerebro API + FS clients ready");
-                    (Some(api), Some(fs))
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "failed to build Cerebro API client; lifecycle runners will error until configured");
-                    (None, None)
-                }
-            },
-            None => {
-                tracing::warn!("CEREBRO_API_URL not set; lifecycle runners will error until configured");
-                (None, None)
+        let clients = Self::build_clients(&config);
+        Arc::new(Self {
+            config,
+            clients: std::sync::RwLock::new(clients),
+        })
+    }
+
+    /// Construct the API + FS clients from config (no login). `None` when
+    /// `CEREBRO_API_URL` is unset or the client cannot be built.
+    fn build_clients(config: &WorkerConfig) -> Option<Clients> {
+        let url = config.api_url.as_ref()?;
+        match CerebroClient::new(
+            url,
+            config.api_token.clone(),
+            false,
+            config.danger_invalid_certificate,
+            config.api_token_file.clone(),
+            config.team.clone(),
+            config.db.clone(),
+            config.project.clone(),
+        ) {
+            Ok(api) => {
+                let fs = FileSystemClient::with_config(&api, config.fs_config());
+                tracing::info!(api_url = %url, "Cerebro API + FS clients ready");
+                Some(Clients { api, fs })
             }
-        };
-
-        Arc::new(Self { config, api, fs })
+            Err(e) => {
+                tracing::warn!(error = %e, "failed to build Cerebro API client; lifecycle runners will error until configured");
+                None
+            }
+        }
     }
 
-    /// The API client (lifecycle endpoints). Clone the returned client into a
-    /// `spawn_blocking` closure to call it — it is blocking.
-    pub fn api(&self) -> Result<&CerebroClient, WorkerError> {
-        self.api.as_ref().ok_or(WorkerError::ClientNotConfigured("API"))
-    }
-
-    /// The FS client (capture / verify / restore / physical storage ops). Clone the
+    /// The API client (lifecycle endpoints). Returns a clone (cheap) taken under a
+    /// read lock so a concurrent re-login can swap the underlying client. Move the
     /// returned client into a `spawn_blocking` closure to call it — it is blocking.
-    pub fn fs(&self) -> Result<&FileSystemClient, WorkerError> {
-        self.fs.as_ref().ok_or(WorkerError::ClientNotConfigured("FS"))
+    pub fn api(&self) -> Result<CerebroClient, WorkerError> {
+        self.clients
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(|c| c.api.clone())
+            .ok_or(WorkerError::ClientNotConfigured("API"))
+    }
+
+    /// The FS client (capture / verify / restore / physical storage ops). Returns a
+    /// clone taken under a read lock. Move it into a `spawn_blocking` closure — it
+    /// is blocking.
+    pub fn fs(&self) -> Result<FileSystemClient, WorkerError> {
+        self.clients
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(|c| c.fs.clone())
+            .ok_or(WorkerError::ClientNotConfigured("FS"))
+    }
+
+    /// Perform the initial service-Bot login (S3-5 #5). Equivalent to
+    /// [`relogin`](Self::relogin); a no-op when bot credentials aren't configured
+    /// (the worker then runs in static-token or unauthenticated mode).
+    pub async fn login(self: &Arc<Self>) -> Result<(), WorkerError> {
+        self.relogin().await
+    }
+
+    /// Re-authenticate as the service Bot and rebuild the API + FS clients in place
+    /// (decision #3). The fresh token is written to `api_token_file` by the client
+    /// and the rebuilt clients are swapped under the write lock, so all subsequent
+    /// `api()`/`fs()` clones use the new token. Serialised by the lock so concurrent
+    /// callers don't stampede the login endpoint. No-op without bot credentials.
+    pub async fn relogin(self: &Arc<Self>) -> Result<(), WorkerError> {
+        let (Some(email), Some(password)) =
+            (self.config.bot_email.clone(), self.config.bot_password.clone())
+        else {
+            return Ok(());
+        };
+        let config = self.config.clone();
+        let clients = self
+            .run_blocking(move || {
+                let url = config
+                    .api_url
+                    .as_ref()
+                    .ok_or(WorkerError::ClientNotConfigured("API"))?;
+                let api = CerebroClient::new(
+                    url,
+                    config.api_token.clone(),
+                    false,
+                    config.danger_invalid_certificate,
+                    config.api_token_file.clone(),
+                    config.team.clone(),
+                    config.db.clone(),
+                    config.project.clone(),
+                )
+                .map_err(|e| WorkerError::Api(e.to_string()))?;
+                // Bot login: ?role=Bot yields the long-lived, role-scoped token.
+                api.login_user(&email, Some(password), true)
+                    .map_err(|e| WorkerError::Api(format!("bot login failed: {e}")))?;
+                let fs = FileSystemClient::with_config(&api, config.fs_config());
+                Ok(Clients { api, fs })
+            })
+            .await?;
+        *self.clients.write().unwrap() = Some(clients);
+        tracing::info!("authenticated as service bot; API + FS clients (re)built");
+        Ok(())
     }
 
     /// Run a blocking client/storage call on the blocking thread pool, off the

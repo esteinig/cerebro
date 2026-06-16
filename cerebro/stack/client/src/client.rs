@@ -964,6 +964,8 @@ impl CerebroClient {
         let schema = UpdateFileLifecycleSchema {
             pending_tier: Some(target),
             expected_tier: Some(expected),
+            // Stamp the claim time so a crashed move can be aged out by the scan.
+            pending_since: Some(chrono::Utc::now()),
             ..Default::default()
         };
         self.update_file_lifecycle(id, &schema)
@@ -977,6 +979,29 @@ impl CerebroClient {
         let schema = UpdateFileLifecycleSchema {
             tier: Some(target),
             expected_tier: Some(expected),
+            ..Default::default()
+        };
+        self.update_file_lifecycle(id, &schema)
+    }
+
+    /// Stamp a successful integrity verification (S3-5 #3): set `verified_at = now`
+    /// so the verify scan can order by least-recently-verified and sweep the whole
+    /// estate over time. Only called after the stored bytes hash matches.
+    pub fn mark_verified(&self, id: &str) -> Result<(), HttpClientError> {
+        let schema = UpdateFileLifecycleSchema {
+            verified_at: Some(chrono::Utc::now()),
+            ..Default::default()
+        };
+        self.update_file_lifecycle(id, &schema)
+    }
+
+    /// Roll back a stranded tier-move claim (S3-5 #4): clear both `pending_tier`
+    /// and `pending_since`. Used by the mover on failure and by the scan when it
+    /// chooses to abort (rather than re-drive) a stale claim.
+    pub fn clear_tier_move_claim(&self, id: &str) -> Result<(), HttpClientError> {
+        let schema = UpdateFileLifecycleSchema {
+            clear_pending_tier: true,
+            clear_pending_since: true,
             ..Default::default()
         };
         self.update_file_lifecycle(id, &schema)

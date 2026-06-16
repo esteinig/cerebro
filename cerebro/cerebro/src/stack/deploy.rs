@@ -319,7 +319,30 @@ pub struct MongoDbConfig {
     pub cerebro_admin_password: String, 
     #[serde(skip_deserializing)]
     pub cerebro_admin_password_hashed: String,     
+    // Service Bot account + service Team for the Faktory lifecycle worker (S3-5
+    // #5). Identity fields carry sensible defaults so an existing stack.toml that
+    // predates this change still deploys; the password is the prompted secret.
+    #[serde(default = "default_service_bot_name")]
+    pub service_bot_name: String,
+    #[serde(default = "default_service_bot_email")]
+    pub service_bot_email: String,
+    #[serde(default)]
+    pub service_bot_password: String,
+    #[serde(skip_deserializing)]
+    pub service_bot_password_hashed: String,
+    #[serde(default = "default_service_team_name")]
+    pub service_team_name: String,
+    #[serde(default = "default_service_db_name")]
+    pub service_db_name: String,
+    #[serde(default = "default_service_project_name")]
+    pub service_project_name: String,
 }
+
+fn default_service_bot_name() -> String { "Cerebro Lifecycle Worker".to_string() }
+fn default_service_bot_email() -> String { "worker@cerebro".to_string() }
+fn default_service_team_name() -> String { "Service".to_string() }
+fn default_service_db_name() -> String { "Lifecycle".to_string() }
+fn default_service_project_name() -> String { "Data".to_string() }
 impl MongoDbConfig {
     pub fn default_localhost(
         root_username: &str,
@@ -339,6 +362,13 @@ impl MongoDbConfig {
             cerebro_admin_name: cerebro_admin_name.to_string(), 
             cerebro_admin_password: cerebro_admin_password.to_string(), 
             cerebro_admin_password_hashed: String::new(),
+            service_bot_name: default_service_bot_name(),
+            service_bot_email: default_service_bot_email(),
+            service_bot_password: String::new(),
+            service_bot_password_hashed: String::new(),
+            service_team_name: default_service_team_name(),
+            service_db_name: default_service_db_name(),
+            service_project_name: default_service_project_name(),
         }
     }
     pub fn default_web(
@@ -358,7 +388,14 @@ impl MongoDbConfig {
             cerebro_admin_email: cerebro_admin_email.to_string(), 
             cerebro_admin_name: cerebro_admin_name.to_string(), 
             cerebro_admin_password: cerebro_admin_password.to_string(), 
-            cerebro_admin_password_hashed: String::new()
+            cerebro_admin_password_hashed: String::new(),
+            service_bot_name: default_service_bot_name(),
+            service_bot_email: default_service_bot_email(),
+            service_bot_password: String::new(),
+            service_bot_password_hashed: String::new(),
+            service_team_name: default_service_team_name(),
+            service_db_name: default_service_db_name(),
+            service_project_name: default_service_project_name(),
         }
     }
 }
@@ -1354,11 +1391,15 @@ impl StackConfig {
         let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
         let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
 
+        // Service Bot password for the Faktory lifecycle worker (S3-5 #5): the one
+        // new prompted secret. Identity fields (bot name/email, team/db/project
+        // names) fall back to sensible defaults unless overridden via CLI args.
+        let service_bot_password = Self::get_or_prompt_hidden(args.service_bot_password.as_ref(), "--service-bot-password", interactive)?;
 
         let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
         let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
 
-        Ok(Self::default_localhost(
+        let mut config = Self::default_localhost(
             &root_username,
             &root_password,
             &admin_username,
@@ -1370,7 +1411,12 @@ impl StackConfig {
             &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
             false
-        ))
+        );
+        config.mongodb.service_bot_password = service_bot_password;
+        if let Some(v) = args.service_bot_email.as_ref() { config.mongodb.service_bot_email = v.clone(); }
+        if let Some(v) = args.service_bot_name.as_ref() { config.mongodb.service_bot_name = v.clone(); }
+        if let Some(v) = args.service_team_name.as_ref() { config.mongodb.service_team_name = v.clone(); }
+        Ok(config)
     }
     pub fn default_localhost_insecure_from_args(
         args: &StackDeployArgs,
@@ -1758,6 +1804,24 @@ impl StackConfig {
         // Hash the required passwords - Argon2 for Cerebro user database
         self.mongodb.cerebro_admin_password_hashed = hash_password(&self.mongodb.cerebro_admin_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
+        // Service Bot password (S3-5 #5). If empty (e.g. a non-interactive or
+        // pre-existing config), generate a strong random one so the seeded Bot is
+        // never left with a weak/empty credential. The mongo-init script only runs
+        // on first database initialisation, so this is the credential the worker
+        // logs in with from then on.
+        if self.mongodb.service_bot_password.is_empty() {
+            use rand::Rng;
+            let pw: String = rand::thread_rng()
+                .sample_iter(&rand::distributions::Alphanumeric)
+                .take(32)
+                .map(char::from)
+                .collect();
+            log::warn!("No service bot password provided; generated a random one (stored in the deployment config)");
+            self.mongodb.service_bot_password = pw;
+        }
+        log::info!("Hash Cerebro service bot password using salted Argon2");
+        self.mongodb.service_bot_password_hashed = hash_password(&self.mongodb.service_bot_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
+
         log::info!("Hash Traefik dashboard password using Bcrypt2");
         if !self.traefik.is_localhost {
             // Hash the required passwords - Bcrypt for Traefik dashboard 
@@ -1935,6 +1999,13 @@ impl StackConfig {
         handlebars.register_template_file(&stack_assets.templates.names.mongodb_init_env, &stack_assets.templates.paths.mongodb_init_env).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
         let render = handlebars.render(&stack_assets.templates.names.mongodb_init_env, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.mongodb.join("database.env"))?;
+
+        // Worker Bot password as a standalone Docker secret (S3-5 #5). Kept out of
+        // the rendered compose `environment:` so the plaintext is never exposed via
+        // `docker inspect`; the worker reads it from CEREBRO_API_BOT_PASSWORD_FILE.
+        // The file holds only the password (trimmed), matching the token-file
+        // convention.
+        write_rendered_template(self.mongodb.service_bot_password.as_bytes(), &dir_tree.mongodb.join("worker_bot.secret"))?;
 
         handlebars.register_template_file(&stack_assets.templates.names.cerebro_app, &stack_assets.templates.paths.cerebro_app).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
         let render = handlebars.render(&stack_assets.templates.names.cerebro_app, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;

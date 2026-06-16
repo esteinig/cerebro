@@ -421,7 +421,18 @@ services:
     environment:
       FAKTORY_URL: tcp://:devpass@faktory:7419
       CEREBRO_API_URL: http://cerebro-api:8080
+      # Service Bot authentication (S3-5 #5): the worker logs in as the Bot seeded
+      # by mongo-init and rebuilds its token periodically. The password is mounted
+      # as a Docker secret (below) and read from CEREBRO_API_BOT_PASSWORD_FILE, so
+      # the plaintext is never exposed in the container environment / docker inspect.
+      # CEREBRO_API_TOKEN remains as a static-token fallback.
       CEREBRO_API_TOKEN: ${CEREBRO_WORKER_TOKEN:-}
+      CEREBRO_API_TOKEN_FILE: /tmp/cerebro_worker_token.json
+      CEREBRO_API_BOT_EMAIL: {{{ mongodb.service_bot_email }}}
+      CEREBRO_API_BOT_PASSWORD_FILE: /run/secrets/cerebro_worker_bot
+      CEREBRO_TEAM: {{{ mongodb.service_team_name }}}
+      CEREBRO_DB: {{{ mongodb.service_db_name }}}
+      CEREBRO_PROJECT: {{{ mongodb.service_project_name }}}
       CEREBRO_FS_URL: http://cerebro-fs-master
       CEREBRO_FS_PORT: "9333"
       CEREBRO_FS_FILER_URL: http://cerebro-fs-filer:{{{ fs.filer.port }}}
@@ -429,6 +440,8 @@ services:
       CEREBRO_WORKER_QUEUES: default,lifecycle,maintenance
       CEREBRO_WORKER_METRICS_ADDR: 0.0.0.0:9464
       RUST_LOG: info
+    secrets:
+      - cerebro_worker_bot
     depends_on:
       - faktory
       - cerebro-api
@@ -486,6 +499,8 @@ secrets:
     file: {{{ outdir }}}/cerebro_api/server.toml
   mongodb_config:
     file: {{{ outdir }}}/mongodb/database.env
+  cerebro_worker_bot:
+    file: {{{ outdir }}}/mongodb/worker_bot.secret
   retention_config:
     file: {{{ outdir }}}/fs/retention.env
   

@@ -100,6 +100,17 @@ pub struct UpdateFileLifecycleSchema {
     /// at-least-once delivery. Not itself a mutation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_tier: Option<StorageTier>,
+    /// Stamp the claim time for an in-flight tier move (S3-5 #4). The mover sets
+    /// this alongside `pending_tier` so a crashed move can be aged out by the scan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_since: Option<DateTime<Utc>>,
+    /// Clear `pending_since` (paired with `clear_pending_tier` on commit/rollback).
+    #[serde(default)]
+    pub clear_pending_since: bool,
+    /// Stamp a successful integrity verification (S3-5 #3). The verify runner sets
+    /// this so the scan can order by least-recently-verified for full coverage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<DateTime<Utc>>,
 }
 
 impl UpdateFileLifecycleSchema {
@@ -117,6 +128,9 @@ impl UpdateFileLifecycleSchema {
             && self.replicas.is_none()
             && self.pending_tier.is_none()
             && !self.clear_pending_tier
+            && self.pending_since.is_none()
+            && !self.clear_pending_since
+            && self.verified_at.is_none()
     }
 }
 

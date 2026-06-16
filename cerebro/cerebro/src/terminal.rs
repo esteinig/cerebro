@@ -138,6 +138,19 @@ pub struct StackDeployArgs {
     /// Cerebro admin full name for admin profile
     #[clap(long)]
     pub cerebro_admin_name: Option<String>,
+    /// Service Bot password for the Faktory lifecycle worker (S3-5 #5). Prompted
+    /// if omitted in interactive mode; a strong random one is generated otherwise.
+    #[clap(long)]
+    pub service_bot_password: Option<String>,
+    /// Service Bot login email (default: worker@cerebro).
+    #[clap(long)]
+    pub service_bot_email: Option<String>,
+    /// Service Bot display name (default: Cerebro Lifecycle Worker).
+    #[clap(long)]
+    pub service_bot_name: Option<String>,
+    /// Service Team name the worker operates within (default: Service).
+    #[clap(long)]
+    pub service_team_name: Option<String>,
     /// Domain name for deployment with Traefik
     #[clap(long)]
     pub traefik_domain: Option<String>,

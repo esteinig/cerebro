@@ -23,7 +23,7 @@ use tracing::Level;
 use crate::config::WorkerConfig;
 use crate::context::WorkerContext;
 use crate::runners::{
-    Ping, PurgeReclaim, RestoreDrive, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyScan,
+    Ping, PurgeReclaim, RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyScan,
 };
 use crate::telemetry::Metrics;
 
@@ -59,6 +59,31 @@ async fn main() -> std::io::Result<()> {
             .map_err(error::io_err)?
     };
 
+    // Authenticate as the service Bot (S3-5 #5). If bot credentials are configured
+    // this logs in and rebuilds the clients with a long-lived, role-scoped token; a
+    // failure is logged but non-fatal (lifecycle runners will error until auth
+    // succeeds — e.g. on a later periodic re-login or restart).
+    if let Err(e) = ctx.login().await {
+        tracing::error!(error = %e, "initial bot login failed; lifecycle runners will error until re-login succeeds");
+    }
+
+    // Periodic re-login keeps the token fresh well within its TTL and rebuilds the
+    // clients in place (decision #3). No-op when bot credentials aren't set.
+    if config.bot_email.is_some() {
+        let relogin_ctx = ctx.clone();
+        let interval = config.relogin_interval_secs.max(60);
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(interval));
+            tick.tick().await; // consume the immediate first tick (already logged in)
+            loop {
+                tick.tick().await;
+                if let Err(e) = relogin_ctx.relogin().await {
+                    tracing::warn!(error = %e, "periodic bot re-login failed; will retry next interval");
+                }
+            }
+        });
+    }
+
     // Register runners: a liveness ping plus the full lifecycle taxonomy
     // (movement, retention, restore, integrity).
     let mut builder = Worker::builder();
@@ -68,6 +93,7 @@ async fn main() -> std::io::Result<()> {
     builder.register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()));
     builder.register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()));
     builder.register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone()));
+    builder.register("restore_scan", RestoreScan::new(ctx.clone(), metrics.clone()));
     builder.register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone()));
     builder.register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()));
 
@@ -77,7 +103,7 @@ async fn main() -> std::io::Result<()> {
     tracing::info!(
         kinds = ?[
             "ping", "tier_move", "tier_move_scan", "retention_sweep",
-            "purge_reclaim", "restore_drive", "verify_file", "verify_scan"
+            "purge_reclaim", "restore_drive", "restore_scan", "verify_file", "verify_scan"
         ],
         "registered runners; consuming queues"
     );

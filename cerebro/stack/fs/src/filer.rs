@@ -164,6 +164,28 @@ impl FilerClient {
         }
     }
 
+    /// Stream `remote_path` from the filer and return its BLAKE3 digest, without
+    /// writing it to disk (S3-5 #6).
+    ///
+    /// The response body implements [`Read`](std::io::Read), so it is piped
+    /// directly into a `blake3::Hasher` in constant memory — suitable for the
+    /// multi-gigabyte read sets this platform stores. No temp file is created.
+    pub fn hash(&self, remote_path: &str) -> Result<String, FilerError> {
+        let url = self.object_url(remote_path);
+        let mut response = self.http.get(&url).send()?;
+
+        match response.status() {
+            StatusCode::OK => {
+                let mut hasher = blake3::Hasher::new();
+                // Streams the body in chunks rather than buffering the whole object.
+                std::io::copy(&mut response, &mut hasher)?;
+                Ok(hasher.finalize().to_hex().to_string())
+            }
+            StatusCode::NOT_FOUND => Err(FilerError::NotFound(remote_path.to_string())),
+            status => Err(FilerError::UnexpectedStatus(status)),
+        }
+    }
+
     /// Delete `remote_path` from the filer.
     ///
     /// When `recursive` is set, a directory and all of its contents are removed.

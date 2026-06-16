@@ -11,7 +11,7 @@ use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, Re
 
 use crate::config::{FsConfig, FsAccessMode};
 use crate::filer::FilerClient;
-use crate::{error::FileSystemError, hash::fast_file_hash, weed::{weed_download, weed_upload}};
+use crate::{error::FileSystemError, hash::{fast_file_hash, hash_reader}, weed::{weed_download, weed_upload}};
 
 #[derive(Clone, Debug)]
 pub struct FileSystemClient {
@@ -566,6 +566,43 @@ impl FileSystemClient {
             )?;
             Ok(name.map(|n| outdir.join(n)))
         }
+    }
+
+    /// Stream an object's stored bytes and return their BLAKE3 digest, without
+    /// staging the object on local disk (S3-5 #6).
+    ///
+    /// Routing mirrors [`download_identifier`](Self::download_identifier): a
+    /// filer path is fetched via the [`FilerClient`]; a SeaweedFS fid is fetched
+    /// with a streaming master GET (the master redirects to the owning volume and
+    /// the redirect is followed). In both cases the body is hashed in flight, so
+    /// verifying a multi-gigabyte read set costs an in-cluster read and constant
+    /// memory rather than a full temp-disk copy.
+    pub fn hash_object(&self, identifier: &str) -> Result<String, FileSystemError> {
+        if is_filer_path(identifier) {
+            let filer = FilerClient::new(
+                &self.config.filer_base(),
+                self.config.danger_invalid_certificate,
+            )?;
+            Ok(filer.hash(identifier)?)
+        } else {
+            let url = format!("{}/{}", self.get_url(), identifier);
+            let response = reqwest::blocking::Client::new().get(&url).send()?;
+            let status = response.status();
+            if !status.is_success() {
+                return Err(FileSystemError::UnexpectedResponseStatus(status));
+            }
+            // reqwest's blocking `Response` implements `Read`, so it streams.
+            hash_reader(response)
+        }
+    }
+
+    /// Verify an object's stored bytes against an expected BLAKE3 hash by
+    /// streaming (S3-5 #6). Returns `Ok(true)` on a match, `Ok(false)` on a
+    /// mismatch (a real integrity failure the caller surfaces as a metric, not a
+    /// retryable error), and `Err` only on transport/IO problems.
+    pub fn verify_object(&self, identifier: &str, expected_hash: &str) -> Result<bool, FileSystemError> {
+        let actual = self.hash_object(identifier)?;
+        Ok(actual == expected_hash)
     }
 
     /// Store a single local file in SeaweedFS according to the configured

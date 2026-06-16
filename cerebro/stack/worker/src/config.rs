@@ -14,6 +14,15 @@ pub struct WorkerConfig {
     pub api_url: Option<String>,
     pub api_token: Option<String>,
     pub api_token_file: Option<std::path::PathBuf>,
+    /// Service Bot login email (S3-5 #5). When set with `bot_password`, the worker
+    /// logs in as this Bot at startup (and periodically re-logs in) to obtain a
+    /// long-lived, role-scoped token, instead of relying on a static token.
+    pub bot_email: Option<String>,
+    pub bot_password: Option<String>,
+    /// How often to re-authenticate as the Bot and rebuild the clients in place
+    /// (seconds). Kept well under the bot token TTL (`access_max_age_bot`, 30d by
+    /// default) so the token never lapses in practice. Default 7 days.
+    pub relogin_interval_secs: u64,
     pub team: Option<String>,
     pub db: Option<String>,
     pub project: Option<String>,
@@ -46,6 +55,25 @@ fn env_opt(key: &str) -> Option<String> {
     std::env::var(key).ok().filter(|v| !v.is_empty())
 }
 
+/// Read a secret from `<KEY>` directly, or from the file named by `<KEY>_FILE`
+/// (the Docker-secret convention). The file's whole contents are used, trimmed.
+fn env_or_file(key: &str) -> Option<String> {
+    if let Some(v) = env_opt(key) {
+        return Some(v);
+    }
+    let path = env_opt(&format!("{key}_FILE"))?;
+    match std::fs::read_to_string(&path) {
+        Ok(s) => {
+            let s = s.trim().to_string();
+            if s.is_empty() { None } else { Some(s) }
+        }
+        Err(e) => {
+            tracing::warn!(%path, "failed to read secret file for {key}: {e}");
+            None
+        }
+    }
+}
+
 fn env_or(key: &str, default: &str) -> String {
     env_opt(key).unwrap_or_else(|| default.to_string())
 }
@@ -73,6 +101,11 @@ impl WorkerConfig {
             api_url: env_opt("CEREBRO_API_URL"),
             api_token: env_opt("CEREBRO_API_TOKEN"),
             api_token_file: env_opt("CEREBRO_API_TOKEN_FILE").map(Into::into),
+            bot_email: env_opt("CEREBRO_API_BOT_EMAIL"),
+            bot_password: env_or_file("CEREBRO_API_BOT_PASSWORD"),
+            relogin_interval_secs: env_opt("CEREBRO_WORKER_RELOGIN_SECS")
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(7 * 24 * 3600),
             team: env_opt("CEREBRO_TEAM"),
             db: env_opt("CEREBRO_DB"),
             project: env_opt("CEREBRO_PROJECT"),

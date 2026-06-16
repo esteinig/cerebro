@@ -95,6 +95,19 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 3600,
             retry: 3,
         },
+        // Restore recovery (S3-5 #2): a slow hourly safety net that re-drives any
+        // archived file stranded mid-restore. Prompt starts come from the
+        // restore-request API path; this only backstops dropped poll chains.
+        SeedSpec {
+            id: "seed:restore_scan",
+            kind: "restore_scan",
+            args: json!({}),
+            queue: "maintenance",
+            offset_secs: 300,
+            interval_secs: 3600,
+            reserve_for_secs: 600,
+            retry: 3,
+        },
     ];
 
     let total = specs.len() as u32;

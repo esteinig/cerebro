@@ -115,6 +115,27 @@ pub struct SeaweedFile {
     /// When the file's `tier` was last committed by a verified move.
     #[serde(default)]
     pub tier_moved_at: Option<DateTime<Utc>>,
+    /// When the current `pending_tier` claim was made by a mover (S3-5 #4).
+    ///
+    /// Stamped at claim time and cleared when the move commits or rolls back.
+    /// Because [`tier_moved_at`](Self::tier_moved_at) is only written on a
+    /// *successful* commit, a worker that dies mid-move would otherwise leave a
+    /// `pending_tier` with no timestamp and nothing to age it out. `pending_since`
+    /// gives the tier-move scan an unambiguous claim age so it can re-drive a
+    /// stale claim (the mover is idempotent and CAS-guarded, so re-driving safely
+    /// completes or rolls back).
+    #[serde(default)]
+    pub pending_since: Option<DateTime<Utc>>,
+    /// When this file's stored bytes were last successfully verified against the
+    /// catalogue BLAKE3 hash (S3-5 #3).
+    ///
+    /// `None` means never verified. The verify scan orders by this field ascending
+    /// (nulls first) so a bounded per-run budget sweeps the *oldest-verified* files
+    /// and achieves full estate coverage over time, rather than re-checking the
+    /// same head of the list every run. Only a successful verify stamps it; a
+    /// failure leaves it unchanged so the file stays at the front of the queue.
+    #[serde(default)]
+    pub verified_at: Option<DateTime<Utc>>,
     /// When an archival restore was requested (S2-11).
     #[serde(default)]
     pub restore_requested_at: Option<DateTime<Utc>>,
@@ -152,6 +173,8 @@ impl SeaweedFile {
             quarantined_at: None,
             pending_tier: None,
             tier_moved_at: None,
+            pending_since: None,
+            verified_at: None,
             restore_requested_at: None,
             restore_available_at: None,
             restore_expires_at: None,
@@ -295,6 +318,8 @@ mod tests {
             quarantined_at: None,
             pending_tier: None,
             tier_moved_at: None,
+            pending_since: None,
+            verified_at: None,
             restore_requested_at: None,
             restore_available_at: None,
             restore_expires_at: None,

@@ -6,18 +6,21 @@
 //! * [`tier_move`] — `tier_move` + `tier_move_scan` (S3-2a);
 //! * [`retention_sweep`] — `retention_sweep` + `purge_reclaim` (S3-2b);
 //! * [`restore_drive`] — archival restore state machine (S3-3b);
+//! * [`restore_scan`] — re-drive stranded in-flight restores (S3-5 #2);
 //! * [`verify`] — `verify_file` + `verify_scan` integrity checks (S3-3a).
 //!
 //! Every runner records a `started` then a terminal outcome on the worker metrics.
 
 pub mod ping;
 pub mod restore_drive;
+pub mod restore_scan;
 pub mod retention_sweep;
 pub mod tier_move;
 pub mod verify;
 
 pub use ping::Ping;
 pub use restore_drive::RestoreDrive;
+pub use restore_scan::RestoreScan;
 pub use retention_sweep::{PurgeReclaim, RetentionSweep};
 pub use tier_move::{TierMove, TierMoveScan};
 pub use verify::{VerifyFile, VerifyScan};

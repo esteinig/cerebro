@@ -303,6 +303,7 @@ async fn update_file_lifecycle(
         // Committing a tier stamps the move time and clears any in-flight claim.
         set.insert("tier_moved_at", to_bson(&Utc::now()).unwrap());
         set.insert("pending_tier", Bson::Null);
+        set.insert("pending_since", Bson::Null);
     }
     if schema.clear_retain_until {
         set.insert("retain_until", Bson::Null);
@@ -331,6 +332,16 @@ async fn update_file_lifecycle(
         } else if let Some(pending_tier) = &schema.pending_tier {
             set.insert("pending_tier", to_bson(pending_tier).unwrap());
         }
+        // Claim timestamp (S3-5 #4): stamped with the claim, cleared on abort.
+        if schema.clear_pending_since {
+            set.insert("pending_since", Bson::Null);
+        } else if let Some(pending_since) = &schema.pending_since {
+            set.insert("pending_since", to_bson(pending_since).unwrap());
+        }
+    }
+    // Verification timestamp (S3-5 #3): stamped by a successful verify.
+    if let Some(verified_at) = &schema.verified_at {
+        set.insert("verified_at", to_bson(verified_at).unwrap());
     }
 
     // Classify the change for the audit trail and summarise the supplied fields.
@@ -356,6 +367,9 @@ async fn update_file_lifecycle(
     if let Some(rp) = schema.replicas { changes.push(format!("replicas={}", rp)); }
     if schema.clear_pending_tier { changes.push("pending_tier=cleared".into()); }
     else if let Some(pt) = &schema.pending_tier { changes.push(format!("pending_tier={:?}", pt)); }
+    if schema.clear_pending_since { changes.push("pending_since=cleared".into()); }
+    else if let Some(ps) = &schema.pending_since { changes.push(format!("pending_since={}", ps.to_rfc3339())); }
+    if let Some(va) = &schema.verified_at { changes.push(format!("verified_at={}", va.to_rfc3339())); }
     if let Some(et) = &schema.expected_tier { changes.push(format!("expected_tier={:?}", et)); }
     let detail = changes.join(", ");
 
@@ -908,6 +922,24 @@ async fn restore_transition(
                 audit_actor, format!("restore {} -> {}", current, target),
             ).await {
                 return HttpResponse::InternalServerError().json(RestoreTransitionResponse::server_error(format!("audit append failed: {}", err)));
+            }
+            // Kick off the restore worker promptly when a restore is (re)requested
+            // (S3-5 #2). Best-effort: the hourly `restore_scan` re-drives anything
+            // that slips, so a transient Faktory hiccup here is not fatal.
+            if target == RestoreState::Requested {
+                match faktory::Client::connect().await {
+                    Ok(mut fk) => {
+                        let job = faktory::Job::new(
+                            "restore_drive",
+                            vec![serde_json::json!({ "file_id": id.clone() })],
+                        )
+                        .on_queue("lifecycle");
+                        if let Err(e) = fk.enqueue(job).await {
+                            log::warn!("restore requested for {id} but failed to enqueue restore_drive (restore_scan will retry): {e}");
+                        }
+                    }
+                    Err(e) => log::warn!("restore requested for {id} but Faktory unavailable to enqueue restore_drive (restore_scan will retry): {e}"),
+                }
             }
             data.metrics.record(&TelemetryEvent::with_detail(TelemetryOp::Restore, TelemetryOutcome::Success, target.to_string().to_lowercase()));
             HttpResponse::Ok().json(RestoreTransitionResponse::success(target, expires_at))

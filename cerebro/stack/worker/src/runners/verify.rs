@@ -1,4 +1,4 @@
-//! `verify_file` + `verify_scan` runners (S3-3a).
+//! `verify_file` + `verify_scan` runners (S3-3a, hardened in S3-5 #3/#6).
 //!
 //! Scheduled integrity verification. Mirrors the mover's producer/worker split: a
 //! cheap periodic **scan** selects files and fans out per-file **verify** jobs, each
@@ -6,20 +6,28 @@
 //!
 //! ## `verify_file` (per file)
 //!
-//! Downloads the file by fid with `verify = true` (the same integrity primitive the
-//! tier mover's optional gate uses) — a hash mismatch or a missing object is an
-//! integrity failure. The job itself **succeeds** (it performed the check); the
-//! *result* is recorded on the lifecycle metric
-//! (`cerebro_file_lifecycle_ops_total{op="verify", outcome="success|failure"}`), so a
-//! corrupt file raises a `failure` counter to alert on rather than a retry storm.
-//! Archival/cold objects are skipped (verifying them would require a restore).
+//! Streams the object's bytes through BLAKE3 and compares to the stored hash
+//! (`FileSystemClient::verify_object`, S3-5 #6) — **no temp-disk copy**, constant
+//! memory, suitable for multi-gigabyte read sets. Outcomes:
+//! * **match** — stamp `verified_at = now` (so the scan can rotate coverage) and
+//!   record `op="verify", outcome="success"`.
+//! * **mismatch** — a real integrity failure: record `outcome="failure"` (an alert
+//!   target) and **do not** stamp `verified_at` (the file stays at the head of the
+//!   rotation). The *job* still succeeds — a corrupt object must not retry-storm.
+//! * **transport/IO error** — the check didn't complete; return `Err` so Faktory
+//!   retries.
+//! Archived objects are skipped (verifying them would require a restore). While
+//! tiering is logical-only (S3-5 #1) every non-archived file is directly
+//! retrievable regardless of tier, so cold logical files are still verified.
 //!
 //! ## `verify_scan` (periodic producer)
 //!
-//! Pages the catalogue, skips cold/archived files, and enqueues one `verify_file`
-//! per directly-retrievable file up to a per-run budget. Verifying the whole estate
-//! every run is intentionally avoided — schedule it to sweep a bounded batch each
-//! pass.
+//! Pages the catalogue and enqueues one `verify_file` per non-archived file that
+//! is **due** — never verified, or last verified longer ago than
+//! `min_reverify_secs` — up to a per-run budget. Because a successful verify stamps
+//! `verified_at`, recently-checked files drop out of the due set and each run picks
+//! up the *least-recently-verified* files, sweeping the whole estate over time
+//! instead of re-checking the head of the list every run.
 //!
 //! ## Repair
 //!
@@ -33,12 +41,12 @@ use std::sync::Arc;
 use std::time::Duration as StdDuration;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use faktory::{Job, JobRunner};
 use serde::Deserialize;
 use serde_json::json;
 
 use cerebro_model::api::files::model::SeaweedFile;
-use cerebro_model::api::files::retention::StorageTier;
 use cerebro_model::api::files::telemetry::{TelemetryEvent, TelemetryOp, TelemetryOutcome};
 
 use crate::context::WorkerContext;
@@ -46,15 +54,36 @@ use crate::error::WorkerError;
 use crate::runners::parse_args;
 use crate::telemetry::{JobOutcome, Metrics};
 
-/// A cold/archived object is not directly retrievable — verifying it would force a
-/// restore, so the scan skips it and `verify_file` no-ops on it.
+/// Default re-verify interval: a file verified within this window is not re-checked
+/// this pass (7 days). Drives rotation together with the per-run budget.
+fn default_min_reverify_secs() -> i64 {
+    7 * 24 * 3600
+}
+
+/// An archived object is not directly retrievable — verifying it would force a
+/// restore, so the scan skips it and `verify_file` no-ops on it. With logical-only
+/// tiering (S3-5 #1) the storage tier does not affect retrievability; only the real
+/// `archived` flag does.
 fn directly_retrievable(file: &SeaweedFile) -> bool {
-    retrievable(file.tier, file.archived)
+    retrievable(file.archived)
 }
 
 /// Pure predicate (unit-testable without a `SeaweedFile`).
-fn retrievable(tier: StorageTier, archived: bool) -> bool {
-    tier != StorageTier::Cold && !archived
+fn retrievable(archived: bool) -> bool {
+    !archived
+}
+
+/// Whether a file is due for (re-)verification: never verified, or last verified
+/// longer ago than `min_interval_secs`. Pure for unit testing.
+fn is_verify_due(
+    verified_at: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+    min_interval_secs: i64,
+) -> bool {
+    match verified_at {
+        None => true,
+        Some(ts) => (now - ts).num_seconds() >= min_interval_secs,
+    }
 }
 
 // ===========================================================================
@@ -90,41 +119,57 @@ impl VerifyFile {
         };
 
         if !directly_retrievable(&file) {
-            tracing::info!(%file_id, "skipping verify of archived/cold file (needs restore)");
+            tracing::info!(%file_id, "skipping verify of archived file (needs restore)");
             return Ok(JobOutcome::Skipped);
         }
 
-        // Download with verify=true: re-reads the bytes and checks BLAKE3 == stored hash.
+        // Stream the stored bytes through BLAKE3 (no temp disk) and compare.
         let fs = self.ctx.fs()?.clone();
-        let fid = file.fid.clone();
-        let tmp = std::env::temp_dir().join(format!("cerebro-verify-{}", file.id));
-        let outdir = tmp.clone();
-        let result = self
+        let identifier = file.effective_identifier().to_string();
+        let expected = file.hash.clone();
+        let verify_result = self
             .ctx
             .run_blocking(move || {
-                std::fs::create_dir_all(&outdir)
-                    .map_err(|e| WorkerError::Fs(format!("create temp dir: {e}")))?;
-                fs.download_files(&vec![fid], None, None, &outdir, true)
-                    .map(|_| ())
+                fs.verify_object(&identifier, &expected)
                     .map_err(|e| WorkerError::Fs(e.to_string()))
             })
             .await;
-        let _ = std::fs::remove_dir_all(&tmp);
 
-        match result {
-            Ok(()) => {
+        match verify_result {
+            Ok(true) => {
+                // Stamp verified_at so the scan rotates to other files next pass.
+                let stamp = {
+                    let api = api.clone();
+                    let id = file_id.clone();
+                    self.ctx
+                        .run_blocking(move || {
+                            api.mark_verified(&id).map_err(|e| WorkerError::Api(e.to_string()))
+                        })
+                        .await
+                };
+                if let Err(e) = stamp {
+                    // The bytes are good; only the bookkeeping stamp failed. Log and
+                    // still count success — the file will simply be re-picked sooner.
+                    tracing::warn!(%file_id, "verify ok but failed to stamp verified_at: {e}");
+                }
                 self.metrics.record(&TelemetryEvent::success(TelemetryOp::Verify));
                 tracing::info!(%file_id, "integrity verified");
+                Ok(JobOutcome::Succeeded)
             }
-            Err(e) => {
+            Ok(false) => {
                 // The job ran fine; the *file* failed. Surface on the lifecycle
                 // metric (alert target) + error log, not as a job failure (which
-                // would retry-storm on genuinely corrupt bytes).
+                // would retry-storm on genuinely corrupt bytes). verified_at is left
+                // unchanged so the file stays at the head of the rotation.
                 self.metrics.record(&TelemetryEvent::failure(TelemetryOp::Verify));
-                tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: {e}");
+                tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: stored bytes do not match catalogue hash");
+                Ok(JobOutcome::Succeeded)
+            }
+            Err(e) => {
+                // Transport/IO error — the check did not complete. Retry.
+                Err(e)
             }
         }
-        Ok(JobOutcome::Succeeded)
     }
 }
 
@@ -180,13 +225,16 @@ struct VerifyScanArgs {
     /// Max `verify_file` jobs to enqueue per run (bounds the work per sweep).
     #[serde(default = "default_budget")]
     budget: u32,
+    /// Re-verify interval: skip files verified more recently than this (seconds).
+    #[serde(default = "default_min_reverify_secs")]
+    min_reverify_secs: i64,
     /// Queue to enqueue the per-file verify jobs on.
     #[serde(default = "default_queue")]
     queue: String,
 }
 
-/// Periodic producer: enqueue `verify_file` for a bounded batch of directly
-/// retrievable files.
+/// Periodic producer: enqueue `verify_file` for a bounded batch of the
+/// least-recently-verified, directly-retrievable files.
 pub struct VerifyScan {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
@@ -200,6 +248,7 @@ impl VerifyScan {
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
         let args: VerifyScanArgs = parse_args(&job)?;
         let api = self.ctx.api()?.clone();
+        let now = Utc::now();
 
         let mut scanned = 0u64;
         let mut enqueued = 0u32;
@@ -223,6 +272,11 @@ impl VerifyScan {
 
             for file in &files {
                 if !directly_retrievable(file) {
+                    continue;
+                }
+                // Rotation: only (re-)verify files that are due. Recently-verified
+                // files are skipped, so each run sweeps different (older) files.
+                if !is_verify_due(file.verified_at, now, args.min_reverify_secs) {
                     continue;
                 }
                 if enqueued >= args.budget {
@@ -276,11 +330,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hot_warm_are_verifiable_cold_archived_are_not() {
-        assert!(retrievable(StorageTier::Hot, false));
-        assert!(retrievable(StorageTier::Warm, false));
-        assert!(!retrievable(StorageTier::Cold, false));
-        assert!(!retrievable(StorageTier::Hot, true));
+    fn only_archived_is_unverifiable_under_logical_tiering() {
+        assert!(retrievable(false));
+        assert!(!retrievable(true));
+    }
+
+    #[test]
+    fn verify_due_when_never_or_stale() {
+        let now = Utc::now();
+        // Never verified -> due.
+        assert!(is_verify_due(None, now, 3600));
+        // Verified just now -> not due.
+        assert!(!is_verify_due(Some(now), now, 3600));
+        // Verified 2h ago, interval 1h -> due.
+        assert!(is_verify_due(Some(now - chrono::Duration::hours(2)), now, 3600));
+        // Verified 30m ago, interval 1h -> not due.
+        assert!(!is_verify_due(Some(now - chrono::Duration::minutes(30)), now, 3600));
     }
 
     #[test]
@@ -288,6 +353,7 @@ mod tests {
         let a: VerifyScanArgs = serde_json::from_value(json!({})).unwrap();
         assert_eq!(a.page_limit, 200);
         assert_eq!(a.budget, 500);
+        assert_eq!(a.min_reverify_secs, 7 * 24 * 3600);
         assert_eq!(a.queue, "maintenance");
     }
 }

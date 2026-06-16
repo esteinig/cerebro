@@ -5,10 +5,14 @@
 //! `tier` is a **logical** placement label on the file document. The lifecycle API
 //! flips it fid-preserving — [`UpdateFileLifecycleSchema`] carries no `fid`/`path`,
 //! so there is no per-file byte repoint. The mover's job is therefore the **safe,
-//! integrity-gated, two-phase transition**, not byte shuffling. Physical byte
-//! tiering (e.g. moving a volume's data to S3 for the cold tier) is delegated to
-//! SeaweedFS volume tiering, which runs at volume granularity out of band. See the
-//! package README for the rationale and the per-file copy-repoint alternative.
+//! integrity-gated, two-phase transition** of that label, not byte shuffling.
+//!
+//! While tiering is **logical-only** (S3-5 #1), changing `tier` records intent and
+//! drives retention/restore bookkeeping but does not relocate bytes — every
+//! non-archived object stays directly retrievable regardless of tier. Real physical
+//! tiering (moving cold data to S3/Glacier, with the `archived` flag and a fid
+//! repoint) is **deferred to Stage 4** and is what flips `archived = true` to make
+//! the restore subsystem live. See the package README for the rationale.
 //!
 //! ## `tier_move` (per file)
 //!
@@ -179,6 +183,7 @@ impl TierMove {
     async fn rollback(&self, api: &CerebroClient, id: &str, current: StorageTier) {
         let schema = UpdateFileLifecycleSchema {
             clear_pending_tier: true,
+            clear_pending_since: true,
             expected_tier: Some(current),
             ..Default::default()
         };
@@ -196,26 +201,29 @@ impl TierMove {
         }
     }
 
-    /// Deep integrity gate: download the file by fid to a temp dir and verify its
-    /// BLAKE3 hash against the catalogue (`download_files(.., verify = true)`).
-    /// Heavy for large artefacts — only run when explicitly requested.
+    /// Deep integrity gate: stream the file's stored bytes through BLAKE3 and
+    /// compare to the catalogue hash (`FileSystemClient::verify_object`, S3-5 #6) —
+    /// no temp-disk copy. Heavy for large artefacts only in transfer, not disk;
+    /// off by default (the scheduled verify worker, S3-3a, owns routine checks).
     async fn verify_retrievable(&self, file: &SeaweedFile) -> Result<(), WorkerError> {
         let fs = self.ctx.fs()?.clone();
-        let fid = file.fid.clone();
-        let tmp = std::env::temp_dir().join(format!("cerebro-tiermove-{}", file.id));
-        let outdir = tmp.clone();
-        let result = self
+        let identifier = file.effective_identifier().to_string();
+        let expected = file.hash.clone();
+        let ok = self
             .ctx
             .run_blocking(move || {
-                std::fs::create_dir_all(&outdir)
-                    .map_err(|e| WorkerError::Fs(format!("create temp dir: {e}")))?;
-                fs.download_files(&vec![fid], None, None, &outdir, true)
-                    .map(|_| ())
+                fs.verify_object(&identifier, &expected)
                     .map_err(|e| WorkerError::Fs(e.to_string()))
             })
-            .await;
-        let _ = std::fs::remove_dir_all(&tmp); // best-effort cleanup
-        result
+            .await?;
+        if ok {
+            Ok(())
+        } else {
+            Err(WorkerError::Fs(format!(
+                "integrity gate failed: stored bytes for {} do not match catalogue hash",
+                file.id
+            )))
+        }
     }
 }
 
@@ -259,6 +267,12 @@ fn default_page_limit() -> u32 {
 fn default_max_pages() -> u32 {
     1000
 }
+/// Default age after which an in-flight `pending_tier` claim is considered stale
+/// and re-driven (1 hour). A crashed mover (died after claim, before commit or
+/// rollback) would otherwise strand `pending_tier` forever.
+fn default_stale_claim_secs() -> i64 {
+    3600
+}
 
 #[derive(Debug, Deserialize)]
 struct TierMoveScanArgs {
@@ -276,6 +290,9 @@ struct TierMoveScanArgs {
     /// Safety bound on pages scanned per run.
     #[serde(default = "default_max_pages")]
     max_pages: u32,
+    /// Age (seconds) after which a stranded `pending_tier` claim is re-driven (#4).
+    #[serde(default = "default_stale_claim_secs")]
+    stale_claim_secs: i64,
     /// Queue to enqueue the per-file `tier_move` jobs on.
     #[serde(default)]
     queue: Option<String>,
@@ -299,6 +316,28 @@ fn due(
         && reported_at
             .map(|r| r + Duration::days(warm_days.max(0)) <= now)
             .unwrap_or(false)
+}
+
+/// Pure predicate (#4): whether an in-flight tier-move claim is stale and should
+/// be re-driven. A claim is stale when a `pending_tier` is set, the file is not
+/// legally held, and the claim is older than `stale_secs` — or has no
+/// `pending_since` at all (a pre-`pending_since` claim that can't be aged, treated
+/// as stale so it gets cleared rather than stranded forever). Re-driving is safe:
+/// `tier_move` is idempotent and CAS-guarded, so it either completes or rolls back.
+fn stale_claim(
+    pending_tier: Option<StorageTier>,
+    pending_since: Option<DateTime<Utc>>,
+    legal_hold: bool,
+    stale_secs: i64,
+    now: DateTime<Utc>,
+) -> bool {
+    if legal_hold || pending_tier.is_none() {
+        return false;
+    }
+    match pending_since {
+        None => true,
+        Some(ts) => (now - ts).num_seconds() >= stale_secs,
+    }
 }
 
 /// Periodic producer: find files due for a warm→cold move and fan out one
@@ -346,10 +385,36 @@ impl TierMoveScan {
             scanned += count as u64;
 
             for file in &files {
-                if !Self::is_due(file, args.warm_days, now) {
-                    continue;
-                }
-                let job_args = json!({ "file_id": file.id, "target": args.target });
+                // Determine the move to enqueue, if any:
+                //  * a fresh warm->cold move when the file is due, or
+                //  * a re-drive of a stranded claim to its in-flight target (#4).
+                let move_target = if Self::is_due(file, args.warm_days, now) {
+                    Some(args.target)
+                } else if stale_claim(
+                    file.pending_tier,
+                    file.pending_since,
+                    file.legal_hold,
+                    args.stale_claim_secs,
+                    now,
+                ) {
+                    // Re-drive to the claimed target; the idempotent, CAS-guarded
+                    // mover either completes the move or rolls the claim back.
+                    if file.pending_tier.is_some() {
+                        tracing::info!(file = %file.id, "re-driving stale tier-move claim");
+                        self.metrics.record(&TelemetryEvent::with_detail(
+                            TelemetryOp::TierMove,
+                            TelemetryOutcome::Success,
+                            "stale_reclaim",
+                        ));
+                    }
+                    file.pending_tier
+                } else {
+                    None
+                };
+
+                let Some(target) = move_target else { continue };
+
+                let job_args = json!({ "file_id": file.id, "target": target });
                 // Generous reserve_for: a cold move may run a while; don't let
                 // Faktory re-deliver it mid-flight.
                 match self
@@ -438,5 +503,36 @@ mod tests {
         assert_eq!(tier_label(StorageTier::Cold), "cold");
         assert_eq!(tier_label(StorageTier::Warm), "warm");
         assert_eq!(tier_label(StorageTier::Hot), "hot");
+    }
+
+    #[test]
+    fn no_claim_is_never_stale() {
+        assert!(!stale_claim(None, None, false, 3600, Utc::now()));
+    }
+
+    #[test]
+    fn fresh_claim_is_not_stale() {
+        let now = Utc::now();
+        assert!(!stale_claim(Some(StorageTier::Cold), Some(now), false, 3600, now));
+    }
+
+    #[test]
+    fn old_claim_is_stale() {
+        let now = Utc::now();
+        let since = now - Duration::hours(2);
+        assert!(stale_claim(Some(StorageTier::Cold), Some(since), false, 3600, now));
+    }
+
+    #[test]
+    fn unaged_claim_without_pending_since_is_stale() {
+        // pending_tier set but no pending_since (pre-#4 claim) -> treat as stale.
+        assert!(stale_claim(Some(StorageTier::Cold), None, false, 3600, Utc::now()));
+    }
+
+    #[test]
+    fn legally_held_claim_is_never_stale() {
+        let now = Utc::now();
+        let since = now - Duration::hours(5);
+        assert!(!stale_claim(Some(StorageTier::Cold), Some(since), true, 3600, now));
     }
 }
