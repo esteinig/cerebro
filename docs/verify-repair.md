@@ -1,14 +1,14 @@
-# Verify-repair & restore-from-cold (Stage 4, S4-5)
+# Verify-repair & restore-from-cold
 
-S4-5 closes two loops left open earlier: it makes **restore from the cold store
-real** (the direction deferred from S4-4), and it **consumes the S4-3 reconcile
+This closes two integrity loops: it makes **restore from the cold store
+real**, and it **consumes the reconcile
 reports** to confirm and escalate data loss.
 
-## Restore from cold (closes the S4-4 loop)
+## Restore from cold
 
-The archival restore state machine (S3-3b: `NotArchived → Requested → InProgress →
+The archival restore state machine (`NotArchived → Requested → InProgress →
 Restored`) tracked progress but never actually brought bytes back — the
-`InProgress → Restored` step just flipped state. S4-5 makes it real: when a restore
+`InProgress → Restored` step just flipped state. The restore pass makes it real: when a restore
 is ready, `restore_drive` re-materialises the object before declaring it
 retrievable.
 
@@ -19,10 +19,10 @@ retrievable.
 3. Write the bytes back to the file's **effective location**: a path-addressed
    filer object is overwritten in place (its path stays valid), otherwise a fresh
    replicated weed object is written and its fid returned.
-4. Repoint the catalogue through the relocate endpoint (D3): `archived = false`,
+4. Repoint the catalogue through the relocate endpoint: `archived = false`,
    the new `fid` (only when one was written), landed on the Warm tier — all under a
    compare-and-set on the file's current (Cold) tier. The `archive_key` is
-   **retained** (H4) so the restored file keeps a durable cold backup.
+   **retained** so the restored file keeps a durable cold backup.
 
 If any step fails, the file is marked `Failed` rather than declared restored, so a
 non-retrievable object is never reported as available. With no cold store
@@ -35,7 +35,7 @@ are the primitives; `RestoreDrive` gains the cold-store settings and the
 
 ## Verify-repair (consumes reconcile reports)
 
-`reconcile_scan` (S4-3) detects dangling references and writes a report,
+`reconcile_scan` detects dangling references and writes a report,
 report-first. `verify_repair` is the weekly pass that acts on it. For each dangling
 reference it re-checks live state, which collapses to three outcomes:
 
@@ -54,21 +54,21 @@ reads a fresh report.
 ## Why confirmed loss has no automatic repair
 
 A reconcile dangling reference is a *non-archived* file whose object is missing.
-There is no in-system recovery source for it: the S4-1 replica is volume-level
+There is no in-system recovery source for it: the replica is volume-level
 within the same SeaweedFS fid (a 404 means replication did not save it), and the
-S4-2 backups cover the *catalogue*, not objects. So confirmed loss is escalated,
+catalogue backups cover the *catalogue*, not objects. So confirmed loss is escalated,
 not auto-repaired. The two genuine repair paths are elsewhere and remain active:
 
 - **Lost redundancy** (a copy survives, replica count low) → SeaweedFS volume
-  replication re-replicates automatically. Restoring redundancy is safe/auto (D6).
+  replication re-replicates automatically. Restoring redundancy is safe/auto.
 - **Archived objects** (the cold copy is authoritative) → the `restore_drive` loop
   above re-materialises on demand.
 
-## Integrity repair from cold (S4-6 H4)
+## Integrity repair from cold
 
 The dangling-reference case above has no in-system recovery source. The **integrity**
 case does: a non-archived file that fails its BLAKE3 verify but has a retained cold
-backup (`archive_key`). H4 closes verify→repair for it. When `verify_file` (S3-3a)
+backup (`archive_key`). This closes verify→repair for it. When `verify_file`
 finds a mismatch, before alerting it tries `repair_from_cold`:
 
 - re-pull the bytes from cold and re-verify them against the catalogue hash (a

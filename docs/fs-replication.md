@@ -1,9 +1,9 @@
-# Cerebro FS — object durability & replication (Stage 4, S4-1)
+# Cerebro FS — object durability & replication
 
 Cerebro stores its read sets in a SeaweedFS cluster. By default the tiered
 single-server models (`single-server`, `distributed-hpc`) run **one** volume
 server with replication `000` — a single copy. A disk failure there loses data.
-S4-1 adds a durable single-host posture and documents the multi-host upgrade.
+cerebro-fs provides a durable single-host posture and documents the multi-host upgrade.
 
 ## Single-host replication (`single-server-replicated`)
 
@@ -40,7 +40,7 @@ A code is `xyz`: `x` copies on other data centres, `y` on other racks (same DC),
 | code | copies | placement | use |
 |------|--------|-----------|-----|
 | `000` | 1 | single server | no redundancy (default tiered) |
-| `001` | 2 | +1 server, same rack | **single-host replica (S4-1)** |
+| `001` | 2 | +1 server, same rack | **single-host replica** |
 | `010` | 2 | +1 rack | two racks, one site |
 | `100` | 2 | +1 data centre | two sites / hosts labelled as DCs |
 
@@ -84,9 +84,9 @@ topology so SeaweedFS spreads copies across the fault boundary:
    Set the matching `-dataCenter` / `-rack` on each volume server and
    `-defaultReplication` on the master.
 3. The master and filer remain single points of failure until they too are made
-   redundant — that is an HA concern beyond S4-1 (a SeaweedFS master quorum + a
+   redundant — that is an HA concern beyond single-host replication (a SeaweedFS master quorum + a
    MongoDB replica set for the filer/catalogue), noted here as the next step and
-   covered for the catalogue by S4-2 backups and the S4-7 DR runbook.
+   covered for the catalogue by the catalogue backups and the disaster-recovery runbook.
 
 The deploy CLI currently renders the single-host layout; the multi-host layout is a
 small generalisation of the same `ReplicaConfig` (distinct `center`/`rack` per

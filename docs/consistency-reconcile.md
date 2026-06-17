@@ -1,4 +1,4 @@
-# Consistency reconcile (Stage 4, S4-3)
+# Consistency reconcile
 
 The catalogue (MongoDB) and the object store (SeaweedFS) can drift apart:
 
@@ -8,9 +8,9 @@ The catalogue (MongoDB) and the object store (SeaweedFS) can drift apart:
 - **Orphan object** — a stored object with no catalogue entry. Wasted capacity,
   and deleting one is irreversible.
 
-S4-3 detects both and reports them. It is **report-first**: detection is automatic
-and safe; the one destructive action (deleting an orphan) is operator-gated (D6).
-Repair of dangling references — re-replicating from a replica or backup — is S4-5,
+cerebro-fs detects both and reports them. It is **report-first**: detection is automatic
+and safe; the one destructive action (deleting an orphan) is operator-gated.
+Repair of dangling references — re-replicating from a replica or backup — is handled by the verify-repair pass,
 which consumes these reports.
 
 ## `reconcile_scan` (scheduled, safe)
@@ -46,7 +46,7 @@ It refuses unless `confirm` is `true`, deletes only the explicit `keys` (capped 
 `max_delete`), and logs each deletion. It acts on the operator's reviewed list, so
 the grace decision is made at report time; it does not re-enumerate.
 
-## Orphan detection (live in filer mode, H2)
+## Orphan detection (live in filer mode)
 
 Both directions are now live. Orphan detection enumerates the object store
 independently and finds stored objects with no catalogue entry:
@@ -69,7 +69,7 @@ independently and finds stored objects with no catalogue entry:
 In **weed/volume mode** the store cannot be cheaply enumerated, so the scan leaves
 `store_enumerated: false` and reports dangling references only; `reconcile_reclaim`
 still works on an operator-supplied key list. The `find_orphans` engine is unchanged
-and unit-tested; H2 simply feeds it a real store listing.
+and unit-tested; the scan simply feeds it a real store listing.
 
 ## What's tested here vs in your environment
 
@@ -81,12 +81,11 @@ reclaim are validated against a running stack.
 
 ## Design notes
 
-- **Why HEAD, not hash.** Existence is a cheap `HEAD`; hashing (the verify scan,
-  S3-3a) is a separate, heavier integrity check. Reconcile answers "does the object
+- **Why HEAD, not hash.** Existence is a cheap `HEAD`; hashing (the verify scan) is a separate, heavier integrity check. Reconcile answers "does the object
   exist", verify answers "are its bytes intact".
 - **Grace window.** Registration happens after a successful upload, so the
   catalogue→object race is small, but the grace window still suppresses the brief
   window around very recent writes on both sides.
-- **Report-first split.** Detection is safe and automatic; repair (S4-5) and
+- **Report-first split.** Detection is safe and automatic; repair and
   destructive reclaim are deliberately separate and gated, so a scan can run
   unattended without ever risking data.

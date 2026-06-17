@@ -1,15 +1,15 @@
-# Real archival to the cold object store (Stage 4, S4-4)
+# Real archival to the cold object store
 
-Before S4-4 the Cold tier was a catalogue *label*: a file marked `Cold` still had
-its only copy in SeaweedFS. S4-4 makes the cold tier real — a file moved to Cold
+Without archival the Cold tier is only a catalogue *label*: a file marked `Cold` still had
+its only copy in SeaweedFS. Archival makes the cold tier real — a file moved to Cold
 has its bytes copied to a cold object store, the catalogue repointed, and
 `archived` flipped — so hot storage can be reclaimed and the cold copy lives in an
 independent failure domain.
 
-## The cold store is an `ObjectStore` (D1)
+## The cold store is an `ObjectStore`
 
 Archival is backend-agnostic: it writes through the same `ObjectStore` trait used
-for catalogue backups (S4-2).
+for catalogue backups.
 
 - **Filesystem backend (default, compile-safe).** A mounted cold disk or NFS
   export — slower, cheaper storage in a separate failure domain. Set
@@ -50,7 +50,7 @@ The repoint is the moment the file becomes officially archived, so a crash betwe
 copy and repoint just leaves a harmless extra copy in the cold store (the key is
 deterministic, so the retry overwrites it).
 
-## The dedicated relocate endpoint (D3)
+## The dedicated relocate endpoint
 
 `POST /files/{id}/relocate` (`FileRelocateSchema`) repoints a file between local
 and remote storage in one compare-and-set, kept deliberately separate from the
@@ -64,20 +64,18 @@ The schema carries both directions: archival sends `archived = true` with an
 `archive_key`; restore sends `archived = false`, the freshly re-uploaded local
 `fid`, and `clear_archive_key`.
 
-## Restore (paired with S4-5)
+## Restore
 
 The relocate endpoint and the catalogue already model the restore direction, and
-the restore *state machine* (S3-3b: `NotArchived → Requested → InProgress →
+the restore *state machine* (`NotArchived → Requested → InProgress →
 Restored`) is in place. Wiring the real fetch — `ObjectStore::get(archive_key)` →
-re-upload to SeaweedFS for a new fid → relocate back to a local tier — is done with
-S4-5 (verify-repair), which re-materialises bytes from a replica or the archive
+re-upload to SeaweedFS for a new fid → relocate back to a local tier — is done by the verify-repair pass, which re-materialises bytes from a replica or the archive
 using the same primitives. Until then, archived objects are retrieved through the
 existing restore flow / simulation seam.
 
-## Local-copy reclamation (D4, live in H3)
+## Local-copy reclamation
 
-S4-4 archives and repoints but keeps the local copy; the `archive_reclaim` runner
-(H3) deletes it once it is safe. A weekly, bounded pass reclaims the local copy of
+Archival repoints but keeps the local copy; the `archive_reclaim` runner deletes it once it is safe. A weekly, bounded pass reclaims the local copy of
 an archived file when **all** hold: the file is `archived` with an `archive_key`;
 its archival (`tier_moved_at`) is older than the grace window
 (`CEREBRO_ARCHIVE_LOCAL_GRACE_DAYS`, default 7); the **cold copy is confirmed

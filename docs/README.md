@@ -1,16 +1,19 @@
 # Cerebro production docs
 
-Operator and developer documentation for the `feat/production` hardening of Cerebro,
-the clinical metagenomic diagnostics platform. This is the entry point; it orients
-you and points at the per-topic docs.
+Operator and developer documentation for cerebro-fs — the storage, lifecycle, and
+durability layer of Cerebro, the clinical metagenomic diagnostics platform. This is
+the entry point; it orients you and points at the rest of the documentation set.
 
 ## Where to start
 
-- **Operating / recovering a deployment** → [`disaster-recovery.md`](disaster-recovery.md)
-  is the top-level runbook (triage → scenario → commands → verify).
-- **Understanding a subsystem** → the component docs below.
-- **Validating after applying patches or before go-live** →
-  [`validation.md`](validation.md) (build, test, smoke checks, drills).
+- **New to cerebro-fs** → the [overview](overview.md), then the
+  [architecture](architecture.md).
+- **Deploying / configuring** → the [administration guide](administration.md).
+- **Running maintenance** → the [maintenance guide](maintenance.md).
+- **Operating / recovering a deployment** → the
+  [disaster-recovery runbook](disaster-recovery.md) (triage → scenario → commands →
+  verify).
+- **Validating a deployment** → the [validation guide](validation.md).
 
 ## The stack
 
@@ -35,8 +38,8 @@ The spine that ties the docs together — a file moves through:
 1. **Upload + register.** Bytes land in SeaweedFS (filer path or weed fid); a
    catalogue record is created with a BLAKE3 hash.
 2. **Lifecycle + retention.** The record carries tier, retention, legal hold, and an
-   append-only audit trail (Stage 2).
-3. **Tiering.** Scheduled jobs move bytes between hot/warm/cold tiers (Stage 3).
+   append-only audit trail.
+3. **Tiering.** Scheduled jobs move bytes between hot/warm/cold tiers.
 4. **Archival.** Cold-tier files are copied to the **cold store** and repointed
    (`archived`, `archive_key`); after a grace window the redundant local copy is
    reclaimed — [`archival.md`](archival.md).
@@ -51,30 +54,33 @@ The spine that ties the docs together — a file moves through:
    runbook ties replication, backups, reconcile, archival, restore, and repair into
    recovery drills.
 
-## Component docs
+## Documentation map
 
-| Doc | Covers | Stage |
-|---|---|---|
-| [`fs-replication.md`](fs-replication.md) | SeaweedFS single-host replication; multi-host durability | S4-1 |
-| [`catalogue-backup.md`](catalogue-backup.md) | Scheduled `mongodump` to the cold store; manifest; backup user | S4-2, H1 |
-| [`consistency-reconcile.md`](consistency-reconcile.md) | Dangling/orphan detection; store enumeration; gated reclaim | S4-3, H2 |
-| [`archival.md`](archival.md) | Real cold-tier archival; local-copy reclaim | S4-4, H3 |
-| [`verify-repair.md`](verify-repair.md) | Restore-from-cold; integrity repair | S4-5, H4 |
-| [`disaster-recovery.md`](disaster-recovery.md) | Operator recovery runbook + drills | S4-7 |
-| [`validation.md`](validation.md) | Build, test, smoke checks, the test boundary | S5 |
+**Overview**
 
-## Stage history
+| Doc | Covers |
+|---|---|
+| [`overview.md`](overview.md) | What cerebro-fs is, the problem it solves, capabilities, guarantees |
+| [`architecture.md`](architecture.md) | Components, storage and catalogue model, data lifecycle, durability model |
 
-- **Stage 1** — `cerebro-fs`: SeaweedFS object storage integration.
-- **Stage 2** — lifecycle, retention, provenance, append-only audit, telemetry.
-- **Stage 3** — Faktory workers: tiering, verification, the restore state machine,
-  retention sweep.
-- **Stage 4** — backup & recovery: replication (S4-1), catalogue backup (S4-2),
-  consistency reconcile (S4-3), cold archival (S4-4), verify-repair / restore (S4-5),
-  hardening (S4-6: H1 backup-user provisioning, H2 orphan enumeration, H3 local-copy
-  reclaim, H4 repair-from-cold), and the DR runbook (S4-7).
-- **Stage 5** — documentation & testing hardening: unit tests over the pure logic,
-  drift fixes, this index, and the validation guide.
+**Operations**
+
+| Doc | Covers |
+|---|---|
+| [`administration.md`](administration.md) | Deploying, configuring (configuration reference), secrets, durability prerequisites |
+| [`maintenance.md`](maintenance.md) | The scheduled-job catalogue and on-demand operations |
+| [`fs-replication.md`](fs-replication.md) | SeaweedFS replication; multi-host durability |
+| [`catalogue-backup.md`](catalogue-backup.md) | Scheduled catalogue backups; manifest; backup user |
+| [`consistency-reconcile.md`](consistency-reconcile.md) | Dangling/orphan detection; store enumeration; gated reclaim |
+| [`archival.md`](archival.md) | Cold-tier archival; local-copy reclaim |
+| [`verify-repair.md`](verify-repair.md) | Restore-from-cold; integrity repair |
+| [`disaster-recovery.md`](disaster-recovery.md) | Operator recovery runbook + drills |
+
+**Reference**
+
+| Doc | Covers |
+|---|---|
+| [`validation.md`](validation.md) | Build, test, smoke checks, the test boundary |
 
 ## Conventions
 

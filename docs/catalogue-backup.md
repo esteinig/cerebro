@@ -1,9 +1,9 @@
-# Catalogue & audit backup / restore (Stage 4, S4-2)
+# Catalogue & audit backup / restore
 
 The MongoDB control plane — every team's file catalogue, lifecycle state,
 provenance, users, schedules, and the tamper-evident audit chain — is
 irreplaceable. Lose it and the objects in `cerebro-fs` are orphaned and the audit
-history is gone. S4-2 adds a scheduled, checksum-verified, audit-chain-aware
+history is gone. cerebro-fs adds a scheduled, checksum-verified, audit-chain-aware
 backup of that control plane, plus a scripted restore.
 
 ## What runs
@@ -27,7 +27,7 @@ scheduler (`seed:catalogue_backup`, queue `maintenance`). Each run:
 
 The job is heavy I/O and lives in the worker, never in an API request handler.
 
-## Object store backends (D1)
+## Object store backends
 
 The backup engine is written against a small `ObjectStore` trait, so the target
 is swappable:
@@ -37,8 +37,8 @@ is swappable:
   physically separate from the SeaweedFS data, or — for host-failure durability —
   an NFS / remote mount. The default compose named volume `cerebro_backups` lives
   on the same Docker host, so override the `/backups` mount for production.
-- **S3-compatible (S4-4).** AWS S3 / MinIO / SeaweedFS-S3 land behind the same
-  trait in S4-4, with no change to the backup or retention logic.
+- **S3-compatible.** AWS S3 / MinIO / SeaweedFS-S3 land behind the same
+  trait, with no change to the backup or retention logic.
 
 ## Configuration
 
@@ -56,10 +56,10 @@ store path are set.
 
 The compose template wires these on the worker and mounts the store at `/backups`.
 
-### The backup user + secret (auto-provisioned, H1)
+### The backup user + secret (auto-provisioned)
 
 `mongodump` needs MongoDB credentials, and the catalogue backup must never run with
-write access. As of H1 this is **auto-provisioned** by `cerebro stack deploy` — no
+write access. This is **auto-provisioned** by `cerebro stack deploy` — no
 manual step:
 
 - `mongo-init` creates a `cerebro_backup` user (configurable via
@@ -88,7 +88,7 @@ platform.
 
 `templates/stack/scripts/restore-catalogue.sh` performs an operator-gated restore
 from the filesystem store. It is intentionally **not** an automatic job — a
-restore overwrites live data (D6).
+restore overwrites live data.
 
 ```bash
 # Validate a backup is loadable, without writing (checksum + mongorestore --dryRun):
@@ -127,12 +127,12 @@ validated against a running stack.
 
 ## Limits / follow-ons
 
-- **Point-in-time recovery.** Scheduled `mongodump` gives daily granularity (D5).
+- **Point-in-time recovery.** Scheduled `mongodump` gives daily granularity.
   Continuous PITR needs a MongoDB **replica set** with oplog capture — documented
   as an HA upgrade, not enabled here.
 - **Encryption at rest.** Backups are checksummed but not encrypted by the engine;
-  encrypt the underlying store (or the S3 bucket in S4-4) for confidentiality.
-- **Backup-user auto-provisioning** from the deploy CLI is **delivered** (H1): the
+  encrypt the underlying store (or the S3 bucket) for confidentiality.
+- **Backup-user auto-provisioning** from the deploy CLI is **delivered**: the
   configure/render step generates the `cerebro_backup` user and writes the backup
   URI secret, so backups are active by default. Override by replacing the rendered
   secret.

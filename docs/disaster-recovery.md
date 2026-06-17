@@ -1,14 +1,14 @@
-# Cerebro disaster-recovery runbook (Stage 4, S4-7)
+# Cerebro disaster-recovery runbook
 
 Operator procedures for detecting, containing, and recovering from data-loss and
 integrity incidents on a Cerebro deployment. This is the **top-level** recovery
 document; it orchestrates the machinery described in detail in:
 
-- `fs-replication.md` — SeaweedFS single-host replication (S4-1)
-- `catalogue-backup.md` — scheduled MongoDB backups to the cold store (S4-2, H1)
-- `consistency-reconcile.md` — dangling/orphan detection + gated reclaim (S4-3, H2)
-- `archival.md` — real cold-tier archival + local-copy reclaim (S4-4, H3)
-- `verify-repair.md` — restore-from-cold + integrity repair (S4-5, H4)
+- `fs-replication.md` — SeaweedFS single-host replication
+- `catalogue-backup.md` — scheduled MongoDB backups to the cold store
+- `consistency-reconcile.md` — dangling/orphan detection + gated reclaim
+- `archival.md` — real cold-tier archival + local-copy reclaim
+- `verify-repair.md` — restore-from-cold + integrity repair
 
 > **Audience.** A Cerebro operator with shell access to the deployment host, the
 > `docker compose` project, an admin API token, and read access to the backup and
@@ -44,16 +44,16 @@ Every class of state has exactly one authoritative recovery source. Know yours
 
 | Data class | Lives in | Recovery source | RPO (data age on recovery) | If the source is also gone |
 |---|---|---|---|---|
-| **Catalogue** (file records, lifecycle, audit chain) | MongoDB `cerebro-database` | Latest verified `mongodump` in the cold store (S4-2) | The backup interval | Catalogue is unrecoverable — see §3 prevention |
+| **Catalogue** (file records, lifecycle, audit chain) | MongoDB `cerebro-database` | Latest verified `mongodump` in the cold store | The backup interval | Catalogue is unrecoverable — see §3 prevention |
 | **Filer metadata** (path → fid map) | MongoDB (filer store) | Same whole-instance dump, **if** the filer DB is co-located in `cerebro-database`; else SeaweedFS filer's own store | The backup interval | Rebuild path map by re-indexing volumes (vendor procedure) |
-| **Live object bytes** (non-archived) | SeaweedFS volumes | The S4-1 **replica** copy | None (current) | If archived: the cold store. If not: **lost** |
+| **Live object bytes** (non-archived) | SeaweedFS volumes | The **replica** copy | None (current) | If archived: the cold store. If not: **lost** |
 | **Archived object bytes** | The **cold store** (NFS/disk/S3) | The cold store *is* the backup | None (current) | Unrecoverable — the cold store must be independently durable |
 | **Audit chain integrity** | MongoDB | The dump; its manifest records `audit_chain_verified` | The backup interval | A restore cannot launder a broken chain (manifest gate) |
 
 Two consequences worth internalising:
 
 - **A non-archived, single-replica object that loses both copies has no recovery
-  source.** Replication (S4-1) and archival cadence (S4-4) are what keep objects out
+  source.** Replication and archival cadence are what keep objects out
   of this category. Prevention lives in those two knobs.
 - **The cold store is a real backup target and must be durable on its own** (RAID +
   offsite/object-lock, or S3 with versioning). Cerebro does not replicate the cold
@@ -110,7 +110,7 @@ Do this on **any** suspected data-loss or integrity incident, before recovery.
 | `cerebro-app` | Web UI | No |
 | `cerebro-database` | MongoDB: catalogue, audit chain, (often) filer metadata | **Yes** |
 | `cerebro-fs-master` | SeaweedFS master (topology) | Cluster metadata |
-| `cerebro-fs-primary` / `cerebro-fs-replica` | SeaweedFS volumes (replicated, S4-1) | **Yes — object bytes** |
+| `cerebro-fs-primary` / `cerebro-fs-replica` | SeaweedFS volumes (replicated) | **Yes — object bytes** |
 | `cerebro-fs-secondary` | Additional volume capacity | **Yes — object bytes** |
 | `cerebro-fs-filer` | SeaweedFS filer (path addressing) | Metadata (in Mongo) |
 | `faktory` | Job queue | Transient queue |
@@ -138,7 +138,7 @@ Each scenario: **Detect → Assess → Recover → Verify → Abort.**
 **Detect.** A volume or disk failed. `cerebro-fs-master` reports a volume down;
 some reads are slow or briefly fail; the API still serves.
 
-**Assess.** With S4-1 replication (`replication: "001"` or higher), every object has
+**Assess.** With replication (`replication: "001"` or higher), every object has
 a second copy. The cluster heals automatically; you confirm and, if needed, nudge it.
 
 ```bash
@@ -251,7 +251,7 @@ filer store points before acting.
 - A known object is retrievable by its filer **path** again.
 - `effective_identifier`-based retrieval works for path-addressed files (verify a
   sample by downloading and hashing against the catalogue hash).
-- Reconcile orphan detection (filer-mode, H2) runs and reports a sane object count —
+- Reconcile orphan detection (filer mode) runs and reports a sane object count —
   a count near zero would indicate the filer is still not listing.
 
 **Abort.** If path retrieval still fails after restore, fall back to fid-addressed
@@ -266,7 +266,7 @@ filer rebuild.
 bytes do not match catalogue hash`, or the lifecycle verify metric fires an alert.
 
 **Assess.** Cerebro repairs this automatically **when the file has a cold backup**
-(`archive_key`). The retained-backup behaviour (H4) means any file that was archived
+(`archive_key`). The retained-backup behaviour means any file that was archived
 at least once keeps a durable cold copy for its whole life. Check the log line for
 whether repair already happened:
 
@@ -342,7 +342,7 @@ budget, re-confirm completeness first.
 `archive_reclaim` logs `archived file missing its cold copy`; new archival errors.
 
 **Assess.** Impact depends on what was *only* in cold:
-- Files that are **archived and whose local copy was reclaimed** (H3) have the cold
+- Files that are **archived and whose local copy was reclaimed** have the cold
   store as their only copy — those are at risk.
 - Files still holding a local copy are safe; the cold loss only removes their backup.
 - The **catalogue backups** also live here — losing the cold store can also mean

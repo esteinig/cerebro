@@ -45,13 +45,13 @@ modules.
 | Module | Unit-tested logic | Tests |
 |---|---|---|
 | `model/api/files/model.rs` | `effective_identifier` (path vs fid), legal-hold/expiry rules, fixtures | 8 |
-| `fs/src/filer.rs` | object-URL joining; **filer-listing parser** (dir bit, mtime parse, pagination, defaults — H2/S5-1) | 7 |
+| `fs/src/filer.rs` | object-URL joining; **filer-listing parser** (dir bit, mtime parse, pagination, defaults) | 7 |
 | `fs/src/client.rs` | `is_filer_path`, remote-path building, segment sanitisation | 6 |
-| `worker/backup.rs` | `path_for` traversal-safety, FS store round-trip, **`exists`** (FS + trait default — S5-2), backup-ref parsing, retention selection, manifest round-trip | 7 |
+| `worker/backup.rs` | `path_for` traversal-safety, FS store round-trip, **`exists`** (FS + trait default), backup-ref parsing, retention selection, manifest round-trip | 7 |
 | `worker/reconcile.rs` | `find_dangling`, `find_orphans`, `within_grace` (the reconcile engine) | 3 |
 | `worker/archive.rs` | `archive_key_for` (namespacing, sanitisation, determinism) | 2 |
-| `worker/runners/archive_reclaim.rs` | **`is_reclaim_candidate`** gate (archived + key + grace — S5-2) | 3 |
-| `worker/runners/verify.rs` | `retrievable`, **`is_repairable`** (S5-3), `is_verify_due` rotation, arg defaults | 4 |
+| `worker/runners/archive_reclaim.rs` | **`is_reclaim_candidate`** gate (archived + key + grace) | 3 |
+| `worker/runners/verify.rs` | `retrievable`, **`is_repairable`**, `is_verify_due` rotation, arg defaults | 4 |
 
 ## 4. The boundary: unit-tested vs environment-validated
 
@@ -59,7 +59,7 @@ Unit tests **cannot** cover the parts that talk to infrastructure. Those are
 correct-by-inspection here and must be validated on a running stack:
 
 - **SeaweedFS I/O** — weed/filer upload, download, list, delete, `exists`, and volume
-  operations. The listing *parser* is unit-tested (S5-1); the *HTTP walk* is not.
+  operations. The listing *parser* is unit-tested; the *HTTP walk* is not.
 - **MongoDB** — `mongodump`/`mongorestore` execution, the catalogue/audit queries,
   CAS-guarded lifecycle and relocate updates. The `mongodump` *arg vector* is
   unit-tested; the *process* is not.
@@ -93,7 +93,7 @@ maintenance automation:
    with sane catalogue/store counts and low, explained divergence.
 5. **Archival round-trip** (if a cold store is configured). Let a file archive, then
    restore it and confirm the restored bytes match the catalogue hash. This exercises
-   archival, the retained backup pointer (H4), and restore together.
+   archival, the retained backup pointer, and restore together.
 
 ## 6. Recovery drills
 
