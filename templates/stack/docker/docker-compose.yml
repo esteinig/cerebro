@@ -477,9 +477,10 @@ services:
       CEREBRO_FS_ACCESS: filer
       CEREBRO_WORKER_QUEUES: default,lifecycle,maintenance
       CEREBRO_WORKER_METRICS_ADDR: 0.0.0.0:9464
-      # Catalogue backup (S4-2). Active only when a backup Mongo URI is supplied
-      # (as the secret below). Point CEREBRO_BACKUP_STORE_PATH at the mounted store;
-      # the URI should be a READ-ONLY MongoDB user (see docs/catalogue-backup.md).
+      # Catalogue backup (S4-2). The backup Mongo URI secret below is now
+      # auto-provisioned by `cerebro stack deploy` (H1): mongo-init creates a
+      # `cerebro_backup` user with the read-only `backup` role and deploy renders
+      # the URI. Point CEREBRO_BACKUP_STORE_PATH at the mounted store.
       CEREBRO_BACKUP_MONGO_URI_FILE: /run/secrets/cerebro_backup_mongo_uri
       # Empty = dump the whole instance (the control plane spans every team's
       # catalogue DB plus users/audit/schedules). Set a value to scope to one DB.
@@ -557,9 +558,10 @@ secrets:
     file: {{{ outdir }}}/mongodb/worker_bot.secret
   retention_config:
     file: {{{ outdir }}}/fs/retention.env
-  # Read-only MongoDB connection URI for catalogue backups (S4-2). The operator
-  # creates this file (and the read-only Mongo user it points at) — see
-  # docs/catalogue-backup.md. mongodump only needs read access.
+  # MongoDB connection URI for catalogue backups (S4-2). Auto-provisioned by
+  # `cerebro stack deploy` (H1) from the `cerebro_backup` user that mongo-init
+  # creates with the read-only `backup` role — no manual setup. To use an external
+  # or differently-scoped backup user, overwrite this file after deploy.
   cerebro_backup_mongo_uri:
     file: {{{ outdir }}}/mongodb/backup_mongo_uri.secret
   

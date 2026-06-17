@@ -336,7 +336,17 @@ pub struct MongoDbConfig {
     pub service_db_name: String,
     #[serde(default = "default_service_project_name")]
     pub service_project_name: String,
+    // Backup service-user for catalogue backups (S4-2/H1). Auto-provisioned by
+    // mongo-init with MongoDB's built-in `backup` role (mongodump-of-everything,
+    // read-only). The password defaults empty and is generated at configure time,
+    // so an existing stack.toml that predates this still deploys.
+    #[serde(default = "default_backup_username")]
+    pub backup_username: String,
+    #[serde(default)]
+    pub backup_password: String,
 }
+
+fn default_backup_username() -> String { "cerebro_backup".to_string() }
 
 fn default_service_bot_name() -> String { "Cerebro Lifecycle Worker".to_string() }
 fn default_service_bot_email() -> String { "worker@cerebro".to_string() }
@@ -369,6 +379,8 @@ impl MongoDbConfig {
             service_team_name: default_service_team_name(),
             service_db_name: default_service_db_name(),
             service_project_name: default_service_project_name(),
+            backup_username: default_backup_username(),
+            backup_password: String::new(),
         }
     }
     pub fn default_web(
@@ -396,6 +408,8 @@ impl MongoDbConfig {
             service_team_name: default_service_team_name(),
             service_db_name: default_service_db_name(),
             service_project_name: default_service_project_name(),
+            backup_username: default_backup_username(),
+            backup_password: String::new(),
         }
     }
 }
@@ -1946,6 +1960,22 @@ impl StackConfig {
         log::info!("Hash Cerebro service bot password using salted Argon2");
         self.mongodb.service_bot_password_hashed = hash_password(&self.mongodb.service_bot_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
+        // Backup service-user password (S4-2/H1). Generated alphanumeric (URI-safe,
+        // so no percent-encoding is needed when it is embedded in the backup
+        // connection string) if not supplied. mongo-init creates the user with the
+        // built-in `backup` role on first initialisation; this is the credential
+        // the catalogue-backup mongodump authenticates with from then on.
+        if self.mongodb.backup_password.is_empty() {
+            use rand::Rng;
+            let pw: String = rand::thread_rng()
+                .sample_iter(&rand::distributions::Alphanumeric)
+                .take(32)
+                .map(char::from)
+                .collect();
+            log::warn!("No backup user password provided; generated a random one (stored in the deployment config)");
+            self.mongodb.backup_password = pw;
+        }
+
         log::info!("Hash Traefik dashboard password using Bcrypt2");
         if !self.traefik.is_localhost {
             // Hash the required passwords - Bcrypt for Traefik dashboard 
@@ -2130,6 +2160,19 @@ impl StackConfig {
         // The file holds only the password (trimmed), matching the token-file
         // convention.
         write_rendered_template(self.mongodb.service_bot_password.as_bytes(), &dir_tree.mongodb.join("worker_bot.secret"))?;
+
+        // Backup connection URI as a standalone Docker secret (S4-2/H1). Built from
+        // the auto-provisioned backup user (mongo-init creates it with the built-in
+        // `backup` role), so the catalogue-backup mongodump authenticates without
+        // any manual user setup. The generated password is alphanumeric, so it is
+        // safe to embed in the URI without percent-encoding. Kept out of the
+        // compose `environment:` so the plaintext is never exposed via
+        // `docker inspect`; the worker reads it from CEREBRO_BACKUP_MONGO_URI_FILE.
+        let backup_uri = format!(
+            "mongodb://{}:{}@cerebro-database:27017/?authSource=admin",
+            self.mongodb.backup_username, self.mongodb.backup_password
+        );
+        write_rendered_template(backup_uri.as_bytes(), &dir_tree.mongodb.join("backup_mongo_uri.secret"))?;
 
         handlebars.register_template_file(&stack_assets.templates.names.cerebro_app, &stack_assets.templates.paths.cerebro_app).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
         let render = handlebars.render(&stack_assets.templates.names.cerebro_app, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;

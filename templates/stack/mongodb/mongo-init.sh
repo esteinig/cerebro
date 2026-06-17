@@ -39,6 +39,18 @@ db.createUser({
   ]
 })
 
+// Backup service-user (S4-2/H1). The built-in 'backup' role grants exactly what
+// mongodump needs to dump the whole instance and nothing more (read-only). The
+// catalogue-backup worker authenticates as this user via the rendered
+// backup_mongo_uri.secret, so no manual user setup is required.
+db.createUser({
+  user: '$CEREBRO_BACKUP_USERNAME',
+  pwd: '$CEREBRO_BACKUP_PASSWORD',
+  roles: [
+    {role: 'backup', db: 'admin'}
+  ]
+})
+
 use cerebro
 db.createCollection('users')
 db.getCollection('users').insertOne(

@@ -56,31 +56,29 @@ store path are set.
 
 The compose template wires these on the worker and mounts the store at `/backups`.
 
-### Operator step: the read-only backup user + secret
+### The backup user + secret (auto-provisioned, H1)
 
-`mongodump` needs MongoDB credentials. So the catalogue backup never runs with
-write access, the operator supplies a **read-only** user and points the worker at
-it via a Docker secret:
+`mongodump` needs MongoDB credentials, and the catalogue backup must never run with
+write access. As of H1 this is **auto-provisioned** by `cerebro stack deploy` — no
+manual step:
 
-1. Create a read-only user in MongoDB, e.g.:
-   ```js
-   db.getSiblingDB("admin").createUser({
-     user: "cerebro_backup",
-     pwd:  "<strong-password>",
-     roles: [ { role: "readAnyDatabase", db: "admin" } ]
-   })
-   ```
-2. Write its connection URI to the secret file the compose `secrets:` block
-   references:
-   ```
-   {{ outdir }}/mongodb/backup_mongo_uri.secret
-   # contents, one line:
-   mongodb://cerebro_backup:<strong-password>@cerebro-database:27017/?authSource=admin
-   ```
+- `mongo-init` creates a `cerebro_backup` user (configurable via
+  `mongodb.backup_username`) with MongoDB's built-in **`backup`** role on `admin`,
+  which grants exactly the read access `mongodump` needs to dump the whole instance
+  and nothing more.
+- The password defaults to a generated 32-character alphanumeric string (URI-safe,
+  so no percent-encoding is needed) unless you set `mongodb.backup_password`.
+- deploy renders the connection URI to the Docker secret the compose `secrets:`
+  block references:
+  ```
+  {{ outdir }}/mongodb/backup_mongo_uri.secret
+  # contents, one line:
+  mongodb://cerebro_backup:<generated>@cerebro-database:27017/?authSource=admin
+  ```
 
-Auto-provisioning this user and secret from the deploy CLI (mirroring how the
-service Bot is seeded) is a small, deliberate follow-on — kept out of this change
-so S4-2 stays scoped to the backup engine itself.
+`mongo-init` only runs on first database initialisation, so this is the credential
+the backup authenticates with from then on. To use an external or differently-scoped
+backup user, overwrite `backup_mongo_uri.secret` after deploy.
 
 The worker image installs `mongodb-database-tools` (for `mongodump`) in
 `Dockerfile.worker`; the pinned version/arch there may need adjusting for your
