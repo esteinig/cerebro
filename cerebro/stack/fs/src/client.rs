@@ -260,6 +260,29 @@ impl FileSystemClient {
         }
     }
 
+    /// Check whether the backing object for `fid` is present in the store (S4-3).
+    ///
+    /// A cheap `HEAD {url}/{fid}`: a success status means the object is present,
+    /// `404` means it is absent. The consistency-reconcile scan uses this to detect
+    /// *dangling* catalogue references — entries whose object has gone missing —
+    /// without downloading the object. A definite `404` is reported as absent; any
+    /// other non-success status is an error so a transient fault is never mistaken
+    /// for a missing object.
+    pub fn object_exists(&self, fid: &str) -> Result<bool, FileSystemError> {
+        let url = format!("{}/{}", self.get_url(), fid);
+
+        let response = reqwest::blocking::Client::new()
+            .head(&url)
+            .send()?;
+
+        match response.status() {
+            StatusCode::NOT_FOUND => Ok(false),
+            s if s.is_success() => Ok(true),
+            StatusCode::SERVICE_UNAVAILABLE => Err(FileSystemError::UnhealthyCluster),
+            status => Err(FileSystemError::UnexpectedResponseStatus(status)),
+        }
+    }
+
     // Cerebro API file entry deletion followed by Cerebro FS file deletion
     // Needs improvements especially when the identifiers returned becomes larger
     pub fn delete_files(

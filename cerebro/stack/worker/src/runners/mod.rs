@@ -8,12 +8,14 @@
 //! * [`restore_drive`] — archival restore state machine (S3-3b);
 //! * [`restore_scan`] — re-drive stranded in-flight restores (S3-5 #2);
 //! * [`verify`] — `verify_file` + `verify_scan` integrity checks (S3-3a);
-//! * [`catalogue_backup`] — scheduled MongoDB control-plane backup (S4-2).
+//! * [`catalogue_backup`] — scheduled MongoDB control-plane backup (S4-2);
+//! * [`reconcile`] — catalogue/object-store consistency reconcile (S4-3).
 //!
 //! Every runner records a `started` then a terminal outcome on the worker metrics.
 
 pub mod catalogue_backup;
 pub mod ping;
+pub mod reconcile;
 pub mod restore_drive;
 pub mod restore_scan;
 pub mod retention_sweep;
@@ -22,6 +24,7 @@ pub mod verify;
 
 pub use catalogue_backup::CatalogueBackup;
 pub use ping::Ping;
+pub use reconcile::{ReconcileReclaim, ReconcileScan};
 pub use restore_drive::RestoreDrive;
 pub use restore_scan::RestoreScan;
 pub use retention_sweep::{PurgeReclaim, RetentionSweep};

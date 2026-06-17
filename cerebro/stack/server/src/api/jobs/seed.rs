@@ -124,6 +124,21 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 6 * 3600,
             retry: 2,
         },
+        // Consistency reconcile (S4-3): a weekly, report-first sweep that probes
+        // each catalogue entry's backing object and reports dangling references.
+        // It never mutates state (S4-5 repairs); orphan reclaim is a separate,
+        // operator-gated `reconcile_reclaim` job and is deliberately NOT seeded.
+        // Generous reservation — it HEAD-probes the whole estate.
+        SeedSpec {
+            id: "seed:reconcile_scan",
+            kind: "reconcile_scan",
+            args: json!({}),
+            queue: "maintenance",
+            offset_secs: 420,
+            interval_secs: 7 * DAY,
+            reserve_for_secs: 6 * 3600,
+            retry: 2,
+        },
     ];
 
     let total = specs.len() as u32;
