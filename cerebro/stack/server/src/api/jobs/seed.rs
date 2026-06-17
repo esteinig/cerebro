@@ -108,6 +108,22 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 600,
             retry: 3,
         },
+        // Catalogue backup (S4-2): daily mongodump of the control plane to the
+        // backup object store. No-op unless the worker has backup settings
+        // (CEREBRO_BACKUP_MONGO_URI + CEREBRO_BACKUP_STORE_PATH), so seeding the
+        // schedule is safe even before a backup target is configured. Given a
+        // generous reservation — a dump + upload of a large catalogue is slower
+        // than the lifecycle scans.
+        SeedSpec {
+            id: "seed:catalogue_backup",
+            kind: "catalogue_backup",
+            args: json!({}),
+            queue: "maintenance",
+            offset_secs: 360,
+            interval_secs: DAY,
+            reserve_for_secs: 6 * 3600,
+            retry: 2,
+        },
     ];
 
     let total = specs.len() as u32;

@@ -443,9 +443,15 @@ services:
     command: cargo watch -w /usr/src/cerebro/cerebro/lib/model -w /usr/src/cerebro/cerebro/stack/worker -w /usr/src/cerebro/Cargo.toml -x "run -p cerebro-worker"
     ports:
       - "9464:9464"   # worker /metrics + /health
-    volumes:
-      - {{{ outdir }}}/cerebro:/usr/src/cerebro
     {{/if}}
+    volumes:
+      {{#if dev}}
+      - {{{ outdir }}}/cerebro:/usr/src/cerebro
+      {{/if}}
+      # Catalogue backup store (S4-2). Default local named volume; for an
+      # independent failure domain override this to a separate disk or an NFS /
+      # remote mount (see docs/catalogue-backup.md).
+      - cerebro_backups:/backups
     expose:
       - 9464
     networks:
@@ -471,9 +477,21 @@ services:
       CEREBRO_FS_ACCESS: filer
       CEREBRO_WORKER_QUEUES: default,lifecycle,maintenance
       CEREBRO_WORKER_METRICS_ADDR: 0.0.0.0:9464
+      # Catalogue backup (S4-2). Active only when a backup Mongo URI is supplied
+      # (as the secret below). Point CEREBRO_BACKUP_STORE_PATH at the mounted store;
+      # the URI should be a READ-ONLY MongoDB user (see docs/catalogue-backup.md).
+      CEREBRO_BACKUP_MONGO_URI_FILE: /run/secrets/cerebro_backup_mongo_uri
+      # Empty = dump the whole instance (the control plane spans every team's
+      # catalogue DB plus users/audit/schedules). Set a value to scope to one DB.
+      CEREBRO_BACKUP_MONGO_DB: ""
+      CEREBRO_BACKUP_STORE_PATH: /backups
+      CEREBRO_BACKUP_PREFIX: catalogue
+      CEREBRO_BACKUP_KEEP_LAST: "14"
+      CEREBRO_BACKUP_MIN_AGE_DAYS: "7"
       RUST_LOG: info
     secrets:
       - cerebro_worker_bot
+      - cerebro_backup_mongo_uri
     depends_on:
       - faktory
       - cerebro-api
@@ -497,6 +515,10 @@ volumes:
   cerebro_auth_onetime:
     driver: local
   cerebro_faktory:
+    driver: local
+  # Catalogue backup store (S4-2). Default local named volume; override the
+  # worker's /backups mount to a separate disk or NFS for real durability.
+  cerebro_backups:
     driver: local
   {{/unless}}
   {{#if fs.enabled }}
@@ -535,4 +557,9 @@ secrets:
     file: {{{ outdir }}}/mongodb/worker_bot.secret
   retention_config:
     file: {{{ outdir }}}/fs/retention.env
+  # Read-only MongoDB connection URI for catalogue backups (S4-2). The operator
+  # creates this file (and the read-only Mongo user it points at) — see
+  # docs/catalogue-backup.md. mongodump only needs read access.
+  cerebro_backup_mongo_uri:
+    file: {{{ outdir }}}/mongodb/backup_mongo_uri.secret
   

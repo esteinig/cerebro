@@ -10,6 +10,7 @@
 //! now all real: tier mover (S3-2a), retention sweep + purge/reclaim (S3-2b),
 //! restore executor (S3-3b), and integrity verify (S3-3a).
 
+mod backup;
 mod config;
 mod context;
 mod error;
@@ -23,7 +24,7 @@ use tracing::Level;
 use crate::config::WorkerConfig;
 use crate::context::WorkerContext;
 use crate::runners::{
-    Ping, PurgeReclaim, RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyScan,
+    CatalogueBackup, Ping, PurgeReclaim, RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyScan,
 };
 use crate::telemetry::Metrics;
 
@@ -98,6 +99,7 @@ async fn main() -> std::io::Result<()> {
         .register("restore_scan", RestoreScan::new(ctx.clone(), metrics.clone()))
         .register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone()))
         .register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()))
+        .register("catalogue_backup", CatalogueBackup::new(ctx.clone(), metrics.clone(), config.backup.clone()))
         .connect()
         .await
         .expect("connect to faktory");

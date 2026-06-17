@@ -49,6 +49,28 @@ pub struct WorkerConfig {
     /// letting the state machine be exercised end-to-end without a real S3 Glacier
     /// integration. Unset in production (where the real provider drives readiness).
     pub restore_simulate_seconds: Option<i64>,
+    /// Catalogue backup settings (S4-2). `Some` only when both a backup MongoDB
+    /// URI and a store path are configured; otherwise the `catalogue_backup`
+    /// runner reports "not configured" and does nothing.
+    pub backup: Option<BackupSettings>,
+}
+
+/// Settings for the scheduled catalogue/audit backup (S4-2).
+#[derive(Debug, Clone)]
+pub struct BackupSettings {
+    /// Read-only MongoDB connection string `mongodump` runs against.
+    pub mongo_uri: String,
+    /// Database to dump (the Cerebro catalogue DB).
+    pub mongo_db: String,
+    /// Filesystem object-store root (a mounted backup volume / NFS). The S3
+    /// backend (S4-4) will add a URL form behind the same store trait.
+    pub store_root: std::path::PathBuf,
+    /// Key prefix under the store for catalogue backups.
+    pub prefix: String,
+    /// Most-recent backups to always retain.
+    pub keep_last: usize,
+    /// Age floor (days) before an older-than-`keep_last` backup may be pruned.
+    pub min_age_days: i64,
 }
 
 fn env_opt(key: &str) -> Option<String> {
@@ -121,6 +143,7 @@ impl WorkerConfig {
             verify_on_move: env_bool("CEREBRO_WORKER_VERIFY_ON_MOVE"),
             restore_simulate_seconds: env_opt("CEREBRO_RESTORE_SIMULATE_SECONDS")
                 .and_then(|v| v.parse::<i64>().ok()),
+            backup: BackupSettings::from_env(),
         }
     }
 
@@ -134,5 +157,27 @@ impl WorkerConfig {
             access: self.fs_access.clone(),
             danger_invalid_certificate: self.danger_invalid_certificate,
         }
+    }
+}
+
+impl BackupSettings {
+    /// Read backup settings from the environment (S4-2). Returns `None` — backup
+    /// disabled — unless both a backup MongoDB URI and a store path are provided,
+    /// so the feature is strictly opt-in.
+    pub fn from_env() -> Option<Self> {
+        let mongo_uri = env_or_file("CEREBRO_BACKUP_MONGO_URI")?;
+        let store_root = env_opt("CEREBRO_BACKUP_STORE_PATH")?;
+        Some(Self {
+            mongo_uri,
+            mongo_db: env_or("CEREBRO_BACKUP_MONGO_DB", ""),
+            store_root: store_root.into(),
+            prefix: env_or("CEREBRO_BACKUP_PREFIX", "catalogue"),
+            keep_last: env_opt("CEREBRO_BACKUP_KEEP_LAST")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(14),
+            min_age_days: env_opt("CEREBRO_BACKUP_MIN_AGE_DAYS")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(7),
+        })
     }
 }
