@@ -385,4 +385,69 @@ mod tests {
         let c = client();
         assert_eq!(c.object_url(""), "http://localhost:8888/");
     }
+
+    // --- Filer listing parser (H2) ---
+
+    #[test]
+    fn entry_directory_bit_detected() {
+        // The directory bit is Go's os.ModeDir = 1 << 31.
+        let dir = RawFilerEntry { full_path: "/a/b".into(), mtime: None, mode: 1 << 31 };
+        assert!(dir.is_dir());
+        let dir_with_perms =
+            RawFilerEntry { full_path: "/a/b".into(), mtime: None, mode: (1 << 31) | 0o755 };
+        assert!(dir_with_perms.is_dir());
+        let file = RawFilerEntry { full_path: "/a/b.gz".into(), mtime: None, mode: 0o644 };
+        assert!(!file.is_dir());
+    }
+
+    #[test]
+    fn entry_mtime_parses_rfc3339_else_none() {
+        let ok = RawFilerEntry {
+            full_path: "/f".into(),
+            mtime: Some("2024-01-02T03:04:05Z".into()),
+            mode: 0,
+        };
+        assert!(ok.parsed_mtime().is_some());
+        let bad =
+            RawFilerEntry { full_path: "/f".into(), mtime: Some("not-a-date".into()), mode: 0 };
+        assert!(bad.parsed_mtime().is_none()); // unparseable -> None, never an error
+        let missing = RawFilerEntry { full_path: "/f".into(), mtime: None, mode: 0 };
+        assert!(missing.parsed_mtime().is_none());
+    }
+
+    #[test]
+    fn listing_deserializes_entries_and_pagination() {
+        let json = r#"{
+            "Entries": [
+                { "FullPath": "/run/sub", "Mtime": "2024-01-02T03:04:05Z", "Mode": 2147483648 },
+                { "FullPath": "/run/reads.gz", "Mtime": "2024-01-02T03:04:05Z", "Mode": 420 }
+            ],
+            "LastFileName": "reads.gz",
+            "ShouldDisplayLoadMore": true
+        }"#;
+        let parsed: FilerListing = serde_json::from_str(json).expect("valid listing");
+        let entries = parsed.entries.expect("entries present");
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].is_dir()); // /run/sub (Mode 2147483648 = 1<<31)
+        assert!(!entries[1].is_dir()); // /run/reads.gz (Mode 420 = 0o644)
+        assert_eq!(parsed.last_file_name.as_deref(), Some("reads.gz"));
+        assert_eq!(parsed.should_display_load_more, Some(true));
+    }
+
+    #[test]
+    fn listing_tolerates_missing_optionals_and_default_is_empty() {
+        // Mode absent -> default 0 (not a dir); optional listing fields absent.
+        let json = r#"{ "Entries": [ { "FullPath": "/f" } ] }"#;
+        let parsed: FilerListing = serde_json::from_str(json).expect("valid");
+        let entries = parsed.entries.expect("entries");
+        assert_eq!(entries.len(), 1);
+        assert!(!entries[0].is_dir());
+        assert!(entries[0].parsed_mtime().is_none());
+        assert!(parsed.last_file_name.is_none());
+        assert!(parsed.should_display_load_more.is_none());
+
+        // The Default (returned on a 404 page) carries no entries.
+        let empty = FilerListing::default();
+        assert!(empty.entries.is_none());
+    }
 }
