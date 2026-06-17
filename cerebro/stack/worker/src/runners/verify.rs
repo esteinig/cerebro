@@ -79,6 +79,13 @@ fn retrievable(archived: bool) -> bool {
     !archived
 }
 
+/// Whether a verify mismatch can be repaired from cold (H4): a cold store is
+/// configured AND the file has a retained cold backup (`archive_key`). Pure, so the
+/// gate is unit-testable without a worker or store.
+fn is_repairable(archive_configured: bool, archive_key: Option<&str>) -> bool {
+    archive_configured && archive_key.is_some()
+}
+
 /// Whether a file is due for (re-)verification: never verified, or last verified
 /// longer ago than `min_interval_secs`. Pure for unit testing.
 fn is_verify_due(
@@ -125,11 +132,11 @@ impl VerifyFile {
     /// was possible (no cold backup configured / no `archive_key`), or `Err` if the
     /// repair was attempted but failed.
     async fn repair_from_cold(&self, file: &SeaweedFile) -> anyhow::Result<bool> {
-        let archive = match (&self.archive, &file.archive_key) {
-            (Some(a), Some(_)) => a.clone(),
-            _ => return Ok(false), // nothing to repair from
-        };
-        let archive_key = file.archive_key.clone().expect("checked above");
+        if !is_repairable(self.archive.is_some(), file.archive_key.as_deref()) {
+            return Ok(false); // no cold store configured, or no retained backup
+        }
+        let archive = self.archive.clone().expect("repairable checked archive present");
+        let archive_key = file.archive_key.clone().expect("repairable checked key present");
 
         let fs = self.ctx.fs()?;
         let name = file.name.clone();
@@ -439,6 +446,14 @@ mod tests {
     fn only_archived_is_unverifiable_under_logical_tiering() {
         assert!(retrievable(false));
         assert!(!retrievable(true));
+    }
+
+    #[test]
+    fn repairable_requires_cold_store_and_retained_backup() {
+        assert!(is_repairable(true, Some("archive/team/f"))); // both present
+        assert!(!is_repairable(false, Some("archive/team/f"))); // no cold store
+        assert!(!is_repairable(true, None)); // no retained backup
+        assert!(!is_repairable(false, None));
     }
 
     #[test]
