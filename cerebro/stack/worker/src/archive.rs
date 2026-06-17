@@ -59,6 +59,48 @@ pub fn archive_object(
     Ok(ArchiveOutcome { archive_key: archive_key.to_string(), bytes: bytes.len() })
 }
 
+/// Outcome of restoring one object from the cold store (S4-5).
+#[derive(Debug, Clone)]
+pub struct RestoreOutcome {
+    pub new_fid: String,
+    pub bytes: usize,
+    pub hash_verified: bool,
+}
+
+/// Restore an archived object from `store` back into SeaweedFS (S4-5).
+///
+/// Fetches the bytes at `archive_key`, verifies them against `expected_hash` (the
+/// catalogue BLAKE3) when supplied — so a corrupt cold copy can never silently
+/// replace a good catalogue entry — then re-materialises them as a *new* local
+/// object. The caller repoints the catalogue (relocate) to the returned fid,
+/// clears `archived`/`archive_key`, and lands the file on a retrievable tier.
+/// Blocking — call from a blocking context.
+pub fn restore_object(
+    fs: &FileSystemClient,
+    store: &dyn ObjectStore,
+    archive_key: &str,
+    name: &str,
+    expected_hash: Option<&str>,
+) -> anyhow::Result<RestoreOutcome> {
+    let bytes = store.get(archive_key)?;
+    let hash_verified = match expected_hash {
+        Some(expected) => {
+            let actual = cerebro_fs::hash::hash_bytes(&bytes);
+            if actual != expected {
+                anyhow::bail!(
+                    "restored bytes hash mismatch for {archive_key}: expected {expected}, got {actual}"
+                );
+            }
+            true
+        }
+        None => false,
+    };
+    let new_fid = fs
+        .write_object(name, &bytes)
+        .map_err(|e| anyhow::anyhow!("re-materialise {archive_key}: {e}"))?;
+    Ok(RestoreOutcome { new_fid, bytes: bytes.len(), hash_verified })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

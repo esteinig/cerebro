@@ -21,10 +21,12 @@ pub mod restore_scan;
 pub mod retention_sweep;
 pub mod tier_move;
 pub mod verify;
+pub mod verify_repair;
 
 pub use catalogue_backup::CatalogueBackup;
 pub use ping::Ping;
 pub use reconcile::{ReconcileReclaim, ReconcileScan};
+pub use verify_repair::VerifyRepair;
 pub use restore_drive::RestoreDrive;
 pub use restore_scan::RestoreScan;
 pub use retention_sweep::{PurgeReclaim, RetentionSweep};

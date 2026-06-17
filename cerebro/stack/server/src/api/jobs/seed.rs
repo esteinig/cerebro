@@ -139,6 +139,21 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 6 * 3600,
             retry: 2,
         },
+        // Verify-repair (S4-5): a weekly pass that consumes the latest reconcile
+        // report, confirms each dangling reference against live state (filtering
+        // transients and files archived since the scan), and escalates confirmed
+        // data loss. Staggered well after reconcile_scan so it reads a fresh report.
+        // Mutates nothing, so it is safe to run unattended.
+        SeedSpec {
+            id: "seed:verify_repair",
+            kind: "verify_repair",
+            args: json!({}),
+            queue: "maintenance",
+            offset_secs: 1800,
+            interval_secs: 7 * DAY,
+            reserve_for_secs: 3 * 3600,
+            retry: 2,
+        },
     ];
 
     let total = specs.len() as u32;

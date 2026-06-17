@@ -260,6 +260,43 @@ impl FileSystemClient {
         }
     }
 
+    /// Re-materialise in-memory `bytes` as a new SeaweedFS object, returning its
+    /// new fid (S4-5). Used by the restore path to bring an archived object back
+    /// from the cold store. The bytes are written to a temporary file and uploaded
+    /// through the same `weed upload` path as normal ingest, so the restored object
+    /// lands replicated like any other; the temporary file is always removed.
+    pub fn write_object(&self, name: &str, bytes: &[u8]) -> Result<String, FileSystemError> {
+        use std::io::Write;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "cerebro-restore-{}-{}",
+            std::process::id(),
+            name.replace(['/', '\\'], "_")
+        ));
+        {
+            let mut f = std::fs::File::create(&tmp)?;
+            f.write_all(bytes)?;
+            f.flush()?;
+        }
+
+        let result = weed_upload(
+            &tmp,
+            None,
+            None,
+            Some(self.config.master_url.clone()),
+            Some(self.config.master_port.clone()),
+            None,
+            None,
+            None,
+            None,
+            false,
+        );
+        // Best-effort cleanup regardless of upload outcome.
+        let _ = std::fs::remove_file(&tmp);
+
+        Ok(result?.fid)
+    }
+
     /// Read the full bytes of the object addressed by `fid` (S4-4).
     ///
     /// A direct `GET {url}/{fid}` returning the object body, used by the archival

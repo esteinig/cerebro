@@ -40,7 +40,10 @@ use serde_json::json;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::retention::RestoreState;
+use cerebro_model::api::files::retention::StorageTier;
+use cerebro_model::api::files::schema::FileRelocateSchema;
 
+use crate::config::ArchiveSettings;
 use crate::context::WorkerContext;
 use crate::error::WorkerError;
 use crate::runners::parse_args;
@@ -111,11 +114,70 @@ fn progress_from(
 pub struct RestoreDrive {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
+    /// Cold-store settings (S4-5). When `Some`, a ready restore re-materialises the
+    /// object's bytes from the cold store before the file is declared retrievable.
+    archive: Option<ArchiveSettings>,
 }
 
 impl RestoreDrive {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics) -> Self {
-        Self { ctx, metrics }
+    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
+        Self { ctx, metrics, archive }
+    }
+
+    /// Re-materialise an archived object from the cold store back into SeaweedFS and
+    /// repoint the catalogue (S4-5). Fetches + hash-verifies the cold bytes, writes
+    /// a new local object, then relocates the file to a retrievable tier with
+    /// `archived = false` and the new fid. Errors propagate so the caller marks the
+    /// restore failed rather than declaring a non-retrievable object restored.
+    async fn rematerialize(
+        &self,
+        api: &CerebroClient,
+        file: &SeaweedFile,
+        archive: &ArchiveSettings,
+    ) -> anyhow::Result<()> {
+        let archive_key = match &file.archive_key {
+            Some(k) => k.clone(),
+            None => anyhow::bail!(
+                "archived file {} has no archive_key; cannot re-materialise from cold",
+                file.id
+            ),
+        };
+
+        // Fetch + verify + re-upload off-executor; returns the new local fid.
+        let fs = self.ctx.fs()?;
+        let archive_c = archive.clone();
+        let name = file.name.clone();
+        let expected_hash = file.hash.clone();
+        let outcome = self
+            .ctx
+            .run_blocking(move || {
+                let store = archive_c
+                    .open_store()
+                    .map_err(|e| WorkerError::Other(format!("open cold store: {e}")))?;
+                crate::archive::restore_object(&fs, store.as_ref(), &archive_key, &name, Some(&expected_hash))
+                    .map_err(|e| WorkerError::Other(e.to_string()))
+            })
+            .await?;
+
+        // Repoint to the new local fid: clear archived/archive_key, land at Warm.
+        // CAS guards on the file's current (Cold) tier.
+        let id = file.id.clone();
+        let expected_tier = file.tier;
+        let api = api.clone();
+        let schema = FileRelocateSchema {
+            expected_tier,
+            target_tier: StorageTier::Warm,
+            archived: false,
+            fid: Some(outcome.new_fid),
+            archive_key: None,
+            clear_archive_key: true,
+        };
+        self.ctx
+            .run_blocking(move || {
+                api.relocate_file(&id, &schema).map_err(|e| WorkerError::Api(e.to_string()))
+            })
+            .await?;
+        Ok(())
     }
 
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
@@ -151,6 +213,18 @@ impl RestoreDrive {
             }
             RestoreState::InProgress => match self.restore_progress(&file) {
                 RestoreProgress::Ready => {
+                    // Re-materialise the bytes from cold before declaring the object
+                    // retrievable (S4-5). With no cold store configured this is a
+                    // no-op (the simulation seam drives dev/test).
+                    if let Some(archive) = &self.archive {
+                        if let Err(e) = self.rematerialize(&api, &file, archive).await {
+                            tracing::error!(%id, "restore re-materialisation failed: {e:#}");
+                            self.transition(&api, &id, RestoreState::Failed).await?;
+                            return Err(WorkerError::Other(format!(
+                                "restore re-materialisation failed for {id}: {e}"
+                            )));
+                        }
+                    }
                     self.transition(&api, &id, RestoreState::Restored).await?;
                     tracing::info!(%id, "restore complete; object retrievable");
                     Ok(JobOutcome::Succeeded)
