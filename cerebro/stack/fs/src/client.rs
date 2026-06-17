@@ -370,6 +370,19 @@ impl FileSystemClient {
         }
     }
 
+    /// Whether a store object is present, addressed by **filer path** or **fid**
+    /// (H3). Routes like [`Self::delete_store_object`]: a path is probed via the
+    /// filer `HEAD`, an fid via the volume `HEAD` ([`Self::object_exists`]). The
+    /// archival reclaim uses this to confirm a local copy exists before deleting it.
+    pub fn store_object_present(&self, key: &str) -> Result<bool, FileSystemError> {
+        if is_filer_path(key) {
+            let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+            Ok(filer.exists(key)?)
+        } else {
+            self.object_exists(key)
+        }
+    }
+
     // Cerebro API file entry deletion followed by Cerebro FS file deletion
     // Needs improvements especially when the identifiers returned becomes larger
     pub fn delete_files(

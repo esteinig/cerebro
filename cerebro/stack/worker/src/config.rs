@@ -193,6 +193,10 @@ pub struct ArchiveSettings {
     pub prefix: String,
     /// Selected cold-store backend.
     pub backend: ArchiveBackend,
+    /// Grace period (days) after archival before the redundant local copy is
+    /// reclaimed (H3, D4). Anchored on `tier_moved_at`. From
+    /// `CEREBRO_ARCHIVE_LOCAL_GRACE_DAYS` (default 7).
+    pub local_grace_days: i64,
 }
 
 /// Cold-store backend: a local/NFS directory (the compile-safe default) or an
@@ -218,10 +222,14 @@ impl ArchiveSettings {
     /// filesystem backend (a mounted cold disk / NFS).
     pub fn from_env() -> Option<Self> {
         let prefix = env_or("CEREBRO_ARCHIVE_PREFIX", "archive");
+        let local_grace_days = env_opt("CEREBRO_ARCHIVE_LOCAL_GRACE_DAYS")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(7);
         if let Some(endpoint) = env_opt("CEREBRO_ARCHIVE_S3_ENDPOINT") {
             let bucket = env_opt("CEREBRO_ARCHIVE_S3_BUCKET")?;
             return Some(Self {
                 prefix,
+                local_grace_days,
                 backend: ArchiveBackend::S3 {
                     endpoint,
                     region: env_or("CEREBRO_ARCHIVE_S3_REGION", "us-east-1"),
@@ -232,7 +240,11 @@ impl ArchiveSettings {
             });
         }
         let root = env_opt("CEREBRO_ARCHIVE_STORE_PATH")?;
-        Some(Self { prefix, backend: ArchiveBackend::Filesystem { root: root.into() } })
+        Some(Self {
+            prefix,
+            local_grace_days,
+            backend: ArchiveBackend::Filesystem { root: root.into() },
+        })
     }
 
     /// Open the configured cold object store. The archive *key* already carries the

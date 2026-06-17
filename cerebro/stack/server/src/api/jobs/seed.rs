@@ -154,6 +154,20 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 3 * 3600,
             retry: 2,
         },
+        // Archival local-copy reclaim (S4-6 H3): a weekly pass that deletes the
+        // redundant local copy of archived files past the grace window, gated on the
+        // cold copy being confirmed present. Active only when a cold store is
+        // configured; otherwise a no-op. Bounded per run.
+        SeedSpec {
+            id: "seed:archive_reclaim",
+            kind: "archive_reclaim",
+            args: json!({}),
+            queue: "maintenance",
+            offset_secs: 2400,
+            interval_secs: 7 * DAY,
+            reserve_for_secs: 3 * 3600,
+            retry: 2,
+        },
     ];
 
     let total = specs.len() as u32;

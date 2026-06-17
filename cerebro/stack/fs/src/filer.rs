@@ -219,6 +219,19 @@ impl FilerClient {
         }
     }
 
+    /// Whether an object exists at `remote_path` (H3): a cheap `HEAD`. `200` =>
+    /// present, `404` => absent. Used by the archival reclaim to confirm a local
+    /// filer copy is present before deleting it.
+    pub fn exists(&self, remote_path: &str) -> Result<bool, FilerError> {
+        let url = self.object_url(remote_path);
+        let response = self.http.head(&url).send()?;
+        match response.status() {
+            StatusCode::NOT_FOUND => Ok(false),
+            s if s.is_success() => Ok(true),
+            status => Err(FilerError::UnexpectedStatus(status)),
+        }
+    }
+
     /// Recursively list **file** object paths under `base` (H2), bounded by
     /// `max_objects`.
     ///

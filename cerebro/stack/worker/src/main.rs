@@ -26,7 +26,7 @@ use tracing::Level;
 use crate::config::WorkerConfig;
 use crate::context::WorkerContext;
 use crate::runners::{
-    CatalogueBackup, Ping, PurgeReclaim, ReconcileReclaim, ReconcileScan, RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyRepair, VerifyScan,
+    CatalogueBackup, Ping, PurgeReclaim, ReconcileReclaim, ReconcileScan, RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyRepair, VerifyScan, ArchiveReclaim,
 };
 use crate::telemetry::Metrics;
 
@@ -105,6 +105,7 @@ async fn main() -> std::io::Result<()> {
         .register("reconcile_scan", ReconcileScan::new(ctx.clone(), metrics.clone(), config.backup.as_ref().map(|b| b.store_root.clone())))
         .register("reconcile_reclaim", ReconcileReclaim::new(ctx.clone(), metrics.clone()))
         .register("verify_repair", VerifyRepair::new(ctx.clone(), metrics.clone(), config.backup.as_ref().map(|b| b.store_root.clone())))
+        .register("archive_reclaim", ArchiveReclaim::new(ctx.clone(), metrics.clone(), config.archive.clone()))
         .connect()
         .await
         .expect("connect to faktory");

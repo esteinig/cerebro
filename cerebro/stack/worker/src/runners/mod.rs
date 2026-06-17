@@ -15,6 +15,7 @@
 
 pub mod catalogue_backup;
 pub mod ping;
+pub mod archive_reclaim;
 pub mod reconcile;
 pub mod restore_drive;
 pub mod restore_scan;
@@ -25,6 +26,7 @@ pub mod verify_repair;
 
 pub use catalogue_backup::CatalogueBackup;
 pub use ping::Ping;
+pub use archive_reclaim::ArchiveReclaim;
 pub use reconcile::{ReconcileReclaim, ReconcileScan};
 pub use verify_repair::VerifyRepair;
 pub use restore_drive::RestoreDrive;

@@ -74,13 +74,25 @@ S4-5 (verify-repair), which re-materialises bytes from a replica or the archive
 using the same primitives. Until then, archived objects are retrieved through the
 existing restore flow / simulation seam.
 
-## Local-copy reclamation (D4)
+## Local-copy reclamation (D4, live in H3)
 
-S4-4 archives and repoints; it does not yet delete the redundant local copy. Per
-D4 (delete-after-configurable-grace), reclaiming the SeaweedFS copy once
-`archived = true` has held for a grace window is a small follow-on (a guarded
-delete keyed off `tier_moved_at`), kept separate so archival can be enabled and
-observed before any local deletion is turned on.
+S4-4 archives and repoints but keeps the local copy; the `archive_reclaim` runner
+(H3) deletes it once it is safe. A weekly, bounded pass reclaims the local copy of
+an archived file when **all** hold: the file is `archived` with an `archive_key`;
+its archival (`tier_moved_at`) is older than the grace window
+(`CEREBRO_ARCHIVE_LOCAL_GRACE_DAYS`, default 7); the **cold copy is confirmed
+present** (`ObjectStore::exists` — the safety gate, so a local copy is never
+deleted without its replacement); and a local copy still exists.
+
+It deletes by filer path when present (cleaning filer metadata and data together),
+else by fid, and is active only when a cold store is configured. After deletion the
+file stays `archived`, so reconcile skips it and retrieval goes through the restore
+path; the stale fid is harmless and is replaced on the next restore.
+
+The gate confirms cold-copy *presence*, not integrity. The archival wrote verified
+bytes and restore re-verifies the BLAKE3 on the way back, so the residual risk is a
+cold object that exists but is corrupt; operators wanting maximum safety can run a
+verify pass before enabling reclaim, or raise the grace window.
 
 ## What's tested here vs in your environment
 

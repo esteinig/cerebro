@@ -41,6 +41,13 @@ pub trait ObjectStore: Send + Sync {
     fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>>;
     /// Delete the object at `key`. Succeeds (no-op) if the key is already absent.
     fn delete(&self, key: &str) -> anyhow::Result<()>;
+    /// Whether an object exists at `key` (H3). The archival reclaim uses this as a
+    /// safety gate: a local copy is deleted only once the cold copy is confirmed
+    /// present. The default lists the key and checks for an exact match, so any
+    /// backend works without extra code; backends with a cheaper probe override it.
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
+        Ok(self.list(key)?.iter().any(|k| k == key))
+    }
 }
 
 /// Filesystem-backed object store: objects are files under `root`.
@@ -110,6 +117,10 @@ impl ObjectStore for FilesystemObjectStore {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(e.into()),
         }
+    }
+
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
+        Ok(self.path_for(key).is_file())
     }
 }
 
