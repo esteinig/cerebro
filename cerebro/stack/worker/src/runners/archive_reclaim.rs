@@ -20,7 +20,7 @@ use std::io;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use faktory::{Job, JobRunner};
 use serde::Deserialize;
 
@@ -33,6 +33,23 @@ use crate::telemetry::{JobOutcome, Metrics};
 const DEFAULT_BUDGET: u32 = 2_000;
 const DEFAULT_MAX_DELETE: usize = 200;
 const PAGE_LIMIT: u32 = 500;
+
+/// Whether a file is eligible for local-copy reclaim (H3): it is archived, has a
+/// cold key, and its archival (anchored on `tier_moved_at`) is older than the grace
+/// window. Pure, so it can be unit-tested without a worker or store. The
+/// cold-copy-present and local-copy-present checks are done separately by the runner
+/// (they require I/O); this is the cheap catalogue-only gate.
+fn is_reclaim_candidate(
+    archived: bool,
+    archive_key: Option<&str>,
+    tier_moved_at: Option<DateTime<Utc>>,
+    grace: Duration,
+    now: DateTime<Utc>,
+) -> bool {
+    archived
+        && archive_key.is_some()
+        && matches!(tier_moved_at, Some(t) if now - t >= grace)
+}
 
 #[derive(Debug, Deserialize)]
 struct ReclaimArgs {
@@ -110,18 +127,21 @@ impl ArchiveReclaim {
                         if reclaimed >= max_delete {
                             break 'outer;
                         }
-                        // Candidate gate: archived, has a cold key, past grace.
-                        if !f.archived {
+                        // Candidate gate (cheap, catalogue-only): archived, has a
+                        // cold key, past grace. Presence checks (cold + local) follow.
+                        if !is_reclaim_candidate(
+                            f.archived,
+                            f.archive_key.as_deref(),
+                            f.tier_moved_at,
+                            grace,
+                            now,
+                        ) {
                             continue;
                         }
                         let key = match &f.archive_key {
                             Some(k) => k,
-                            None => continue,
+                            None => continue, // unreachable after the gate
                         };
-                        match f.tier_moved_at {
-                            Some(t) if now - t >= grace => {}
-                            _ => continue, // unknown archival time or still within grace
-                        }
 
                         // Safety gate: the cold copy must be confirmed present.
                         match store.exists(key) {
@@ -194,5 +214,41 @@ impl JobRunner for ArchiveReclaim {
                 Err(io::Error::new(io::ErrorKind::Other, e.to_string()))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn candidate_requires_archived_key_and_past_grace() {
+        let now = Utc::now();
+        let grace = Duration::days(7);
+        // archived + key + archived 10 days ago (> 7) -> candidate
+        assert!(is_reclaim_candidate(true, Some("k"), Some(now - Duration::days(10)), grace, now));
+        // still within grace (3 days) -> not yet
+        assert!(!is_reclaim_candidate(true, Some("k"), Some(now - Duration::days(3)), grace, now));
+        // not archived -> never
+        assert!(!is_reclaim_candidate(false, Some("k"), Some(now - Duration::days(10)), grace, now));
+        // no archive_key -> nothing to fall back to, never
+        assert!(!is_reclaim_candidate(true, None, Some(now - Duration::days(10)), grace, now));
+        // unknown archival time -> cannot age it out, never
+        assert!(!is_reclaim_candidate(true, Some("k"), None, grace, now));
+    }
+
+    #[test]
+    fn grace_boundary_is_inclusive() {
+        let now = Utc::now();
+        let grace = Duration::days(7);
+        // archived exactly `grace` ago: now - t == grace, and the gate is `>= grace`.
+        assert!(is_reclaim_candidate(true, Some("k"), Some(now - Duration::days(7)), grace, now));
+    }
+
+    #[test]
+    fn zero_grace_reclaims_immediately() {
+        let now = Utc::now();
+        let grace = Duration::days(0);
+        assert!(is_reclaim_candidate(true, Some("k"), Some(now), grace, now));
     }
 }

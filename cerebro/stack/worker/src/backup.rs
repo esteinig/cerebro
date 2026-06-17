@@ -238,6 +238,50 @@ mod tests {
     }
 
     #[test]
+    fn filesystem_exists_reflects_presence() {
+        let root = std::env::temp_dir().join(format!("cerebro-ex-{}", uuid::Uuid::new_v4()));
+        let store = FilesystemObjectStore::new(&root);
+        store.put("a/b/c", b"x").unwrap();
+
+        assert!(store.exists("a/b/c").unwrap()); // the file
+        assert!(!store.exists("a/b/missing").unwrap()); // absent
+        assert!(!store.exists("a/b").unwrap()); // a directory is not a stored object
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Minimal in-memory store that does NOT override `exists`, so it exercises the
+    /// trait's default (prefix-list + exact match) — the impl the feature-gated S3
+    /// backend inherits.
+    struct MockStore {
+        keys: Vec<String>,
+    }
+    impl ObjectStore for MockStore {
+        fn put(&self, _k: &str, _b: &[u8]) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn get(&self, _k: &str) -> anyhow::Result<Vec<u8>> {
+            anyhow::bail!("get not used in this test")
+        }
+        fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+            Ok(self.keys.iter().filter(|k| k.starts_with(prefix)).cloned().collect())
+        }
+        fn delete(&self, _k: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
+        // exists: inherits the default.
+    }
+
+    #[test]
+    fn default_exists_requires_exact_match_not_prefix() {
+        let store = MockStore { keys: vec!["archive/team/a".into(), "archive/team/ab".into()] };
+        assert!(store.exists("archive/team/a").unwrap()); // exact
+        assert!(store.exists("archive/team/ab").unwrap()); // exact
+        assert!(!store.exists("archive/team/abc").unwrap()); // absent
+        assert!(!store.exists("archive/team").unwrap()); // prefix of both, but not a key
+    }
+
+    #[test]
     fn parse_refs_recovers_ids_and_times() {
         let keys = vec![
             "catalogue/20260617T031500Z/manifest.json".to_string(),
