@@ -99,7 +99,7 @@ async fn main() -> std::io::Result<()> {
         .register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()))
         .register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone(), config.archive.clone()))
         .register("restore_scan", RestoreScan::new(ctx.clone(), metrics.clone()))
-        .register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone()))
+        .register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone(), config.archive.clone()))
         .register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()))
         .register("catalogue_backup", CatalogueBackup::new(ctx.clone(), metrics.clone(), config.backup.clone()))
         .register("reconcile_scan", ReconcileScan::new(ctx.clone(), metrics.clone(), config.backup.as_ref().map(|b| b.store_root.clone())))

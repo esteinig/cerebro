@@ -297,7 +297,34 @@ impl FileSystemClient {
         Ok(result?.fid)
     }
 
-    /// Read the full bytes of the object addressed by `fid` (S4-4).
+    /// Overwrite the filer object at `path` with `bytes`, in place (S4-6 H4).
+    ///
+    /// Used when re-materialising a path-addressed file from cold: the restored
+    /// bytes are written back to the *same* filer path, so the file's
+    /// [`effective_identifier`](cerebro_model::api::files::model::SeaweedFile::effective_identifier)
+    /// stays valid and points at fresh data — no new fid, no orphaned old path.
+    /// The bytes are staged to a temp file and streamed to the filer.
+    pub fn write_object_at_path(&self, path: &str, bytes: &[u8]) -> Result<(), FileSystemError> {
+        use std::io::Write;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "cerebro-repair-{}-{}",
+            std::process::id(),
+            path.rsplit('/').next().unwrap_or("object").replace(['/', '\\'], "_")
+        ));
+        {
+            let mut f = std::fs::File::create(&tmp)?;
+            f.write_all(bytes)?;
+            f.flush()?;
+        }
+
+        let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+        let result = filer.upload(&tmp, path);
+        let _ = std::fs::remove_file(&tmp);
+        result?;
+        Ok(())
+    }
+
     ///
     /// A direct `GET {url}/{fid}` returning the object body, used by the archival
     /// engine to copy an object to the cold object store. For large objects this

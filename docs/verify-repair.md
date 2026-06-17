@@ -16,19 +16,22 @@ retrievable.
    (`ObjectStore::get`).
 2. Verify them against the catalogue BLAKE3 (`hash_bytes`) — a corrupt cold copy
    can never silently replace a good catalogue entry.
-3. Re-upload to SeaweedFS for a new fid (`write_object`, via the normal `weed
-   upload` path, so the restored object lands replicated like any other).
+3. Write the bytes back to the file's **effective location**: a path-addressed
+   filer object is overwritten in place (its path stays valid), otherwise a fresh
+   replicated weed object is written and its fid returned.
 4. Repoint the catalogue through the relocate endpoint (D3): `archived = false`,
-   the new `fid`, `archive_key` cleared, landed on the Warm tier — all under a
-   compare-and-set on the file's current (Cold) tier.
+   the new `fid` (only when one was written), landed on the Warm tier — all under a
+   compare-and-set on the file's current (Cold) tier. The `archive_key` is
+   **retained** (H4) so the restored file keeps a durable cold backup.
 
 If any step fails, the file is marked `Failed` rather than declared restored, so a
 non-retrievable object is never reported as available. With no cold store
 configured the step is a no-op and the existing simulation seam
 (`CEREBRO_RESTORE_SIMULATE_SECONDS`) drives dev/test as before.
 
-`restore_object` (engine) and `write_object` (FS client) are the new primitives;
-`RestoreDrive` gains the cold-store settings and the `rematerialize` step.
+`restore_object` (engine), `write_object`, and `write_object_at_path` (FS client)
+are the primitives; `RestoreDrive` gains the cold-store settings and the
+`rematerialize` step.
 
 ## Verify-repair (consumes reconcile reports)
 
@@ -61,9 +64,29 @@ not auto-repaired. The two genuine repair paths are elsewhere and remain active:
 - **Archived objects** (the cold copy is authoritative) → the `restore_drive` loop
   above re-materialises on demand.
 
-A natural follow-on is to feed **verify-scan** hash-mismatch findings (S3-3a) for
-*archived* files into the same restore path — a corrupt local copy of an archived
-file is repairable from cold — closing verify→repair for the integrity case too.
+## Integrity repair from cold (S4-6 H4)
+
+The dangling-reference case above has no in-system recovery source. The **integrity**
+case does: a non-archived file that fails its BLAKE3 verify but has a retained cold
+backup (`archive_key`). H4 closes verify→repair for it. When `verify_file` (S3-3a)
+finds a mismatch, before alerting it tries `repair_from_cold`:
+
+- re-pull the bytes from cold and re-verify them against the catalogue hash (a
+  corrupt cold copy can never overwrite the live entry);
+- write them back to the file's effective location (in-place filer overwrite, or a
+  fresh weed fid);
+- repoint the catalogue, keeping the file live, on its current tier, with the cold
+  backup retained; and
+- if a fresh fid replaced the corrupt object, delete the now-orphaned old bytes.
+
+Only a file with no cold backup, or a repair that errors, is escalated (metric +
+error log) for operator action. The retained `archive_key` (above) is what makes a
+restored file repairable on a later mismatch — the cold copy stays a durable backup
+pointer for the file's whole life, not just until first restore.
+
+The gate is presence + hash: repair proceeds only if the cold bytes match the
+catalogue hash, so a cold copy that is itself corrupt fails closed (escalation),
+never a bad overwrite.
 
 ## What's tested here vs in your environment
 

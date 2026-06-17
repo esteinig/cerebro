@@ -62,23 +62,34 @@ pub fn archive_object(
 /// Outcome of restoring one object from the cold store (S4-5).
 #[derive(Debug, Clone)]
 pub struct RestoreOutcome {
-    pub new_fid: String,
+    /// `Some(fid)` when a fresh weed object was written (fid-addressed file — the
+    /// caller must repoint `fid`); `None` when a path-addressed filer object was
+    /// overwritten **in place** (the path is unchanged, so no fid update is needed).
+    pub new_fid: Option<String>,
     pub bytes: usize,
     pub hash_verified: bool,
 }
 
-/// Restore an archived object from `store` back into SeaweedFS (S4-5).
+/// Restore an archived object from `store` back into SeaweedFS (S4-5; in-place for
+/// path-addressed files in S4-6 H4).
 ///
 /// Fetches the bytes at `archive_key`, verifies them against `expected_hash` (the
 /// catalogue BLAKE3) when supplied — so a corrupt cold copy can never silently
-/// replace a good catalogue entry — then re-materialises them as a *new* local
-/// object. The caller repoints the catalogue (relocate) to the returned fid,
-/// clears `archived`/`archive_key`, and lands the file on a retrievable tier.
-/// Blocking — call from a blocking context.
+/// replace a good catalogue entry — then writes them back to the file's
+/// **effective location** given in `effective_id`:
+///
+/// * a **filer path** (contains `/`) is overwritten in place, keeping the path
+///   valid and pointing at fresh data — `new_fid` is `None`;
+/// * otherwise a **new weed object** is written and its fid returned in `new_fid`.
+///
+/// The caller repoints the catalogue (relocate): it sets `fid` only when `new_fid`
+/// is `Some`, and lands the file on a retrievable tier. Blocking — call from a
+/// blocking context.
 pub fn restore_object(
     fs: &FileSystemClient,
     store: &dyn ObjectStore,
     archive_key: &str,
+    effective_id: &str,
     name: &str,
     expected_hash: Option<&str>,
 ) -> anyhow::Result<RestoreOutcome> {
@@ -95,9 +106,18 @@ pub fn restore_object(
         }
         None => false,
     };
-    let new_fid = fs
-        .write_object(name, &bytes)
-        .map_err(|e| anyhow::anyhow!("re-materialise {archive_key}: {e}"))?;
+    let new_fid = if cerebro_fs::client::is_filer_path(effective_id) {
+        // Path-addressed: overwrite the filer object in place; the path stays valid.
+        fs.write_object_at_path(effective_id, &bytes)
+            .map_err(|e| anyhow::anyhow!("re-materialise {archive_key} at {effective_id}: {e}"))?;
+        None
+    } else {
+        // Fid-addressed: write a fresh weed object; the caller repoints fid.
+        let fid = fs
+            .write_object(name, &bytes)
+            .map_err(|e| anyhow::anyhow!("re-materialise {archive_key}: {e}"))?;
+        Some(fid)
+    };
     Ok(RestoreOutcome { new_fid, bytes: bytes.len(), hash_verified })
 }
 

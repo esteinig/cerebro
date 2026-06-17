@@ -147,6 +147,7 @@ impl RestoreDrive {
         let fs = self.ctx.fs()?;
         let archive_c = archive.clone();
         let name = file.name.clone();
+        let effective = file.effective_identifier().to_string();
         let expected_hash = file.hash.clone();
         let outcome = self
             .ctx
@@ -154,13 +155,16 @@ impl RestoreDrive {
                 let store = archive_c
                     .open_store()
                     .map_err(|e| WorkerError::Other(format!("open cold store: {e}")))?;
-                crate::archive::restore_object(&fs, store.as_ref(), &archive_key, &name, Some(&expected_hash))
+                crate::archive::restore_object(&fs, store.as_ref(), &archive_key, &effective, &name, Some(&expected_hash))
                     .map_err(|e| WorkerError::Other(e.to_string()))
             })
             .await?;
 
-        // Repoint to the new local fid: clear archived/archive_key, land at Warm.
-        // CAS guards on the file's current (Cold) tier.
+        // Repoint to the new local copy and land at Warm. CAS guards on the file's
+        // current (Cold) tier. `fid` is updated only when a fresh weed object was
+        // written; a path-addressed file was overwritten in place. The cold backup
+        // pointer (`archive_key`) is RETAINED (H4) so the restored file keeps a
+        // durable cold copy that verify-repair can re-pull on a future mismatch.
         let id = file.id.clone();
         let expected_tier = file.tier;
         let api = api.clone();
@@ -168,9 +172,9 @@ impl RestoreDrive {
             expected_tier,
             target_tier: StorageTier::Warm,
             archived: false,
-            fid: Some(outcome.new_fid),
+            fid: outcome.new_fid,
             archive_key: None,
-            clear_archive_key: true,
+            clear_archive_key: false,
         };
         self.ctx
             .run_blocking(move || {

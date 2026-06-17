@@ -29,12 +29,15 @@
 //! up the *least-recently-verified* files, sweeping the whole estate over time
 //! instead of re-checking the head of the list every run.
 //!
-//! ## Repair
+//! ## Repair (S4-6 H4)
 //!
-//! Detection only. Automated repair (re-replicate from a healthy copy) needs real
-//! replication; the interim single-node `000` topology has no second copy to heal
-//! from, so a failure is surfaced (metric + error log) for operator action. Repair
-//! is a Stage 4 (backup/recovery) concern.
+//! When a verify mismatch hits a file that has a cold backup (`archive_key`, now
+//! retained across restores), `verify_file` repairs it: it re-pulls the bytes from
+//! cold, verifies them against the catalogue hash, writes them back to the file's
+//! effective location (overwriting the filer object in place, or writing a fresh
+//! weed fid), and repoints the catalogue — keeping the file live and its cold
+//! backup retained. A file with no cold backup, or a repair that errors, is
+//! surfaced (metric + error log) for operator action as before.
 
 use std::io;
 use std::sync::Arc;
@@ -47,8 +50,11 @@ use serde::Deserialize;
 use serde_json::json;
 
 use cerebro_model::api::files::model::SeaweedFile;
+use cerebro_model::api::files::schema::FileRelocateSchema;
+use cerebro_model::api::files::retention::StorageTier;
 use cerebro_model::api::files::telemetry::{TelemetryEvent, TelemetryOp, TelemetryOutcome};
 
+use crate::config::ArchiveSettings;
 use crate::context::WorkerContext;
 use crate::error::WorkerError;
 use crate::runners::parse_args;
@@ -99,11 +105,85 @@ struct VerifyFileArgs {
 pub struct VerifyFile {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
+    /// Cold store config (S4-6 H4). When set, a verify mismatch on a file that has
+    /// a cold backup (`archive_key`) is repaired from cold instead of only alerting.
+    archive: Option<ArchiveSettings>,
 }
 
 impl VerifyFile {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics) -> Self {
-        Self { ctx, metrics }
+    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
+        Self { ctx, metrics, archive }
+    }
+
+    /// Attempt to repair a corrupt file from its cold backup (S4-6 H4).
+    ///
+    /// Re-fetches the bytes from cold, verifies them against the catalogue hash
+    /// (so a corrupt cold copy can never overwrite the live entry), writes them
+    /// back to the file's effective location, and repoints the catalogue — keeping
+    /// the file live (`archived = false`), on its current tier, with its cold backup
+    /// retained. Returns `Ok(true)` on a successful repair, `Ok(false)` if no repair
+    /// was possible (no cold backup configured / no `archive_key`), or `Err` if the
+    /// repair was attempted but failed.
+    async fn repair_from_cold(&self, file: &SeaweedFile) -> anyhow::Result<bool> {
+        let archive = match (&self.archive, &file.archive_key) {
+            (Some(a), Some(_)) => a.clone(),
+            _ => return Ok(false), // nothing to repair from
+        };
+        let archive_key = file.archive_key.clone().expect("checked above");
+
+        let fs = self.ctx.fs()?;
+        let name = file.name.clone();
+        let effective = file.effective_identifier().to_string();
+        let expected_hash = file.hash.clone();
+        let key = archive_key.clone();
+        let outcome = self
+            .ctx
+            .run_blocking(move || {
+                let store = archive
+                    .open_store()
+                    .map_err(|e| WorkerError::Other(format!("open cold store: {e}")))?;
+                crate::archive::restore_object(&fs, store.as_ref(), &key, &effective, &name, Some(&expected_hash))
+                    .map_err(|e| WorkerError::Other(e.to_string()))
+            })
+            .await?;
+
+        // Repoint to the repaired copy. Stay live, stay on the current tier, RETAIN
+        // the cold backup. `fid` is updated only when a fresh weed object was written
+        // (a path-addressed file was overwritten in place). CAS guards on the tier.
+        let api = self.ctx.api()?;
+        let id = file.id.clone();
+        let wrote_new_fid = outcome.new_fid.is_some();
+        let schema = FileRelocateSchema {
+            expected_tier: file.tier,
+            target_tier: file.tier,
+            archived: false,
+            fid: outcome.new_fid,
+            archive_key: None,
+            clear_archive_key: false,
+        };
+        self.ctx
+            .run_blocking(move || {
+                api.relocate_file(&id, &schema).map_err(|e| WorkerError::Api(e.to_string()))
+            })
+            .await?;
+
+        // A fresh weed object replaced the corrupt one — delete the now-orphaned old
+        // object (known-bad bytes). Best-effort; an in-place filer overwrite leaves no
+        // orphan, so this only runs in the weed case. Done after the repoint commits.
+        if wrote_new_fid {
+            let fs2 = self.ctx.fs()?;
+            let old = file.fid.clone();
+            if let Err(e) = self
+                .ctx
+                .run_blocking(move || {
+                    fs2.delete_store_object(&old).map_err(|e| WorkerError::Fs(e.to_string()))
+                })
+                .await
+            {
+                tracing::warn!(file = %file.id, "repaired but failed to delete old corrupt object: {e}");
+            }
+        }
+        Ok(true)
     }
 
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
@@ -157,13 +237,39 @@ impl VerifyFile {
                 Ok(JobOutcome::Succeeded)
             }
             Ok(false) => {
-                // The job ran fine; the *file* failed. Surface on the lifecycle
-                // metric (alert target) + error log, not as a job failure (which
-                // would retry-storm on genuinely corrupt bytes). verified_at is left
-                // unchanged so the file stays at the head of the rotation.
-                self.metrics.record(&TelemetryEvent::failure(TelemetryOp::Verify));
-                tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: stored bytes do not match catalogue hash");
-                Ok(JobOutcome::Succeeded)
+                // Integrity failure. Before alerting, try to repair from cold (H4):
+                // if the file has a cold backup, re-pull the verified-good bytes and
+                // repoint. Only a real failure (no backup, or repair errored) is
+                // surfaced on the lifecycle metric (alert target).
+                match self.repair_from_cold(&file).await {
+                    Ok(true) => {
+                        let stamp = {
+                            let api = api.clone();
+                            let id = file_id.clone();
+                            self.ctx
+                                .run_blocking(move || {
+                                    api.mark_verified(&id).map_err(|e| WorkerError::Api(e.to_string()))
+                                })
+                                .await
+                        };
+                        if let Err(e) = stamp {
+                            tracing::warn!(%file_id, "repaired but failed to stamp verified_at: {e}");
+                        }
+                        self.metrics.record(&TelemetryEvent::success(TelemetryOp::Verify));
+                        tracing::warn!(%file_id, fid = %file.fid, "integrity failure REPAIRED from cold backup");
+                        Ok(JobOutcome::Succeeded)
+                    }
+                    Ok(false) => {
+                        self.metrics.record(&TelemetryEvent::failure(TelemetryOp::Verify));
+                        tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: stored bytes do not match catalogue hash (no cold backup to repair from)");
+                        Ok(JobOutcome::Succeeded)
+                    }
+                    Err(e) => {
+                        self.metrics.record(&TelemetryEvent::failure(TelemetryOp::Verify));
+                        tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: repair from cold failed: {e:#}");
+                        Ok(JobOutcome::Succeeded)
+                    }
+                }
             }
             Err(e) => {
                 // Transport/IO error — the check did not complete. Retry.
