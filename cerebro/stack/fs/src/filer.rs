@@ -25,6 +25,7 @@ use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
 use reqwest::blocking::{multipart, Client};
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -217,6 +218,126 @@ impl FilerClient {
             Err(FilerError::UnexpectedStatus(response.status()))
         }
     }
+
+    /// Recursively list **file** object paths under `base` (H2), bounded by
+    /// `max_objects`.
+    ///
+    /// Walks the filer directory tree depth-first, paginating each directory, and
+    /// returns one [`FilerObject`] per file (directories are traversed, not
+    /// returned). The total object budget caps the walk so a pathologically large
+    /// estate can never run unbounded; when the budget is hit the partial result is
+    /// returned (the caller treats a truncated listing as inconclusive for orphan
+    /// deletion). Used by the consistency-reconcile scan to enumerate what the
+    /// store actually holds, for orphan detection.
+    pub fn list_objects(&self, base: &str, max_objects: usize) -> Result<Vec<FilerObject>, FilerError> {
+        let mut out: Vec<FilerObject> = Vec::new();
+        let mut stack: Vec<String> = vec![base.to_string()];
+
+        while let Some(dir) = stack.pop() {
+            if out.len() >= max_objects {
+                break;
+            }
+            let mut last: Option<String> = None;
+            loop {
+                let page = self.list_dir_page(&dir, last.as_deref())?;
+                let entries = page.entries.unwrap_or_default();
+                if entries.is_empty() {
+                    break;
+                }
+                let mut last_name = None;
+                for e in &entries {
+                    last_name = e.full_path.rsplit('/').next().map(|s| s.to_string());
+                    if e.is_dir() {
+                        stack.push(e.full_path.clone());
+                    } else {
+                        out.push(FilerObject { path: e.full_path.clone(), mtime: e.parsed_mtime() });
+                        if out.len() >= max_objects {
+                            return Ok(out);
+                        }
+                    }
+                }
+                if page.should_display_load_more == Some(true) {
+                    // Continue the same directory from the last seen name.
+                    last = page.last_file_name.clone().or(last_name);
+                    if last.is_none() {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Fetch one page of a directory listing as JSON.
+    fn list_dir_page(&self, dir: &str, last: Option<&str>) -> Result<FilerListing, FilerError> {
+        let mut url = format!("{}/{}", self.base_url, dir.trim_start_matches('/'));
+        if !url.ends_with('/') {
+            url.push('/');
+        }
+        url.push_str(&format!("?limit={LIST_PAGE_LIMIT}"));
+        if let Some(l) = last {
+            url.push_str("&lastFileName=");
+            url.push_str(&l.replace(' ', "%20"));
+        }
+
+        let response = self.http.get(&url).header("Accept", "application/json").send()?;
+        match response.status() {
+            s if s.is_success() => {
+                let body = response.text()?;
+                Ok(serde_json::from_str::<FilerListing>(&body)?)
+            }
+            StatusCode::NOT_FOUND => Ok(FilerListing::default()),
+            status => Err(FilerError::UnexpectedStatus(status)),
+        }
+    }
+}
+
+/// Per-directory page size for filer listings.
+const LIST_PAGE_LIMIT: u32 = 1000;
+
+/// A file object discovered by a filer listing (H2). In filer mode the **path** is
+/// the object's stable identifier (compared against the catalogue's `path`).
+#[derive(Debug, Clone)]
+pub struct FilerObject {
+    pub path: String,
+    /// Last-modified time, when the filer reported a parseable RFC3339 timestamp.
+    pub mtime: Option<DateTime<Utc>>,
+}
+
+/// One entry in a filer directory listing.
+#[derive(Debug, Clone, Deserialize)]
+struct RawFilerEntry {
+    #[serde(rename = "FullPath")]
+    full_path: String,
+    #[serde(rename = "Mtime")]
+    mtime: Option<String>,
+    /// Go `os.FileMode`; the directory bit is `1 << 31`.
+    #[serde(rename = "Mode", default)]
+    mode: u64,
+}
+impl RawFilerEntry {
+    fn is_dir(&self) -> bool {
+        self.mode & (1 << 31) != 0
+    }
+    fn parsed_mtime(&self) -> Option<DateTime<Utc>> {
+        self.mtime
+            .as_deref()
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&Utc))
+    }
+}
+
+/// A filer directory-listing response page.
+#[derive(Debug, Default, Deserialize)]
+struct FilerListing {
+    #[serde(rename = "Entries")]
+    entries: Option<Vec<RawFilerEntry>>,
+    #[serde(rename = "LastFileName")]
+    last_file_name: Option<String>,
+    #[serde(rename = "ShouldDisplayLoadMore")]
+    should_display_load_more: Option<bool>,
 }
 
 #[cfg(test)]

@@ -46,18 +46,30 @@ It refuses unless `confirm` is `true`, deletes only the explicit `keys` (capped 
 `max_delete`), and logs each deletion. It acts on the operator's reviewed list, so
 the grace decision is made at report time; it does not re-enumerate.
 
-## Orphan detection — current status
+## Orphan detection (live in filer mode, H2)
 
-Dangling detection is fully live. Orphan *detection* additionally needs an
-**independent enumeration of the object store** (what objects actually exist),
-which the SeaweedFS client does not yet expose cheaply — enumerating fid space
-means walking the master's volume list and each volume's needles (or, in filer
-mode, walking the filer tree). The reconcile engine already computes orphans
-(`find_orphans`) from any provided store listing and is unit-tested; until the
-enumeration lands, `reconcile_scan` sets `store_enumerated: false` and reports no
-orphans, while `reconcile_reclaim` still works on an operator-supplied key list
-(e.g. from a manual `weed shell volume.list` audit). Wiring the store enumeration
-into the scan is the S4-3 follow-on.
+Both directions are now live. Orphan detection enumerates the object store
+independently and finds stored objects with no catalogue entry:
+
+- In **filer mode** (the Cerebro deployment's mode) the scan walks the filer tree
+  (`enumerate_objects`, a bounded depth-first listing) and compares the object
+  **paths** against the catalogue `path` set.
+- A safety rule prevents false positives: orphan detection runs only when the
+  catalogue path set is **complete** — i.e. the catalogue enumeration finished
+  within the budget. A truncated catalogue would make real objects look orphaned,
+  so if the catalogue exceeds the budget the scan skips orphans and logs a note
+  (raise the budget to enable it). A truncated *store* walk is safe — it only
+  misses some orphans, never invents them, since every key found is checked
+  against the full catalogue.
+- Found orphans are reported (logged + in the persisted report), never deleted by
+  the scan. Reclaim stays operator-gated: `reconcile_reclaim` with `confirm=true`
+  and an explicit key list, now routing each key to the filer delete (paths) or the
+  volume delete (fids) automatically.
+
+In **weed/volume mode** the store cannot be cheaply enumerated, so the scan leaves
+`store_enumerated: false` and reports dangling references only; `reconcile_reclaim`
+still works on an operator-supplied key list. The `find_orphans` engine is unchanged
+and unit-tested; H2 simply feeds it a real store listing.
 
 ## What's tested here vs in your environment
 

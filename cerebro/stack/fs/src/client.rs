@@ -10,7 +10,7 @@ use cerebro_model::api::files::schema::RegisterFileSchema;
 use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
 
 use crate::config::{FsConfig, FsAccessMode};
-use crate::filer::FilerClient;
+use crate::filer::{FilerClient, FilerObject};
 use crate::{error::FileSystemError, hash::{fast_file_hash, hash_reader}, weed::{weed_download, weed_upload}};
 
 #[derive(Clone, Debug)]
@@ -337,6 +337,36 @@ impl FileSystemClient {
             s if s.is_success() => Ok(true),
             StatusCode::SERVICE_UNAVAILABLE => Err(FileSystemError::UnhealthyCluster),
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
+        }
+    }
+
+    /// Whether object enumeration is available — i.e. the client is in filer mode
+    /// (H2). Only the filer can list what the store holds; the weed/volume path
+    /// cannot, so orphan detection is gated on this.
+    pub fn enumeration_supported(&self) -> bool {
+        matches!(self.config.access, FsAccessMode::Filer)
+    }
+
+    /// Enumerate the object store's file paths under `base`, bounded by `budget`
+    /// (H2). Filer-mode only — walks the filer tree and returns one entry per
+    /// object. The consistency-reconcile scan compares these against the catalogue
+    /// `path` set to find orphans (stored objects with no catalogue entry).
+    pub fn enumerate_objects(&self, base: &str, budget: usize) -> Result<Vec<FilerObject>, FileSystemError> {
+        let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+        Ok(filer.list_objects(base, budget)?)
+    }
+
+    /// Delete a store object addressed either by **filer path** or by **fid** (H2).
+    /// Reconcile orphans in filer mode are path-addressed, so reclaim routes by
+    /// [`is_filer_path`]: a path goes to the filer delete, an fid to the volume
+    /// delete ([`Self::delete_file`]).
+    pub fn delete_store_object(&self, key: &str) -> Result<(), FileSystemError> {
+        if is_filer_path(key) {
+            let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+            filer.delete(key, false)?;
+            Ok(())
+        } else {
+            self.delete_file(key)
         }
     }
 

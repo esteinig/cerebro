@@ -21,13 +21,17 @@ use serde::Deserialize;
 use crate::backup::{FilesystemObjectStore, ObjectStore};
 use crate::context::WorkerContext;
 use crate::error::WorkerError;
-use crate::reconcile::{find_dangling, CatalogueRef, ReconcileReport};
+use crate::reconcile::{find_dangling, find_orphans, CatalogueRef, ReconcileReport, StoreObjectRef};
 use crate::runners::parse_args;
 use crate::telemetry::{JobOutcome, Metrics};
 
 const DEFAULT_BUDGET: u32 = 5_000;
 const DEFAULT_GRACE_DAYS: i64 = 1;
 const PAGE_LIMIT: u32 = 500;
+/// Upper bound on objects walked in one store enumeration (H2). A truncated walk
+/// still yields only true orphans (each is checked against the full catalogue), so
+/// this just caps the work per run.
+const STORE_ENUM_BUDGET: usize = 100_000;
 const DEFAULT_MAX_DELETE: usize = 100;
 
 #[derive(Debug, Deserialize)]
@@ -78,55 +82,65 @@ impl ReconcileScan {
         // Enumerate the catalogue and probe object presence (blocking clients).
         let api = self.ctx.api()?;
         let fs = self.ctx.fs()?;
-        let (catalogue_count, refs, present, probe_errors) = self
+        let supports_enumeration = fs.enumeration_supported();
+        let fs_probe = fs.clone();
+        let (catalogue_count, catalogue_complete, refs, present, catalogue_paths, probe_errors) = self
             .ctx
             .run_blocking(move || {
                 let mut refs: Vec<CatalogueRef> = Vec::new();
                 let mut present: HashSet<String> = HashSet::new();
+                let mut catalogue_paths: HashSet<String> = HashSet::new();
                 let mut probe_errors = 0usize;
                 let mut catalogue_count = 0usize;
+                let mut complete = false;
                 let mut page = 0u32;
-                while (catalogue_count as u32) < budget {
+                loop {
                     let files = api
                         .list_files(None, None, page, PAGE_LIMIT, false)
                         .map_err(|e| WorkerError::Api(e.to_string()))?;
                     if files.is_empty() {
+                        complete = true; // reached the end of the catalogue
                         break;
                     }
                     for f in &files {
                         catalogue_count += 1;
-                        let r = CatalogueRef {
-                            file_id: f.id.clone(),
-                            fid: f.fid.clone(),
-                            created_at: parse_catalogue_date(&f.date),
-                            archived: f.archived,
-                            tier: f.tier.to_string(),
-                        };
-                        // Archived objects live in remote cold, not the local store:
-                        // never probe them, and let the engine skip them.
-                        if f.archived {
-                            refs.push(r);
-                        } else {
-                            match fs.object_exists(&f.fid) {
-                                Ok(true) => {
-                                    present.insert(f.fid.clone());
-                                    refs.push(r);
-                                }
-                                Ok(false) => refs.push(r), // definitively absent -> candidate
-                                Err(e) => {
-                                    // A transient fault is never treated as missing.
-                                    probe_errors += 1;
-                                    tracing::debug!("object probe error for {}: {e}", f.fid);
+                        // Full path set (cheap) for orphan detection.
+                        if let Some(p) = &f.path {
+                            catalogue_paths.insert(p.clone());
+                        }
+                        // Dangling probing is bounded by the budget (object_exists is
+                        // a network round-trip per file); path collection above is not.
+                        if (catalogue_count as u32) <= budget {
+                            let r = CatalogueRef {
+                                file_id: f.id.clone(),
+                                fid: f.fid.clone(),
+                                created_at: parse_catalogue_date(&f.date),
+                                archived: f.archived,
+                                tier: f.tier.to_string(),
+                            };
+                            // Archived objects live in remote cold, not the local
+                            // store: never probe them, and let the engine skip them.
+                            if f.archived {
+                                refs.push(r);
+                            } else {
+                                match fs_probe.object_exists(&f.fid) {
+                                    Ok(true) => {
+                                        present.insert(f.fid.clone());
+                                        refs.push(r);
+                                    }
+                                    Ok(false) => refs.push(r), // definitively absent
+                                    Err(e) => {
+                                        // A transient fault is never treated as missing.
+                                        probe_errors += 1;
+                                        tracing::debug!("object probe error for {}: {e}", f.fid);
+                                    }
                                 }
                             }
-                        }
-                        if catalogue_count as u32 >= budget {
-                            break;
                         }
                     }
                     page += 1;
                 }
-                Ok((catalogue_count, refs, present, probe_errors))
+                Ok((catalogue_count, complete, refs, present, catalogue_paths, probe_errors))
             })
             .await?;
 
@@ -141,17 +155,56 @@ impl ReconcileScan {
             );
         }
 
+        // Orphan detection (H2): only when the store can be enumerated (filer mode)
+        // AND the catalogue path set is complete — a truncated catalogue would
+        // manufacture false orphans. A truncated *store* walk is fine: it only
+        // misses some orphans, never invents them (every found key is checked
+        // against the full catalogue).
+        let mut orphans = Vec::new();
+        let mut store_enumerated = false;
+        let mut store_count = None;
+        if supports_enumeration {
+            if catalogue_complete {
+                let fs_enum = fs.clone();
+                match self
+                    .ctx
+                    .run_blocking(move || {
+                        fs_enum
+                            .enumerate_objects("/", STORE_ENUM_BUDGET)
+                            .map_err(|e| WorkerError::Other(e.to_string()))
+                    })
+                    .await
+                {
+                    Ok(objects) => {
+                        let store_refs: Vec<StoreObjectRef> = objects
+                            .into_iter()
+                            .map(|o| StoreObjectRef { key: o.path, modified_at: o.mtime })
+                            .collect();
+                        store_count = Some(store_refs.len());
+                        orphans = find_orphans(&store_refs, &catalogue_paths, grace, now);
+                        store_enumerated = true;
+                        for o in &orphans {
+                            tracing::warn!(key = %o.key, "orphan object — no catalogue entry");
+                        }
+                    }
+                    Err(e) => tracing::warn!("store enumeration failed; skipping orphan detection: {e}"),
+                }
+            } else {
+                tracing::info!(
+                    "catalogue exceeds reconcile budget; skipping orphan detection (raise the budget to enable it)"
+                );
+            }
+        }
+
         let report = ReconcileReport {
             generated_at: now,
             catalogue_count,
             probed_count,
-            // Independent store-side enumeration (for orphan detection) is a
-            // follow-on; until then the operator-gated reclaim takes explicit keys.
-            store_enumerated: false,
-            store_count: None,
+            store_enumerated,
+            store_count,
             probe_errors,
             dangling: dangling.clone(),
-            orphans: Vec::new(),
+            orphans: orphans.clone(),
         };
         self.persist_report(&report)?;
 
@@ -159,6 +212,8 @@ impl ReconcileScan {
             catalogue = catalogue_count,
             probed = probed_count,
             dangling = dangling.len(),
+            orphans = orphans.len(),
+            store_enumerated,
             errors = probe_errors,
             "reconcile scan complete"
         );
@@ -245,7 +300,7 @@ impl ReconcileReclaim {
             .run_blocking(move || {
                 let mut deleted = 0usize;
                 for k in &keys {
-                    match fs.delete_file(k) {
+                    match fs.delete_store_object(k) {
                         Ok(()) => {
                             deleted += 1;
                             tracing::warn!(fid = %k, "reclaimed orphan object (operator-confirmed)");
