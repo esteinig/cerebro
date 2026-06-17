@@ -11,7 +11,9 @@
 //! * auto-chunks large objects server-side, so uploads/downloads can be
 //!   **streamed** from/to disk without buffering whole files in memory.
 //! 
-//! Directory listing and tiering operations are added in later components.
+//! Directory listing ([`FilerClient::list_objects`]) backs store-side orphan
+//! detection; an object-presence probe ([`FilerClient::exists`]) backs the archival
+//! reclaim's safety gate.
 //!
 //! ## Large files
 //!

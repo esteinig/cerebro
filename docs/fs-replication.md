@@ -63,8 +63,10 @@ volume is a latent single copy. Watch for it:
     server that can satisfy the code (used once a failed disk/server is replaced).
 - A volume that shows fewer replicas than the code requires, or a volume server
   that has been down past your alert window, is the signal to investigate and, once
-  hardware is restored, run `volume.fix.replication`. (S4-5 will wire an automated
-  re-replication path on top of this.)
+  hardware is restored, run `volume.fix.replication`. SeaweedFS re-replicates
+  automatically when a target server can satisfy the code; the DR runbook (DR-1)
+  documents the manual nudge and the reconcile-based verification that the copy
+  healed.
 
 ## Multi-host (host-failure durability)
 
@@ -84,7 +86,7 @@ topology so SeaweedFS spreads copies across the fault boundary:
 3. The master and filer remain single points of failure until they too are made
    redundant — that is an HA concern beyond S4-1 (a SeaweedFS master quorum + a
    MongoDB replica set for the filer/catalogue), noted here as the next step and
-   covered for the catalogue by S4-2 backups and the S4-6 DR runbook.
+   covered for the catalogue by S4-2 backups and the S4-7 DR runbook.
 
 The deploy CLI currently renders the single-host layout; the multi-host layout is a
 small generalisation of the same `ReplicaConfig` (distinct `center`/`rack` per

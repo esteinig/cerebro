@@ -132,5 +132,7 @@ validated against a running stack.
   as an HA upgrade, not enabled here.
 - **Encryption at rest.** Backups are checksummed but not encrypted by the engine;
   encrypt the underlying store (or the S3 bucket in S4-4) for confidentiality.
-- **Backup-user auto-provisioning** from the deploy CLI (above) is the main
-  follow-on.
+- **Backup-user auto-provisioning** from the deploy CLI is **delivered** (H1): the
+  configure/render step generates the `cerebro_backup` user and writes the backup
+  URI secret, so backups are active by default. Override by replacing the rendered
+  secret.
