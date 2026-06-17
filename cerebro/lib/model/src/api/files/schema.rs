@@ -5,6 +5,37 @@ use crate::api::{files::model::SeaweedFileId, watchers::model::ProductionWatcher
 use super::model::{FileTag, FileType};
 use super::retention::{RestoreState, RetentionClass, StorageTier};
 
+/// Dedicated archive/relocate request (S4-4, D3).
+///
+/// Repoints a file between local and remote (archival) storage in one
+/// compare-and-set operation, kept separate from [`UpdateFileLifecycleSchema`] so
+/// the fid repoint — which atomically changes `tier`, `archived`, `fid`, and
+/// `archive_key` — is never tangled with routine lifecycle edits. Applied only if
+/// the file's current tier equals `expected_tier`, so concurrent movers cannot
+/// double-apply.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FileRelocateSchema {
+    /// CAS guard: apply only if the file's current `tier` matches.
+    pub expected_tier: StorageTier,
+    /// Tier after relocation (`Cold` when archiving; a local tier when restoring).
+    pub target_tier: StorageTier,
+    /// Archived flag after relocation: `true` once the bytes live in the remote
+    /// store, `false` once restored to local.
+    pub archived: bool,
+    /// New backing fid. Set on **restore** to the freshly re-uploaded local
+    /// object; `None` leaves the existing fid (e.g. archiving in place before the
+    /// local copy is reclaimed).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fid: Option<String>,
+    /// Remote object key for the archived bytes. Set on **archive**, cleared on
+    /// **restore** (send `clear_archive_key`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive_key: Option<String>,
+    /// Clear `archive_key` (used on restore). Takes precedence over `archive_key`.
+    #[serde(default)]
+    pub clear_archive_key: bool,
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RegisterFileSchema {
     pub id: String,

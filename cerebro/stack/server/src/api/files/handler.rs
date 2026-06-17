@@ -1,5 +1,5 @@
 
-use cerebro_model::api::{files::{audit::{verify_chain, AuditAction, AuditActor, AuditError, AuditEvent, AUDIT_GENESIS_HASH}, response::{AuditTrailResponse, DeleteFileResponse, DeleteFilesResponse, ExpireResponse, GetFileResponse, ListFilesResponse, PurgeResponse, RegisterFileResponse, ReportOutResponse, RestoreTransitionResponse, UpdateLifecycleResponse, UpdateTagsResponse}, retention::{quarantine_grace_days_from_env, restore_available_days_from_env, warm_available_from_env, RestoreState, RetentionPolicy}, schema::{ExpireSchema, PurgeSchema, ReportOutSchema, RestoreTransitionSchema, UpdateFileLifecycleSchema, UpdateFileTagsSchema}}, teams::model::{Team, TeamAdminCollection}};
+use cerebro_model::api::{files::{audit::{verify_chain, AuditAction, AuditActor, AuditError, AuditEvent, AUDIT_GENESIS_HASH}, response::{AuditTrailResponse, DeleteFileResponse, DeleteFilesResponse, ExpireResponse, GetFileResponse, ListFilesResponse, PurgeResponse, RegisterFileResponse, ReportOutResponse, RestoreTransitionResponse, UpdateLifecycleResponse, UpdateTagsResponse}, retention::{quarantine_grace_days_from_env, restore_available_days_from_env, warm_available_from_env, RestoreState, RetentionPolicy}, schema::{ExpireSchema, FileRelocateSchema, PurgeSchema, ReportOutSchema, RestoreTransitionSchema, UpdateFileLifecycleSchema, UpdateFileTagsSchema}}, teams::model::{Team, TeamAdminCollection}};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::sync::{Mutex, OnceLock};
@@ -953,12 +953,89 @@ async fn restore_transition(
 }
 
 
+/// Dedicated archive/relocate endpoint (S4-4, D3).
+///
+/// Repoints a file between local and remote (archival) storage in one
+/// compare-and-set: it sets `tier`, `archived`, optionally a new `fid`, and the
+/// `archive_key`, applied only if the file's current `tier` equals
+/// `expected_tier`. Kept separate from the lifecycle update so a fid repoint is
+/// never entangled with routine edits. Records a `TierMove` audit event with an
+/// `archive`/`restore` detail.
+#[post("/files/{id}/relocate")]
+async fn relocate_file(
+    data: web::Data<AppState>,
+    id: web::Path<String>,
+    schema: web::Json<FileRelocateSchema>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let id = id.into_inner();
+    let audit_team = auth_guard.team.clone();
+    let audit_actor = actor_of(&auth_guard);
+    let files_collection: Collection<SeaweedFile> =
+        get_teams_db_collection(&data, auth_guard.team, TeamAdminCollection::Files);
+
+    // A relocation always commits a tier, so it stamps tier_moved_at and clears
+    // any in-flight claim — same invariant the lifecycle tier-commit upholds.
+    let mut set = doc! {
+        "tier": to_bson(&schema.target_tier).unwrap(),
+        "tier_moved_at": to_bson(&Utc::now()).unwrap(),
+        "pending_tier": Bson::Null,
+        "pending_since": Bson::Null,
+        "archived": schema.archived,
+    };
+    if let Some(fid) = &schema.fid {
+        set.insert("fid", fid.clone());
+    }
+    if schema.clear_archive_key {
+        set.insert("archive_key", Bson::Null);
+    } else if let Some(key) = &schema.archive_key {
+        set.insert("archive_key", key.clone());
+    }
+
+    let detail = if schema.archived { "archive" } else { "restore" };
+
+    // CAS on the current tier so concurrent movers can't double-apply.
+    let filter = doc! { "id": &id, "tier": to_bson(&schema.expected_tier).unwrap() };
+
+    match files_collection.update_one(filter, doc! { "$set": set }).await {
+        Ok(result) => {
+            if result.matched_count > 0 {
+                if let Err(err) = append_audit_event(
+                    &data, audit_team, AuditAction::TierMove,
+                    Some(id.clone()), None, None,
+                    audit_actor, Some(detail.to_string()),
+                ).await {
+                    return HttpResponse::InternalServerError()
+                        .json(UpdateLifecycleResponse::server_error(format!("audit append failed: {}", err)));
+                }
+                data.metrics.record(&TelemetryEvent::with_detail(
+                    TelemetryOp::TierMove, TelemetryOutcome::Success, detail.to_string(),
+                ));
+                HttpResponse::Ok().json(UpdateLifecycleResponse::success(&id))
+            } else {
+                // Distinguish a missing file from an unmet CAS precondition.
+                match files_collection.find_one(doc! { "id": &id }).await {
+                    Ok(Some(_)) => {
+                        data.metrics.record(&TelemetryEvent::rejected(TelemetryOp::TierMove));
+                        HttpResponse::Conflict().json(UpdateLifecycleResponse::precondition_failed(&id))
+                    }
+                    Ok(None) => HttpResponse::NotFound().json(UpdateLifecycleResponse::not_found(&id)),
+                    Err(err) => HttpResponse::InternalServerError().json(UpdateLifecycleResponse::server_error(err.to_string())),
+                }
+            }
+        }
+        Err(err) => HttpResponse::InternalServerError().json(UpdateLifecycleResponse::server_error(err.to_string())),
+    }
+}
+
 pub fn files_config(cfg: &mut web::ServiceConfig) {
     cfg.service(register_file)
         .service(delete_file)
         .service(delete_files)
         .service(update_tags)
         .service(update_file_lifecycle)
+        .service(relocate_file)
         .service(report_out_files)
         .service(expire_files)
         .service(purge_files)

@@ -21,6 +21,13 @@ include = [
 name = "cerebro-worker"
 path = "src/main.rs"
 
+[features]
+default = []
+# Real S3/Glacier cold-store backend for archival (S4-4, D1). Off by default — the
+# cold tier defaults to the filesystem backend (a mounted cold disk / NFS). Verify
+# the rust-s3 version/features against your platform before enabling.
+s3 = ["dep:rust-s3"]
+
 [dependencies]
 cerebro-model = { path = "../../lib/model" }
 cerebro-client = { path = "../client" }
@@ -41,3 +48,6 @@ anyhow = "1"
 thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# S3 cold-store backend (optional; enabled by the `s3` feature). Blocking API to
+# match the synchronous ObjectStore trait. Pin/verify for your platform.
+rust-s3 = { version = "0.34", default-features = false, features = ["blocking", "tokio-rustls-tls"], optional = true }

@@ -53,6 +53,9 @@ pub struct WorkerConfig {
     /// URI and a store path are configured; otherwise the `catalogue_backup`
     /// runner reports "not configured" and does nothing.
     pub backup: Option<BackupSettings>,
+    /// Cold archival object-store settings (S4-4). `Some` enables real archival of
+    /// files moved to the Cold tier; `None` keeps the prior label-only behaviour.
+    pub archive: Option<ArchiveSettings>,
 }
 
 /// Settings for the scheduled catalogue/audit backup (S4-2).
@@ -144,6 +147,7 @@ impl WorkerConfig {
             restore_simulate_seconds: env_opt("CEREBRO_RESTORE_SIMULATE_SECONDS")
                 .and_then(|v| v.parse::<i64>().ok()),
             backup: BackupSettings::from_env(),
+            archive: ArchiveSettings::from_env(),
         }
     }
 
@@ -179,5 +183,82 @@ impl BackupSettings {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(7),
         })
+    }
+}
+
+/// Cold archival object-store settings (S4-4).
+#[derive(Debug, Clone)]
+pub struct ArchiveSettings {
+    /// Key prefix under the cold store for archived objects.
+    pub prefix: String,
+    /// Selected cold-store backend.
+    pub backend: ArchiveBackend,
+}
+
+/// Cold-store backend: a local/NFS directory (the compile-safe default) or an
+/// S3-compatible store (requires building with `--features s3`).
+#[derive(Debug, Clone)]
+pub enum ArchiveBackend {
+    Filesystem {
+        root: std::path::PathBuf,
+    },
+    S3 {
+        endpoint: String,
+        region: String,
+        bucket: String,
+        access_key: String,
+        secret_key: String,
+    },
+}
+
+impl ArchiveSettings {
+    /// Read archival settings from the environment (S4-4). Returns `None` —
+    /// label-only tiering, the prior behaviour — unless a backend is configured.
+    /// An S3 endpoint selects the S3 backend; otherwise a store path selects the
+    /// filesystem backend (a mounted cold disk / NFS).
+    pub fn from_env() -> Option<Self> {
+        let prefix = env_or("CEREBRO_ARCHIVE_PREFIX", "archive");
+        if let Some(endpoint) = env_opt("CEREBRO_ARCHIVE_S3_ENDPOINT") {
+            let bucket = env_opt("CEREBRO_ARCHIVE_S3_BUCKET")?;
+            return Some(Self {
+                prefix,
+                backend: ArchiveBackend::S3 {
+                    endpoint,
+                    region: env_or("CEREBRO_ARCHIVE_S3_REGION", "us-east-1"),
+                    bucket,
+                    access_key: env_or_file("CEREBRO_ARCHIVE_S3_ACCESS_KEY").unwrap_or_default(),
+                    secret_key: env_or_file("CEREBRO_ARCHIVE_S3_SECRET_KEY").unwrap_or_default(),
+                },
+            });
+        }
+        let root = env_opt("CEREBRO_ARCHIVE_STORE_PATH")?;
+        Some(Self { prefix, backend: ArchiveBackend::Filesystem { root: root.into() } })
+    }
+
+    /// Open the configured cold object store. The archive *key* already carries the
+    /// prefix (see `archive::archive_key_for`), so the store itself is given no
+    /// extra prefix.
+    pub fn open_store(&self) -> anyhow::Result<Box<dyn crate::backup::ObjectStore>> {
+        match &self.backend {
+            ArchiveBackend::Filesystem { root } => {
+                Ok(Box::new(crate::backup::FilesystemObjectStore::new(root.clone())))
+            }
+            ArchiveBackend::S3 { endpoint, region, bucket, access_key, secret_key } => {
+                #[cfg(feature = "s3")]
+                {
+                    let store = crate::backup::S3ObjectStore::new(
+                        endpoint, region, bucket, access_key, secret_key, "",
+                    )?;
+                    Ok(Box::new(store))
+                }
+                #[cfg(not(feature = "s3"))]
+                {
+                    let _ = (endpoint, region, bucket, access_key, secret_key);
+                    anyhow::bail!(
+                        "S3 archive backend requires building cerebro-worker with --features s3"
+                    )
+                }
+            }
+        }
     }
 }

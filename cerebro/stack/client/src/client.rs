@@ -89,6 +89,7 @@ use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
 use cerebro_model::api::teams::schema::RegisterProjectSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
+use cerebro_model::api::files::schema::FileRelocateSchema;
 use cerebro_model::api::files::retention::{RestoreState, StorageTier};
 
 use crate::error::HttpClientError;
@@ -130,6 +131,7 @@ pub enum Route {
     TeamFilesList,
     TeamFilesDelete,
     TeamFilesLifecycle,
+    TeamFilesRelocate,
     TeamFilesGet,
     TeamFilesReportOut,
     TeamFilesExpire,
@@ -189,6 +191,7 @@ impl Route {
             Route::TeamFilesList => "files",
             Route::TeamFilesDelete => "files",
             Route::TeamFilesLifecycle => "files",
+            Route::TeamFilesRelocate => "files",
             Route::TeamFilesGet => "files",
             Route::TeamFilesReportOut => "files",
             Route::TeamFilesExpire => "files",
@@ -956,7 +959,35 @@ impl CerebroClient {
         Ok(())
     }
 
-    /// Claim an in-flight tier move (S2-10): set `pending_tier = target`, applied
+    /// Archive/relocate a file via the dedicated repoint endpoint (S4-4, D3).
+    ///
+    /// Atomically repoints `tier`, `archived`, `fid`, and `archive_key`, applied
+    /// only if the file's current tier matches `expected_tier` (compare-and-set).
+    /// A `409` means the precondition was not met — another mover handled it, a
+    /// benign no-op under at-least-once delivery. Kept separate from
+    /// [`Self::update_file_lifecycle`] so the fid repoint is never entangled with
+    /// routine lifecycle edits.
+    pub fn relocate_file(
+        &self,
+        id: &str,
+        schema: &FileRelocateSchema,
+    ) -> Result<(), HttpClientError> {
+
+        self.log_team_warning();
+
+        let url = format!("{}/{}/relocate", self.routes.url(Route::TeamFilesRelocate), id);
+
+        let response = self.send_request_with_team(
+            self.client.post(url).json(schema),
+        )?;
+
+        self.handle_response::<serde_json::Value>(
+            response,
+            Some("File relocated"),
+            "File relocation failed",
+        )?;
+        Ok(())
+    }
     /// only if the file's current tier equals `expected` (compare-and-set). A
     /// `409` (precondition not met) means another mover already handled it — safe
     /// to treat as success under at-least-once delivery.

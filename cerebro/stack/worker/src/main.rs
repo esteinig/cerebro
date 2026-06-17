@@ -10,6 +10,7 @@
 //! now all real: tier mover (S3-2a), retention sweep + purge/reclaim (S3-2b),
 //! restore executor (S3-3b), and integrity verify (S3-3a).
 
+mod archive;
 mod backup;
 mod config;
 mod context;
@@ -92,7 +93,7 @@ async fn main() -> std::io::Result<()> {
     // (movement, retention, restore, integrity).
     let mut worker = Worker::builder()
         .register("ping", Ping::new(metrics.clone()))
-        .register("tier_move", TierMove::new(ctx.clone(), metrics.clone()))
+        .register("tier_move", TierMove::new(ctx.clone(), metrics.clone(), config.archive.clone()))
         .register("tier_move_scan", TierMoveScan::new(ctx.clone(), metrics.clone()))
         .register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()))
         .register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()))

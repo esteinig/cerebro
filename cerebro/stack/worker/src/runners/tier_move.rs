@@ -44,8 +44,11 @@ use cerebro_client::client::CerebroClient;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::retention::StorageTier;
 use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
+use cerebro_model::api::files::schema::FileRelocateSchema;
 use cerebro_model::api::files::telemetry::{TelemetryEvent, TelemetryOp, TelemetryOutcome};
 
+use crate::archive::archive_key_for;
+use crate::config::ArchiveSettings;
 use crate::context::WorkerContext;
 use crate::error::WorkerError;
 use crate::runners::parse_args;
@@ -80,11 +83,65 @@ struct TierMoveArgs {
 pub struct TierMove {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
+    /// Cold-store archival settings (S4-4). When `Some`, a successful move to the
+    /// Cold tier physically archives the object and repoints the catalogue.
+    archive: Option<ArchiveSettings>,
 }
 
 impl TierMove {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics) -> Self {
-        Self { ctx, metrics }
+    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
+        Self { ctx, metrics, archive }
+    }
+
+    /// Physically archive a Cold-committed object to the cold store and repoint the
+    /// catalogue (S4-4, D3). Non-fatal on failure: the file stays Cold-committed and
+    /// directly retrievable, and the next move re-attempts the archival.
+    async fn archive_to_cold(
+        &self,
+        api: &CerebroClient,
+        file: &SeaweedFile,
+        archive: &ArchiveSettings,
+    ) -> anyhow::Result<()> {
+        if file.archived {
+            return Ok(()); // already archived (idempotent)
+        }
+        let team = self.ctx.config.team.clone().unwrap_or_default();
+        let key = archive_key_for(&archive.prefix, &team, &file.id);
+
+        // Copy bytes off-executor: open the cold store, read from SeaweedFS, put.
+        let fs = self.ctx.fs()?;
+        let archive_c = archive.clone();
+        let fid = file.fid.clone();
+        let key_c = key.clone();
+        self.ctx
+            .run_blocking(move || {
+                let store = archive_c
+                    .open_store()
+                    .map_err(|e| WorkerError::Other(format!("open cold store: {e}")))?;
+                crate::archive::archive_object(&fs, store.as_ref(), &fid, &key_c)
+                    .map_err(|e| WorkerError::Other(e.to_string()))?;
+                Ok::<(), WorkerError>(())
+            })
+            .await?;
+
+        // Repoint the catalogue via the dedicated relocate endpoint (D3): mark
+        // archived and record the key. Tier stays Cold (CAS guards on it).
+        let id = file.id.clone();
+        let api = api.clone();
+        let schema = FileRelocateSchema {
+            expected_tier: StorageTier::Cold,
+            target_tier: StorageTier::Cold,
+            archived: true,
+            fid: None,
+            archive_key: Some(key),
+            clear_archive_key: false,
+        };
+        self.ctx
+            .run_blocking(move || {
+                api.relocate_file(&id, &schema).map_err(|e| WorkerError::Api(e.to_string()))
+            })
+            .await?;
+        Ok(())
     }
 
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
@@ -174,6 +231,20 @@ impl TierMove {
             TelemetryOutcome::Success,
             tier_label(target),
         ));
+
+        // 5. Physical archival (S4-4): a move to Cold with a cold store configured
+        //    copies the bytes to the object store and repoints the catalogue
+        //    (archived = true). Non-fatal — the tier is already committed, so an
+        //    archival failure just leaves the file Cold-but-not-archived for the
+        //    next move to retry.
+        if target == StorageTier::Cold {
+            if let Some(archive) = &self.archive {
+                if let Err(e) = self.archive_to_cold(&api, &file, archive).await {
+                    tracing::warn!(%id, "tier committed to Cold but archival failed (will retry): {e:#}");
+                }
+            }
+        }
+
         Ok(JobOutcome::Succeeded)
     }
 

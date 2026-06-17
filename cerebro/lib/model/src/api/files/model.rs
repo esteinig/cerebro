@@ -88,6 +88,12 @@ pub struct SeaweedFile {
     /// retrieved.
     #[serde(default)]
     pub archived: bool,
+    /// Remote object key where the archived bytes live, set when the file is
+    /// archived to the cold object store (S4-4) and cleared when it is restored to
+    /// local. The dedicated relocate endpoint is the only writer (D3), so an
+    /// archived file always carries the key needed to fetch it back.
+    #[serde(default)]
+    pub archive_key: Option<String>,
     /// When the result for this file's case was reported out. Anchors the
     /// retention clock and triggers the move to cold storage.
     #[serde(default)]
@@ -167,6 +173,7 @@ impl SeaweedFile {
             legal_hold: register_file_schema.legal_hold,
             replicas: register_file_schema.replicas,
             archived: register_file_schema.archived,
+            archive_key: None,
             reported_at: register_file_schema.reported_at,
             restore_state: RestoreState::default(),
             expiry_state: ExpiryState::default(),
@@ -312,6 +319,7 @@ mod tests {
             legal_hold: false,
             replicas: None,
             archived: false,
+            archive_key: None,
             reported_at: None,
             restore_state: super::super::retention::RestoreState::NotArchived,
             expiry_state: super::super::retention::ExpiryState::Active,

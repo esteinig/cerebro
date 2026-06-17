@@ -260,7 +260,27 @@ impl FileSystemClient {
         }
     }
 
-    /// Check whether the backing object for `fid` is present in the store (S4-3).
+    /// Read the full bytes of the object addressed by `fid` (S4-4).
+    ///
+    /// A direct `GET {url}/{fid}` returning the object body, used by the archival
+    /// engine to copy an object to the cold object store. For large objects this
+    /// buffers the whole body in memory; archival runs in the worker (off the API
+    /// path) and one object at a time, so that is acceptable. `404` surfaces as
+    /// [`FileSystemError::UnexpectedResponseStatus`] so a missing object is a hard
+    /// error rather than a silently-empty archive.
+    pub fn read_object(&self, fid: &str) -> Result<Vec<u8>, FileSystemError> {
+        let url = format!("{}/{}", self.get_url(), fid);
+
+        let response = reqwest::blocking::Client::new()
+            .get(&url)
+            .send()?;
+
+        match response.status() {
+            StatusCode::OK => Ok(response.bytes()?.to_vec()),
+            StatusCode::SERVICE_UNAVAILABLE => Err(FileSystemError::UnhealthyCluster),
+            status => Err(FileSystemError::UnexpectedResponseStatus(status)),
+        }
+    }
     ///
     /// A cheap `HEAD {url}/{fid}`: a success status means the object is present,
     /// `404` means it is absent. The consistency-reconcile scan uses this to detect
@@ -896,6 +916,7 @@ use super::{build_remote_path, is_filer_path, sanitize_segment};
             legal_hold: false,
             replicas: None,
             archived,
+            archive_key: None,
             restore_state: RestoreState::NotArchived,
             expiry_state: ExpiryState::Active,
             quarantined_at: None,

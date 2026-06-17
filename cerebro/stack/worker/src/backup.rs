@@ -272,3 +272,74 @@ mod tests {
         assert_eq!(m, back);
     }
 }
+
+/// S3-compatible object-store backend (S4-4, D1) — AWS S3 / MinIO / SeaweedFS-S3 /
+/// Glacier. Feature-gated behind `s3` so the default build pulls in no S3 SDK and
+/// the cold tier defaults to [`FilesystemObjectStore`].
+///
+/// NOTE: this targets the `rust-s3` *blocking* API, whose method names/signatures
+/// shift across minor versions. It is the one module that cannot be compile-checked
+/// here (the optional dependency is absent by default). When enabling
+/// `--features s3`, verify this against the `rust-s3` version pinned in Cargo.toml.
+#[cfg(feature = "s3")]
+pub struct S3ObjectStore {
+    bucket: Box<s3::bucket::Bucket>,
+    prefix: String,
+}
+
+#[cfg(feature = "s3")]
+impl S3ObjectStore {
+    /// Open a bucket handle for an S3-compatible endpoint. `prefix` is prepended
+    /// to every key so multiple stores can share a bucket.
+    pub fn new(
+        endpoint: &str,
+        region: &str,
+        bucket: &str,
+        access_key: &str,
+        secret_key: &str,
+        prefix: &str,
+    ) -> anyhow::Result<Self> {
+        let region = s3::Region::Custom { region: region.to_string(), endpoint: endpoint.to_string() };
+        let creds = s3::creds::Credentials::new(Some(access_key), Some(secret_key), None, None, None)?;
+        // Path-style addressing works with MinIO/SeaweedFS-S3 and AWS alike.
+        let bucket = s3::bucket::Bucket::new(bucket, region, creds)?.with_path_style();
+        Ok(Self { bucket, prefix: prefix.trim_end_matches('/').to_string() })
+    }
+
+    fn key(&self, k: &str) -> String {
+        if self.prefix.is_empty() {
+            k.to_string()
+        } else {
+            format!("{}/{}", self.prefix, k)
+        }
+    }
+}
+
+#[cfg(feature = "s3")]
+impl ObjectStore for S3ObjectStore {
+    fn put(&self, key: &str, bytes: &[u8]) -> anyhow::Result<()> {
+        self.bucket.put_object_blocking(self.key(key), bytes)?;
+        Ok(())
+    }
+
+    fn get(&self, key: &str) -> anyhow::Result<Vec<u8>> {
+        let resp = self.bucket.get_object_blocking(self.key(key))?;
+        Ok(resp.bytes().to_vec())
+    }
+
+    fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+        let pages = self.bucket.list_blocking(self.key(prefix), None)?;
+        let mut keys = Vec::new();
+        for (page, _status) in pages {
+            for obj in page.contents {
+                keys.push(obj.key);
+            }
+        }
+        Ok(keys)
+    }
+
+    fn delete(&self, key: &str) -> anyhow::Result<()> {
+        self.bucket.delete_object_blocking(self.key(key))?;
+        Ok(())
+    }
+}
