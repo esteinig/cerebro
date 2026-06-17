@@ -14,6 +14,8 @@ the entry point; it orients you and points at the rest of the documentation set.
   [disaster-recovery runbook](disaster-recovery.md) (triage → scenario → commands →
   verify).
 - **Validating a deployment** → the [validation guide](validation.md).
+- **Planning the road to production** → the
+  [production-readiness assessment](production-readiness.md).
 
 ## The stack
 
@@ -81,6 +83,7 @@ The spine that ties the docs together — a file moves through:
 | Doc | Covers |
 |---|---|
 | [`validation.md`](validation.md) | Build, test, smoke checks, the test boundary |
+| [`production-readiness.md`](production-readiness.md) | Honest readiness assessment, tracked gaps, and the hardening roadmap |
 
 ## Conventions
 
