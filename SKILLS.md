@@ -160,9 +160,10 @@ Conventions here favour correctness, testability, and clarity over cleverness.
   reasoning a future reader will lack.
 - Doc examples that can be doctests are welcome where they clarify usage.
 - **Doctests compile and run as standalone programs — give them their imports.**
-  Bring in everything the example uses with visible `use` lines, or with hidden `# `
-  setup lines (compiled but not rendered); don't rely on the surrounding module's
-  scope. A doctest missing its imports fails to build and so is silently not tested.
+  Bring in everything the example uses with visible `use` lines, or with hidden
+  `# `-prefixed setup lines (e.g. `# use crate_name::module::Thing;`) that are compiled
+  but not rendered; don't rely on the surrounding module's scope. A doctest missing its
+  imports fails to build and so is silently not tested.
 
 ### Types & errors
 
