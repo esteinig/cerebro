@@ -1,4 +1,4 @@
-# Cerebro production docs
+# cerebro-fs
 
 Operator and developer documentation for cerebro-fs — the storage, lifecycle, and
 durability layer of Cerebro, the clinical metagenomic diagnostics platform. This is

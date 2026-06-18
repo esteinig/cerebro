@@ -76,4 +76,4 @@ and the archival cadence, which the administration guide explains how to set.
   [architecture](architecture.md) and the per-topic operational docs.
 - **Anyone validating a deployment** uses the [validation guide](validation.md).
 
-See the [documentation index](README.md) for the full map.
+See the [documentation index](index.md) for the full map.
