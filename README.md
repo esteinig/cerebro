@@ -1,190 +1,329 @@
 # Cerebro
 
-Metagenomic diagnostics pipeline and collaborative reporting stack for pathogen detection, species identification, host genome analysis, quality assurance and deployment in clinical and public health production environments.
+**Metagenomic and metatranscriptomic host–pathogen diagnostics for clinical and
+public-health production environments.**
+
+Cerebro turns metagenomic sequencing data into auditable, clinically reportable
+pathogen-detection results. It pairs a set of Nextflow analysis pipelines with an
+application stack (API, database, object storage, workers, and a collaborative
+reporting web app) so a diagnostic laboratory can run metagenomics as a service —
+from sequencing run to clinical report — with the integrity, provenance, retention,
+and recoverability clinical work demands.
+
+> **Research today, production on this branch.** The pipelines and tools below are in
+> active research and reference-laboratory use now. The `feat/production` branch
+> extends them into a hardened, continuously operated production service: a durable
+> storage and lifecycle subsystem (`cerebro-fs`), governed maintenance and recovery,
+> and an automated, tiered-threshold candidate-review path for pathogen detection.
+> Sections marked *(production, on this branch)* describe that extension.
+
+---
 
 <details>
-<summary>🩸 Metagenomic diagnostic core functions </summary>
+<summary>🩸 <b>Metagenomic diagnostic core functions</b></summary>
 <br>
- 
-Main
 
-- Multi-classifier taxonomic profiling, metagenome assembly and alignment in Nextflow
-- Optimized pangenome host depletion and background depletion with [`Scrubby`]()
-- Viral infections, pan-viral enrichment protocols and syndrome-specific subtyping panels using [`Vircov`]()
-- Differential host tumor DNA diagnostics using segmental CNV detection
+**Core**
 
-Support
- 
-- Species identification pipelines with [`GTDB`]() for prokaryotic reference assemblies
-- MAG recovery from enriched culture and sample co-assembly, unclassified viral bin prediction ([`geNomad`, `RdRP`]())
-- Custom database and index construction, grafted taxonomies, genome cleaning with [`Cipher`]()
+- Multi-classifier taxonomic profiling, metagenome assembly, and alignment in Nextflow
+- Optimised pangenome host and background depletion with [`Scrubby`](https://github.com/esteinig/scrubby)
+- Viral infection detection, pan-viral enrichment protocols, and syndrome-specific
+  subtyping panels using [`Vircov`](https://github.com/esteinig/vircov)
+- Differential host tumour-DNA diagnostics via segmental CNV detection and methylation
+  classification (Sturgeon)
+
+**Support**
+
+- Species identification with GTDB reference assemblies and the GTDB-Tk toolkit
+- MAG recovery from enriched culture and sample co-assembly; unclassified viral-bin and
+  novel-virus prediction (geNomad, RdRP)
+- Custom database and index construction, grafted taxonomies, and genome cleaning with
+  `Cipher`
 
 </details>
 
 <details>
-<summary>📰 Collaborative clinical reporting (Bug Board) </summary>
+<summary>📰 <b>Collaborative clinical reporting (Bug Board)</b></summary>
 <br>
- 
-- [Collaborative and auditable pathogen determination]() from metagenome sequencing results
-- Multi-tenant Svelte application and API with secure local or web-server deployment configs
-- Scalable application stack deployment with different data security and collaboration models
-- Stack configuration and deployment integrated into the primary command-line interface ([Cerebro CLI]()) 
-- Clinical reporting with [`Typst`]() formatted templates linked into evidence from multi-classifier/databases
-- Secure [`wasm` enabled report generation]() in-browser for sensitive reports, interactive data visualizations
-- Auditable team member comments and results discussion for expert panel reviews of data ([online "Bug Board"]())
+
+- Collaborative, auditable pathogen determination from metagenomic sequencing results
+- Multi-tenant Svelte application and API with secure local or web-server deployment
+- Scalable stack deployment with configurable data-security and collaboration models
+- Stack configuration and deployment integrated into the primary command-line interface
+- Clinical reporting with [`Typst`](https://typst.app)-formatted templates linked to the
+  underlying multi-classifier evidence
+- Secure, `wasm`-enabled in-browser report generation for sensitive reports, with
+  interactive data visualisations
+- Auditable team comments and results discussion for expert-panel review ("Bug Board")
 
 </details>
 
 <details>
-<summary>🏥 Clinical and public health production environments </summary>
+<summary>🏥 <b>Clinical and public-health production environments</b></summary>
 <br>
- 
-- Simulations using in silico syndromic reference panels for signal- and read-level data with [`Cipher`]()
-- Evaluation of simulation and patient datasets for quality assurance with [`Cipher`]() and [`Cerebro`]()
-- Background/sample site/kitome contamination issues in clinical or public health environments 
-- Distributed sequence and analysis storage, file system and data retention policies, cloud storage etc. through [`SeaweedFS`]()
-- [Standard operating procedures]() for continous operation of `Cerebro` as a service for clinical diagnostic reporting
-- Experimental protocols for reference labs aiming at low abundance clinical sample types (CSF, ocular fluids, etc)
+
+- In-silico syndromic reference panels for signal- and read-level simulation with `Cipher`
+- Quality assurance and regression evaluation of simulated and patient datasets
+- Contamination assessment (background / sample-site / kitome) for clinical environments
+- Distributed sequence and analysis storage, file-system lifecycle, and data-retention
+  policies through [`SeaweedFS`](https://github.com/seaweedfs/seaweedfs) (the `cerebro-fs`
+  subsystem)
+- Standard operating procedures and runbooks for continuous operation as a clinical
+  diagnostic service
 
 </details>
+
+---
+
+## Subsystems at a glance
+
+| Subsystem | Role | Status |
+|---|---|---|
+| **Pipelines** (Nextflow) | Analysis: QC, taxonomic profiling, assembly, subtyping, CNV | Research; production entry points on this branch |
+| **API + database** | System of record: results, catalogue, append-only audit | Research; hardening on this branch |
+| **Reporting app** (Svelte) | Collaborative determination and clinical reports (Bug Board) | Research; hardening on this branch |
+| **cerebro-fs** | Storage, lifecycle, durability, backup, recovery | Production focus of this branch — see [documentation](https://esteinig.github.io/cerebro/) |
+| **Workers** (Faktory) | Tiering, verification, reconcile, backup, archival, restore | Production focus of this branch |
+| **CIQA + META-GPT** | Diagnostic classification, candidate prioritisation, QA/regression | Research; automation planned (see below) |
+
+Full operations documentation for the production subsystems is published at
+**[esteinig.github.io/cerebro](https://esteinig.github.io/cerebro/)** (Home →
+Subsystems → cerebro-fs).
 
 ## Getting started
 
-Let's step through some common tasks and core functions of `Cerebro` and the application and reporting stack. This section provides some examples of how to get started quickly with `Cerebro`. For more details and how to deploy and operate the full application in production please see the [documentation](). 
-
-Minimum requirements:
-
-* Linux OS
-* Nextflow v24
-* Conda/Mamba/Docker
-
-Computational resource requirements are variable and range from a standard laptop for the application stack to full nation-wide server infrastructure for pipelines and web-application (if you were so inclined). This is because the application stack for data and reporting can be deployed with various [infrastructure, data security and collaboration models]() in mind and depends on the number of laboratories, collaborators, sequencing throughput, data storage and many other considerations.
-
 > [!NOTE]
-You do not need the `Docker` stack for core metagenome diagnostic pipelines and report generation - you can run the [Nextflow pipelines]() separately and use the [`Cerebro CLI`](#command-line-client) for data manipulation, processing of pipeline outputs and clinical report generation.
+> The full Docker application stack is **not** required for the core metagenomic
+> pipelines and report generation. The Nextflow pipelines can be run on their own, and
+> the Cerebro CLI used for processing pipeline outputs and generating clinical reports.
 
-## Nextflow pipeline 
+**Minimum requirements**
 
-### Quick start
+- Linux
+- Nextflow ≥ v24
+- Conda / Mamba / Docker (or Apptainer)
 
-Pathogen detection with PE Illumina reads from metagenomic sequencing of sterile-site samples (validated for ocular fluid and cerebrospinal fluid):
+Computational requirements range from a single workstation for the application stack to
+large server infrastructure for pipelines and the web application, depending on the
+number of laboratories, sequencing throughput, storage, and the chosen infrastructure,
+data-security, and collaboration model.
+
+## Pipelines
+
+All pipelines are entry points of the main workflow, selected with `-entry`:
+
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile <resources>,mamba \
+  -entry <pathogen|panviral|culture|quality|aneuploidy|production> \
+  --outputDirectory out/ \
+  --databaseDirectory db/
+```
+
+| Entry | Pipeline | Primary use |
+|---|---|---|
+| `pathogen` | Pathogen detection | Low-biomass sterile-site diagnostics (needle-in-a-haystack) |
+| `panviral` | Pan-viral enrichment | Probe-capture viral panels, genome recovery, subtyping |
+| `culture` | Culture & MAG assembly | Hybrid assembly, prokaryotic MAG typing, novel-virus detection |
+| `quality` | Quality control | Read QC, host/background depletion, control accounting |
+| `aneuploidy` | Host CNV / aneuploidy | Differential host tumour-DNA diagnostics |
+| `production` | Integrated production | App-staged, continuous clinical operation |
+
+### Pathogen detection — `-entry pathogen`
+
+The primary diagnostic pipeline for high-human, low-microbial-biomass sterile-site
+samples (validated for ocular fluid and cerebrospinal fluid), where distinguishing a
+true pathogen from contamination is the core challenge.
+
+It runs **quality control and host/background depletion** ([`Scrubby`](https://github.com/esteinig/scrubby)),
+then **multi-classifier taxonomic profiling** — k-mer and alignment-based classifiers
+(Kraken2 + Bracken, Metabuli, Sylph, KMCP, Ganon) and reference-alignment coverage
+([`Vircov`](https://github.com/esteinig/vircov)) — and a parallel **metagenome assembly**
+track (metaSPAdes / MEGAHIT) with binning (CONCOCT, MetaBAT2, SemiBin2) and contig-level
+classification (BLAST / DIAMOND). All evidence is aggregated into a single Cerebro model
+and uploaded to the API for collaborative review.
+
+*(Production, on this branch)* A **prefetch** step then applies a **tiered-threshold
+configuration** to the aggregated evidence, prioritising candidate taxa into evidence
+tiers (e.g. strong / supporting / weak) across classifiers, coverage, and assembly. This
+tiered-threshold prefetch is the designated **automation decision point** at which
+candidate review is triggered — surfaced to clinicians on the Bug Board today, and the
+insertion point for the automated review described under **CIQA & META-GPT** below.
 
 ```bash
 nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
   -profile dgx,large,mamba,cns,cipher \
   -entry pathogen \
-  --outputDirectory outputTest/ \
+  --outputDirectory out/ \
   --databaseDirectory db/ \
   --fastqPaired 'fastq/*_{R1_001,R2_001}.fastq.gz'
 ```
 
-This will run the default quality control, taxonomic profiling and metagenome assembly configuration for pathogen identification in low microbial biomass sample types (such as ocular fluids or CSF) where distinction from contamination and incidental background organisms is the main challenge for diagnostics (`needle-in-a-haystack`). 
+This is **not** intended for high-biomass sample types (respiratory, environmental),
+where an abundant background microbiome is the main challenge (haystack-full-of-needles).
 
-> [!WARNING]
-This pipeline is not suitable for high microbial biomass sample types (such as respiratory or environmental samples) where a diverse and abundant background microbiome is the main challenge for diagnostics (`haystack-full-of-needles`).
+### Pan-viral enrichment — `-entry panviral`
 
-For the default configuration you will need the `Cipher` diagnostic database in the `--databaseDirectory`, which is an amalgamation of archaeal/bacterial (GTDB), eukaryotic (EuPath, Wormbase) and viral (ICTV) reference genome collections and taxonomies. Depending on sequencing protocol, you will also need a human reference index for alignment-based depletion and additional background sequences (like synthetic spike-ins or internal phage controls) for depletion in the quality control module.
+For probe-hybridisation capture panels (e.g. Agilent or Twist) targeting viral
+pathogens. After QC and depletion, [`Vircov`](https://github.com/esteinig/vircov)
+evaluates per-reference alignment coverage to call confident viral diagnoses from low
+titres and high host background, recovers consensus genomes, and applies
+species-to-lineage **subtyping schemes** for automated genotyping. Short-read and
+Nanopore inputs are supported.
 
-Download the `Cipher v2` database:
-
-```
-TBD
-```
-
-If you are using the associated short-read sequencing protocol also download the following files:
-
-```
-TBD
-```
-
-## Cerebro CLI
-
-### Quick start
-
-```
-TBD
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile large,mamba \
+  -entry panviral \
+  --outputDirectory out/ --databaseDirectory db/ \
+  --fastqPaired 'fastq/*_{R1,R2}.fastq.gz'
 ```
 
+### Culture & metagenome-assembled genomes (MAG) — `-entry culture`
 
-## Clinical reporting
+A distinct assembly-centric pipeline for bacterial culture identification, enriched
+culture, and sample co-assembly. It performs **hybrid (short- + long-read) assembly**,
+recovers **metagenome-assembled genomes** through binning, and assigns **prokaryotic
+species-level taxonomy with the GTDB-Tk toolkit** against GTDB reference assemblies. The
+same assembly graph feeds **novel-virus and unclassified viral-bin detection** (geNomad,
+RdRP), extending diagnosis beyond reference-contained taxa.
 
-### Quick start
-
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile large,mamba \
+  -entry culture \
+  --outputDirectory out/ --databaseDirectory db/ \
+  --fastqPaired 'fastq/*_{R1,R2}.fastq.gz' \
+  --fastqNanopore 'fastq/*.nanopore.fastq.gz'
 ```
-TBD
+
+### Quality control — `-entry quality`
+
+Read quality control and adapter/quality trimming, host and background depletion
+([`Scrubby`](https://github.com/esteinig/scrubby)), and accounting of spike-in and
+ERCC/sequencing controls — the foundation every diagnostic entry shares, runnable on its
+own for QC reporting. Illumina and Nanopore inputs are supported (`--nanopore`).
+
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile medium,mamba \
+  -entry quality \
+  --outputDirectory out/ --databaseDirectory db/ \
+  --fastqPaired 'fastq/*_{R1,R2}.fastq.gz'
 ```
 
+### Host CNV / aneuploidy — `-entry aneuploidy`
+
+Differential host tumour-DNA diagnostics from the host background of short-read
+metagenomic data: large segmental copy-number-variation (CNV) detection across human
+chromosomes with CNVkit, complemented by methylation-based classification (Sturgeon).
+Reads are aligned with minimap2 against a host reference and compared to a normal
+control.
+
+```bash
+nextflow run -r v1.0.0 https://github.com/esteinig/cerebro \
+  -profile medium,mamba \
+  -entry aneuploidy \
+  --outputDirectory out/ \
+  --referenceFasta host.fasta \
+  --normalControlBam normal.bam \
+  --fastqPaired 'fastq/*_{R1,R2}.fastq.gz'
+```
+
+### Integrated production — `-entry production`
+
+The continuously operated mode used by the application stack. Sample files are staged by
+the stack (via `cerebro-fs`), the pipeline branch is selected per sample
+(pan-viral / pathogen / genome-assembly), and results are written back to the API and
+catalogue with full provenance. This entry is normally driven by the stack rather than
+invoked by hand; see the [documentation](https://esteinig.github.io/cerebro/) for
+deployment and operation.
 
 ## Application stack
 
-### Quick start
+The stack is configured and deployed through the Cerebro CLI, which renders a
+`docker compose` deployment and its secrets from a single configuration. Its services:
 
-```
-TBD
-```
+- **API + database** — the system of record for results, the file catalogue, and an
+  append-only audit trail.
+- **Reporting web app** — the multi-tenant Svelte application for collaborative
+  determination and clinical reporting (Bug Board, Typst templates, in-browser `wasm`
+  report generation).
+- **cerebro-fs** — the storage, lifecycle, and durability subsystem: replicated object
+  storage, tiering, archival, integrity verification, catalogue backup, and recovery.
+  This is the production focus of this branch; see its
+  [documentation](https://esteinig.github.io/cerebro/) (overview, architecture,
+  administration, maintenance, disaster-recovery runbook, and production-readiness
+  governance).
+- **Workers** — scheduled and on-demand maintenance (tiering, verification, reconcile,
+  backup, archival, restore) behind a detection / safe-automation / operator-gated
+  taxonomy.
 
+## CIQA & META-GPT — assisted diagnostic review and quality assurance
 
-## Cerebro API
+> *This section describes a designed and partially implemented capability that
+> integrates the **CIQA** quality-assurance harness and the **META-GPT** diagnostic
+> reasoning component with Cerebro's evidence model. It operates as decision support
+> under expert oversight, not autonomous diagnosis, and is under active development.*
 
-### Quick start
+Cerebro aggregates every classifier, coverage, and assembly signal for a sample into a
+single evidence model. **META-GPT** is the diagnostic-classification component that
+reasons over that aggregated evidence the way an expert reviewer reads the Bug Board: it
+consumes the **prefetch** evidence — the candidate taxa and their supporting signals,
+organised by the **tiered-threshold configuration** — and produces a prioritised,
+explained candidate determination.
 
-```
-TBD
-```
-
-## Cerebro FS
-
-### Quick start
-
-```
-TBD
-```
+- **Diagnostic classification and candidate prioritisation.** META-GPT ranks and
+  short-lists candidate pathogens from the tiered prefetch evidence, prioritising review
+  toward the strongest-supported taxa and explaining the basis for each call. Its output
+  feeds candidate prioritisation in the clinical report and the Bug Board as decision
+  support for the reviewing scientist.
+- **Clinical-notes-anchored, local-only review.** Models are anchored with de-identified
+  clinical notes to emulate the clinical review of the tiered-threshold evidence, and run
+  **locally only** — no patient-derived data leaves the deployment. This keeps assisted
+  review inside the laboratory's data-governance boundary.
+- **Quality assurance and regression testing (CIQA).** Curated prefetch datasets carry
+  **reference candidates** (the known-correct determination). CIQA replays them through
+  the pipeline and the review model and scores the outcome against the reference —
+  whether the determination matched the expected candidate — turning pipeline, database,
+  and model changes into measurable **regression tests**. This reuses Cerebro's training
+  subsystem, in which a review produces a `Decision` and a candidate selection that is
+  compared to the reference candidates to record whether any expected candidate was
+  matched.
+- **Tiered-threshold prefetch as the automation point** *(to be implemented)*. The
+  tiered-threshold prefetch step in the pathogen pipeline is the designated point at which
+  this assisted review is invoked automatically: evidence crossing the configured tiers
+  triggers a META-GPT review pass whose prioritised, explained candidates are presented
+  for expert sign-off. Today this step surfaces the tiered evidence for manual review;
+  the automated invocation is the planned production extension.
 
 ## Databases and taxonomy
 
-### Quick start
-
-```
-TBD
-```
-
+Reference databases, indices, grafted taxonomies, and in-silico syndromic simulation
+panels are constructed and maintained with `Cipher`, which also supports genome cleaning
+and syndromic diversity injection for quality assurance.
 
 ## Status
 
-Under active development for production release.
+Under active development for production release. The `feat/production` branch hardens the
+storage, lifecycle, and operational subsystems for continuous clinical use; subsystem
+documentation states, where relevant, the boundary between what is validated and what a
+given deployment must confirm in its own environment.
 
-This is a preliminary public release of code for the viral enrichment branch of the pipeline used in:
+This is a preliminary public release of code for the viral-enrichment branch of the
+pipeline used in:
 
-> Michael A Moso, George Taiaroa, Eike Steinig, Madiyar Zhanduisenov, Grace Butel-Simoes, Ivana Savic, Mona L Taouk, Socheata Chea, Jean Moselen, Jacinta O’Keefe, Jacqueline Prestedge, Georgina L Pollock, Mohammad Khan, Katherine Soloczynskyj, Janath Fernando, Genevieve E Martin, Leon Caly, Ian G Barr, Thomas Tran, Julian Druce, Chuan K Lim, Deborah A Williamson - **Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing from COVID-19 rapid antigen test devices: a laboratory evaluation study** - Lancet Microbe (2024) -[10.1016/S2666-5247(23)00375-0](https://doi.org/10.1016/S2666-5247(23)00375-0)
+> Michael A Moso, George Taiaroa, Eike Steinig, *et al.* **Non-SARS-CoV-2 respiratory
+> viral detection and whole genome sequencing from COVID-19 rapid antigen test devices:
+> a laboratory evaluation study.** *The Lancet Microbe* (2024).
+> [10.1016/S2666-5247(23)00375-0](https://doi.org/10.1016/S2666-5247(23)00375-0)
 
-## Supplementary Pipelines
+## Documentation
 
-### Aneuploidy from host background
+Operations and subsystem documentation is published at
+**[esteinig.github.io/cerebro](https://esteinig.github.io/cerebro/)**. To build it
+locally, see [`DOCS.md`](DOCS.md).
 
-Dependencies:
+## License
 
-* Conda/Mamba
-* Nextflow v24
-
-Large segmental copy number variation (CNV) detection across human chromosomes from host background of short-read metagenomic sequencing data with `CNVkit` ([Talevich et al. 2016](https://doi.org/10.1371/journal.pcbi.1004873)).
-
-This is a supplementary pipeline not intended for production - to execute please clone the repository first:
-
-```
-git clone https://github.com/esteinig/cerebro
-```
-
-Execute with relevant parameters:
-
-```
-nextflow run ./cerebro/lib/standalone/aneuploidy/main.nf -profile mamba,medium \
-  --pairedReads '*_{R1_001,R2_001}.fastq.gz' \
-  --outdir test_aneuploidy \
-  --referenceFasta resources/CHM13v2.fasta \
-  --normalControlBam resources/HG007.5x.QC.bam \
-  --resources.threads.minimap2 32
-```
-
-Other parameters can be found in the [`nextflow.config`](https://github.com/esteinig/cerebro/blob/main/lib/standalone/aneuploidy/nextflow.config). Resource dependencies are the CHM13v2 human reference genome and a sub-sampled (5x) reference alignment of [HG007 (ChineseTrio, mother)](https://github.com/genome-in-a-bottle/giab_data_indexes). We tested this default configuration on Detroit cell-lines which derive from a female pharyngeal cancer patient and show strong patterns of segmental aneuploidy across chromosomes when compared to a known healthy patient sample.
-
-
+See [`LICENSE`](LICENSE).
