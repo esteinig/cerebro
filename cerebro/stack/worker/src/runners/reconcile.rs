@@ -98,15 +98,13 @@ impl ReconcileScan {
                     let mut catalogue_paths: HashSet<String> = HashSet::new();
                     let mut probe_errors = 0usize;
                     let mut catalogue_count = 0usize;
-                    let mut complete = false;
                     let mut page = 0u32;
-                    loop {
+                    let complete = loop {
                         let files = api
                             .list_files(None, None, page, PAGE_LIMIT, false)
                             .map_err(|e| WorkerError::Api(e.to_string()))?;
-                        if files.is_empty() {
-                            complete = true; // reached the end of the catalogue
-                            break;
+                        if files.is_empty() { 
+                            break true;
                         }
                         for f in &files {
                             catalogue_count += 1;
@@ -148,7 +146,7 @@ impl ReconcileScan {
                             }
                         }
                         page += 1;
-                    }
+                    };
                     Ok((
                         catalogue_count,
                         complete,

@@ -391,7 +391,7 @@ impl S3ObjectStore {
         let creds =
             s3::creds::Credentials::new(Some(access_key), Some(secret_key), None, None, None)?;
         // Path-style addressing works with MinIO/SeaweedFS-S3 and AWS alike.
-        let bucket = s3::bucket::Bucket::new(bucket, region, creds)?.with_path_style();
+        let bucket = Box::new(s3::bucket::Bucket::new(bucket, region, creds)?.with_path_style());
         Ok(Self {
             bucket,
             prefix: prefix.trim_end_matches('/').to_string(),
@@ -422,8 +422,8 @@ impl ObjectStore for S3ObjectStore {
     fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
         let pages = self.bucket.list_blocking(self.key(prefix), None)?;
         let mut keys = Vec::new();
-        for (page, _status) in pages {
-            for obj in page.contents {
+        for result in pages {
+            for obj in result.contents {
                 keys.push(obj.key);
             }
         }
