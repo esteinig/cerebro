@@ -1,11 +1,17 @@
 name: docs
 
-# Build the mdBook site and publish it to GitHub Pages on every push to
-# feat/production that touches the documentation.
+# Build the mdBook site on every push to main, dev, and feat/production (a CI gate
+# that fails the run if the docs do not compile), and publish the live GitHub Pages
+# site only from the canonical branch.
+#
+# The canonical branch is chosen by the repository variable DOCS_PUBLISH_BRANCH
+# (Settings -> Secrets and variables -> Actions -> Variables). Set it to
+# `feat/production` now, then `dev`, then `main` as you merge up — no workflow edits
+# required. GitHub Pages source must be set to "GitHub Actions".
 
 on:
   push:
-    branches: [feat/production]
+    branches: [main, dev, feat/production]
     paths:
       - docs/**
       - book.toml
@@ -17,13 +23,14 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; let an in-progress run finish.
+# One deployment at a time; let an in-progress publish finish.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   build:
+    # Runs on ALL three branches — compiles the book as a CI gate.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +38,17 @@ jobs:
         uses: peaceiris/actions-mdbook@v2
         with:
           mdbook-version: 'latest'
-      - run: mdbook build           # outputs to ./book
-      - uses: actions/upload-pages-artifact@v3
+      - run: mdbook build           # outputs to ./book; fails the run if docs break
+      - name: Upload Pages artifact
+        if: github.ref_name == vars.DOCS_PUBLISH_BRANCH
+        uses: actions/upload-pages-artifact@v3
         with:
           path: book
 
   deploy:
+    # Publishes the live site only from the canonical branch.
     needs: build
+    if: github.ref_name == vars.DOCS_PUBLISH_BRANCH
     runs-on: ubuntu-latest
     environment:
       name: github-pages
