@@ -1,6 +1,6 @@
-pub mod error;
-pub mod terminal;
-pub mod utils;
-pub mod tower;
-pub mod orchestrate;
 pub mod client;
+pub mod error;
+pub mod orchestrate;
+pub mod terminal;
+pub mod tower;
+pub mod utils;

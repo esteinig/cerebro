@@ -1,33 +1,38 @@
-use std::{
-    collections::HashSet, 
-    fmt, 
-    fs::File, 
-    io::{BufReader, Write}, 
-    path::PathBuf
-};
+use anyhow::Result;
 use chrono::Utc;
 use fancy_regex::Regex;
-use anyhow::Result;
-use serde::{Serialize,Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::{
+    collections::HashSet,
+    fmt,
+    fs::File,
+    io::{BufReader, Write},
+    path::PathBuf,
+};
 use thiserror::Error;
 
 use cerebro_pipeline::{
-    error::WorkflowError, 
-    modules::{pathogen::PathogenDetectionTableRecord, quality::{PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder, QualityControl}}, 
-    nextflow::sheet::SampleSheet, 
-    taxa::{filter::TaxonFilterConfig, taxon::{LineageOperations, Taxon}},
+    error::WorkflowError,
+    modules::{
+        pathogen::PathogenDetectionTableRecord,
+        quality::{
+            PositiveControlConfig, PositiveControlSummary, PositiveControlSummaryBuilder,
+            QualityControl,
+        },
+    },
+    nextflow::sheet::SampleSheet,
+    taxa::{
+        filter::TaxonFilterConfig,
+        taxon::{LineageOperations, Taxon},
+    },
 };
 
-use crate::api::users::model::{UserId, User};
 use crate::api::files::model::{SeaweedFile, SeaweedReads};
+use crate::api::users::model::{User, UserId};
 
 use crate::api::cerebro::schema::{
-    PriorityTaxonDecisionSchema, 
-    SampleCommentSchema, 
-    PriorityTaxonSchema, 
-    ReportSchema
+    PriorityTaxonDecisionSchema, PriorityTaxonSchema, ReportSchema, SampleCommentSchema,
 };
-
 
 const SCHEMA_VERSION: &str = "1.0.0";
 
@@ -92,7 +97,6 @@ pub enum ModelError {
     QualityControlSummary(#[source] WorkflowError),
 }
 
-
 /*
 ==============
 Database model
@@ -104,65 +108,65 @@ pub type CerebroId = String;
 // A struct representing a single processed workflow sample (a sequenced and analysed library)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cerebro {
-    pub schema_version: String,                 // the schema version of this model
-    
-    pub id: CerebroId,                          // the unique identifier of this model in the database
-    pub name: String,                           // the basename of the sample as processed in the workflow
-    
-    pub fs: Option<FileStorage>,                // the file storage configuration if running in production
-    
-    pub run: RunConfig,                         // the configuration of the sequence run
-    pub sample: SampleConfig,                   // the configuration of the biological sample
-    pub workflow: WorkflowConfig,               // the configuration of the workflow run
+    pub schema_version: String, // the schema version of this model
 
-    pub quality: QualityControl,                // the quality control data from the parsed workflow sample
+    pub id: CerebroId, // the unique identifier of this model in the database
+    pub name: String,  // the basename of the sample as processed in the workflow
 
-    pub taxa: Vec<Taxon>,                       // taxon data from the parsed workflow sample 
-    
+    pub fs: Option<FileStorage>, // the file storage configuration if running in production
+
+    pub run: RunConfig,           // the configuration of the sequence run
+    pub sample: SampleConfig,     // the configuration of the biological sample
+    pub workflow: WorkflowConfig, // the configuration of the workflow run
+
+    pub quality: QualityControl, // the quality control data from the parsed workflow sample
+
+    pub taxa: Vec<Taxon>, // taxon data from the parsed workflow sample
+
     // Used for internal operations, not provided to users in frontend or model downloads:
-
-    pub tax_labels: Vec<String>                 // unique taxon labels at all taxonomic ranks detected (for searching samples in database)
-    
+    pub tax_labels: Vec<String>, // unique taxon labels at all taxonomic ranks detected (for searching samples in database)
 }
 impl Cerebro {
     /// Create a `Cerebro` model from a `WorkflowSample`
-    /// 
+    ///
     /// A model for the database represents a single sample processed through the pipeline
-    /// associated with a specific biological sample, sequencing run and workflow run. 
-    /// 
+    /// associated with a specific biological sample, sequencing run and workflow run.
+    ///
     /// TODO: IMPLEMENT A SIZE GUARD WHEN PARSING THE WORKFLOW SAMPLE
-    /// 
+    ///
     pub fn from(
         id: &str,
         quality: &QualityControl,
         taxa: &Vec<Taxon>,
-        sample_sheet: Option<PathBuf>, 
+        sample_sheet: Option<PathBuf>,
         workflow_config: Option<PathBuf>,
         run_id: Option<String>,
         run_date: Option<String>,
     ) -> Result<Self, ModelError> {
-            
         log::info!("Creating run and sample configs: {id}");
         let (run_config, sample_config) = match sample_sheet {
             Some(path) => {
                 let sample_sheet = SampleSheet::from(&path)?;
-                (RunConfig::from(&id, &sample_sheet)?, SampleConfig::from(&id, &sample_sheet)?)
-            },
-            None => {
                 (
-                    RunConfig::new(
-                    &match run_id { 
-                            Some(id) => id, 
-                            None => String::from("Placeholder") 
-                        },
-                        &match run_date {
-                            Some(date) => date,
-                            None => Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
-                        }
-                    )?, 
-                    SampleConfig::with_default(&id)?
+                    RunConfig::from(&id, &sample_sheet)?,
+                    SampleConfig::from(&id, &sample_sheet)?,
                 )
             }
+            None => (
+                RunConfig::new(
+                    &match run_id {
+                        Some(id) => id,
+                        None => String::from("Placeholder"),
+                    },
+                    &match run_date {
+                        Some(date) => date,
+                        None => Utc::now()
+                            .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+                            .to_string(),
+                    },
+                )?,
+                SampleConfig::with_default(&id)?,
+            ),
         };
 
         log::info!("Reading workflow config: {id}");
@@ -171,38 +175,48 @@ impl Cerebro {
             None => WorkflowConfig::default(),
         };
 
-        Ok(
-            Cerebro {
-                schema_version: format!("{}", SCHEMA_VERSION),
-                id: uuid::Uuid::new_v4().to_string(),
-                name: id.to_owned(),
-                fs: None,
-                run: run_config, 
-                sample: sample_config, 
-                workflow: workflow_config,
-                taxa: taxa.to_owned(),
-                tax_labels: unique_taxonomic_labels(taxa),
-                quality: quality.to_owned(),
-            }
-        )
+        Ok(Cerebro {
+            schema_version: format!("{}", SCHEMA_VERSION),
+            id: uuid::Uuid::new_v4().to_string(),
+            name: id.to_owned(),
+            fs: None,
+            run: run_config,
+            sample: sample_config,
+            workflow: workflow_config,
+            taxa: taxa.to_owned(),
+            tax_labels: unique_taxonomic_labels(taxa),
+            quality: quality.to_owned(),
+        })
     }
     pub fn size(&self) -> Result<usize, ModelError> {
         match serde_json::to_vec(self) {
             Ok(json_bytes) => Ok(json_bytes.len()),
-            Err(_) => return Err(ModelError::ModelSizeCalculation)
+            Err(_) => return Err(ModelError::ModelSizeCalculation),
         }
     }
     pub fn size_mb(&self) -> Result<f64, ModelError> {
         Ok(self.size()? as f64 / (1024.0 * 1024.0))
     }
-    pub fn check_size(&self, max_size: Option<f64>, no_taxa: bool, no_taxa_max_size: Option<f64>) -> Result<(), ModelError> {
-
+    pub fn check_size(
+        &self,
+        max_size: Option<f64>,
+        no_taxa: bool,
+        no_taxa_max_size: Option<f64>,
+    ) -> Result<(), ModelError> {
         let model_size = self.size_mb()?;
-        log::info!("Model size with taxa is {:.2} MB ({})", model_size, self.name);
+        log::info!(
+            "Model size with taxa is {:.2} MB ({})",
+            model_size,
+            self.name
+        );
 
         if let Some(max_size) = max_size {
             if model_size > max_size {
-                log::warn!("Model size ({}) >>with<< taxa is larger than allowed size ({:.2} MB)", self.name, max_size);
+                log::warn!(
+                    "Model size ({}) >>with<< taxa is larger than allowed size ({:.2} MB)",
+                    self.name,
+                    max_size
+                );
             }
         }
 
@@ -210,51 +224,57 @@ impl Cerebro {
             let mut model = self.clone();
             model.taxa.clear();
             let model_size = model.size_mb()?;
-            log::info!("Model size without taxa is {:.2} MB ({})", model_size, self.name);
+            log::info!(
+                "Model size without taxa is {:.2} MB ({})",
+                model_size,
+                self.name
+            );
 
             if let Some(max_size) = no_taxa_max_size {
                 if model_size > max_size {
-                    log::warn!("Model size ({}) >>without<< taxa is larger than allowed size ({:.2} MB)", self.name, max_size);
+                    log::warn!(
+                        "Model size ({}) >>without<< taxa is larger than allowed size ({:.2} MB)",
+                        self.name,
+                        max_size
+                    );
                 }
             }
-
         }
-
 
         Ok(())
     }
     pub fn summary_positive_control(&self) -> PositiveControlSummary {
-
-        PositiveControlSummaryBuilder::new(
-            &self.taxa, 
-            &PositiveControlConfig::metagp(),
-            &self.name
-        ).build()
+        PositiveControlSummaryBuilder::new(&self.taxa, &PositiveControlConfig::metagp(), &self.name)
+            .build()
     }
     /// Pathogen detection table record per taxon
-    pub fn into_pathogen_detection_table_records(&self) -> Result<Vec<PathogenDetectionTableRecord>, ModelError> {
+    pub fn into_pathogen_detection_table_records(
+        &self,
+    ) -> Result<Vec<PathogenDetectionTableRecord>, ModelError> {
         let mut rows = Vec::with_capacity(self.taxa.len());
         for taxon in &self.taxa {
-            let row = PathogenDetectionTableRecord::from_taxon(&self.name, taxon, &taxon.evidence.alignment)?;
+            let row = PathogenDetectionTableRecord::from_taxon(
+                &self.name,
+                taxon,
+                &taxon.evidence.alignment,
+            )?;
             rows.push(row);
         }
         Ok(rows)
     }
-    pub fn from_json(file: &PathBuf) -> Result<Self, ModelError>{
-        let model: Cerebro = serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
+    pub fn from_json(file: &PathBuf) -> Result<Self, ModelError> {
+        let model: Cerebro =
+            serde_json::from_reader(File::open(&file)?).map_err(ModelError::JsonDeserialization)?;
         Ok(model)
     }
-    pub fn write_json(&self, file: &PathBuf) -> Result<(), ModelError>{
+    pub fn write_json(&self, file: &PathBuf) -> Result<(), ModelError> {
         let mut file = File::create(&file)?;
-        let json_string = serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
+        let json_string =
+            serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
         write!(file, "{}", json_string)?;
         Ok(())
     }
-   
-
 }
-
-
 
 /// Helper: Remove trailing underscore and block of uppercase letters if present.
 fn get_base_name(name: &str) -> &str {
@@ -273,12 +293,12 @@ fn get_base_name(name: &str) -> &str {
 /// so that returned (collapsed) taxa can be searched in the hisotry data request.
 pub fn unique_taxonomic_labels(taxa: &Vec<Taxon>) -> Vec<String> {
     let mut unique_labels = HashSet::new();
-    
+
     for taxon in taxa {
         // Each label is in GTDB format like "p__Bacteria" or "s__Staphylococcus aureus"
         for label in taxon.lineage.get_labels() {
             unique_labels.insert(label.to_string());
-            
+
             // If the label has a prefix separated by "__", split it.
             if let Some((prefix, name)) = label.split_once("__") {
                 let base_name = get_base_name(name);
@@ -290,7 +310,7 @@ pub fn unique_taxonomic_labels(taxa: &Vec<Taxon>) -> Vec<String> {
             }
         }
     }
-    
+
     let mut unique_vec: Vec<String> = unique_labels.into_iter().collect();
     unique_vec.sort();
     unique_vec
@@ -312,22 +332,21 @@ pub struct RunConfig {
 }
 impl RunConfig {
     pub fn from(id: &str, sample_sheet: &SampleSheet) -> Result<Self, ModelError> {
-
         let id = match sample_sheet.get_run_id(&id) {
             Some(run_id) => run_id,
-            None => return Err(ModelError::RunIdentifier(id.to_owned()))
+            None => return Err(ModelError::RunIdentifier(id.to_owned())),
         };
 
         let date = match sample_sheet.get_run_date(&id) {
             Some(run_date) => run_date,
-            None => return Err(ModelError::RunDate(id.to_owned()))
+            None => return Err(ModelError::RunDate(id.to_owned())),
         };
         Ok(Self { id, date })
     }
     pub fn new(id: &str, date: &str) -> Result<Self, ModelError> {
         Ok(Self {
             id: id.to_string(),
-            date: date.to_string()
+            date: date.to_string(),
         })
     }
 }
@@ -335,7 +354,9 @@ impl Default for RunConfig {
     fn default() -> Self {
         Self {
             id: String::from("SEQUENCE-RUN"),
-            date: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
+            date: Utc::now()
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+                .to_string(),
         }
     }
 }
@@ -352,22 +373,21 @@ pub type Tag = String;
 // A struct representing a biological sample data configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SampleConfig {
-    pub id: SampleId,                       // identifier of the sample i.e. file base name stripped of tags
+    pub id: SampleId, // identifier of the sample i.e. file base name stripped of tags
     pub tags: Vec<Tag>,
     pub description: Option<String>,
     pub sample_group: Option<String>,
     pub sample_type: Option<String>,
     pub sample_date: Option<String>,
-    pub aneuploidy: Option<bool>,             // per-sample aneuploidy detection consent/control from the sample sheet
+    pub aneuploidy: Option<bool>, // per-sample aneuploidy detection consent/control from the sample sheet
     pub comments: Vec<SampleComment>,
-    pub priority: Vec<PriorityTaxon>,        // priority taxa set from the user interface
-    pub reports: Vec<ReportEntry>,           // reports generated for this sample - links to a report log in the team database
-    pub ercc_input_mass: Option<f64>,        // input mass in picogram
+    pub priority: Vec<PriorityTaxon>, // priority taxa set from the user interface
+    pub reports: Vec<ReportEntry>, // reports generated for this sample - links to a report log in the team database
+    pub ercc_input_mass: Option<f64>, // input mass in picogram
 }
 impl SampleConfig {
     /// Create a minimal sample configuration with defaults
     pub fn with_default(id: &str) -> Result<Self, ModelError> {
-
         let (mut sample_id, tags) = get_sample_regex_matches(id)?;
 
         if sample_id.is_empty() {
@@ -394,7 +414,19 @@ impl SampleConfig {
 
         let ercc_input_mass = sample_sheet.get_ercc_input(&id);
 
-        Ok(Self{ id, tags, description: None, sample_group, sample_type, sample_date, aneuploidy, comments: Vec::new(), priority: Vec::new(), reports: Vec::new(), ercc_input_mass })
+        Ok(Self {
+            id,
+            tags,
+            description: None,
+            sample_group,
+            sample_type,
+            sample_date,
+            aneuploidy,
+            comments: Vec::new(),
+            priority: Vec::new(),
+            reports: Vec::new(),
+            ercc_input_mass,
+        })
     }
 }
 impl Default for SampleConfig {
@@ -410,7 +442,7 @@ impl Default for SampleConfig {
             comments: Vec::new(),
             priority: Vec::new(),
             reports: Vec::new(),
-            ercc_input_mass: None
+            ercc_input_mass: None,
         }
     }
 }
@@ -429,10 +461,15 @@ pub struct ReportEntry {
     pub organism: String,
     pub review_date: String,
     pub report_text: Option<String>,
-    pub report_pdf: Option<bool>
+    pub report_pdf: Option<bool>,
 }
 impl ReportEntry {
-    pub fn from_schema(id: String, schema: &ReportSchema, report_text: Option<String>, is_pdf: Option<bool>) -> Self {
+    pub fn from_schema(
+        id: String,
+        schema: &ReportSchema,
+        report_text: Option<String>,
+        is_pdf: Option<bool>,
+    ) -> Self {
         Self {
             id,
             date: Utc::now().to_string(),
@@ -442,7 +479,7 @@ impl ReportEntry {
             organism: schema.patient_result.organism.clone(),
             review_date: schema.patient_result.review_date.clone(),
             report_text,
-            report_pdf: is_pdf
+            report_pdf: is_pdf,
         }
     }
     pub fn log_description(&self) -> String {
@@ -462,7 +499,7 @@ pub struct SampleComment {
     pub user_title: Option<String>,
     pub comment_id: String,
     pub comment_date: String,
-    pub comment_text: String
+    pub comment_text: String,
 }
 impl SampleComment {
     pub fn from_schema(comment: &SampleCommentSchema) -> Self {
@@ -473,17 +510,19 @@ impl SampleComment {
             user_title: comment.user_title.clone(),
             comment_id: uuid::Uuid::new_v4().to_string(),
             comment_date: Utc::now().to_string(),
-            comment_text: comment.comment_text.clone()
+            comment_text: comment.comment_text.clone(),
         }
     }
     pub fn log_description(&self) -> String {
-        format!("Sample comment added: comment_id={} comment_date={} comment_text='{}'", self.comment_id, self.comment_date, self.comment_text)
+        format!(
+            "Sample comment added: comment_id={} comment_date={} comment_text='{}'",
+            self.comment_id, self.comment_date, self.comment_text
+        )
     }
 }
 
 // Utility function to extract the biological sample identifier and library tags [strict]
-fn get_sample_regex_matches(file_name: &str)-> Result<(String, Vec<String>), ModelError> {
-    
+fn get_sample_regex_matches(file_name: &str) -> Result<(String, Vec<String>), ModelError> {
     let mut sample_id = String::new();
     let sample_id_regex = Regex::new("^([^_]+)(?=__)").map_err(ModelError::SampleIdRegex)?;
     for caps in sample_id_regex.captures_iter(&file_name) {
@@ -491,36 +530,33 @@ fn get_sample_regex_matches(file_name: &str)-> Result<(String, Vec<String>), Mod
 
         sample_id = match sample_name {
             Some(name) => name.as_str().to_string(),
-            None => return Err(ModelError::SampleIdRegexCaptureMatch)
+            None => return Err(ModelError::SampleIdRegexCaptureMatch),
         };
         break; // always use the first capture
     }
 
     let mut library_tags: Vec<String> = Vec::new();
-    let sample_id_regex = Regex::new("(?<=__)([A-Za-z0-9]+)").map_err(ModelError::SampleTagRegex)?;
+    let sample_id_regex =
+        Regex::new("(?<=__)([A-Za-z0-9]+)").map_err(ModelError::SampleTagRegex)?;
     for caps in sample_id_regex.captures_iter(&file_name) {
         let tags = caps.map_err(ModelError::SampleTagRegexCapture)?.get(0);
         let tag = match tags {
             Some(name) => name.as_str().to_string(),
-            None => return Err(ModelError::SampleTagRegexCaptureMatch)
+            None => return Err(ModelError::SampleTagRegexCaptureMatch),
         };
         library_tags.push(tag)
     }
     Ok((sample_id, library_tags))
 }
 
-
-
-
-// A struct representing the file system access to 
+// A struct representing the file system access to
 // the input and workflow files for this library
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileStorage {
-    pub raw_reads: Option<SeaweedReads>,          // input reads including  host background
-    pub qc_reads: Option<SeaweedReads>,           // reads after qc and background depletion - add additional human depletion after contig assembly
-    pub wf_data: Option<SeaweedFile>,             // for now compressed archive - implement more differentiated file get + contig/classified read access late
+    pub raw_reads: Option<SeaweedReads>, // input reads including  host background
+    pub qc_reads: Option<SeaweedReads>, // reads after qc and background depletion - add additional human depletion after contig assembly
+    pub wf_data: Option<SeaweedFile>, // for now compressed archive - implement more differentiated file get + contig/classified read access late
 }
-
 
 /*
 ========================
@@ -539,8 +575,7 @@ pub struct WorkflowConfig {
     pub version: String,
     pub started: String,
     pub completed: String,
-    pub workflow: String
-    // pub params: WorkflowParams
+    pub workflow: String, // pub params: WorkflowParams
 }
 impl WorkflowConfig {
     pub fn from(json: &PathBuf) -> Result<Self, ModelError> {
@@ -557,7 +592,7 @@ impl Default for WorkflowConfig {
             version: String::from("PLACEHOLDER"),
             started: String::from("PLACEHOLDER"),
             completed: String::from("PLACEHOLDER"),
-            workflow: String::from("PLACEHOLDER")
+            workflow: String::from("PLACEHOLDER"),
         }
     }
 }
@@ -590,8 +625,6 @@ where
         .collect())
 }
 
-
-
 /*
 ========================
 User configuration
@@ -605,7 +638,7 @@ pub type PriorityTaxonDecisionId = String;
 pub enum TaxonType {
     Unknown,
     Contaminant,
-    Pathogen
+    Pathogen,
 }
 impl fmt::Display for TaxonType {
     // This trait requires `fmt` with this exact signature.
@@ -613,7 +646,7 @@ impl fmt::Display for TaxonType {
         match self {
             TaxonType::Unknown => write!(f, "Unknown"),
             TaxonType::Contaminant => write!(f, "Contaminant"),
-            TaxonType::Pathogen => write!(f, "Pathogen")
+            TaxonType::Pathogen => write!(f, "Pathogen"),
         }
     }
 }
@@ -621,7 +654,7 @@ impl fmt::Display for TaxonType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DecisionType {
     Accept,
-    Reject
+    Reject,
 }
 impl fmt::Display for DecisionType {
     // This trait requires `fmt` with this exact signature.
@@ -650,7 +683,7 @@ impl PriorityTaxonDecision {
             user_id: user.id.to_owned(),
             user_name: user.name.to_owned(),
             decision: schema.decision.to_owned(),
-            comment: schema.decision_comment.to_owned()
+            comment: schema.decision_comment.to_owned(),
         }
     }
     pub fn log_description(&self, schema: &PriorityTaxonDecisionSchema) -> String {
@@ -669,23 +702,23 @@ pub struct PriorityTaxon {
     pub user_id: UserId,
     pub comment: String,
     pub date: String,
-    pub evidence_tags: Vec<String>,            // joined tags, not arrays
-    pub cerebro_identifiers: Vec<CerebroId>,   
+    pub evidence_tags: Vec<String>, // joined tags, not arrays
+    pub cerebro_identifiers: Vec<CerebroId>,
     pub taxon_type: TaxonType,
     // pub taxon_overview: TaxonOverview,
     pub filter_config: TaxonFilterConfig,
-    pub decisions: Vec<PriorityTaxonDecision>
+    pub decisions: Vec<PriorityTaxonDecision>,
 }
 impl PriorityTaxon {
     // A description of priority taxon for logging
     pub fn log_description(&self) -> String {
         format!(
-            "PriorityTaxon: cerebro_ids={} id={} date={} type={} tags={} comment='{}'", 
-            self.id, 
-            self.date, 
-            self.taxon_type, 
-            // self.taxon_overview.name, 
-            // self.taxon_overview.taxid, 
+            "PriorityTaxon: cerebro_ids={} id={} date={} type={} tags={} comment='{}'",
+            self.id,
+            self.date,
+            self.taxon_type,
+            // self.taxon_overview.name,
+            // self.taxon_overview.taxid,
             self.evidence_tags.join(","),
             self.cerebro_identifiers.join(","),
             self.comment
@@ -699,8 +732,8 @@ impl PriorityTaxon {
             user_id: schema.user_id,
             user_name: schema.user_name,
             comment: schema.comment,
-            evidence_tags: schema.evidence_tags,          // joined tags, not arrays
-            cerebro_identifiers:schema.cerebro_identifiers,  
+            evidence_tags: schema.evidence_tags, // joined tags, not arrays
+            cerebro_identifiers: schema.cerebro_identifiers,
             taxon_type: schema.taxon_type,
             // taxon_overview: schema.taxon_overview,
             filter_config: schema.filter_config,
@@ -708,5 +741,3 @@ impl PriorityTaxon {
         }
     }
 }
-
-

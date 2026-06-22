@@ -47,7 +47,9 @@ pub async fn seed_lifecycle_schedules(
     db_name: &str,
     jobs_collection: &str,
 ) -> anyhow::Result<u32> {
-    let coll = mongo.database(db_name).collection::<ScheduleJob>(jobs_collection);
+    let coll = mongo
+        .database(db_name)
+        .collection::<ScheduleJob>(jobs_collection);
     let now = Utc::now();
     let warm_days = RetentionPolicy::from_env().warm_days;
     const DAY: i64 = 86_400;

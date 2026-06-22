@@ -36,7 +36,13 @@ pub fn archive_key_for(prefix: &str, team: &str, file_id: &str) -> String {
 
 fn sanitize(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -56,7 +62,10 @@ pub fn archive_object(
         .read_object(fid)
         .map_err(|e| anyhow::anyhow!("read object {fid} from store: {e}"))?;
     store.put(archive_key, &bytes)?;
-    Ok(ArchiveOutcome { archive_key: archive_key.to_string(), bytes: bytes.len() })
+    Ok(ArchiveOutcome {
+        archive_key: archive_key.to_string(),
+        bytes: bytes.len(),
+    })
 }
 
 /// Outcome of restoring one object from the cold store (S4-5).
@@ -118,7 +127,11 @@ pub fn restore_object(
             .map_err(|e| anyhow::anyhow!("re-materialise {archive_key}: {e}"))?;
         Some(fid)
     };
-    Ok(RestoreOutcome { new_fid, bytes: bytes.len(), hash_verified })
+    Ok(RestoreOutcome {
+        new_fid,
+        bytes: bytes.len(),
+        hash_verified,
+    })
 }
 
 #[cfg(test)]
@@ -127,9 +140,15 @@ mod tests {
 
     #[test]
     fn archive_key_is_namespaced_and_sanitised() {
-        assert_eq!(archive_key_for("archive", "team-a", "file_1"), "archive/team-a/file_1");
+        assert_eq!(
+            archive_key_for("archive", "team-a", "file_1"),
+            "archive/team-a/file_1"
+        );
         // unsafe characters in team/id are replaced
-        assert_eq!(archive_key_for("archive", "te/am", "f i d"), "archive/te_am/f_i_d");
+        assert_eq!(
+            archive_key_for("archive", "te/am", "f i d"),
+            "archive/te_am/f_i_d"
+        );
         // empty prefix drops the leading segment
         assert_eq!(archive_key_for("", "t", "f"), "t/f");
         // surrounding slashes on the prefix are trimmed

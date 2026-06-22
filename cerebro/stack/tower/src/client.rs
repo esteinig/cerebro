@@ -1,17 +1,15 @@
-use std::path::PathBuf;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
 use cerebro_model::api::stage::model::StagedSample;
 use cerebro_model::api::stage::response::{DeleteStagedSampleResponse, ListStagedSamplesResponse};
 use cerebro_model::api::towers::response::PingTowerResponse;
 use cerebro_model::api::utils::ErrorResponse;
-use reqwest::{Client, Response, StatusCode};
 use reqwest::header::AUTHORIZATION;
+use reqwest::{Client, Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 use crate::error::TowerError;
-
-
 
 #[derive(Debug, Clone)]
 pub enum Route {
@@ -24,7 +22,7 @@ pub enum Route {
     TeamStagedSamplesList,
     TeamStagedSamplesDelete,
     TeamStagedSamplesPull,
-    TeamTowersPing
+    TeamTowersPing,
 }
 
 impl Route {
@@ -39,7 +37,7 @@ impl Route {
             Route::TeamStagedSamplesList => "stage",
             Route::TeamStagedSamplesDelete => "stage",
             Route::TeamStagedSamplesPull => "stage",
-            Route::TeamTowersPing => "tower"
+            Route::TeamTowersPing => "tower",
         }
     }
 }
@@ -67,7 +65,6 @@ impl std::fmt::Display for Route {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthLoginTokenFile {
     pub access_token: String,
@@ -82,8 +79,6 @@ impl From<&AuthLoginResponseSuccess> for AuthLoginTokenFile {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone)]
 pub struct TowerClient {
@@ -162,7 +157,8 @@ impl TowerClient {
         }
     }
     pub async fn ping_servers(&self) -> Result<(), TowerError> {
-        let response = self.client
+        let response = self
+            .client
             .get(self.routes.url(Route::AuthServerStatus))
             .header(AUTHORIZATION, self.get_bearer_token(None))
             .send()
@@ -175,8 +171,14 @@ impl TowerClient {
             Err(TowerError::ResponseFailure(response.status()))
         }
     }
-    async fn send_request_with_team(&self, request: reqwest::RequestBuilder) -> Result<Response, TowerError> {
-        let team = self.team.as_deref().ok_or(TowerError::RequireTeamNotConfigured)?;
+    async fn send_request_with_team(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<Response, TowerError> {
+        let team = self
+            .team
+            .as_deref()
+            .ok_or(TowerError::RequireTeamNotConfigured)?;
 
         let response = request
             .query(&[("team", team)])
@@ -190,14 +192,12 @@ impl TowerClient {
     async fn build_request_url<T, R>(&self, route: R, params: &[(&str, T)]) -> String
     where
         T: Into<Option<String>> + Clone,
-        R: Into<String> + Clone
+        R: Into<String> + Clone,
     {
         let mut url = route.into().clone();
         let query_string: Vec<String> = params
             .iter()
-            .filter_map(|(key, value)| {
-                value.clone().into().map(|v| format!("{}={}", key, v))
-            })
+            .filter_map(|(key, value)| value.clone().into().map(|v| format!("{}={}", key, v)))
             .collect();
 
         if !query_string.is_empty() {
@@ -208,15 +208,25 @@ impl TowerClient {
         url
     }
 
-    async fn handle_response<T: DeserializeOwned>(&self, response: Response, failure_msg: Option<&str>) -> Result<T, TowerError> {
+    async fn handle_response<T: DeserializeOwned>(
+        &self,
+        response: Response,
+        failure_msg: Option<&str>,
+    ) -> Result<T, TowerError> {
         let status = response.status();
         if status.is_success() {
             response.json::<T>().await.map_err(|_| {
-                TowerError::DataResponseFailure(status, String::from("failed to parse response data"))
+                TowerError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse response data"),
+                )
             })
         } else {
             let error_response: ErrorResponse = response.json().await.map_err(|_| {
-                TowerError::DataResponseFailure(status, String::from("failed to parse error response"))
+                TowerError::DataResponseFailure(
+                    status,
+                    String::from("failed to parse error response"),
+                )
             })?;
             if let Some(msg) = failure_msg {
                 log::error!("{}: {}", msg, error_response.message);
@@ -246,7 +256,6 @@ impl TowerClient {
         id: &str,
         delete: bool,
     ) -> Result<Vec<StagedSample>, TowerError> {
-
         let staged_samples = match self.list_staged_samples(id).await {
             Ok(samples) => samples,
             Err(err) => match err {
@@ -257,7 +266,8 @@ impl TowerClient {
 
         if delete {
             for staged_sample in &staged_samples {
-                self.delete_staged_sample(id, Some(staged_sample.id.to_string())).await?;
+                self.delete_staged_sample(id, Some(staged_sample.id.to_string()))
+                    .await?;
             }
         }
 
@@ -269,42 +279,37 @@ impl TowerClient {
         id: &str,
         staged_id: Option<String>,
     ) -> Result<Option<StagedSample>, TowerError> {
+        let url = self
+            .build_request_url(
+                format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)),
+                &[("stage_id", staged_id)],
+            )
+            .await;
 
-        let url = self.build_request_url(
-            format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)), 
-            &[("stage_id", staged_id)]
-        ).await;
-        
         let request = self.client.delete(url);
         let response = self.send_request_with_team(request).await?;
 
-        Ok(
-            self.handle_response::<DeleteStagedSampleResponse>(
-                response, 
-                Some("Staged sample deletion failed")
+        Ok(self
+            .handle_response::<DeleteStagedSampleResponse>(
+                response,
+                Some("Staged sample deletion failed"),
             )
             .await?
-            .data
-        )
+            .data)
     }
 
-
     pub async fn ping_tower(&self, tower_id: &str, print: bool) -> Result<String, TowerError> {
-
-        let response = self.send_request_with_team(
-            self.client
-                .patch(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamTowersPing),
-                    tower_id
-                ))
-        ).await?;
+        let response = self
+            .send_request_with_team(self.client.patch(&format!(
+                "{}/{}",
+                self.routes.url(Route::TeamTowersPing),
+                tower_id
+            )))
+            .await?;
 
         let data = self
-            .handle_response::<PingTowerResponse>(
-                response,
-                Some("Tower ping failed"),
-            ).await?
+            .handle_response::<PingTowerResponse>(response, Some("Tower ping failed"))
+            .await?
             .data
             .ok_or_else(|| {
                 TowerError::DataResponseFailure(

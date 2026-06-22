@@ -1,25 +1,29 @@
+use base64::{engine::general_purpose, Engine as _};
+use bcrypt::{hash, DEFAULT_COST};
 use colored::Colorize;
-use thiserror::Error;
+use rcgen::generate_simple_self_signed;
+use rsa::{pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey, RsaPrivateKey, RsaPublicKey};
 use rust_embed::EmbeddedFile;
-use bcrypt::{DEFAULT_COST, hash};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::env;
 use std::fs::create_dir_all;
 use std::path::Path;
-use std::{path::PathBuf, io::Write};
-use rcgen::generate_simple_self_signed;
-use serde::{Deserialize, Serialize, Deserializer};
-use base64::{engine::general_purpose, Engine as _};
-use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey};
+use std::{io::Write, path::PathBuf};
+use thiserror::Error;
 
-use rprompt::prompt_reply;
 use rpassword::prompt_password;
+use rprompt::prompt_reply;
 
 use crate::terminal::StackDeployArgs;
 use crate::utils::CRATE_VERSION;
 
-use crate::stack::assets::{MongoInitTemplates, DockerTemplates, TraefikTemplates, CerebroTemplates};
+use crate::stack::assets::{
+    CerebroTemplates, DockerTemplates, MongoInitTemplates, TraefikTemplates,
+};
 use crate::tools::password::hash_password;
-use cerebro_model::api::config::{SmtpConfig, TokenEncryptionConfig, ConfigError, SecurityComponentsConfig};
+use cerebro_model::api::config::{
+    ConfigError, SecurityComponentsConfig, SmtpConfig, TokenEncryptionConfig,
+};
 
 #[derive(Error, Debug)]
 pub enum StackConfigError {
@@ -92,12 +96,21 @@ pub enum StackConfigError {
     #[error("file-system replication code '{0}' is not a valid SeaweedFS code (expected three digits, e.g. 000)")]
     ReplicationInvalid(String),
     #[error("file-system replication '{replication}' requires {copies} copies but the topology renders only {servers} volume server(s); SeaweedFS writes would fail. Use '000' for a single-node deployment, or render a multi-node topology before raising replication")]
-    ReplicationUnsatisfiable { replication: String, copies: u32, servers: u32 },
+    ReplicationUnsatisfiable {
+        replication: String,
+        copies: u32,
+        servers: u32,
+    },
 }
 
-fn write_embedded_file(embedded_file: &EmbeddedFile, outfile: &PathBuf) -> Result<(), StackConfigError> {
-    let mut file = std::fs::File::create(outfile).map_err(|err| StackConfigError::EmbeddedFileOutputPathInvalid(err) )?;
-    file.write_all(&embedded_file.data).map_err(|err| StackConfigError::EmbeddedFileOutputNotWritten(err) )
+fn write_embedded_file(
+    embedded_file: &EmbeddedFile,
+    outfile: &PathBuf,
+) -> Result<(), StackConfigError> {
+    let mut file = std::fs::File::create(outfile)
+        .map_err(|err| StackConfigError::EmbeddedFileOutputPathInvalid(err))?;
+    file.write_all(&embedded_file.data)
+        .map_err(|err| StackConfigError::EmbeddedFileOutputNotWritten(err))
 }
 
 pub struct TemplateFiles {
@@ -108,20 +121,20 @@ impl TemplateFiles {
     pub fn new(outdir: &PathBuf) -> Self {
         let names = TemplateFileNames::new();
         Self {
-            paths: TemplateFilePaths { 
-                traefik_dynamic: outdir.join(&names.traefik_dynamic), 
-                traefik_static: outdir.join(&names.traefik_static), 
-                docker_compose: outdir.join(&names.docker_compose), 
+            paths: TemplateFilePaths {
+                traefik_dynamic: outdir.join(&names.traefik_dynamic),
+                traefik_static: outdir.join(&names.traefik_static),
+                docker_compose: outdir.join(&names.docker_compose),
                 docker_compose_traefik: outdir.join(&names.docker_compose_traefik),
-                docker_server: outdir.join(&names.docker_server), 
-                docker_app: outdir.join(&names.docker_app), 
-                docker_fs: outdir.join(&names.docker_fs), 
-                docker_filer: outdir.join(&names.docker_filer), 
-                docker_remote: outdir.join(&names.docker_remote), 
-                mongodb_init_sh: outdir.join(&names.mongodb_init_sh), 
+                docker_server: outdir.join(&names.docker_server),
+                docker_app: outdir.join(&names.docker_app),
+                docker_fs: outdir.join(&names.docker_fs),
+                docker_filer: outdir.join(&names.docker_filer),
+                docker_remote: outdir.join(&names.docker_remote),
+                mongodb_init_sh: outdir.join(&names.mongodb_init_sh),
                 mongodb_init_env: outdir.join(&names.mongodb_init_env),
                 cerebro_server: outdir.join(&names.cerebro_server),
-                cerebro_app: outdir.join(&names.cerebro_app)
+                cerebro_app: outdir.join(&names.cerebro_app),
             },
             names,
         }
@@ -158,7 +171,6 @@ pub struct TemplateFileNames {
     mongodb_init_env: String,
     cerebro_server: String,
     cerebro_app: String,
-
 }
 impl TemplateFileNames {
     pub fn new() -> Self {
@@ -180,7 +192,7 @@ impl TemplateFileNames {
     }
 }
 
-// Assets included in the binary to write to 
+// Assets included in the binary to write to
 // configuration directory
 pub struct StackAssets {
     mongodb: MongoInitFiles,
@@ -188,37 +200,54 @@ pub struct StackAssets {
     traefik: TraefikFiles,
     cerebro: CerebroFiles,
     templates: TemplateFiles,
-    templates_outdir: PathBuf
+    templates_outdir: PathBuf,
 }
 impl StackAssets {
     pub fn new(templates_outdir: &PathBuf) -> Result<StackAssets, StackConfigError> {
-
         Ok(Self {
             mongodb: MongoInitFiles::new()?,
             docker: DockerFiles::new()?,
             traefik: TraefikFiles::new()?,
             cerebro: CerebroFiles::new()?,
             templates: TemplateFiles::new(&templates_outdir),
-            templates_outdir: templates_outdir.clone()
+            templates_outdir: templates_outdir.clone(),
         })
     }
     // Writes the deployment assets for templating to the output directory
-    pub fn write_asset_files(&self, traefik_deployment: TraefikDeployment) -> Result<(), StackConfigError> {
-
-        std::fs::create_dir_all(self.templates_outdir.clone()).map_err(|err| StackConfigError::TemplateDirectoryNotCreated(err) )?;
+    pub fn write_asset_files(
+        &self,
+        traefik_deployment: TraefikDeployment,
+    ) -> Result<(), StackConfigError> {
+        std::fs::create_dir_all(self.templates_outdir.clone())
+            .map_err(|err| StackConfigError::TemplateDirectoryNotCreated(err))?;
 
         match traefik_deployment {
             TraefikDeployment::Web => {
-                write_embedded_file(&self.traefik.web_dynamic, &self.templates.paths.traefik_dynamic)?;
-                write_embedded_file(&self.traefik.web_static, &self.templates.paths.traefik_static)?;
-            },
+                write_embedded_file(
+                    &self.traefik.web_dynamic,
+                    &self.templates.paths.traefik_dynamic,
+                )?;
+                write_embedded_file(
+                    &self.traefik.web_static,
+                    &self.templates.paths.traefik_static,
+                )?;
+            }
             TraefikDeployment::Localhost => {
-                write_embedded_file(&self.traefik.localhost_dynamic, &self.templates.paths.traefik_dynamic)?;
-                write_embedded_file(&self.traefik.localhost_static, &self.templates.paths.traefik_static)?;
+                write_embedded_file(
+                    &self.traefik.localhost_dynamic,
+                    &self.templates.paths.traefik_dynamic,
+                )?;
+                write_embedded_file(
+                    &self.traefik.localhost_static,
+                    &self.templates.paths.traefik_static,
+                )?;
             }
         }
 
-        write_embedded_file(&self.docker.compose_traefik, &self.templates.paths.docker_compose_traefik)?;
+        write_embedded_file(
+            &self.docker.compose_traefik,
+            &self.templates.paths.docker_compose_traefik,
+        )?;
         write_embedded_file(&self.docker.compose, &self.templates.paths.docker_compose)?;
         write_embedded_file(&self.docker.server, &self.templates.paths.docker_server)?;
         write_embedded_file(&self.docker.app, &self.templates.paths.docker_app)?;
@@ -226,45 +255,85 @@ impl StackAssets {
         write_embedded_file(&self.docker.filer, &self.templates.paths.docker_filer)?;
         write_embedded_file(&self.docker.remote, &self.templates.paths.docker_remote)?;
         write_embedded_file(&self.mongodb.init_sh, &self.templates.paths.mongodb_init_sh)?;
-        write_embedded_file(&self.mongodb.init_env, &self.templates.paths.mongodb_init_env)?;
+        write_embedded_file(
+            &self.mongodb.init_env,
+            &self.templates.paths.mongodb_init_env,
+        )?;
         write_embedded_file(&self.cerebro.server, &self.templates.paths.cerebro_server)?;
         write_embedded_file(&self.cerebro.app, &self.templates.paths.cerebro_app)?;
 
-
         Ok(())
-
     }
 }
 
-
 pub struct MongoInitFiles {
     init_sh: EmbeddedFile,
-    init_env: EmbeddedFile
+    init_env: EmbeddedFile,
 }
 impl MongoInitFiles {
     pub fn new() -> Result<Self, StackConfigError> {
         Ok(Self {
-            init_sh: match MongoInitTemplates::get("mongodb/mongo-init.sh") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("mongodb/mongo-init.sh"))) },
-            init_env: match MongoInitTemplates::get("mongodb/database.env") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("mongodb/database.env"))) }
+            init_sh: match MongoInitTemplates::get("mongodb/mongo-init.sh") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "mongodb/mongo-init.sh",
+                    )))
+                }
+            },
+            init_env: match MongoInitTemplates::get("mongodb/database.env") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "mongodb/database.env",
+                    )))
+                }
+            },
         })
     }
 }
-
 
 pub struct TraefikFiles {
     web_static: EmbeddedFile,
     web_dynamic: EmbeddedFile,
     localhost_static: EmbeddedFile,
-    localhost_dynamic: EmbeddedFile
-
+    localhost_dynamic: EmbeddedFile,
 }
 impl TraefikFiles {
     pub fn new() -> Result<Self, StackConfigError> {
         Ok(Self {
-            web_static: match TraefikTemplates::get("traefik/web/static.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("traefik/web/static.yml"))) },
-            web_dynamic: match TraefikTemplates::get("traefik/web/dynamic.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("traefik/web/dynamic.yml"))) },
-            localhost_static: match TraefikTemplates::get("traefik/localhost/static.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("traefik/localhost/static.yml"))) },
-            localhost_dynamic: match TraefikTemplates::get("traefik/localhost/dynamic.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("traefik/localhost/dynamic.yml"))) }
+            web_static: match TraefikTemplates::get("traefik/web/static.yml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "traefik/web/static.yml",
+                    )))
+                }
+            },
+            web_dynamic: match TraefikTemplates::get("traefik/web/dynamic.yml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "traefik/web/dynamic.yml",
+                    )))
+                }
+            },
+            localhost_static: match TraefikTemplates::get("traefik/localhost/static.yml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "traefik/localhost/static.yml",
+                    )))
+                }
+            },
+            localhost_dynamic: match TraefikTemplates::get("traefik/localhost/dynamic.yml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "traefik/localhost/dynamic.yml",
+                    )))
+                }
+            },
         })
     }
 }
@@ -276,49 +345,109 @@ pub struct DockerFiles {
     filer: EmbeddedFile,
     remote: EmbeddedFile,
     compose: EmbeddedFile,
-    compose_traefik: EmbeddedFile
+    compose_traefik: EmbeddedFile,
 }
 impl DockerFiles {
     pub fn new() -> Result<Self, StackConfigError> {
         Ok(Self {
-            server: match DockerTemplates::get("docker/Dockerfile.server") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.server"))) },
-            app: match DockerTemplates::get("docker/Dockerfile.app") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.app"))) },
-            fs: match DockerTemplates::get("docker/Dockerfile.fs") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/Dockerfile.fs"))) },
-            filer: match DockerTemplates::get("docker/filer.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/filer.toml"))) },
-            remote: match DockerTemplates::get("docker/remote.conf") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/remote.conf"))) },
-            compose: match DockerTemplates::get("docker/docker-compose.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/docker-compose.yml"))) },
-            compose_traefik: match DockerTemplates::get("docker/docker-compose.traefik.yml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("docker/docker-compose.traefik.yml"))) },
+            server: match DockerTemplates::get("docker/Dockerfile.server") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/Dockerfile.server",
+                    )))
+                }
+            },
+            app: match DockerTemplates::get("docker/Dockerfile.app") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/Dockerfile.app",
+                    )))
+                }
+            },
+            fs: match DockerTemplates::get("docker/Dockerfile.fs") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/Dockerfile.fs",
+                    )))
+                }
+            },
+            filer: match DockerTemplates::get("docker/filer.toml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/filer.toml",
+                    )))
+                }
+            },
+            remote: match DockerTemplates::get("docker/remote.conf") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/remote.conf",
+                    )))
+                }
+            },
+            compose: match DockerTemplates::get("docker/docker-compose.yml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/docker-compose.yml",
+                    )))
+                }
+            },
+            compose_traefik: match DockerTemplates::get("docker/docker-compose.traefik.yml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "docker/docker-compose.traefik.yml",
+                    )))
+                }
+            },
         })
     }
 }
 
 pub struct CerebroFiles {
     server: EmbeddedFile,
-    app: EmbeddedFile
+    app: EmbeddedFile,
 }
 impl CerebroFiles {
     pub fn new() -> Result<Self, StackConfigError> {
-        
         Ok(Self {
-            server: match CerebroTemplates::get("cerebro/server.toml") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("cerebro/server.toml"))) },
-            app: match CerebroTemplates::get("cerebro/app.env") { Some(f) => f, None => return Err(StackConfigError::EmbeddedFileNotFound(String::from("cerebro/app.env"))) },
+            server: match CerebroTemplates::get("cerebro/server.toml") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "cerebro/server.toml",
+                    )))
+                }
+            },
+            app: match CerebroTemplates::get("cerebro/app.env") {
+                Some(f) => f,
+                None => {
+                    return Err(StackConfigError::EmbeddedFileNotFound(String::from(
+                        "cerebro/app.env",
+                    )))
+                }
+            },
         })
-
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MongoDbConfig {
-    pub root_username: String,       
-    pub root_password: String,            
-    pub admin_username: String,         
-    pub admin_password: String,             
-    pub cerebro_admin_email: String,           
-    pub cerebro_admin_name: String,         
-    pub cerebro_admin_password: String, 
+    pub root_username: String,
+    pub root_password: String,
+    pub admin_username: String,
+    pub admin_password: String,
+    pub cerebro_admin_email: String,
+    pub cerebro_admin_name: String,
+    pub cerebro_admin_password: String,
     #[serde(skip_deserializing)]
-    pub cerebro_admin_password_hashed: String,     
+    pub cerebro_admin_password_hashed: String,
     // Service Bot account + service Team for the Faktory lifecycle worker (S3-5
     // #5). Identity fields carry sensible defaults so an existing stack.toml that
     // predates this change still deploys; the password is the prompted secret.
@@ -346,13 +475,25 @@ pub struct MongoDbConfig {
     pub backup_password: String,
 }
 
-fn default_backup_username() -> String { "cerebro_backup".to_string() }
+fn default_backup_username() -> String {
+    "cerebro_backup".to_string()
+}
 
-fn default_service_bot_name() -> String { "Cerebro Lifecycle Worker".to_string() }
-fn default_service_bot_email() -> String { "worker@cerebro".to_string() }
-fn default_service_team_name() -> String { "Service".to_string() }
-fn default_service_db_name() -> String { "Lifecycle".to_string() }
-fn default_service_project_name() -> String { "Data".to_string() }
+fn default_service_bot_name() -> String {
+    "Cerebro Lifecycle Worker".to_string()
+}
+fn default_service_bot_email() -> String {
+    "worker@cerebro".to_string()
+}
+fn default_service_team_name() -> String {
+    "Service".to_string()
+}
+fn default_service_db_name() -> String {
+    "Lifecycle".to_string()
+}
+fn default_service_project_name() -> String {
+    "Data".to_string()
+}
 impl MongoDbConfig {
     pub fn default_localhost(
         root_username: &str,
@@ -361,16 +502,16 @@ impl MongoDbConfig {
         admin_password: &str,
         cerebro_admin_email: &str,
         cerebro_admin_name: &str,
-        cerebro_admin_password: &str
+        cerebro_admin_password: &str,
     ) -> Self {
-        Self { 
-            root_username: root_username.to_string(), 
-            root_password: root_password.to_string(), 
-            admin_username: admin_username.to_string(), 
-            admin_password: admin_password.to_string(), 
-            cerebro_admin_email: cerebro_admin_email.to_string(), 
-            cerebro_admin_name: cerebro_admin_name.to_string(), 
-            cerebro_admin_password: cerebro_admin_password.to_string(), 
+        Self {
+            root_username: root_username.to_string(),
+            root_password: root_password.to_string(),
+            admin_username: admin_username.to_string(),
+            admin_password: admin_password.to_string(),
+            cerebro_admin_email: cerebro_admin_email.to_string(),
+            cerebro_admin_name: cerebro_admin_name.to_string(),
+            cerebro_admin_password: cerebro_admin_password.to_string(),
             cerebro_admin_password_hashed: String::new(),
             service_bot_name: default_service_bot_name(),
             service_bot_email: default_service_bot_email(),
@@ -390,16 +531,16 @@ impl MongoDbConfig {
         admin_password: &str,
         cerebro_admin_email: &str,
         cerebro_admin_name: &str,
-        cerebro_admin_password: &str
+        cerebro_admin_password: &str,
     ) -> Self {
-        Self { 
-            root_username: root_username.to_string(), 
-            root_password: root_password.to_string(), 
-            admin_username: admin_username.to_string(), 
-            admin_password: admin_password.to_string(), 
-            cerebro_admin_email: cerebro_admin_email.to_string(), 
-            cerebro_admin_name: cerebro_admin_name.to_string(), 
-            cerebro_admin_password: cerebro_admin_password.to_string(), 
+        Self {
+            root_username: root_username.to_string(),
+            root_password: root_password.to_string(),
+            admin_username: admin_username.to_string(),
+            admin_password: admin_password.to_string(),
+            cerebro_admin_email: cerebro_admin_email.to_string(),
+            cerebro_admin_name: cerebro_admin_name.to_string(),
+            cerebro_admin_password: cerebro_admin_password.to_string(),
             cerebro_admin_password_hashed: String::new(),
             service_bot_name: default_service_bot_name(),
             service_bot_email: default_service_bot_email(),
@@ -417,17 +558,18 @@ impl MongoDbConfig {
 #[derive(Debug, Serialize, Clone)]
 pub enum TraefikDeployment {
     Web,
-    Localhost
+    Localhost,
 }
 impl<'de> Deserialize<'de> for TraefikDeployment {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         Ok(match s.to_lowercase().as_str() {
             "web" => TraefikDeployment::Web,
             "localhost" => TraefikDeployment::Localhost,
-            _ => unimplemented!("Traefik deployment option `{}` is not implemented", s)
+            _ => unimplemented!("Traefik deployment option `{}` is not implemented", s),
         })
     }
 }
@@ -437,7 +579,7 @@ pub struct TraefikConfig {
     pub deploy: TraefikDeployment,
     pub launch: bool,
     pub subdomain: TraefikSubdomain,
-    pub network: TraefikNetwork,   
+    pub network: TraefikNetwork,
     pub localhost: TraefikLocalhostConfig,
     pub web: TraefikWebConfig,
     #[serde(skip_deserializing)]
@@ -449,20 +591,20 @@ impl TraefikConfig {
             deploy: TraefikDeployment::Localhost,
             launch,
             is_localhost: true,
-            subdomain: TraefikSubdomain { 
-                app: "app".to_string(), 
-                api: "api".to_string(), 
-                router: TraefikSubdomainRouter { 
-                    app: String::new() , 
-                    api: String::new() 
-                }
+            subdomain: TraefikSubdomain {
+                app: "app".to_string(),
+                api: "api".to_string(),
+                router: TraefikSubdomainRouter {
+                    app: String::new(),
+                    api: String::new(),
+                },
             },
-            network: TraefikNetwork { 
-                name: "proxy".to_string(), 
-                external: true, 
+            network: TraefikNetwork {
+                name: "proxy".to_string(),
+                external: true,
             },
-            localhost: TraefikLocalhostConfig { 
-                tls: false, 
+            localhost: TraefikLocalhostConfig {
+                tls: false,
                 domain: "localhost".to_string(),
                 entrypoint: "http".to_string(),
             },
@@ -471,30 +613,36 @@ impl TraefikConfig {
                 domain: String::new(),
                 username: String::new(),
                 password: String::new(),
-                password_hashed: String::new()
-            }
+                password_hashed: String::new(),
+            },
         }
     }
-    pub fn default_web(launch: bool, email: &str, domain: &str, username: &str, password: &str) -> Self {
+    pub fn default_web(
+        launch: bool,
+        email: &str,
+        domain: &str,
+        username: &str,
+        password: &str,
+    ) -> Self {
         Self {
             deploy: TraefikDeployment::Web,
             launch,
             is_localhost: false,
-            subdomain: TraefikSubdomain { 
-                app: "app-dev".to_string(), 
-                api: "api-dev".to_string(), 
-                router: TraefikSubdomainRouter { 
-                    app: String::new() , 
-                    api: String::new() 
-                }
+            subdomain: TraefikSubdomain {
+                app: "app-dev".to_string(),
+                api: "api-dev".to_string(),
+                router: TraefikSubdomainRouter {
+                    app: String::new(),
+                    api: String::new(),
+                },
             },
-            network: TraefikNetwork { 
-                name: "proxy".to_string(), 
-                external: true, 
+            network: TraefikNetwork {
+                name: "proxy".to_string(),
+                external: true,
             },
-            localhost: TraefikLocalhostConfig { 
-                tls: false, 
-                domain: "localhost".to_string(), 
+            localhost: TraefikLocalhostConfig {
+                tls: false,
+                domain: "localhost".to_string(),
                 entrypoint: "http".to_string(),
             },
             web: TraefikWebConfig {
@@ -502,8 +650,8 @@ impl TraefikConfig {
                 domain: domain.to_string(),
                 username: username.to_string(),
                 password: password.to_string(),
-                password_hashed: String::new()
-            }
+                password_hashed: String::new(),
+            },
         }
     }
 }
@@ -513,7 +661,7 @@ pub struct TraefikSubdomain {
     pub app: String,
     pub api: String,
     #[serde(skip_deserializing)]
-    pub router: TraefikSubdomainRouter
+    pub router: TraefikSubdomainRouter,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -527,15 +675,13 @@ pub struct TraefikNetwork {
     pub external: bool,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraefikLocalhostConfig {
-    pub tls: bool,       
+    pub tls: bool,
     pub domain: String,
     #[serde(skip_deserializing)]
     pub entrypoint: String,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraefikWebConfig {
@@ -544,62 +690,61 @@ pub struct TraefikWebConfig {
     pub username: String,
     pub password: String,
     #[serde(skip_deserializing)]
-    pub password_hashed: String
-
+    pub password_hashed: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CerebroConfig {
     pub components: SecurityComponentsConfig,
     pub smtp: SmtpConfig,
-    #[serde(skip_deserializing)]  // internal config
+    #[serde(skip_deserializing)] // internal config
     pub app: AppConfig,
 }
 impl CerebroConfig {
     pub fn default_localhost() -> Self {
         Self {
-            components: SecurityComponentsConfig { 
-                email: true, 
-                comments: true, 
-                annotation: true, 
-                report_header: true 
+            components: SecurityComponentsConfig {
+                email: true,
+                comments: true,
+                annotation: true,
+                report_header: true,
             },
-            smtp: SmtpConfig { 
-                host: String::new(), 
-                port: 0, 
-                username: String::new(), 
-                password: String::new(), 
-                from: String::new() 
+            smtp: SmtpConfig {
+                host: String::new(),
+                port: 0,
+                username: String::new(),
+                password: String::new(),
+                from: String::new(),
             },
-            app: AppConfig { 
-                public_cerebro_api_url: String::new(), 
-                private_cerebro_api_access_max_age: 360, 
-                private_cerebro_api_access_cookie_secure: true, 
-                private_cerebro_api_access_cookie_domain: String::new() 
-            }
+            app: AppConfig {
+                public_cerebro_api_url: String::new(),
+                private_cerebro_api_access_max_age: 360,
+                private_cerebro_api_access_cookie_secure: true,
+                private_cerebro_api_access_cookie_domain: String::new(),
+            },
         }
     }
     pub fn default_web() -> Self {
         Self {
-            components: SecurityComponentsConfig { 
-                email: true, 
-                comments: true, 
-                annotation: true, 
-                report_header: true 
+            components: SecurityComponentsConfig {
+                email: true,
+                comments: true,
+                annotation: true,
+                report_header: true,
             },
-            smtp: SmtpConfig { 
-                host: String::new(), 
-                port: 0, 
-                username: String::new(), 
-                password: String::new(), 
-                from: String::new() 
+            smtp: SmtpConfig {
+                host: String::new(),
+                port: 0,
+                username: String::new(),
+                password: String::new(),
+                from: String::new(),
             },
-            app: AppConfig { 
-                public_cerebro_api_url: String::new(), 
-                private_cerebro_api_access_max_age: 360, 
-                private_cerebro_api_access_cookie_secure: true, 
-                private_cerebro_api_access_cookie_domain: String::new() 
-            }
+            app: AppConfig {
+                public_cerebro_api_url: String::new(),
+                private_cerebro_api_access_max_age: 360,
+                private_cerebro_api_access_cookie_secure: true,
+                private_cerebro_api_access_cookie_domain: String::new(),
+            },
         }
     }
 }
@@ -622,7 +767,6 @@ impl Default for AppConfig {
     }
 }
 
-
 pub struct StackConfigTree {
     base: PathBuf,
     certs: PathBuf,
@@ -631,7 +775,7 @@ pub struct StackConfigTree {
     cerebro_api: PathBuf,
     mongodb: PathBuf,
     assets: PathBuf,
-    keys: PathBuf
+    keys: PathBuf,
 }
 impl StackConfigTree {
     pub fn new(outdir: &PathBuf) -> Self {
@@ -647,31 +791,30 @@ impl StackConfigTree {
         }
     }
     pub fn create_dir_all(&self) -> Result<(), StackConfigError> {
-
         for dir in [
             self.base.clone(),
-            self.certs.clone(), 
-            self.docker.clone(), 
-            self.traefik.clone(), 
-            self.cerebro_api.clone(), 
-            self.mongodb.clone(), 
+            self.certs.clone(),
+            self.docker.clone(),
+            self.traefik.clone(),
+            self.cerebro_api.clone(),
+            self.mongodb.clone(),
             self.assets.clone(),
-            self.keys.clone()
-        ] { 
-            std::fs::create_dir_all(dir).map_err(|err| StackConfigError::StackTreeDirectoryNotCreated(err) )? 
+            self.keys.clone(),
+        ] {
+            std::fs::create_dir_all(dir)
+                .map_err(|err| StackConfigError::StackTreeDirectoryNotCreated(err))?
         }
 
         Ok(())
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataCenterConfig {
     pub enabled: bool,
     pub center: String,
     pub rack: String,
-    pub path: PathBuf 
+    pub path: PathBuf,
 }
 impl DataCenterConfig {
     pub fn default_primary(path: &PathBuf) -> Self {
@@ -679,7 +822,7 @@ impl DataCenterConfig {
             enabled: true,
             center: "primary".to_string(),
             rack: "dev".to_string(),
-            path: path.to_path_buf()
+            path: path.to_path_buf(),
         }
     }
     pub fn default_secondary(path: &PathBuf) -> Self {
@@ -687,7 +830,7 @@ impl DataCenterConfig {
             enabled: true,
             center: "secondary".to_string(),
             rack: "dev".to_string(),
-            path: path.to_path_buf()
+            path: path.to_path_buf(),
         }
     }
 }
@@ -710,11 +853,19 @@ pub struct DiskTier {
 impl DiskTier {
     /// Hot tier: SSD-backed, mounted at `/hot`.
     pub fn hot(path: &PathBuf) -> Self {
-        Self { path: path.to_path_buf(), disk: "ssd".to_string(), mount: "/hot".to_string() }
+        Self {
+            path: path.to_path_buf(),
+            disk: "ssd".to_string(),
+            mount: "/hot".to_string(),
+        }
     }
     /// Cold tier: HDD-backed, mounted at `/cold`.
     pub fn cold(path: &PathBuf) -> Self {
-        Self { path: path.to_path_buf(), disk: "hdd".to_string(), mount: "/cold".to_string() }
+        Self {
+            path: path.to_path_buf(),
+            disk: "hdd".to_string(),
+            mount: "/cold".to_string(),
+        }
     }
     /// Warm tier: HDD-backed recovery/re-inspection tier, mounted at `/warm`.
     ///
@@ -722,7 +873,11 @@ impl DiskTier {
     /// directly-readable disk (for re-inspection) before it is archived to the
     /// S3 cold tier.
     pub fn warm(path: &PathBuf) -> Self {
-        Self { path: path.to_path_buf(), disk: "hdd".to_string(), mount: "/warm".to_string() }
+        Self {
+            path: path.to_path_buf(),
+            disk: "hdd".to_string(),
+            mount: "/warm".to_string(),
+        }
     }
 }
 
@@ -745,13 +900,21 @@ pub struct FilerConfig {
 }
 impl Default for FilerConfig {
     fn default() -> Self {
-        Self { enabled: false, port: 8888, metrics_port: 9327, database: String::from("cerebro_fs") }
+        Self {
+            enabled: false,
+            port: 8888,
+            metrics_port: 9327,
+            database: String::from("cerebro_fs"),
+        }
     }
 }
 impl FilerConfig {
     /// A filer configuration with the service enabled and default ports/store.
     pub fn default_enabled() -> Self {
-        Self { enabled: true, ..Default::default() }
+        Self {
+            enabled: true,
+            ..Default::default()
+        }
     }
 }
 
@@ -964,7 +1127,8 @@ impl FileSystemConfig {
     pub fn default_single_server(hot_path: &PathBuf, cold_path: &PathBuf, fs_only: bool) -> Self {
         let hot = DiskTier::hot(hot_path);
         let cold = DiskTier::cold(cold_path);
-        let (volume_dirs, volume_disks) = build_volume_args(&Some(hot.clone()), &None, &Some(cold.clone()));
+        let (volume_dirs, volume_disks) =
+            build_volume_args(&Some(hot.clone()), &None, &Some(cold.clone()));
         Self {
             enabled: true,
             fs_only,
@@ -1044,7 +1208,8 @@ impl FileSystemConfig {
     ) -> Self {
         let hot = DiskTier::hot(hot_path);
         let warm = DiskTier::warm(warm_path);
-        let (volume_dirs, volume_disks) = build_volume_args(&Some(hot.clone()), &Some(warm.clone()), &None);
+        let (volume_dirs, volume_disks) =
+            build_volume_args(&Some(hot.clone()), &Some(warm.clone()), &None);
         Self {
             enabled: true,
             fs_only,
@@ -1086,12 +1251,15 @@ impl FileSystemConfig {
     ) -> Self {
         match model {
             FsDeploymentModel::SingleServer => Self::default_single_server(hot, cold, fs_only),
-            FsDeploymentModel::SingleServerReplicated => {
-                Self::default_single_server_replicated(hot, cold, replica_hot, replica_cold, fs_only)
-            }
+            FsDeploymentModel::SingleServerReplicated => Self::default_single_server_replicated(
+                hot,
+                cold,
+                replica_hot,
+                replica_cold,
+                fs_only,
+            ),
             FsDeploymentModel::DistributedHpc => {
-                let remote = remote
-                    .unwrap_or_else(|| S3RemoteConfig::default_glacier("", "", ""));
+                let remote = remote.unwrap_or_else(|| S3RemoteConfig::default_glacier("", "", ""));
                 Self::default_distributed_hpc(hot, warm, remote, fs_only)
             }
         }
@@ -1117,9 +1285,15 @@ impl FileSystemConfig {
     /// writes.
     fn volume_server_count(&self) -> usize {
         let mut n = 0;
-        if self.primary.is_some() { n += 1; }
-        if self.secondary.is_some() { n += 1; }
-        if self.replica.is_some() { n += 1; }
+        if self.primary.is_some() {
+            n += 1;
+        }
+        if self.secondary.is_some() {
+            n += 1;
+        }
+        if self.replica.is_some() {
+            n += 1;
+        }
         n.max(1)
     }
 
@@ -1266,24 +1440,51 @@ mod fs_config_tests {
         let rep_hot = PathBuf::from("/srv2/hot");
         let rep_cold = PathBuf::from("/srv2/cold");
 
-        let a = FileSystemConfig::from_model(FsDeploymentModel::SingleServer, &hot, &warm, &cold, &rep_hot, &rep_cold, None, true);
+        let a = FileSystemConfig::from_model(
+            FsDeploymentModel::SingleServer,
+            &hot,
+            &warm,
+            &cold,
+            &rep_hot,
+            &rep_cold,
+            None,
+            true,
+        );
         assert_eq!(a.model, FsDeploymentModel::SingleServer);
         assert!(a.remote.is_none());
         assert!(a.warm.is_none());
         assert!(a.replica.is_none());
 
-        let b = FileSystemConfig::from_model(FsDeploymentModel::DistributedHpc, &hot, &warm, &cold, &rep_hot, &rep_cold, None, true);
+        let b = FileSystemConfig::from_model(
+            FsDeploymentModel::DistributedHpc,
+            &hot,
+            &warm,
+            &cold,
+            &rep_hot,
+            &rep_cold,
+            None,
+            true,
+        );
         assert_eq!(b.model, FsDeploymentModel::DistributedHpc);
         assert!(b.remote.is_some()); // placeholder remote attached
         assert!(b.warm.is_some());
 
-        let r = FileSystemConfig::from_model(FsDeploymentModel::SingleServerReplicated, &hot, &warm, &cold, &rep_hot, &rep_cold, None, true);
+        let r = FileSystemConfig::from_model(
+            FsDeploymentModel::SingleServerReplicated,
+            &hot,
+            &warm,
+            &cold,
+            &rep_hot,
+            &rep_cold,
+            None,
+            true,
+        );
         assert_eq!(r.model, FsDeploymentModel::SingleServerReplicated);
         assert_eq!(r.replication, "001");
         let replica = r.replica.expect("replicated model carries a replica");
-        assert_eq!(replica.hot.path, rep_hot);          // replica on the separate disk
-        assert_eq!(replica.hot.mount, "/hot");          // same mount as the primary
-        assert_eq!(replica.center, "primary");          // same DC + rack => 001 applies
+        assert_eq!(replica.hot.path, rep_hot); // replica on the separate disk
+        assert_eq!(replica.hot.mount, "/hot"); // same mount as the primary
+        assert_eq!(replica.center, "primary"); // same DC + rack => 001 applies
         assert_eq!(replica.rack, "tiered");
     }
 
@@ -1300,8 +1501,13 @@ mod fs_config_tests {
         );
         assert_eq!(cfg.replication, "001");
         assert_eq!(cfg.volume_server_count(), 2);
-        let warning = cfg.validate_durability().expect("001 with two servers is satisfiable");
-        assert!(warning.is_none(), "001 across two servers is redundant; expected no warning");
+        let warning = cfg
+            .validate_durability()
+            .expect("001 with two servers is satisfiable");
+        assert!(
+            warning.is_none(),
+            "001 across two servers is redundant; expected no warning"
+        );
     }
 
     #[test]
@@ -1309,8 +1515,8 @@ mod fs_config_tests {
         assert_eq!(FileSystemConfig::replication_copies("000"), Some(1));
         assert_eq!(FileSystemConfig::replication_copies("100"), Some(2));
         assert_eq!(FileSystemConfig::replication_copies("011"), Some(3));
-        assert_eq!(FileSystemConfig::replication_copies("22"), None);   // too short
-        assert_eq!(FileSystemConfig::replication_copies("a00"), None);  // non-digit
+        assert_eq!(FileSystemConfig::replication_copies("22"), None); // too short
+        assert_eq!(FileSystemConfig::replication_copies("a00"), None); // non-digit
     }
 
     #[test]
@@ -1322,7 +1528,10 @@ mod fs_config_tests {
         );
         // 000 is satisfiable by one volume server, but warns about single-copy risk.
         let warning = cfg.validate_durability().expect("000 is satisfiable");
-        assert!(warning.is_some(), "expected a single-copy durability warning");
+        assert!(
+            warning.is_some(),
+            "expected a single-copy durability warning"
+        );
     }
 
     #[test]
@@ -1335,7 +1544,9 @@ mod fs_config_tests {
         );
         cfg.replication = "001".to_string();
         match cfg.validate_durability() {
-            Err(StackConfigError::ReplicationUnsatisfiable { copies, servers, .. }) => {
+            Err(StackConfigError::ReplicationUnsatisfiable {
+                copies, servers, ..
+            }) => {
                 assert_eq!(copies, 2);
                 assert_eq!(servers, 1);
             }
@@ -1375,35 +1586,34 @@ mod fs_config_tests {
     }
 }
 
-
 pub fn write_cert(buf: &[u8], path: &PathBuf) -> Result<(), StackConfigError> {
     let mut file = std::fs::File::create(path)
-        .map_err(|err| StackConfigError::CertificateFilePathInvalid(err) )?;
-    file.write_all(buf).map_err(|err| StackConfigError::CertificateFileNotWritten(err))
+        .map_err(|err| StackConfigError::CertificateFilePathInvalid(err))?;
+    file.write_all(buf)
+        .map_err(|err| StackConfigError::CertificateFileNotWritten(err))
 }
 
 pub fn write_key(buf: &[u8], path: &PathBuf) -> Result<(), StackConfigError> {
     let mut file = std::fs::File::create(path)
-        .map_err(|err| StackConfigError::CertificateKeyFilePathInvalid(err) )?;
-    file.write_all(buf).map_err(|err| StackConfigError::CertificateKeyFileNotWritten(err))
+        .map_err(|err| StackConfigError::CertificateKeyFilePathInvalid(err))?;
+    file.write_all(buf)
+        .map_err(|err| StackConfigError::CertificateKeyFileNotWritten(err))
 }
-
 
 pub fn write_rendered_template(buf: &[u8], path: &PathBuf) -> Result<(), StackConfigError> {
     let mut file = std::fs::File::create(path)
-        .map_err(|err| StackConfigError::TemplateRenderFilePathInvalid(err) )?;
-    file.write_all(buf).map_err(|err| StackConfigError::TemplateRenderFileNotWritten(err))
+        .map_err(|err| StackConfigError::TemplateRenderFilePathInvalid(err))?;
+    file.write_all(buf)
+        .map_err(|err| StackConfigError::TemplateRenderFileNotWritten(err))
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum StackConfigTemplate {
     Localhost,
     LocalhostInsecure,
     LocalhostFs,
-    Web
+    Web,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StackConfig {
@@ -1421,26 +1631,25 @@ pub struct StackConfig {
     cerebro: CerebroConfig,
     mongodb: MongoDbConfig,
     traefik: TraefikConfig,
-    fs: FileSystemConfig
-    
+    fs: FileSystemConfig,
 }
 impl StackConfig {
     pub fn from_toml(path: &PathBuf) -> Result<Self, StackConfigError> {
-
         log::info!("Read stack config from file: {}", path.display());
 
         let mut config: Self = toml::from_str(
-            &std::fs::read_to_string(path).map_err(|_| StackConfigError::ConfigFileInputInvalid)?
-        ).map_err(|err| StackConfigError::ConfigFileNotDeserialized(err))?;
-        
+            &std::fs::read_to_string(path).map_err(|_| StackConfigError::ConfigFileInputInvalid)?,
+        )
+        .map_err(|err| StackConfigError::ConfigFileNotDeserialized(err))?;
+
         config.traefik.is_localhost = match config.traefik.deploy {
             TraefikDeployment::Web => false,
-            TraefikDeployment::Localhost => true 
+            TraefikDeployment::Localhost => true,
         };
 
         config.traefik.localhost.entrypoint = match config.traefik.localhost.tls {
             true => String::from("https"),
-            false => String::from("http")
+            false => String::from("http"),
         };
 
         config.revision = CRATE_VERSION.to_string();
@@ -1448,10 +1657,10 @@ impl StackConfig {
         log::info!("Cerebro deployment from version: {}", config.revision);
 
         Ok(config)
-
     }
     pub fn to_toml(&self, path: &PathBuf) -> Result<(), StackConfigError> {
-        let config = toml::to_string_pretty(&self).map_err(|err| StackConfigError::ConfigFileNotSerialized(err))?;
+        let config = toml::to_string_pretty(&self)
+            .map_err(|err| StackConfigError::ConfigFileNotSerialized(err))?;
         std::fs::write(path, config).map_err(|_| StackConfigError::ConfigFileOutputInvalid)
     }
     fn get_or_prompt(
@@ -1490,18 +1699,18 @@ impl StackConfig {
         value: Option<&PathBuf>,
         arg_name: &str,
         interactive: bool,
-        default: PathBuf
+        default: PathBuf,
     ) -> Result<PathBuf, StackConfigError> {
         if let Some(p) = value {
             return Ok(p.clone());
         }
-    
+
         if interactive {
             let input = prompt_reply(&format!("Enter path for {}: ", arg_name))
                 .map_err(|_| StackConfigError::MissingArgument(arg_name.to_string()))?;
             return Ok(PathBuf::from(input));
         }
-    
+
         Ok(default)
     }
 
@@ -1509,21 +1718,63 @@ impl StackConfig {
         args: &StackDeployArgs,
         interactive: bool,
     ) -> Result<Self, StackConfigError> {
-        let root_username = Self::get_or_prompt(args.db_root_username.as_ref(), "--db-root-username", interactive)?;
-        let root_password = Self::get_or_prompt_hidden(args.db_root_password.as_ref(), "--db-root-password", interactive)?;
-        let admin_username = Self::get_or_prompt(args.db_admin_username.as_ref(), "--db-admin-username", interactive)?;
-        let admin_password = Self::get_or_prompt_hidden(args.db_admin_password.as_ref(), "--db-admin-password", interactive)?;
-        let cerebro_admin_email = Self::get_or_prompt(args.cerebro_admin_email.as_ref(), "--cerebro-admin-email", interactive)?;
-        let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
-        let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
+        let root_username = Self::get_or_prompt(
+            args.db_root_username.as_ref(),
+            "--db-root-username",
+            interactive,
+        )?;
+        let root_password = Self::get_or_prompt_hidden(
+            args.db_root_password.as_ref(),
+            "--db-root-password",
+            interactive,
+        )?;
+        let admin_username = Self::get_or_prompt(
+            args.db_admin_username.as_ref(),
+            "--db-admin-username",
+            interactive,
+        )?;
+        let admin_password = Self::get_or_prompt_hidden(
+            args.db_admin_password.as_ref(),
+            "--db-admin-password",
+            interactive,
+        )?;
+        let cerebro_admin_email = Self::get_or_prompt(
+            args.cerebro_admin_email.as_ref(),
+            "--cerebro-admin-email",
+            interactive,
+        )?;
+        let cerebro_admin_name = Self::get_or_prompt(
+            args.cerebro_admin_name.as_ref(),
+            "--cerebro-admin-name",
+            interactive,
+        )?;
+        let cerebro_admin_password = Self::get_or_prompt_hidden(
+            args.cerebro_admin_password.as_ref(),
+            "--cerebro-admin-password",
+            interactive,
+        )?;
 
         // Service Bot password for the Faktory lifecycle worker (S3-5 #5): the one
         // new prompted secret. Identity fields (bot name/email, team/db/project
         // names) fall back to sensible defaults unless overridden via CLI args.
-        let service_bot_password = Self::get_or_prompt_hidden(args.service_bot_password.as_ref(), "--service-bot-password", interactive)?;
+        let service_bot_password = Self::get_or_prompt_hidden(
+            args.service_bot_password.as_ref(),
+            "--service-bot-password",
+            interactive,
+        )?;
 
-        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
-        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
+        let fs_primary = Self::get_path_or_prompt(
+            args.fs_primary.as_ref(),
+            "--fs-primary",
+            interactive,
+            args.outdir.join("cerebro_fs").join("fs_primary"),
+        )?;
+        let fs_secondary = Self::get_path_or_prompt(
+            args.fs_secondary.as_ref(),
+            "--fs-secondary",
+            interactive,
+            args.outdir.join("cerebro_fs").join("fs_secondary"),
+        )?;
 
         let mut config = Self::default_localhost(
             &root_username,
@@ -1536,21 +1787,36 @@ impl StackConfig {
             &absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
-            false
+            false,
         );
         config.mongodb.service_bot_password = service_bot_password;
-        if let Some(v) = args.service_bot_email.as_ref() { config.mongodb.service_bot_email = v.clone(); }
-        if let Some(v) = args.service_bot_name.as_ref() { config.mongodb.service_bot_name = v.clone(); }
-        if let Some(v) = args.service_team_name.as_ref() { config.mongodb.service_team_name = v.clone(); }
+        if let Some(v) = args.service_bot_email.as_ref() {
+            config.mongodb.service_bot_email = v.clone();
+        }
+        if let Some(v) = args.service_bot_name.as_ref() {
+            config.mongodb.service_bot_name = v.clone();
+        }
+        if let Some(v) = args.service_team_name.as_ref() {
+            config.mongodb.service_team_name = v.clone();
+        }
         Ok(config)
     }
     pub fn default_localhost_insecure_from_args(
         args: &StackDeployArgs,
         interactive: bool,
     ) -> Result<Self, StackConfigError> {
-
-        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
-        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
+        let fs_primary = Self::get_path_or_prompt(
+            args.fs_primary.as_ref(),
+            "--fs-primary",
+            interactive,
+            args.outdir.join("cerebro_fs").join("fs_primary"),
+        )?;
+        let fs_secondary = Self::get_path_or_prompt(
+            args.fs_secondary.as_ref(),
+            "--fs-secondary",
+            interactive,
+            args.outdir.join("cerebro_fs").join("fs_secondary"),
+        )?;
 
         Ok(Self::default_localhost(
             "root",
@@ -1563,16 +1829,25 @@ impl StackConfig {
             &absolute_path(&fs_primary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             &absolute_path(&fs_secondary).map_err(StackConfigError::FileSystemPathsNotResolved)?,
             false,
-            false
+            false,
         ))
     }
     pub fn default_localhost_fs_from_args(
         args: &StackDeployArgs,
         interactive: bool,
     ) -> Result<Self, StackConfigError> {
-
-        let fs_primary = Self::get_path_or_prompt(args.fs_primary.as_ref(), "--fs-primary", interactive, args.outdir.join("cerebro_fs").join("fs_primary"))?;
-        let fs_secondary = Self::get_path_or_prompt(args.fs_secondary.as_ref(), "--fs-secondary", interactive, args.outdir.join("cerebro_fs").join("fs_secondary"))?;
+        let fs_primary = Self::get_path_or_prompt(
+            args.fs_primary.as_ref(),
+            "--fs-primary",
+            interactive,
+            args.outdir.join("cerebro_fs").join("fs_primary"),
+        )?;
+        let fs_secondary = Self::get_path_or_prompt(
+            args.fs_secondary.as_ref(),
+            "--fs-secondary",
+            interactive,
+            args.outdir.join("cerebro_fs").join("fs_secondary"),
+        )?;
 
         // Tier directories: prefer the explicit --fs-hot/--fs-warm/--fs-cold
         // flags, falling back to --fs-primary/--fs-secondary for compatibility.
@@ -1582,41 +1857,47 @@ impl StackConfig {
         let cold_src = args.fs_cold.clone().unwrap_or_else(|| fs_secondary.clone());
         let warm_src = args.fs_warm.clone().unwrap_or(fs_secondary);
         let hot = absolute_path(&hot_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
-        let cold = absolute_path(&cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
-        let warm = absolute_path(&warm_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let cold =
+            absolute_path(&cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let warm =
+            absolute_path(&warm_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
 
         // Replica disks for the single-server-replicated model (S4-1). Default to
         // dedicated subdirectories under the FS output dir; for real durability the
         // operator points these at physically separate disks via
         // --fs-replica-hot/--fs-replica-cold. Ignored by the non-replicated models.
-        let replica_hot_src = args.fs_replica_hot.clone()
+        let replica_hot_src = args
+            .fs_replica_hot
+            .clone()
             .unwrap_or_else(|| args.outdir.join("cerebro_fs").join("fs_replica_hot"));
-        let replica_cold_src = args.fs_replica_cold.clone()
+        let replica_cold_src = args
+            .fs_replica_cold
+            .clone()
             .unwrap_or_else(|| args.outdir.join("cerebro_fs").join("fs_replica_cold"));
-        let replica_hot = absolute_path(&replica_hot_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
-        let replica_cold = absolute_path(&replica_cold_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let replica_hot = absolute_path(&replica_hot_src)
+            .map_err(StackConfigError::FileSystemPathsNotResolved)?;
+        let replica_cold = absolute_path(&replica_cold_src)
+            .map_err(StackConfigError::FileSystemPathsNotResolved)?;
 
         // For Model B, assemble the S3 archival remote from the --fs-s3-* flags
         // when endpoint/region/bucket are all provided; otherwise from_model
         // attaches a placeholder remote to be completed at deploy time.
         let remote = match args.fs_model {
-            FsDeploymentModel::DistributedHpc => match (
-                &args.fs_s3_endpoint,
-                &args.fs_s3_region,
-                &args.fs_s3_bucket,
-            ) {
-                (Some(endpoint), Some(region), Some(bucket)) => {
-                    let mut remote = S3RemoteConfig::default_glacier(endpoint, region, bucket);
-                    if let Some(access_key) = &args.fs_s3_access_key {
-                        remote.access_key = access_key.clone();
+            FsDeploymentModel::DistributedHpc => {
+                match (&args.fs_s3_endpoint, &args.fs_s3_region, &args.fs_s3_bucket) {
+                    (Some(endpoint), Some(region), Some(bucket)) => {
+                        let mut remote = S3RemoteConfig::default_glacier(endpoint, region, bucket);
+                        if let Some(access_key) = &args.fs_s3_access_key {
+                            remote.access_key = access_key.clone();
+                        }
+                        if let Some(secret_key) = &args.fs_s3_secret_key {
+                            remote.secret_key = secret_key.clone();
+                        }
+                        Some(remote)
                     }
-                    if let Some(secret_key) = &args.fs_s3_secret_key {
-                        remote.secret_key = secret_key.clone();
-                    }
-                    Some(remote)
+                    _ => None,
                 }
-                _ => None,
-            },
+            }
             FsDeploymentModel::SingleServer => None,
             FsDeploymentModel::SingleServerReplicated => None,
         };
@@ -1632,26 +1913,76 @@ impl StackConfig {
             &hot,
             &cold,
             false,
-            true
+            true,
         );
-        config.fs = FileSystemConfig::from_model(args.fs_model, &hot, &warm, &cold, &replica_hot, &replica_cold, remote, true);
+        config.fs = FileSystemConfig::from_model(
+            args.fs_model,
+            &hot,
+            &warm,
+            &cold,
+            &replica_hot,
+            &replica_cold,
+            remote,
+            true,
+        );
         Ok(config)
     }
     pub fn default_web_from_args(
         args: &StackDeployArgs,
         interactive: bool,
     ) -> Result<Self, StackConfigError> {
-        let root_username = Self::get_or_prompt(args.db_root_username.as_ref(), "--db-root-username", interactive)?;
-        let root_password = Self::get_or_prompt_hidden(args.db_root_password.as_ref(), "--db-root-password", interactive)?;
-        let admin_username = Self::get_or_prompt(args.db_admin_username.as_ref(), "--db-admin-username", interactive)?;
-        let admin_password = Self::get_or_prompt_hidden(args.db_admin_password.as_ref(), "--db-admin-password", interactive)?;
-        let cerebro_admin_email = Self::get_or_prompt(args.cerebro_admin_email.as_ref(), "--cerebro-admin-email", interactive)?;
-        let cerebro_admin_name = Self::get_or_prompt(args.cerebro_admin_name.as_ref(), "--cerebro-admin-name", interactive)?;
-        let cerebro_admin_password = Self::get_or_prompt_hidden(args.cerebro_admin_password.as_ref(), "--cerebro-admin-password", interactive)?;
-        let traefik_email = Self::get_or_prompt(args.traefik_email.as_ref(), "--traefik-email", interactive)?;
-        let traefik_domain = Self::get_or_prompt(args.traefik_domain.as_ref(), "--traefik-domain", interactive)?;
-        let traefik_username = Self::get_or_prompt(args.traefik_username.as_ref(), "--traefik-username", interactive)?;
-        let traefik_password = Self::get_or_prompt_hidden(args.traefik_password.as_ref(), "--traefik-password", interactive)?;
+        let root_username = Self::get_or_prompt(
+            args.db_root_username.as_ref(),
+            "--db-root-username",
+            interactive,
+        )?;
+        let root_password = Self::get_or_prompt_hidden(
+            args.db_root_password.as_ref(),
+            "--db-root-password",
+            interactive,
+        )?;
+        let admin_username = Self::get_or_prompt(
+            args.db_admin_username.as_ref(),
+            "--db-admin-username",
+            interactive,
+        )?;
+        let admin_password = Self::get_or_prompt_hidden(
+            args.db_admin_password.as_ref(),
+            "--db-admin-password",
+            interactive,
+        )?;
+        let cerebro_admin_email = Self::get_or_prompt(
+            args.cerebro_admin_email.as_ref(),
+            "--cerebro-admin-email",
+            interactive,
+        )?;
+        let cerebro_admin_name = Self::get_or_prompt(
+            args.cerebro_admin_name.as_ref(),
+            "--cerebro-admin-name",
+            interactive,
+        )?;
+        let cerebro_admin_password = Self::get_or_prompt_hidden(
+            args.cerebro_admin_password.as_ref(),
+            "--cerebro-admin-password",
+            interactive,
+        )?;
+        let traefik_email =
+            Self::get_or_prompt(args.traefik_email.as_ref(), "--traefik-email", interactive)?;
+        let traefik_domain = Self::get_or_prompt(
+            args.traefik_domain.as_ref(),
+            "--traefik-domain",
+            interactive,
+        )?;
+        let traefik_username = Self::get_or_prompt(
+            args.traefik_username.as_ref(),
+            "--traefik-username",
+            interactive,
+        )?;
+        let traefik_password = Self::get_or_prompt_hidden(
+            args.traefik_password.as_ref(),
+            "--traefik-password",
+            interactive,
+        )?;
 
         Ok(Self::default_web(
             &root_username,
@@ -1669,23 +2000,21 @@ impl StackConfig {
         ))
     }
     pub fn default_localhost(
-        root_username: &str, 
-        root_password: &str, 
-        admin_username: &str, 
-        admin_password: &str, 
-        cerebro_admin_email: &str, 
-        cerebro_admin_name: &str, 
+        root_username: &str,
+        root_password: &str,
+        admin_username: &str,
+        admin_password: &str,
+        cerebro_admin_email: &str,
+        cerebro_admin_name: &str,
         cerebro_admin_password: &str,
         fs_primary: &PathBuf,
         fs_secondary: &PathBuf,
         traefik_launch: bool,
-        fs_only: bool
+        fs_only: bool,
     ) -> Self {
-
         log::info!("Creating default localhost deployment template");
 
         Self {
-
             // Configured during configuration process
             name: String::new(),
             outdir: PathBuf::new(),
@@ -1695,31 +2024,25 @@ impl StackConfig {
 
             cerebro: CerebroConfig::default_localhost(),
             mongodb: MongoDbConfig::default_localhost(
-                root_username, 
-                root_password, 
-                admin_username, 
-                admin_password, 
-                cerebro_admin_email, 
-                cerebro_admin_name, 
-                cerebro_admin_password
+                root_username,
+                root_password,
+                admin_username,
+                admin_password,
+                cerebro_admin_email,
+                cerebro_admin_name,
+                cerebro_admin_password,
             ),
-            traefik: TraefikConfig::default_localhost(
-                traefik_launch
-            ),
-            fs: FileSystemConfig::default_localhost(
-                fs_primary, 
-                fs_secondary,
-                fs_only
-            )
+            traefik: TraefikConfig::default_localhost(traefik_launch),
+            fs: FileSystemConfig::default_localhost(fs_primary, fs_secondary, fs_only),
         }
     }
     pub fn default_web(
-        root_username: &str, 
-        root_password: &str, 
-        admin_username: &str, 
-        admin_password: &str, 
-        cerebro_admin_email: &str, 
-        cerebro_admin_name: &str, 
+        root_username: &str,
+        root_password: &str,
+        admin_username: &str,
+        admin_password: &str,
+        cerebro_admin_email: &str,
+        cerebro_admin_name: &str,
         cerebro_admin_password: &str,
         traefik_launch: bool,
         traefik_email: &str,
@@ -1727,11 +2050,9 @@ impl StackConfig {
         traefik_username: &str,
         traefik_password: &str,
     ) -> Self {
-        
         log::info!("Creating default web deployment template");
 
         Self {
-
             // Configured during configuration process
             name: String::new(),
             outdir: PathBuf::new(),
@@ -1741,13 +2062,13 @@ impl StackConfig {
 
             cerebro: CerebroConfig::default_web(),
             mongodb: MongoDbConfig::default_web(
-                root_username, 
-                root_password, 
-                admin_username, 
-                admin_password, 
-                cerebro_admin_email, 
-                cerebro_admin_name, 
-                cerebro_admin_password
+                root_username,
+                root_password,
+                admin_username,
+                admin_password,
+                cerebro_admin_email,
+                cerebro_admin_name,
+                cerebro_admin_password,
             ),
             traefik: TraefikConfig::default_web(
                 traefik_launch,
@@ -1756,13 +2077,14 @@ impl StackConfig {
                 traefik_username,
                 traefik_password,
             ),
-            fs: FileSystemConfig::default_web()
+            fs: FileSystemConfig::default_web(),
         }
     }
-    pub fn create_certs_and_keys(&self, dir_tree: &StackConfigTree) -> Result<TokenEncryptionConfig, StackConfigError> {
-
+    pub fn create_certs_and_keys(
+        &self,
+        dir_tree: &StackConfigTree,
+    ) -> Result<TokenEncryptionConfig, StackConfigError> {
         if self.traefik.is_localhost && self.traefik.localhost.tls {
-
             log::info!("Local HTTPS deployment configured, create certificates");
 
             // Create a local certificate for the domain - rcgen for localhost domain
@@ -1770,12 +2092,14 @@ impl StackConfig {
             let cert = generate_simple_self_signed(subject_alt_names).unwrap();
 
             write_cert(
-                cert.serialize_pem().map_err(|err| StackConfigError::CertificateFileNotSerialized(err) )?.as_bytes(), 
-                &dir_tree.certs.join("cerebro.cert")
+                cert.serialize_pem()
+                    .map_err(|err| StackConfigError::CertificateFileNotSerialized(err))?
+                    .as_bytes(),
+                &dir_tree.certs.join("cerebro.cert"),
             )?;
             write_cert(
                 cert.serialize_private_key_pem().as_bytes(),
-                &dir_tree.certs.join("cerebro.key")
+                &dir_tree.certs.join("cerebro.key"),
             )?;
         };
 
@@ -1785,82 +2109,106 @@ impl StackConfig {
         let mut rng = rand::thread_rng();
         let bits = 3072;
 
-        let access_private_key = RsaPrivateKey::new(&mut rng, bits).map_err(|err| StackConfigError::RsaKeyNotGenerated(err) )?;
+        let access_private_key = RsaPrivateKey::new(&mut rng, bits)
+            .map_err(|err| StackConfigError::RsaKeyNotGenerated(err))?;
         let access_public_key = RsaPublicKey::from(&access_private_key);
-        let refresh_private_key = RsaPrivateKey::new(&mut rng, bits).map_err(|err| StackConfigError::RsaKeyNotGenerated(err) )?;
+        let refresh_private_key = RsaPrivateKey::new(&mut rng, bits)
+            .map_err(|err| StackConfigError::RsaKeyNotGenerated(err))?;
         let refresh_public_key = RsaPublicKey::from(&refresh_private_key);
-        
-        let access_private_key_pem = access_private_key.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
-            .map_err(|err| StackConfigError::RsaPrivateKeyPemNotGenerated(err) )?;
-        let access_public_key_pem = access_public_key.to_public_key_pem(rsa::pkcs8::LineEnding::LF)
-            .map_err(|err| StackConfigError::RsaPublicKeyPemNotGenerated(err) )?;
-        let refresh_private_key_pem = refresh_private_key.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
-            .map_err(|err| StackConfigError::RsaPrivateKeyPemNotGenerated(err) )?;
-        let refresh_public_key_pem = refresh_public_key.to_public_key_pem(rsa::pkcs8::LineEnding::LF)
-            .map_err(|err| StackConfigError::RsaPublicKeyPemNotGenerated(err) )?;
+
+        let access_private_key_pem = access_private_key
+            .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+            .map_err(|err| StackConfigError::RsaPrivateKeyPemNotGenerated(err))?;
+        let access_public_key_pem = access_public_key
+            .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+            .map_err(|err| StackConfigError::RsaPublicKeyPemNotGenerated(err))?;
+        let refresh_private_key_pem = refresh_private_key
+            .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+            .map_err(|err| StackConfigError::RsaPrivateKeyPemNotGenerated(err))?;
+        let refresh_public_key_pem = refresh_public_key
+            .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+            .map_err(|err| StackConfigError::RsaPublicKeyPemNotGenerated(err))?;
 
         write_key(
-            &access_private_key_pem.as_bytes(), &dir_tree.keys.join("access_private.pem")
+            &access_private_key_pem.as_bytes(),
+            &dir_tree.keys.join("access_private.pem"),
         )?;
         write_key(
-            &access_public_key_pem.as_bytes(), &dir_tree.keys.join("access_public.pem")
+            &access_public_key_pem.as_bytes(),
+            &dir_tree.keys.join("access_public.pem"),
         )?;
         write_key(
-            &refresh_private_key_pem.as_bytes(), &dir_tree.keys.join("refresh_private.pem")
+            &refresh_private_key_pem.as_bytes(),
+            &dir_tree.keys.join("refresh_private.pem"),
         )?;
         write_key(
-            &refresh_public_key_pem.as_bytes(), &dir_tree.keys.join("refresh_public.pem")
+            &refresh_public_key_pem.as_bytes(),
+            &dir_tree.keys.join("refresh_public.pem"),
         )?;
-
 
         Ok(TokenEncryptionConfig {
             access_private_key: general_purpose::STANDARD.encode(access_private_key_pem),
             access_public_key: general_purpose::STANDARD.encode(access_public_key_pem),
             refresh_private_key: general_purpose::STANDARD.encode(refresh_private_key_pem),
-            refresh_public_key: general_purpose::STANDARD.encode(refresh_public_key_pem)
+            refresh_public_key: general_purpose::STANDARD.encode(refresh_public_key_pem),
         })
-
     }
     pub fn configure(
-        &mut self, 
+        &mut self,
         name: &str,
-        outdir: &PathBuf, 
-        dev: bool, 
-        subdomain: Option<String>, 
-        trigger: bool, 
-        fs_primary: Option<PathBuf>, 
-        fs_secondary: Option<PathBuf>
+        outdir: &PathBuf,
+        dev: bool,
+        subdomain: Option<String>,
+        trigger: bool,
+        fs_primary: Option<PathBuf>,
+        fs_secondary: Option<PathBuf>,
     ) -> Result<(), StackConfigError> {
-
         self.name = name.to_string();
         log::info!("Initiate server configuration: {}", self.name);
 
         self.dev = dev;
         log::info!("Development deployment: {}", self.dev);
         self.trigger = trigger;
-        log::info!("Trigger file for development deployment active: {}", self.trigger);
+        log::info!(
+            "Trigger file for development deployment active: {}",
+            self.trigger
+        );
 
         if self.fs.enabled {
             match &self.fs.primary {
                 None => {
-                    log::error!("Cerebro FS is enabled, but primary data center is not configured!");
-                    return Err(StackConfigError::PrimaryDataCenterMissing)
-                },
+                    log::error!(
+                        "Cerebro FS is enabled, but primary data center is not configured!"
+                    );
+                    return Err(StackConfigError::PrimaryDataCenterMissing);
+                }
                 Some(dc) => {
-                    log::info!("Primary data center configured (center: {}, rack: {})", dc.center, dc.rack);
+                    log::info!(
+                        "Primary data center configured (center: {}, rack: {})",
+                        dc.center,
+                        dc.rack
+                    );
                     if !dc.path.exists() || !dc.path.is_dir() {
                         log::info!("Creating primary datacenter path: {}", dc.path.display());
-                        create_dir_all(&dc.path).map_err(|_| StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned()))?;
+                        create_dir_all(&dc.path).map_err(|_| {
+                            StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned())
+                        })?;
                     } else {
                         log::warn!("Primary data center path exists or is not a directory - skipping creation, please ensure this is addressed")
                     }
                 }
             }
             if let Some(dc) = &self.fs.secondary {
-                log::info!("Secondary datacenter configured (center: {}, rack: {})", dc.center, dc.rack);
+                log::info!(
+                    "Secondary datacenter configured (center: {}, rack: {})",
+                    dc.center,
+                    dc.rack
+                );
                 if !dc.path.exists() || !dc.path.is_dir() {
                     log::info!("Creating secondary data center path: {}", dc.path.display());
-                    create_dir_all(&dc.path).map_err(|_| StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned()))?;
+                    create_dir_all(&dc.path).map_err(|_| {
+                        StackConfigError::DataCenterDirectoryFailed(dc.path.to_owned())
+                    })?;
                 } else {
                     log::warn!("Secondary data center path exists or is not a directory - skipping creation, please ensure this is addressed")
                 }
@@ -1871,14 +2219,19 @@ impl StackConfig {
             // interim posture so the operator acknowledges the durability stance.
             match self.fs.validate_durability()? {
                 Some(warning) => log::warn!("Durability: {warning}"),
-                None => log::info!("Durability: replication '{}' is satisfiable and redundant for this topology", self.fs.replication),
+                None => log::info!(
+                    "Durability: replication '{}' is satisfiable and redundant for this topology",
+                    self.fs.replication
+                ),
             }
         }
 
         let dir_tree = StackConfigTree::new(outdir);
         dir_tree.create_dir_all()?;
 
-        self.outdir = std::fs::canonicalize(outdir).map_err(|_| StackConfigError::OutdirAbsolutePathInvalid(outdir.display().to_string()))?;
+        self.outdir = std::fs::canonicalize(outdir).map_err(|_| {
+            StackConfigError::OutdirAbsolutePathInvalid(outdir.display().to_string())
+        })?;
         log::info!("Create deployment directory tree in: {}", outdir.display());
 
         log::info!("Write stack asset files to deployment directory");
@@ -1888,7 +2241,11 @@ impl StackConfig {
         if let Some(subd) = &subdomain {
             self.traefik.subdomain.api = format!("api.{subd}");
             self.traefik.subdomain.app = format!("app.{subd}");
-            log::info!("Subdomain specified, configured subdomains to `{}` and `{}`", self.traefik.subdomain.api.blue(), self.traefik.subdomain.app.blue());
+            log::info!(
+                "Subdomain specified, configured subdomains to `{}` and `{}`",
+                self.traefik.subdomain.api.blue(),
+                self.traefik.subdomain.app.blue()
+            );
         }
 
         // Unique router names for subdomains
@@ -1898,14 +2255,15 @@ impl StackConfig {
         log::info!("Read default server configuration");
 
         // Read the default server template configuration
-        let mut server_config = cerebro_model::api::config::Config::from_toml(&stack_assets.templates.paths.cerebro_server)
-            .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;
+        let mut server_config = cerebro_model::api::config::Config::from_toml(
+            &stack_assets.templates.paths.cerebro_server,
+        )
+        .map_err(|err| StackConfigError::CerebroServerConfigNotParsed(err))?;
 
-    
         // Configure server and application
         if self.traefik.is_localhost {
             log::info!("Configure server and application deployment to localhost");
-           // Localhost specific deployment configurations of Cerebro application and server
+            // Localhost specific deployment configurations of Cerebro application and server
             server_config.security.cors.app_origin_public_url = format!("http://localhost:8000");
             server_config.security.cookies.domain = String::from("localhost");
             if self.traefik.localhost.tls {
@@ -1914,33 +2272,50 @@ impl StackConfig {
                 server_config.security.cookies.secure = false;
             }
             self.cerebro.app.public_cerebro_api_url = format!("http://localhost:8080");
-
         } else {
             log::info!("Configure server and application deployment to web");
             // Web specific deployment configurations of Cerebro application and server
-            server_config.security.cors.app_origin_public_url = format!("https://{}.{}", self.traefik.subdomain.app, self.traefik.web.domain);
-            server_config.security.cookies.domain = match &subdomain { Some(subd) => format!("{subd}.{}", self.traefik.web.domain.clone()), None => self.traefik.web.domain.clone()};
+            server_config.security.cors.app_origin_public_url = format!(
+                "https://{}.{}",
+                self.traefik.subdomain.app, self.traefik.web.domain
+            );
+            server_config.security.cookies.domain = match &subdomain {
+                Some(subd) => format!("{subd}.{}", self.traefik.web.domain.clone()),
+                None => self.traefik.web.domain.clone(),
+            };
             server_config.security.cookies.secure = true;
-            self.cerebro.app.public_cerebro_api_url =  format!("https://{}.{}", self.traefik.subdomain.api, self.traefik.web.domain);
+            self.cerebro.app.public_cerebro_api_url = format!(
+                "https://{}.{}",
+                self.traefik.subdomain.api, self.traefik.web.domain
+            );
         }
 
-        log::info!("APP deployment configured to: {}", server_config.security.cors.app_origin_public_url.blue());
-        log::info!("API deployment configured to: {}", self.cerebro.app.public_cerebro_api_url.blue());
-        
+        log::info!(
+            "APP deployment configured to: {}",
+            server_config.security.cors.app_origin_public_url.blue()
+        );
+        log::info!(
+            "API deployment configured to: {}",
+            self.cerebro.app.public_cerebro_api_url.blue()
+        );
+
         // Cookie settings for refresh access token issued by application server hook
-        self.cerebro.app.private_cerebro_api_access_cookie_domain = server_config.security.cookies.domain.clone();
-        self.cerebro.app.private_cerebro_api_access_max_age = server_config.security.token.expiration.access_max_age;
-        self.cerebro.app.private_cerebro_api_access_cookie_secure = server_config.security.cookies.secure;
-        
-        
+        self.cerebro.app.private_cerebro_api_access_cookie_domain =
+            server_config.security.cookies.domain.clone();
+        self.cerebro.app.private_cerebro_api_access_max_age =
+            server_config.security.token.expiration.access_max_age;
+        self.cerebro.app.private_cerebro_api_access_cookie_secure =
+            server_config.security.cookies.secure;
+
         log::info!("Configure encryption keys and certificates");
         server_config.security.token.encryption = self.create_certs_and_keys(&dir_tree)?;
-        server_config.security.components = self.cerebro.components.clone();  
-        
+        server_config.security.components = self.cerebro.components.clone();
 
         log::info!("Hash Cerebro admin password using salted Argon2");
         // Hash the required passwords - Argon2 for Cerebro user database
-        self.mongodb.cerebro_admin_password_hashed = hash_password(&self.mongodb.cerebro_admin_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
+        self.mongodb.cerebro_admin_password_hashed =
+            hash_password(&self.mongodb.cerebro_admin_password)
+                .map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
         // Service Bot password (S3-5 #5). If empty (e.g. a non-interactive or
         // pre-existing config), generate a strong random one so the seeded Bot is
@@ -1958,7 +2333,9 @@ impl StackConfig {
             self.mongodb.service_bot_password = pw;
         }
         log::info!("Hash Cerebro service bot password using salted Argon2");
-        self.mongodb.service_bot_password_hashed = hash_password(&self.mongodb.service_bot_password).map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
+        self.mongodb.service_bot_password_hashed =
+            hash_password(&self.mongodb.service_bot_password)
+                .map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
         // Backup service-user password (S4-2/H1). Generated alphanumeric (URI-safe,
         // so no percent-encoding is needed when it is embedded in the backup
@@ -1978,61 +2355,79 @@ impl StackConfig {
 
         log::info!("Hash Traefik dashboard password using Bcrypt2");
         if !self.traefik.is_localhost {
-            // Hash the required passwords - Bcrypt for Traefik dashboard 
-            self.traefik.web.password_hashed = hash(&self.traefik.web.password, DEFAULT_COST).map_err(|err| StackConfigError::TraefikDashboardPasswordNotHashed(err))?;
+            // Hash the required passwords - Bcrypt for Traefik dashboard
+            self.traefik.web.password_hashed = hash(&self.traefik.web.password, DEFAULT_COST)
+                .map_err(|err| StackConfigError::TraefikDashboardPasswordNotHashed(err))?;
         };
 
-        log::info!("Use provided SMTP email configuration");      
+        log::info!("Use provided SMTP email configuration");
         server_config.smtp = self.cerebro.smtp.clone();
- 
-        log::info!("Configure internal Docker network MongoDB URI"); 
+
+        log::info!("Configure internal Docker network MongoDB URI");
         server_config.database.connections.mongodb_uri = format!(
-            "mongodb://{}:{}@cerebro-database:27017/?authSource=admin", 
-            self.mongodb.admin_username, 
-            self.mongodb.admin_password
+            "mongodb://{}:{}@cerebro-database:27017/?authSource=admin",
+            self.mongodb.admin_username, self.mongodb.admin_password
         );
 
         if let Some(path) = fs_primary {
             if let Some(ref mut config) = self.fs.primary {
-                log::info!("Configure primary file system path: {}", path.display().to_string().blue());
+                log::info!(
+                    "Configure primary file system path: {}",
+                    path.display().to_string().blue()
+                );
                 config.path = path;
             };
         };
 
         if let Some(path) = fs_secondary {
             if let Some(ref mut config) = self.fs.secondary {
-                log::info!("Configure backup file system path: {}", path.display().to_string().blue());
+                log::info!(
+                    "Configure backup file system path: {}",
+                    path.display().to_string().blue()
+                );
                 config.path = path;
             };
         };
 
-
-        log::info!("Write modified server config to: {}", &dir_tree.cerebro_api.join("server.toml").display()); 
+        log::info!(
+            "Write modified server config to: {}",
+            &dir_tree.cerebro_api.join("server.toml").display()
+        );
         // Write the modified server config
-        server_config.to_toml(&dir_tree.cerebro_api.join("server.toml")).map_err(|_: ConfigError| StackConfigError::ConfigFileOutputInvalid)?;
+        server_config
+            .to_toml(&dir_tree.cerebro_api.join("server.toml"))
+            .map_err(|_: ConfigError| StackConfigError::ConfigFileOutputInvalid)?;
 
         // // Write the template directories for email and report
         // self.write_templates(&stack_assets, &dir_tree)?;
-        
-        log::info!("Render asset templates with deployment configurations"); 
+
+        log::info!("Render asset templates with deployment configurations");
         // Render and write the asset templates
         self.render_templates(&stack_assets, &dir_tree)?;
 
-        log::info!("Write modified stack configuration to: {}", &dir_tree.base.join("stack.toml").display()); 
+        log::info!(
+            "Write modified stack configuration to: {}",
+            &dir_tree.base.join("stack.toml").display()
+        );
         // Write the final stack configuration
         self.to_toml(&dir_tree.base.join("stack.toml"))
-
     }
     /// Clone the repository into the deployment folder and checkout the requested revision (can be done manually after deployment)
-    pub fn clone_and_checkout_repository_process(&self, url: &str, branch: Option<String>, revision: Option<String>, trigger: bool) -> Result<(), StackConfigError> {
-
+    pub fn clone_and_checkout_repository_process(
+        &self,
+        url: &str,
+        branch: Option<String>,
+        revision: Option<String>,
+        trigger: bool,
+    ) -> Result<(), StackConfigError> {
         let repo_dir = self.outdir.join("cerebro");
         let repo_dir_str = repo_dir.display().to_string();
-        
+
         if repo_dir.exists() {
             log::warn!("Repository exists at: {}", repo_dir.display());
             log::warn!("Repository will be deleted and replaced with fresh clone");
-            std::fs::remove_dir_all(&repo_dir).expect("Failed to remove existing deployment repository");
+            std::fs::remove_dir_all(&repo_dir)
+                .expect("Failed to remove existing deployment repository");
         }
 
         let git_command = "git";
@@ -2060,8 +2455,8 @@ impl StackConfig {
         let checkout = match (branch, revision) {
             (Some(b), None) => Some(b),
             (None, Some(r)) => Some(r),
-            (Some(_), Some(r)) => Some(r),  // prefer revision over branch if both supplied
-            (None, None) => None
+            (Some(_), Some(r)) => Some(r), // prefer revision over branch if both supplied
+            (None, None) => None,
         };
 
         if let Some(p) = &checkout {
@@ -2088,7 +2483,7 @@ impl StackConfig {
         if trigger {
             let trigger_file = repo_dir.join("trigger");
             let trigger_message = "Edit and save this file to trigger a rebuild of the server.\nThe file contents are not used; only the modification matters.\n";
-        
+
             if let Err(e) = std::fs::write(&trigger_file, trigger_message) {
                 log::error!("Failed to create trigger file: {}", e);
             } else {
@@ -2096,62 +2491,147 @@ impl StackConfig {
             }
         }
 
-            
         Ok(())
     }
-    pub fn render_templates(&self, stack_assets: &StackAssets, dir_tree: &StackConfigTree) -> Result<(), StackConfigError> {
-
+    pub fn render_templates(
+        &self,
+        stack_assets: &StackAssets,
+        dir_tree: &StackConfigTree,
+    ) -> Result<(), StackConfigError> {
         let mut handlebars = handlebars::Handlebars::new();
-    
-        handlebars.register_template_file(&stack_assets.templates.names.traefik_static, &stack_assets.templates.paths.traefik_static).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        handlebars.register_template_file(&stack_assets.templates.names.traefik_dynamic, &stack_assets.templates.paths.traefik_dynamic).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
 
-        let render = handlebars.render(&stack_assets.templates.names.traefik_static, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.traefik_static,
+                &stack_assets.templates.paths.traefik_static,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.traefik_dynamic,
+                &stack_assets.templates.paths.traefik_dynamic,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+
+        let render = handlebars
+            .render(&stack_assets.templates.names.traefik_static, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.traefik.join("static.yml"))?;
 
-        let render = handlebars.render(&stack_assets.templates.names.traefik_dynamic, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.traefik_dynamic, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.traefik.join("dynamic.yml"))?;
 
-        handlebars.register_template_file(&stack_assets.templates.names.docker_compose, &stack_assets.templates.paths.docker_compose).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.docker_compose, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.docker_compose,
+                &stack_assets.templates.paths.docker_compose,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.docker_compose, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.base.join("docker-compose.yml"))?;
 
         if !self.traefik.launch {
-            handlebars.register_template_file(&stack_assets.templates.names.docker_compose_traefik, &stack_assets.templates.paths.docker_compose_traefik).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-            let render = handlebars.render(&stack_assets.templates.names.docker_compose_traefik, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
-            write_rendered_template(render.as_bytes(), &dir_tree.base.join("docker-compose.traefik.yml"))?;
+            handlebars
+                .register_template_file(
+                    &stack_assets.templates.names.docker_compose_traefik,
+                    &stack_assets.templates.paths.docker_compose_traefik,
+                )
+                .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+            let render = handlebars
+                .render(&stack_assets.templates.names.docker_compose_traefik, &self)
+                .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+            write_rendered_template(
+                render.as_bytes(),
+                &dir_tree.base.join("docker-compose.traefik.yml"),
+            )?;
         }
 
-        handlebars.register_template_file(&stack_assets.templates.names.docker_server, &stack_assets.templates.paths.docker_server).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.docker_server, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
-        write_rendered_template(render.as_bytes(), &dir_tree.docker.join("Dockerfile.server"))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.docker_server,
+                &stack_assets.templates.paths.docker_server,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.docker_server, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        write_rendered_template(
+            render.as_bytes(),
+            &dir_tree.docker.join("Dockerfile.server"),
+        )?;
 
-        handlebars.register_template_file(&stack_assets.templates.names.docker_app, &stack_assets.templates.paths.docker_app).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.docker_app, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.docker_app,
+                &stack_assets.templates.paths.docker_app,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.docker_app, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.docker.join("Dockerfile.app"))?;
 
-        handlebars.register_template_file(&stack_assets.templates.names.docker_fs, &stack_assets.templates.paths.docker_fs).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.docker_fs, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.docker_fs,
+                &stack_assets.templates.paths.docker_fs,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.docker_fs, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.docker.join("Dockerfile.fs"))?;
 
         if self.fs.filer.enabled {
-            handlebars.register_template_file(&stack_assets.templates.names.docker_filer, &stack_assets.templates.paths.docker_filer).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-            let render = handlebars.render(&stack_assets.templates.names.docker_filer, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+            handlebars
+                .register_template_file(
+                    &stack_assets.templates.names.docker_filer,
+                    &stack_assets.templates.paths.docker_filer,
+                )
+                .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+            let render = handlebars
+                .render(&stack_assets.templates.names.docker_filer, &self)
+                .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
             write_rendered_template(render.as_bytes(), &dir_tree.docker.join("filer.toml"))?;
         }
 
         if self.fs.remote.is_some() {
-            handlebars.register_template_file(&stack_assets.templates.names.docker_remote, &stack_assets.templates.paths.docker_remote).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-            let render = handlebars.render(&stack_assets.templates.names.docker_remote, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+            handlebars
+                .register_template_file(
+                    &stack_assets.templates.names.docker_remote,
+                    &stack_assets.templates.paths.docker_remote,
+                )
+                .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+            let render = handlebars
+                .render(&stack_assets.templates.names.docker_remote, &self)
+                .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
             write_rendered_template(render.as_bytes(), &dir_tree.docker.join("remote.conf"))?;
         }
 
-        handlebars.register_template_file(&stack_assets.templates.names.mongodb_init_sh, &stack_assets.templates.paths.mongodb_init_sh).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.mongodb_init_sh, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.mongodb_init_sh,
+                &stack_assets.templates.paths.mongodb_init_sh,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.mongodb_init_sh, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.mongodb.join("mongo-init.sh"))?;
 
-        handlebars.register_template_file(&stack_assets.templates.names.mongodb_init_env, &stack_assets.templates.paths.mongodb_init_env).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.mongodb_init_env, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.mongodb_init_env,
+                &stack_assets.templates.paths.mongodb_init_env,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.mongodb_init_env, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.mongodb.join("database.env"))?;
 
         // Worker Bot password as a standalone Docker secret (S3-5 #5). Kept out of
@@ -2159,7 +2639,10 @@ impl StackConfig {
         // `docker inspect`; the worker reads it from CEREBRO_API_BOT_PASSWORD_FILE.
         // The file holds only the password (trimmed), matching the token-file
         // convention.
-        write_rendered_template(self.mongodb.service_bot_password.as_bytes(), &dir_tree.mongodb.join("worker_bot.secret"))?;
+        write_rendered_template(
+            self.mongodb.service_bot_password.as_bytes(),
+            &dir_tree.mongodb.join("worker_bot.secret"),
+        )?;
 
         // Backup connection URI as a standalone Docker secret (S4-2/H1). Built from
         // the auto-provisioned backup user (mongo-init creates it with the built-in
@@ -2172,20 +2655,26 @@ impl StackConfig {
             "mongodb://{}:{}@cerebro-database:27017/?authSource=admin",
             self.mongodb.backup_username, self.mongodb.backup_password
         );
-        write_rendered_template(backup_uri.as_bytes(), &dir_tree.mongodb.join("backup_mongo_uri.secret"))?;
+        write_rendered_template(
+            backup_uri.as_bytes(),
+            &dir_tree.mongodb.join("backup_mongo_uri.secret"),
+        )?;
 
-        handlebars.register_template_file(&stack_assets.templates.names.cerebro_app, &stack_assets.templates.paths.cerebro_app).map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
-        let render = handlebars.render(&stack_assets.templates.names.cerebro_app, &self).map_err(|err| StackConfigError::TemplateNotRendered(err))?;
+        handlebars
+            .register_template_file(
+                &stack_assets.templates.names.cerebro_app,
+                &stack_assets.templates.paths.cerebro_app,
+            )
+            .map_err(|err| StackConfigError::TemplateNotRegistered(err))?;
+        let render = handlebars
+            .render(&stack_assets.templates.names.cerebro_app, &self)
+            .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.cerebro_api.join("app.env"))?;
-        
+
         Ok(())
-
     }
-    pub fn interactive() {
-
-    }
+    pub fn interactive() {}
 }
-
 
 fn absolute_path(path: &Path) -> std::io::Result<PathBuf> {
     if path.is_absolute() {

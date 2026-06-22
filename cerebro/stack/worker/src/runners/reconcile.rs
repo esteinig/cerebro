@@ -21,7 +21,9 @@ use serde::Deserialize;
 use crate::backup::{FilesystemObjectStore, ObjectStore};
 use crate::context::WorkerContext;
 use crate::error::WorkerError;
-use crate::reconcile::{find_dangling, find_orphans, CatalogueRef, ReconcileReport, StoreObjectRef};
+use crate::reconcile::{
+    find_dangling, find_orphans, CatalogueRef, ReconcileReport, StoreObjectRef,
+};
 use crate::runners::parse_args;
 use crate::telemetry::{JobOutcome, Metrics};
 
@@ -67,7 +69,11 @@ pub struct ReconcileScan {
 
 impl ReconcileScan {
     pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, report_sink: Option<PathBuf>) -> Self {
-        Self { ctx, metrics, report_sink }
+        Self {
+            ctx,
+            metrics,
+            report_sink,
+        }
     }
 
     async fn run_inner(&self, job: Job) -> anyhow::Result<()> {
@@ -84,65 +90,75 @@ impl ReconcileScan {
         let fs = self.ctx.fs()?;
         let supports_enumeration = fs.enumeration_supported();
         let fs_probe = fs.clone();
-        let (catalogue_count, catalogue_complete, refs, present, catalogue_paths, probe_errors) = self
-            .ctx
-            .run_blocking(move || {
-                let mut refs: Vec<CatalogueRef> = Vec::new();
-                let mut present: HashSet<String> = HashSet::new();
-                let mut catalogue_paths: HashSet<String> = HashSet::new();
-                let mut probe_errors = 0usize;
-                let mut catalogue_count = 0usize;
-                let mut complete = false;
-                let mut page = 0u32;
-                loop {
-                    let files = api
-                        .list_files(None, None, page, PAGE_LIMIT, false)
-                        .map_err(|e| WorkerError::Api(e.to_string()))?;
-                    if files.is_empty() {
-                        complete = true; // reached the end of the catalogue
-                        break;
-                    }
-                    for f in &files {
-                        catalogue_count += 1;
-                        // Full path set (cheap) for orphan detection.
-                        if let Some(p) = &f.path {
-                            catalogue_paths.insert(p.clone());
+        let (catalogue_count, catalogue_complete, refs, present, catalogue_paths, probe_errors) =
+            self.ctx
+                .run_blocking(move || {
+                    let mut refs: Vec<CatalogueRef> = Vec::new();
+                    let mut present: HashSet<String> = HashSet::new();
+                    let mut catalogue_paths: HashSet<String> = HashSet::new();
+                    let mut probe_errors = 0usize;
+                    let mut catalogue_count = 0usize;
+                    let mut complete = false;
+                    let mut page = 0u32;
+                    loop {
+                        let files = api
+                            .list_files(None, None, page, PAGE_LIMIT, false)
+                            .map_err(|e| WorkerError::Api(e.to_string()))?;
+                        if files.is_empty() {
+                            complete = true; // reached the end of the catalogue
+                            break;
                         }
-                        // Dangling probing is bounded by the budget (object_exists is
-                        // a network round-trip per file); path collection above is not.
-                        if (catalogue_count as u32) <= budget {
-                            let r = CatalogueRef {
-                                file_id: f.id.clone(),
-                                fid: f.fid.clone(),
-                                created_at: parse_catalogue_date(&f.date),
-                                archived: f.archived,
-                                tier: f.tier.to_string(),
-                            };
-                            // Archived objects live in remote cold, not the local
-                            // store: never probe them, and let the engine skip them.
-                            if f.archived {
-                                refs.push(r);
-                            } else {
-                                match fs_probe.object_exists(&f.fid) {
-                                    Ok(true) => {
-                                        present.insert(f.fid.clone());
-                                        refs.push(r);
-                                    }
-                                    Ok(false) => refs.push(r), // definitively absent
-                                    Err(e) => {
-                                        // A transient fault is never treated as missing.
-                                        probe_errors += 1;
-                                        tracing::debug!("object probe error for {}: {e}", f.fid);
+                        for f in &files {
+                            catalogue_count += 1;
+                            // Full path set (cheap) for orphan detection.
+                            if let Some(p) = &f.path {
+                                catalogue_paths.insert(p.clone());
+                            }
+                            // Dangling probing is bounded by the budget (object_exists is
+                            // a network round-trip per file); path collection above is not.
+                            if (catalogue_count as u32) <= budget {
+                                let r = CatalogueRef {
+                                    file_id: f.id.clone(),
+                                    fid: f.fid.clone(),
+                                    created_at: parse_catalogue_date(&f.date),
+                                    archived: f.archived,
+                                    tier: f.tier.to_string(),
+                                };
+                                // Archived objects live in remote cold, not the local
+                                // store: never probe them, and let the engine skip them.
+                                if f.archived {
+                                    refs.push(r);
+                                } else {
+                                    match fs_probe.object_exists(&f.fid) {
+                                        Ok(true) => {
+                                            present.insert(f.fid.clone());
+                                            refs.push(r);
+                                        }
+                                        Ok(false) => refs.push(r), // definitively absent
+                                        Err(e) => {
+                                            // A transient fault is never treated as missing.
+                                            probe_errors += 1;
+                                            tracing::debug!(
+                                                "object probe error for {}: {e}",
+                                                f.fid
+                                            );
+                                        }
                                     }
                                 }
                             }
                         }
+                        page += 1;
                     }
-                    page += 1;
-                }
-                Ok((catalogue_count, complete, refs, present, catalogue_paths, probe_errors))
-            })
-            .await?;
+                    Ok((
+                        catalogue_count,
+                        complete,
+                        refs,
+                        present,
+                        catalogue_paths,
+                        probe_errors,
+                    ))
+                })
+                .await?;
 
         let probed_count = refs.iter().filter(|r| !r.archived).count();
         let dangling = find_dangling(&refs, &present, grace, now);
@@ -178,7 +194,10 @@ impl ReconcileScan {
                     Ok(objects) => {
                         let store_refs: Vec<StoreObjectRef> = objects
                             .into_iter()
-                            .map(|o| StoreObjectRef { key: o.path, modified_at: o.mtime })
+                            .map(|o| StoreObjectRef {
+                                key: o.path,
+                                modified_at: o.mtime,
+                            })
                             .collect();
                         store_count = Some(store_refs.len());
                         orphans = find_orphans(&store_refs, &catalogue_paths, grace, now);
@@ -187,7 +206,9 @@ impl ReconcileScan {
                             tracing::warn!(key = %o.key, "orphan object — no catalogue entry");
                         }
                     }
-                    Err(e) => tracing::warn!("store enumeration failed; skipping orphan detection: {e}"),
+                    Err(e) => {
+                        tracing::warn!("store enumeration failed; skipping orphan detection: {e}")
+                    }
                 }
             } else {
                 tracing::info!(
@@ -223,7 +244,10 @@ impl ReconcileScan {
     fn persist_report(&self, report: &ReconcileReport) -> anyhow::Result<()> {
         if let Some(root) = &self.report_sink {
             let store = FilesystemObjectStore::new(root);
-            let key = format!("reconcile/{}.json", report.generated_at.format("%Y%m%dT%H%M%SZ"));
+            let key = format!(
+                "reconcile/{}.json",
+                report.generated_at.format("%Y%m%dT%H%M%SZ")
+            );
             store.put(&key, &serde_json::to_vec_pretty(report)?)?;
             tracing::info!(%key, "reconcile report written to object store");
         }

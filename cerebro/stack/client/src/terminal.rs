@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use cerebro_model::api::{towers::model::Pipeline, watchers::model::WatcherFormat};
 use clap::{ArgGroup, Args, Parser, Subcommand};
+use std::path::PathBuf;
 
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]
@@ -11,69 +11,45 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 pub struct App {
     /// API URL
     #[clap(
-        long, 
-        short = 'u', 
-        default_value = "http://localhost:8080", 
+        long,
+        short = 'u',
+        default_value = "http://localhost:8080",
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
     /// API token - usually provided with CEREBRO_API_TOKEN
-    #[clap(
-        long, 
-        short = 'e', 
-        env = "CEREBRO_API_TOKEN",
-        hide_env_values = true
-    )]
+    #[clap(long, short = 'e', env = "CEREBRO_API_TOKEN", hide_env_values = true)]
     pub token: Option<String>,
-    /// User team name or identifier for requests that require team data acess 
-    #[clap(
-        long, 
-        short = 't', 
-        env = "CEREBRO_USER_TEAM",
-        hide_env_values = true
-    )]
+    /// User team name or identifier for requests that require team data acess
+    #[clap(long, short = 't', env = "CEREBRO_USER_TEAM", hide_env_values = true)]
     pub team: Option<String>,
-    /// Team database name or identifier for requests that require database access 
-    #[clap(
-        long, 
-        short = 'd', 
-        env = "CEREBRO_USER_DB",
-        hide_env_values = true
-    )]
+    /// Team database name or identifier for requests that require database access
+    #[clap(long, short = 'd', env = "CEREBRO_USER_DB", hide_env_values = true)]
     pub db: Option<String>,
-    /// Team database project name or identifier for requests that require project access 
+    /// Team database project name or identifier for requests that require project access
     #[clap(
-        long, 
-        short = 'p', 
+        long,
+        short = 'p',
         env = "CEREBRO_USER_PROJECT",
         hide_env_values = true
     )]
     pub project: Option<String>,
     /// API token file - can be set from environment variable
-    #[clap(
-        long, 
-        short = 'f', 
-        env = "CEREBRO_API_TOKEN_FILE"
-    )]
+    #[clap(long, short = 'f', env = "CEREBRO_API_TOKEN_FILE")]
     pub token_file: Option<PathBuf>,
     /// SSL certificate verification is ignored [DANGER]
-    #[clap(
-        long, 
-        env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE"
-    )]
+    #[clap(long, env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE")]
     pub danger_invalid_certificate: bool,
 
     #[clap(subcommand)]
     pub command: Commands,
 }
 
-
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    
-    /// Login user for authentication token 
+    /// Login user for authentication token
     Login(LoginArgs),
-    /// Ping the server as authenticated user 
+    /// Ping the server as authenticated user
     PingServer(PingArgs),
     /// Ping the server as unauthenticated user
     PingStatus(StatusArgs),
@@ -86,7 +62,7 @@ pub enum Commands {
     UploadPathogen(UploadPathogenArgs),
     /// Upload pipeline outputs to database (production from staged files)
     UploadPanviral(UploadPanviralArgs),
-    
+
     /// Upload processed model to database
     UploadModels(UploadModelsArgs),
     /// Upload processed model to database
@@ -104,7 +80,6 @@ pub enum Commands {
     GetTaxonHistory(TaxonHistoryArgs),
     /// Taxon history query for data and host regression
     GetNegativeControls(NegativeControlsArgs),
-
 
     /// CRUD operations for training collections
     #[clap(subcommand)]
@@ -133,18 +108,13 @@ pub enum Commands {
     /// Faktory job scheduler
     #[clap(subcommand)]
     Jobs(JobsCommands),
-
-
-
 }
 
 #[derive(Debug, Args)]
-pub struct PingArgs {
-}
+pub struct PingArgs {}
 
 #[derive(Debug, Args)]
-pub struct StatusArgs {
-}
+pub struct StatusArgs {}
 
 #[derive(Debug, Args)]
 pub struct LoginArgs {
@@ -158,7 +128,6 @@ pub struct LoginArgs {
     #[clap(long, short = 'b')]
     pub bot: bool,
 }
-
 
 #[derive(Debug, Args)]
 pub struct UploadPathogenArgs {
@@ -174,7 +143,7 @@ pub struct UploadPathogenArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
-    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers
     #[clap(long)]
     pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
@@ -214,7 +183,7 @@ pub struct CreatePathogenArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
-    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers
     #[clap(long)]
     pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
@@ -233,8 +202,6 @@ pub struct CreatePathogenArgs {
     pub pipeline_config: Option<PathBuf>,
 }
 
-
-
 #[derive(Debug, Args)]
 pub struct UploadPanviralArgs {
     /// Processed pipeline quality control module (.json)
@@ -249,7 +216,7 @@ pub struct UploadPanviralArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
-    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers
     #[clap(long)]
     pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
@@ -274,8 +241,6 @@ pub struct UploadPanviralArgs {
     pub model: Option<PathBuf>,
 }
 
-
-
 #[derive(Debug, Args)]
 pub struct CreatePanviralArgs {
     /// Output database model as file (.json)
@@ -293,7 +258,7 @@ pub struct CreatePanviralArgs {
     /// Raise error if taxid was not found in taxonomy
     #[clap(long)]
     pub strict: bool,
-    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers 
+    /// GTDB - collapse paraphyletic species into the same species - may reassign taxonomic identifiers
     #[clap(long)]
     pub gtdb_break_monophyly: bool,
     /// Run identifier if sample sheet is not provided
@@ -312,35 +277,31 @@ pub struct CreatePanviralArgs {
     pub pipeline_config: Option<PathBuf>,
 }
 
-
 #[derive(Debug, Args)]
 pub struct NegativeControlsArgs {
     #[clap(long, short = 's')]
-    pub sample_id: String
+    pub sample_id: String,
 }
 
 #[derive(Debug, Args)]
 pub struct UploadModelsArgs {
     /// Processed database models(.json)
     #[clap(long, short = 'm', num_args(1..))]
-    pub models: Vec<PathBuf>
+    pub models: Vec<PathBuf>,
 }
-
-
 
 #[derive(Debug, Args)]
 pub struct UpdateModelsArgs {
     // Run identifier update from two-column TSV: {cerebro.name} {cerebro.run.id}
     #[clap(long, short = 'r')]
-    pub run_tsv: Option<PathBuf>
+    pub run_tsv: Option<PathBuf>,
 }
-
 
 #[derive(Debug, Args)]
 pub struct DeleteModelsArgs {
     // Delete by full sample identifier (as processed in pipeline) from one column TSV: {cerebro.name}
     #[clap(long, short = 'n')]
-    pub name_tsv: Option<PathBuf>
+    pub name_tsv: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -350,7 +311,7 @@ pub struct DownloadModelsArgs {
     pub outdir: PathBuf,
     /// Output summary table with model information (.tsv)
     #[clap(long, short = 's')]
-    pub summary_table: Option<PathBuf>
+    pub summary_table: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -360,9 +321,8 @@ pub struct QualityControlTableArgs {
     pub output: Option<PathBuf>,
     /// Sample identifiers to limit query
     #[clap(long, short = 's', num_args(1..))]
-    pub sample_ids: Option<Vec<String>>
+    pub sample_ids: Option<Vec<String>>,
 }
-
 
 #[derive(Debug, Args)]
 pub struct PathogenDetectionTableArgs {
@@ -374,9 +334,8 @@ pub struct PathogenDetectionTableArgs {
     pub sample_ids: Option<Vec<String>>,
     /// Collapse taxon variants into single species (WARNING: assigns new taxid to the collapsed taxon)
     #[clap(long, short = 'c')]
-    pub collapse_variants: bool
+    pub collapse_variants: bool,
 }
-
 
 #[derive(Debug, Args)]
 pub struct TaxonHistoryArgs {
@@ -384,7 +343,7 @@ pub struct TaxonHistoryArgs {
     #[clap(long, short = 't')]
     pub taxon_label: String,
     /// GTDB-like host label to query (example: "s__Homo sapiens")
-    #[clap(long, short = 'l', default_value="s__Homo sapiens")]
+    #[clap(long, short = 'l', default_value = "s__Homo sapiens")]
     pub host_label: String,
     /// Output regression data instead of history data
     #[clap(long, short = 'r')]
@@ -411,7 +370,7 @@ pub enum JobsCommands {
         #[arg(long)]
         retry: Option<i32>,
         /// Reserve-for seconds
-        #[arg(long, alias="ttr")]
+        #[arg(long, alias = "ttr")]
         reserve_for_seconds: Option<u64>,
     },
     /// Schedule a one-shot or recurring job
@@ -431,7 +390,7 @@ pub enum JobsCommands {
         queue: Option<String>,
         #[arg(long)]
         retry: Option<i32>,
-        #[arg(long, alias="ttr")]
+        #[arg(long, alias = "ttr")]
         reserve_for_seconds: Option<u64>,
         #[arg(long)]
         enabled: Option<bool>,
@@ -455,21 +414,19 @@ pub enum JobsCommands {
     },
 }
 
-
 #[derive(Debug, Subcommand)]
 pub enum TrainingCommands {
     /// Upload and register prefetch data in the team database
     Upload(TrainingUploadArgs),
     /// List registered prefetch data by training collection
     ListDatasets(TrainingListArgs),
-    /// Delete registered prefetch data 
+    /// Delete registered prefetch data
     DeleteDataset(TrainingDeleteArgs),
     /// List training sessions
     ListSessions(TrainingSessionListArgs),
     /// Delete training sessions
     DeleteSession(TrainingSessionDeleteArgs),
 }
-
 
 #[derive(Debug, Args)]
 pub struct TrainingUploadArgs {
@@ -482,7 +439,7 @@ pub struct TrainingUploadArgs {
     /// Training collection description
     #[clap(short, long)]
     pub description: String,
-    /// Whether to set the reference organism to 
+    /// Whether to set the reference organism to
     /// show as the selected organism
     #[clap(short, long)]
     pub preselect: Option<bool>,
@@ -553,7 +510,6 @@ pub enum StageCommands {
     Pull(StagePullArgs),
 }
 
-
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
 #[clap(group = ArgGroup::new("files").required(true).args(&["file_ids", "run_id"]))]
@@ -572,10 +528,8 @@ pub struct StageRegisterArgs {
     pub file_id: Option<Vec<String>>,
     /// Run name for sample stage registration
     #[clap(long, short = 'r', group = "files")]
-    pub run_id: Option<String>
+    pub run_id: Option<String>,
 }
-
-
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
@@ -587,7 +541,7 @@ pub struct StagePullArgs {
     #[clap(long, short = 'j', group = "input")]
     pub json: Option<PathBuf>,
     /// Run name to list in staging area
-    #[clap(long, short = 'o', default_value=".")]
+    #[clap(long, short = 'o', default_value = ".")]
     pub outdir: PathBuf,
     /// Delete staged samples
     #[clap(long, short = 'd')]
@@ -641,7 +595,6 @@ pub struct StageDeleteArgs {
     pub all: bool,
 }
 
-
 #[derive(Debug, Subcommand)]
 pub enum TowerCommands {
     /// Register a new production tower
@@ -678,7 +631,7 @@ pub struct TowerPingArgs {
     pub id: Option<String>,
     /// Tower registration record (.json)
     #[clap(long, short = 'j', group = "input")]
-    pub json: Option<PathBuf>
+    pub json: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -708,8 +661,6 @@ pub struct TowerDeleteArgs {
     pub all: bool,
 }
 
-
-
 #[derive(Debug, Subcommand)]
 pub enum WatcherCommands {
     /// Register a new production watcher
@@ -729,10 +680,10 @@ pub struct WatcherRegisterArgs {
     /// Watcher location for registration
     #[clap(long, short = 'l')]
     pub location: String,
-    /// Watcher input format 
+    /// Watcher input format
     #[clap(long, short = 'f')]
     pub format: WatcherFormat,
-    /// Fastq file glob when format is 'fastq' 
+    /// Fastq file glob when format is 'fastq'
     #[clap(long, short = 'g')]
     pub glob: Option<String>,
     /// Output registration for future reference (.json)
@@ -746,7 +697,6 @@ pub struct WatcherListArgs {
     #[clap(long, short = 'i')]
     pub id: Option<String>,
 }
-
 
 #[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("input").required(true).args(&["id", "json"]))]
@@ -779,43 +729,37 @@ pub struct WatcherDeleteArgs {
     pub all: bool,
 }
 
-
 #[derive(Debug, Subcommand)]
 pub enum TeamCommands {
     // Create a new team
     Create(TeamCreateArgs),
 }
 
-
 #[derive(Debug, Subcommand)]
 pub enum DatabaseCommands {
     // Create a new database
     Create(DatabaseCreateArgs),
     // Delete a database
-    Delete(DatabaseDeleteArgs)
+    Delete(DatabaseDeleteArgs),
 }
-
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectCommands {
     // Create a new project
     Create(ProjectCreateArgs),
     // Delete a project
-    Delete(ProjectDeleteArgs)
+    Delete(ProjectDeleteArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct DatabaseDeleteArgs {
-}
+pub struct DatabaseDeleteArgs {}
 
 #[derive(Debug, Args)]
-pub struct ProjectDeleteArgs {
-}
-
+pub struct ProjectDeleteArgs {}
 
 #[derive(Debug, Args)]
 pub struct TeamCreateArgs {
-    /// Team name 
+    /// Team name
     #[clap(long, short = 'n')]
     pub name: String,
     /// Team description
@@ -843,24 +787,20 @@ pub struct ProjectCreateArgs {
     pub description: String,
 }
 
-
-
 #[derive(Debug, Args)]
-pub struct GlobalOptions {
-}
-
+pub struct GlobalOptions {}
 
 pub fn get_styles() -> clap::builder::Styles {
-	clap::builder::Styles::styled()
-		.header(
-			anstyle::Style::new()
-				.bold()
-				.underline()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-		)
-		.literal(
-			anstyle::Style::new()
-				.bold()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-		)
+    clap::builder::Styles::styled()
+        .header(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
+        )
+        .literal(
+            anstyle::Style::new()
+                .bold()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
+        )
 }

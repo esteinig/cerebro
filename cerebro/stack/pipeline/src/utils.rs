@@ -1,3 +1,5 @@
+use crate::error::WorkflowError;
+use colored::Colorize;
 use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::{fmt::Color, Builder};
 use log::{Level, LevelFilter};
@@ -5,17 +7,14 @@ use needletail::{parse_fastx_file, FastxReader};
 use niffler::get_writer;
 use niffler::seek::compression::ReadSeek;
 use niffler::seek::get_reader;
-use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::io::BufRead;
-use crate::error::WorkflowError;
+use std::io::{BufReader, BufWriter, Cursor, Read, Write};
+use std::path::{Path, PathBuf};
 
 pub fn init_logger() {
-
     Builder::new()
         .format(|buf, record| {
             let timestamp = buf.timestamp();
@@ -27,16 +26,35 @@ pub fn init_logger() {
             let mut white_style = buf.style();
             white_style.set_color(Color::White).set_bold(false);
             let mut orange_style = buf.style();
-            orange_style.set_color(Color::Rgb(255, 102, 0)).set_bold(true);
+            orange_style
+                .set_color(Color::Rgb(255, 102, 0))
+                .set_bold(true);
             let mut apricot_style = buf.style();
-            apricot_style.set_color(Color::Rgb(255, 195, 0)).set_bold(true);
+            apricot_style
+                .set_color(Color::Rgb(255, 195, 0))
+                .set_bold(true);
 
-            let msg = match record.level(){
-                Level::Warn => (orange_style.value(record.level()), orange_style.value(record.args())),
-                Level::Info => (green_style.value(record.level()), white_style.value(record.args())),
-                Level::Debug => (apricot_style.value(record.level()), apricot_style.value(record.args())),
-                Level::Error => (red_style.value(record.level()), red_style.value(record.args())),
-                _ => (white_style.value(record.level()), white_style.value(record.args()))
+            let msg = match record.level() {
+                Level::Warn => (
+                    orange_style.value(record.level()),
+                    orange_style.value(record.args()),
+                ),
+                Level::Info => (
+                    green_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
+                Level::Debug => (
+                    apricot_style.value(record.level()),
+                    apricot_style.value(record.args()),
+                ),
+                Level::Error => (
+                    red_style.value(record.level()),
+                    red_style.value(record.args()),
+                ),
+                _ => (
+                    white_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
             };
 
             writeln!(
@@ -50,7 +68,6 @@ pub fn init_logger() {
         .filter(None, LevelFilter::Info)
         .init();
 }
-
 
 /// Enum to specify the type of file component to retrieve
 pub enum FileComponent {
@@ -95,21 +112,31 @@ pub enum FileComponent {
 ///     Err(e) => eprintln!("Error: {}", e),
 /// }
 /// ```
-pub fn get_file_component(path: &PathBuf, component: FileComponent) -> Result<String, WorkflowError> {
+pub fn get_file_component(
+    path: &PathBuf,
+    component: FileComponent,
+) -> Result<String, WorkflowError> {
     match component {
-        FileComponent::FileName => {
-            path.file_name()
-                .ok_or(WorkflowError::FileNameConversionError)
-                .and_then(|os_str| os_str.to_str().map(String::from).ok_or(WorkflowError::FileNameConversionError))
-        }
-        FileComponent::FileStem => {
-            path.file_stem()
-                .ok_or(WorkflowError::FileNameConversionError)
-                .and_then(|os_str| os_str.to_str().map(String::from).ok_or(WorkflowError::FileNameConversionError))
-        }
+        FileComponent::FileName => path
+            .file_name()
+            .ok_or(WorkflowError::FileNameConversionError)
+            .and_then(|os_str| {
+                os_str
+                    .to_str()
+                    .map(String::from)
+                    .ok_or(WorkflowError::FileNameConversionError)
+            }),
+        FileComponent::FileStem => path
+            .file_stem()
+            .ok_or(WorkflowError::FileNameConversionError)
+            .and_then(|os_str| {
+                os_str
+                    .to_str()
+                    .map(String::from)
+                    .ok_or(WorkflowError::FileNameConversionError)
+            }),
     }
 }
-
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
@@ -131,10 +158,9 @@ impl CompressionExt for niffler::compression::Format {
 
 pub fn get_compression_writer(
     output: &std::path::PathBuf,
-    output_format: &Option<niffler::compression::Format>, 
-    compression_level: &Option<niffler::compression::Level>
+    output_format: &Option<niffler::compression::Format>,
+    compression_level: &Option<niffler::compression::Level>,
 ) -> Result<Box<dyn std::io::Write>, WorkflowError> {
-
     let file_handle = std::io::BufWriter::new(std::fs::File::create(&output)?);
 
     let fmt = match output_format {
@@ -144,22 +170,15 @@ pub fn get_compression_writer(
 
     let level = match compression_level {
         Some(level) => *level,
-        None => niffler::compression::Level::Six
+        None => niffler::compression::Level::Six,
     };
-    
-    Ok(niffler::get_writer(
-        Box::new(file_handle), 
-        fmt, 
-        level
-    )?
-    )
 
+    Ok(niffler::get_writer(Box::new(file_handle), fmt, level)?)
 }
-
 
 pub fn is_file_empty<P: AsRef<Path>>(path: P) -> Result<bool, WorkflowError> {
     let file = File::open(&path)?;
-    
+
     // Use niffler to get a reader for the (possibly compressed) file
     let (mut reader, _format) = match get_reader(Box::new(file)) {
         Ok(reader_format) => reader_format,
@@ -171,11 +190,13 @@ pub fn is_file_empty<P: AsRef<Path>>(path: P) -> Result<bool, WorkflowError> {
     match reader.read(&mut buffer) {
         Ok(0) => Ok(true),
         Ok(_) => Ok(false), // Successfully read a byte, file is not empty
-        Err(e) => Err(WorkflowError::IoError(e))
+        Err(e) => Err(WorkflowError::IoError(e)),
     }
 }
 
-pub fn parse_fastx_file_with_check<P: AsRef<Path>>(path: P) -> Result<Option<Box<dyn FastxReader>>, WorkflowError> {
+pub fn parse_fastx_file_with_check<P: AsRef<Path>>(
+    path: P,
+) -> Result<Option<Box<dyn FastxReader>>, WorkflowError> {
     if is_file_empty(&path)? {
         Ok(None)
     } else {
@@ -183,39 +204,42 @@ pub fn parse_fastx_file_with_check<P: AsRef<Path>>(path: P) -> Result<Option<Box
     }
 }
 
-pub fn get_file_by_name(path: &PathBuf, id: &str, extension: &str) -> Result<Option<PathBuf>, WorkflowError> {
-    
+pub fn get_file_by_name(
+    path: &PathBuf,
+    id: &str,
+    extension: &str,
+) -> Result<Option<PathBuf>, WorkflowError> {
     let file_path = path.join(format!("{id}{extension}"));
-    
-    match file_path.exists() && file_path.is_file() { 
-        true => Ok(Some(file_path)), 
-        false => Ok(None) 
+
+    match file_path.exists() && file_path.is_file() {
+        true => Ok(Some(file_path)),
+        false => Ok(None),
     }
 }
-pub fn get_files_from_patterns(path: &PathBuf, patterns: &[&str]) -> Result<Option<Vec<PathBuf>>, WorkflowError> {
-    
+pub fn get_files_from_patterns(
+    path: &PathBuf,
+    patterns: &[&str],
+) -> Result<Option<Vec<PathBuf>>, WorkflowError> {
     // Need to have canonical path for GlobWalk
     let full_path = std::fs::canonicalize(path).map_err(|_| WorkflowError::InvalidReferencePath)?;
 
-    let walker = globwalk::GlobWalkerBuilder::from_patterns(
-        full_path, patterns
-    )
+    let walker = globwalk::GlobWalkerBuilder::from_patterns(full_path, patterns)
         .max_depth(1)
         .follow_links(false)
-        .build().map_err(|_| WorkflowError::GlobWalkBuilder)?
+        .build()
+        .map_err(|_| WorkflowError::GlobWalkBuilder)?
         .into_iter()
         .filter_map(Result::ok);
-    
+
     let mut alignments = Vec::new();
     for file in walker {
         alignments.push(file.path().to_path_buf())
-    };
+    }
     match alignments.is_empty() {
         true => Ok(None),
-        false => Ok(Some(alignments))
+        false => Ok(Some(alignments)),
     }
 }
-
 
 /// Utility function to extract the ID from a FASTQ record header.
 ///
@@ -234,22 +258,21 @@ pub fn get_files_from_patterns(path: &PathBuf, patterns: &[&str]) -> Result<Opti
 /// ```
 pub fn get_id(id: &[u8]) -> Result<String, WorkflowError> {
     let header = std::str::from_utf8(id)?;
-    let header_components = header
-        .split_whitespace()
-        .collect::<Vec<&str>>();
-    
+    let header_components = header.split_whitespace().collect::<Vec<&str>>();
+
     if header_components.len() < 1 {
-        return Err(WorkflowError::NeedletailFastqHeader)
+        return Err(WorkflowError::NeedletailFastqHeader);
     }
     let id = header_components[0].to_string();
 
     Ok(id)
 }
 
-
-
-pub fn get_tsv_reader(file: &Path, flexible: bool, header: bool) -> Result<Reader<Box<dyn ReadSeek>>, WorkflowError> {
-
+pub fn get_tsv_reader(
+    file: &Path,
+    flexible: bool,
+    header: bool,
+) -> Result<Reader<Box<dyn ReadSeek>>, WorkflowError> {
     let buf_reader = BufReader::new(File::open(&file)?);
     let (reader, _format) = get_reader(Box::new(buf_reader))?;
 
@@ -263,9 +286,12 @@ pub fn get_tsv_reader(file: &Path, flexible: bool, header: bool) -> Result<Reade
 }
 
 pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>>, WorkflowError> {
-    
     let buf_writer = BufWriter::new(File::create(&file)?);
-    let writer = get_writer(Box::new(buf_writer), niffler::Format::from_path(file), niffler::compression::Level::Six)?;
+    let writer = get_writer(
+        Box::new(buf_writer),
+        niffler::Format::from_path(file),
+        niffler::compression::Level::Six,
+    )?;
 
     let csv_writer = WriterBuilder::new()
         .delimiter(b'\t')
@@ -275,8 +301,11 @@ pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>
     Ok(csv_writer)
 }
 
-pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Result<(), WorkflowError> {
-
+pub fn write_tsv<T: Serialize>(
+    data: &Vec<T>,
+    file: &Path,
+    header: bool,
+) -> Result<(), WorkflowError> {
     let mut writer = get_tsv_writer(file, header)?;
 
     for value in data {
@@ -289,8 +318,11 @@ pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Resu
     Ok(())
 }
 
-pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header: bool) -> Result<Vec<T>, WorkflowError> {
-
+pub fn read_tsv<T: for<'de> Deserialize<'de>>(
+    file: &Path,
+    flexible: bool,
+    header: bool,
+) -> Result<Vec<T>, WorkflowError> {
     let mut reader = get_tsv_reader(file, flexible, header)?;
 
     let mut records = Vec::new();
@@ -301,20 +333,23 @@ pub fn read_tsv<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header
     Ok(records)
 }
 
-
-pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, header: bool, skip: char) -> Result<Vec<T>, WorkflowError> {
-
+pub fn read_tsv_skip<T: for<'de> Deserialize<'de>>(
+    file: &Path,
+    flexible: bool,
+    header: bool,
+    skip: char,
+) -> Result<Vec<T>, WorkflowError> {
     let file = File::open(file)?;
     let reader = BufReader::new(file);
 
-    let filtered_lines: Vec<String> = reader.lines()
+    let filtered_lines: Vec<String> = reader
+        .lines()
         .filter_map(Result::ok)
         .filter(|line| !line.starts_with(skip))
         .collect();
 
     // Join filtered lines into a single String, separated by newlines
     let filtered_content = filtered_lines.join("\n");
-
 
     // Use a Cursor to read this content as CSV input
     let mut csv_reader = ReaderBuilder::new()
@@ -333,15 +368,14 @@ pub fn read_tsv_skip<T: for<'de>Deserialize<'de>>(file: &Path, flexible: bool, h
     Ok(records)
 }
 
-
 pub fn get_colored_string(value: &str, color: &str) -> String {
     match color.to_lowercase().as_str() {
         "blue" => value.blue().to_string(),
-        "green"  => value.green().to_string(),
-        "yellow"  => value.yellow().to_string(),
+        "green" => value.green().to_string(),
+        "yellow" => value.yellow().to_string(),
         "red" => value.red().to_string(),
         "cyan" => value.cyan().to_string(),
         "magenta" => value.magenta().to_string(),
-        _ => value.white().to_string()
+        _ => value.white().to_string(),
     }
 }

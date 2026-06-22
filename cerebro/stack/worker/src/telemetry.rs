@@ -47,7 +47,10 @@ impl Metrics {
         let registry = Registry::new();
 
         let jobs = IntCounterVec::new(
-            Opts::new("cerebro_worker_jobs_total", "Worker jobs run, by kind and outcome."),
+            Opts::new(
+                "cerebro_worker_jobs_total",
+                "Worker jobs run, by kind and outcome.",
+            ),
             &["kind", "outcome"],
         )
         .expect("valid worker jobs metric");
@@ -61,10 +64,18 @@ impl Metrics {
         )
         .expect("valid lifecycle metric");
 
-        registry.register(Box::new(jobs.clone())).expect("register jobs");
-        registry.register(Box::new(lifecycle.clone())).expect("register lifecycle");
+        registry
+            .register(Box::new(jobs.clone()))
+            .expect("register jobs");
+        registry
+            .register(Box::new(lifecycle.clone()))
+            .expect("register lifecycle");
 
-        Self { registry, jobs, lifecycle }
+        Self {
+            registry,
+            jobs,
+            lifecycle,
+        }
     }
 
     /// Record a job run outcome.

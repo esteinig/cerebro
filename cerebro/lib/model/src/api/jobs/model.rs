@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize};
-use serde_json::Value as JsonValue;
 use chrono::{DateTime, Utc};
 use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime_optional;
+use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 
 /// Primary key type (string UUID works well with existing patterns).
 pub type ScheduleId = String;
@@ -85,11 +85,11 @@ impl ScheduleJob {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct JobRunDoc {
     #[serde(default)]
-    pub id: Option<uuid::Uuid>,            // optional if you also track a UUID
-    pub jid: String,                       // Faktory job id (string)
+    pub id: Option<uuid::Uuid>, // optional if you also track a UUID
+    pub jid: String, // Faktory job id (string)
     pub kind: String,
     pub queue: String,
-    pub status: String,                    // "queued" | "running" | "succeeded" | "failed"
+    pub status: String, // "queued" | "running" | "succeeded" | "failed"
     #[serde(default)]
     pub result: Option<serde_json::Value>,
     #[serde(default)]

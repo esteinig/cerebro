@@ -117,11 +117,18 @@ impl RestoreScan {
                 let job_args = json!({ "file_id": file.id });
                 match self
                     .ctx
-                    .enqueue("restore_drive", job_args, &args.queue, Some(StdDuration::from_secs(120)))
+                    .enqueue(
+                        "restore_drive",
+                        job_args,
+                        &args.queue,
+                        Some(StdDuration::from_secs(120)),
+                    )
                     .await
                 {
                     Ok(()) => enqueued += 1,
-                    Err(e) => tracing::warn!(file = %file.id, "failed to enqueue restore_drive: {e}"),
+                    Err(e) => {
+                        tracing::warn!(file = %file.id, "failed to enqueue restore_drive: {e}")
+                    }
                 }
             }
 

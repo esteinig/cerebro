@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
 use crate::api::{files::model::SeaweedFileId, watchers::model::ProductionWatcher};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 use super::model::{FileTag, FileType};
 use super::retention::{RestoreState, RetentionClass, StorageTier};
@@ -81,7 +81,7 @@ pub struct RegisterFileSchema {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct UpdateFileTagsSchema {
     pub ids: Vec<String>,
-    pub tags: Vec<FileTag>
+    pub tags: Vec<FileTag>,
 }
 
 /// Partial update of a file's lifecycle fields (S2-1).
@@ -190,11 +190,13 @@ mod tests {
 
     #[test]
     fn clear_retain_until_is_not_empty() {
-        let schema = UpdateFileLifecycleSchema { clear_retain_until: true, ..Default::default() };
+        let schema = UpdateFileLifecycleSchema {
+            clear_retain_until: true,
+            ..Default::default()
+        };
         assert!(!schema.is_empty());
     }
 }
-
 
 /// Trigger the report-out lifecycle for a run (optionally a single sample).
 ///
@@ -210,7 +212,6 @@ pub struct ReportOutSchema {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reported_at: Option<DateTime<Utc>>,
 }
-
 
 /// Trigger a non-destructive expiry sweep (S2-7): quarantine files whose
 /// retention has lapsed (and which are not under legal hold), optionally scoped
@@ -237,7 +238,6 @@ pub struct PurgeSchema {
     #[serde(default)]
     pub dry_run: bool,
 }
-
 
 /// Drive a restore state-machine transition (S2-11).
 ///

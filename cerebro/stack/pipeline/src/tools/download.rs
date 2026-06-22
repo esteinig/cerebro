@@ -1,10 +1,10 @@
 use core::fmt;
+use reqwest::blocking::Client;
+use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, remove_file, File};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use std::time::Duration;
-use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
 use tar::Archive;
 
 use crate::error::WorkflowError;
@@ -12,36 +12,33 @@ use crate::error::WorkflowError;
 /// Enum representing the available classifiers.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum Classifier {
-    #[serde(rename="kraken2")]
+    #[serde(rename = "kraken2")]
     Kraken2,
-    #[serde(rename="metabuli")]
+    #[serde(rename = "metabuli")]
     Metabuli,
 }
-
 
 /// Enum representing the available profilers.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum Profiler {
-    #[serde(rename="sylph")]
+    #[serde(rename = "sylph")]
     Sylph,
-    #[serde(rename="kmcp")]
+    #[serde(rename = "kmcp")]
     Kmcp,
-    #[serde(rename="bracken")]
+    #[serde(rename = "bracken")]
     Bracken,
-
 }
 
 /// Enum representing the available aligners.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, clap::ValueEnum)]
 pub enum Aligner {
-    #[serde(rename="bowtie2")]
+    #[serde(rename = "bowtie2")]
     Bowtie2,
-    #[serde(rename="minimap2")]
+    #[serde(rename = "minimap2")]
     Minimap2,
-    #[serde(rename="strobealign")]
+    #[serde(rename = "strobealign")]
     Strobealign,
 }
-
 
 impl Aligner {
     // Used for identification of pre-built-indices
@@ -63,7 +60,6 @@ impl fmt::Display for Aligner {
     }
 }
 
-
 impl Classifier {
     // Used for identification of pre-built-indices
     pub fn short_name(&self) -> &str {
@@ -82,7 +78,6 @@ impl fmt::Display for Classifier {
     }
 }
 
-
 impl Profiler {
     // Used for identification of pre-built-indices
     pub fn short_name(&self) -> &str {
@@ -98,7 +93,7 @@ impl fmt::Display for Profiler {
         match self {
             Profiler::Sylph => write!(f, "sylph"),
             Profiler::Bracken => write!(f, "bracken"),
-            Profiler::Kmcp  =>  write!(f, "kmcp")
+            Profiler::Kmcp => write!(f, "kmcp"),
         }
     }
 }
@@ -107,7 +102,7 @@ impl fmt::Display for Profiler {
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum CerebroIndex {
     Chm13v2,
-    Virus
+    Virus,
 }
 
 impl CerebroIndex {
@@ -127,7 +122,7 @@ impl CerebroIndex {
     pub fn aligner_name(&self, aligner: &Aligner, version: Option<String>) -> String {
         match version {
             Some(version) => format!("{}-{}.{}.tar.xz", self, aligner.short_name(), version),
-            None => format!("{}.{}.tar.xz", self, aligner.short_name())
+            None => format!("{}.{}.tar.xz", self, aligner.short_name()),
         }
     }
     /// Returns the classifier name formatted for the specified index.
@@ -146,9 +141,8 @@ impl CerebroIndex {
     pub fn classifier_name(&self, classifier: &Classifier, version: Option<String>) -> String {
         match version {
             Some(version) => format!("{}-{}.{}.tar.xz", self, classifier.short_name(), version),
-            None => format!("{}.{}.tar.xz", self, classifier.short_name())
+            None => format!("{}.{}.tar.xz", self, classifier.short_name()),
         }
-        
     }
     /// Returns the reference name formatted for the specified index.
     ///
@@ -166,7 +160,7 @@ impl CerebroIndex {
     pub fn reference_name(&self, version: Option<String>) -> String {
         match version {
             Some(version) => format!("{}-{}.tar.xz", self, version),
-            None => format!("{}.tar.xz", self)
+            None => format!("{}.tar.xz", self),
         }
     }
 }
@@ -204,7 +198,7 @@ pub struct CerebroDownloader {
     pub aligners: Vec<Aligner>,
     pub classifiers: Vec<Classifier>,
     pub version: Option<String>,
-    pub reference: bool
+    pub reference: bool,
 }
 
 impl CerebroDownloader {
@@ -255,7 +249,6 @@ impl CerebroDownloader {
     /// downloader.list();
     /// ```
     pub fn list(&self) {
-
         log::info!("===========================================");
         log::info!("Reference index storage for anonymous users");
         log::info!("===========================================");
@@ -263,14 +256,24 @@ impl CerebroDownloader {
         log::info!("Pre-built indices are available at:        ");
         log::info!("                                           ");
         log::info!("URL: {}                                    ", self.base_url);
-        log::info!("Username: '{}' Password: '{}'              ", self.username, self.password);
+        log::info!(
+            "Username: '{}' Password: '{}'              ",
+            self.username,
+            self.password
+        );
         log::info!("                                           ");
         log::info!("===========================================");
         log::info!("Available index names for download (--name)");
         log::info!("===========================================");
         log::info!("                                           ");
-        log::info!("Host reference => {:>16}                   ", CerebroIndex::Chm13v2);
-        log::info!("Viral genomes  => {:>16}                   ", CerebroIndex::Virus);
+        log::info!(
+            "Host reference => {:>16}                   ",
+            CerebroIndex::Chm13v2
+        );
+        log::info!(
+            "Viral genomes  => {:>16}                   ",
+            CerebroIndex::Virus
+        );
         log::info!("                                           ");
     }
     /// Downloads the specified indices.
@@ -286,35 +289,62 @@ impl CerebroDownloader {
     /// downloader.download_index();
     /// ```
     pub fn download_index(&self) -> Result<(), WorkflowError> {
-
         if self.indices.is_empty() {
             log::warn!("No index names provided for download")
         }
 
         for index in &self.indices {
             for aligner in &self.aligners {
-                let file_path = self.outdir.join(index.aligner_name(&aligner, self.version.clone()));
-                log::info!("Downloading alignment index to file: {}", file_path.display());
-                self.download(&index.aligner_name(aligner, self.version.clone()), &file_path)?;
-                log::info!("Unpacking alignment index to directory: {}", self.outdir.display());
+                let file_path = self
+                    .outdir
+                    .join(index.aligner_name(&aligner, self.version.clone()));
+                log::info!(
+                    "Downloading alignment index to file: {}",
+                    file_path.display()
+                );
+                self.download(
+                    &index.aligner_name(aligner, self.version.clone()),
+                    &file_path,
+                )?;
+                log::info!(
+                    "Unpacking alignment index to directory: {}",
+                    self.outdir.display()
+                );
                 self.unpack(&file_path, &self.outdir)?;
                 log::info!("Removing download: {}", file_path.display());
                 remove_file(&file_path)?;
             }
             for classifier in &self.classifiers {
-                let file_path = self.outdir.join(index.classifier_name(&classifier, self.version.clone()));
-                log::info!("Downloading classifier index to file: {}", file_path.display());
-                self.download(&index.classifier_name(classifier, self.version.clone()), &file_path)?;
-                log::info!("Unpacking classifier index to directory: {}", self.outdir.display());
+                let file_path = self
+                    .outdir
+                    .join(index.classifier_name(&classifier, self.version.clone()));
+                log::info!(
+                    "Downloading classifier index to file: {}",
+                    file_path.display()
+                );
+                self.download(
+                    &index.classifier_name(classifier, self.version.clone()),
+                    &file_path,
+                )?;
+                log::info!(
+                    "Unpacking classifier index to directory: {}",
+                    self.outdir.display()
+                );
                 self.unpack(&file_path, &self.outdir)?;
                 log::info!("Removing download: {}", file_path.display());
                 remove_file(&file_path)?;
             }
             if self.reference {
                 let file_path = self.outdir.join(index.reference_name(self.version.clone()));
-                log::info!("Downloading reference sequences to file: {}", file_path.display());
+                log::info!(
+                    "Downloading reference sequences to file: {}",
+                    file_path.display()
+                );
                 self.download(&index.reference_name(self.version.clone()), &file_path)?;
-                log::info!("Unpacking reference sequence file to directory: {}", self.outdir.display());
+                log::info!(
+                    "Unpacking reference sequence file to directory: {}",
+                    self.outdir.display()
+                );
                 self.unpack(&file_path, &self.outdir)?;
                 log::info!("Removing download: {}", file_path.display());
                 remove_file(&file_path)?;
@@ -374,9 +404,11 @@ impl CerebroDownloader {
     pub fn download(&self, file_name: &str, path: &PathBuf) -> Result<(), WorkflowError> {
         let url = format!("{}/{}", self.base_url, file_name);
 
-        let mut response = self.client.get(&url)
+        let mut response = self
+            .client
+            .get(&url)
             .basic_auth(&self.username, Some(&self.password))
-            .timeout(Duration::from_secs(self.timeout*60))
+            .timeout(Duration::from_secs(self.timeout * 60))
             .send()?;
 
         if !response.status().is_success() {
@@ -401,7 +433,7 @@ pub struct CerebroDownloaderBuilder {
     aligners: Option<Vec<Aligner>>,
     classifiers: Option<Vec<Classifier>>,
     version: Option<String>,
-    reference: bool
+    reference: bool,
 }
 
 impl CerebroDownloaderBuilder {
@@ -430,7 +462,7 @@ impl CerebroDownloaderBuilder {
             classifiers: None,
             timeout: None,
             version: None,
-            reference: false
+            reference: false,
         }
     }
     /// Sets the aligners for the builder.
@@ -566,23 +598,18 @@ impl CerebroDownloaderBuilder {
     /// let downloader = builder.timeout(60).build();
     /// ```
     pub fn build(self) -> Result<CerebroDownloader, WorkflowError> {
-        
         if !self.outdir.exists() || !self.outdir.is_dir() {
             create_dir_all(&self.outdir)?;
         }
-        
-        let username = self.username
-            .unwrap_or("u416706-sub2".to_string());
-        let password = self.password
-            .unwrap_or("uz2q4cyKFytNXvch".to_string());
-        let base_url = self.base_url
+
+        let username = self.username.unwrap_or("u416706-sub2".to_string());
+        let password = self.password.unwrap_or("uz2q4cyKFytNXvch".to_string());
+        let base_url = self
+            .base_url
             .unwrap_or(format!("https://{username}.your-storagebox.de/databases"));
-        let aligners = self.aligners
-            .unwrap_or(Vec::new());
-        let classifiers = self.classifiers
-            .unwrap_or(Vec::new());
-        let timeout = self.timeout
-            .unwrap_or(30);
+        let aligners = self.aligners.unwrap_or(Vec::new());
+        let classifiers = self.classifiers.unwrap_or(Vec::new());
+        let timeout = self.timeout.unwrap_or(30);
 
         Ok(CerebroDownloader {
             outdir: self.outdir.to_owned(),
@@ -595,7 +622,7 @@ impl CerebroDownloaderBuilder {
             aligners,
             classifiers,
             version: self.version,
-            reference: self.reference
+            reference: self.reference,
         })
     }
 }

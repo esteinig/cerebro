@@ -1,61 +1,67 @@
-use cerebro_model::api::cerebro::response::{CerebroIdentifierResponse, CerebroIdentifierSummary, CerebroResponse, ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse, QualityControlTableResponse, RetrieveModelResponse, TaxonHistoryResponse, TaxonHistoryResult};
+use actix_web::{delete, get, patch, post, web, HttpRequest, HttpResponse};
+use cerebro_model::api::cerebro::response::{
+    CerebroIdentifierResponse, CerebroIdentifierSummary, CerebroResponse,
+    ContaminationTaxaResponse, FilteredTaxaResponse, PathogenDetectionTableResponse,
+    QualityControlTableResponse, RetrieveModelResponse, TaxonHistoryResponse, TaxonHistoryResult,
+};
+use futures::stream::{StreamExt, TryStreamExt};
 use mongodb::bson::{from_document, Document};
+use mongodb::{bson::doc, Collection, Database};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use futures::stream::{StreamExt, TryStreamExt};
-use mongodb::{bson::doc, Collection, Database};
-use actix_web::{get, post, web, HttpResponse, patch, delete, HttpRequest};
 
 use crate::api::auth::jwt::{self, TeamProjectAccessQuery};
 use crate::api::cerebro::gridfs::delete_from_gridfs;
-use cerebro_model::api::config::Config;
-use cerebro_model::api::users::model::Role;
-use crate::api::utils::as_csv_string;
-use crate::api::server::AppState;
 use crate::api::cerebro::{gridfs, mongo::*};
 use crate::api::logs::utils::log_database_change;
-use cerebro_model::api::logs::model::{LogModule, Action, RequestLog, AccessDetails};
-use cerebro_model::api::teams::model::{DatabaseId, ProjectCollection, ProjectId, TeamDatabase};
+use crate::api::server::AppState;
+use crate::api::utils::as_csv_string;
 use cerebro_model::api::cerebro::model::{
-    Cerebro, 
-    PriorityTaxon,
-    SampleComment, 
-    WorkflowId, 
-    CerebroId, 
-    DecisionType, 
-    PriorityTaxonDecision, 
-    SampleId,
-    SampleConfig,
-    WorkflowConfig,
-    RunConfig
+    Cerebro, CerebroId, DecisionType, PriorityTaxon, PriorityTaxonDecision, RunConfig,
+    SampleComment, SampleConfig, SampleId, WorkflowConfig, WorkflowId,
 };
 use cerebro_model::api::cerebro::schema::{
-    CerebroIdentifierSchema, ContaminationSchema, PathogenDetectionTableSchema, PriorityTaxonDecisionSchema, PriorityTaxonSchema, QualityControlTableSchema, SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema, SampleTypeSchema, TaxaSummarySchema, UpdateRunConfigSchema
+    CerebroIdentifierSchema, ContaminationSchema, PathogenDetectionTableSchema,
+    PriorityTaxonDecisionSchema, PriorityTaxonSchema, QualityControlTableSchema,
+    SampleCommentSchema, SampleDeleteSchema, SampleDescriptionSchema, SampleGroupSchema,
+    SampleTypeSchema, TaxaSummarySchema, UpdateRunConfigSchema,
 };
+use cerebro_model::api::config::Config;
+use cerebro_model::api::logs::model::{AccessDetails, Action, LogModule, RequestLog};
+use cerebro_model::api::teams::model::{DatabaseId, ProjectCollection, ProjectId, TeamDatabase};
+use cerebro_model::api::users::model::Role;
 
 use mongodb::options::{UpdateManyModel, WriteModel};
 
-use cerebro_pipeline::taxa::filter::*;
 use cerebro_pipeline::modules::quality::ModelConfig;
+use cerebro_pipeline::taxa::filter::*;
 use cerebro_pipeline::taxa::taxon::{aggregate, collapse_taxa, Taxon};
 
 type CerebroIds = String;
 
-fn qc_config_from_model(sample_config: Option<SampleConfig>, run_config: Option<RunConfig>, workflow_config: Option<WorkflowConfig>) -> ModelConfig {
-
+fn qc_config_from_model(
+    sample_config: Option<SampleConfig>,
+    run_config: Option<RunConfig>,
+    workflow_config: Option<WorkflowConfig>,
+) -> ModelConfig {
     let (sample_type, sample_group, ercc_input_mass, library_tag) = match sample_config {
-        Some(config) => (config.sample_type, config.sample_group, config.ercc_input_mass, Some(config.tags.join("-"))), 
-        None => (None, None, None, None)
+        Some(config) => (
+            config.sample_type,
+            config.sample_group,
+            config.ercc_input_mass,
+            Some(config.tags.join("-")),
+        ),
+        None => (None, None, None, None),
     };
 
     let (run_id, run_date) = match run_config {
         Some(config) => (Some(config.id), Some(config.date)),
-        None => (None, None)
+        None => (None, None),
     };
 
     let (workflow_name, workflow_id, workflow_date) = match workflow_config {
-        Some(config) => (Some(config.name), Some(config.id), Some(config.completed)), 
-        None => (None, None, None)
+        Some(config) => (Some(config.name), Some(config.id), Some(config.completed)),
+        None => (None, None, None),
     };
 
     ModelConfig::new(
@@ -66,18 +72,26 @@ fn qc_config_from_model(sample_config: Option<SampleConfig>, run_config: Option<
         run_id,
         run_date,
         workflow_name,
-        workflow_id, 
-        workflow_date
+        workflow_id,
+        workflow_date,
     )
 }
 
-
 #[post("/cerebro")]
-async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cerebro>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn insert_model_handler(
+    data: web::Data<AppState>,
+    cerebro: web::Json<Cerebro>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let sample_name = cerebro.sample.id.clone();
@@ -104,19 +118,20 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
 
     let mut model = cerebro.into_inner();
 
-    let gridfs_id = match gridfs::upload_taxa_to_gridfs(db.gridfs_bucket(None), &model.taxa, &model.id).await {
-        Ok(gridfs_id) => {
-            model.taxa.clear(); // Set taxa to empty since we uploaded to GridFS
-            gridfs_id
-        }
-        Err(err) => {
-            return HttpResponse::InternalServerError().json(serde_json::json!({
-                "status": "fail",
-                "message": format!("GridFS upload error: {}", err),
-                "data": []
-            }));
-        }
-    };
+    let gridfs_id =
+        match gridfs::upload_taxa_to_gridfs(db.gridfs_bucket(None), &model.taxa, &model.id).await {
+            Ok(gridfs_id) => {
+                model.taxa.clear(); // Set taxa to empty since we uploaded to GridFS
+                gridfs_id
+            }
+            Err(err) => {
+                return HttpResponse::InternalServerError().json(serde_json::json!({
+                    "status": "fail",
+                    "message": format!("GridFS upload error: {}", err),
+                    "data": []
+                }));
+            }
+        };
 
     let result = project_collection.insert_one(&model).await;
 
@@ -127,7 +142,7 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
         Err(err) => {
             // Try to remove from GridFS if insert fails:
             let _ = delete_from_gridfs(&db.gridfs_bucket(None), gridfs_id).await;
-            
+
             HttpResponse::InternalServerError().json(
                 serde_json::json!({"status": "fail", "message": format!("{}", err.to_string()), "data": []})
             )
@@ -136,70 +151,80 @@ async fn insert_model_handler(data: web::Data<AppState>, cerebro: web::Json<Cere
 }
 
 #[get("/cerebro")]
-async fn retrieve_model_handler(data: web::Data<AppState>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn retrieve_model_handler(
+    data: web::Data<AppState>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
-    match project_collection
-        .find(doc! {})
-        .await
-    {
+    match project_collection.find(doc! {}).await {
         Ok(cursor) => {
-
-            let mut samples = cursor
-                .try_collect()
-                .await
-                .unwrap_or_else(|_| vec![]);
+            let mut samples = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
 
             match samples.is_empty() {
                 false => {
-
                     let mut models = Vec::new();
                     for model in samples.iter_mut() {
-                        
-                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id)
+                            .await
+                        {
                             Ok(taxa) => {
                                 model.taxa = taxa;
                                 models.push(model.clone())
                             }
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(RetrieveModelResponse::server_error(err.to_string()));
+                                return HttpResponse::InternalServerError()
+                                    .json(RetrieveModelResponse::server_error(err.to_string()));
                             }
                         };
                     }
-                    
+
                     HttpResponse::Ok().json(RetrieveModelResponse::success(models))
-                },
-                true =>  HttpResponse::NotFound().json(RetrieveModelResponse::not_found())
+                }
+                true => HttpResponse::NotFound().json(RetrieveModelResponse::not_found()),
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(RetrieveModelResponse::server_error(err.to_string())),
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(RetrieveModelResponse::server_error(err.to_string())),
     }
 }
 
 #[derive(Deserialize)]
 struct CerebroGetQuery {
     // Optional parameters
-    taxa: Option<bool>
+    taxa: Option<bool>,
 }
 
 #[get("/cerebro/{id}")]
-async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, query: web::Query<CerebroGetQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn get_cerebro_uuid(
+    data: web::Data<AppState>,
+    id: web::Path<CerebroId>,
+    query: web::Query<CerebroGetQuery>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let pipeline = get_matched_uuid_cerebro_pipeline(&id, &query.taxa);
-    
-    match project_collection
-        .aggregate(pipeline)
-        .await
-    {
+
+    match project_collection.aggregate(pipeline).await {
         Ok(cursor) => {
             let samples = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
             match samples.is_empty() {
@@ -220,7 +245,6 @@ async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, q
                                 );
                             }
                         };
-                        
                         match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
                             Ok(taxa) => {
                                 model.taxa = taxa;
@@ -231,7 +255,6 @@ async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, q
                             }
                         };
                     }
-                    
                     HttpResponse::Ok().json(
                         serde_json::json!({"status": "success", "message": "Documents found", "data": models})
                     )
@@ -240,7 +263,7 @@ async fn get_cerebro_uuid(data: web::Data<AppState>, id: web::Path<CerebroId>, q
                     serde_json::json!({"status": "fail", "message": "No document found", "data": []})
                 )
             }
-        },
+        }
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
@@ -251,19 +274,29 @@ struct CerebroAddPriorityTaxonQuery {
     db: DatabaseId,
     project: ProjectId,
     // Comma-separated CerebroIds
-    id: CerebroIds
+    id: CerebroIds,
 }
 
 #[post("/cerebro/priority-taxa")]
-async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppState>, priority_taxon: web::Json<PriorityTaxonSchema>, query: web::Query<CerebroAddPriorityTaxonQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn add_priority_taxon_handler(
+    request: HttpRequest,
+    data: web::Data<AppState>,
+    priority_taxon: web::Json<PriorityTaxonSchema>,
+    query: web::Query<CerebroAddPriorityTaxonQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
-    
+
     // Disable comments on the priority taxon if global security is set
     // this may not be necessary for front-end, but is done for assurance
     // that no comments (even if submitted as manual request to API) are
@@ -273,34 +306,32 @@ async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppSta
             let mut pt = priority_taxon.into_inner();
             pt.comment = String::new();
             PriorityTaxon::from_schema(pt)
-        },
-        false => {
-            PriorityTaxon::from_schema(priority_taxon.into_inner())
         }
+        false => PriorityTaxon::from_schema(priority_taxon.into_inner()),
     };
 
-    let update = doc! { "$push": { "sample.priority": &mongodb::bson::to_bson(&priority_taxon).unwrap() } };  // unwrap call see if need to handle
+    let update =
+        doc! { "$push": { "sample.priority": &mongodb::bson::to_bson(&priority_taxon).unwrap() } }; // unwrap call see if need to handle
 
     match project_collection
-        .update_many(
-            doc! { "id":  { "$in" : &ids } }, update)
+        .update_many(doc! { "id":  { "$in" : &ids } }, update)
         .await
-    {   
+    {
         Ok(_) => {
             // Log the action in admin and team databases
             match log_database_change(
-                &data, 
-                auth_guard.team, 
+                &data,
+                auth_guard.team,
                 RequestLog::new(
                     LogModule::UserAction,
                     Action::PriorityTaxonAdded,
                     false,
                     priority_taxon.log_description(),
-                    AccessDetails::new( 
-                        &request, 
+                    AccessDetails::new(
+                        &request,
                         Some(&auth_guard.user.id),
                         Some(&auth_guard.user.email),
-                        Some(&query.db), 
+                        Some(&query.db),
                         Some(&query.project)
                     )
                 )
@@ -311,10 +342,9 @@ async fn add_priority_taxon_handler(request: HttpRequest, data: web::Data<AppSta
                 ),
                 Err(err_response) => err_response
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})
-        ),
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})),
     }
 }
 
@@ -324,42 +354,51 @@ struct CerebroDeletePriorityTaxonQuery {
     db: DatabaseId,
     project: ProjectId,
     // Comma-separated CerebroIds
-    id: CerebroIds
+    id: CerebroIds,
 }
 
 #[delete("/cerebro/priority-taxa/{id}")]
-async fn delete_priority_taxon_handler(request: HttpRequest, data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroDeletePriorityTaxonQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn delete_priority_taxon_handler(
+    request: HttpRequest,
+    data: web::Data<AppState>,
+    id: web::Path<String>,
+    query: web::Query<CerebroDeletePriorityTaxonQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
-    
+
     let priority_taxon_id = &id.into_inner();
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
-    
-    let update =  doc! { "$pull": { "sample.priority": {"id": &priority_taxon_id } } };
+
+    let update = doc! { "$pull": { "sample.priority": {"id": &priority_taxon_id } } };
 
     match project_collection
-        .update_many(
-            doc! { "id":  { "$in" : &ids } }, update)
+        .update_many(doc! { "id":  { "$in" : &ids } }, update)
         .await
-    {   
+    {
         Ok(_) => {
             // Log the action in admin and team databases
             match log_database_change(
-                &data, 
-                auth_guard.team, 
+                &data,
+                auth_guard.team,
                 RequestLog::new(
                     LogModule::UserAction,
                     Action::PriorityTaxonRemoved,
                     false,
                     format!("Priority taxon removed: id={}", &priority_taxon_id),
-                    AccessDetails::new( 
-                        &request, 
+                    AccessDetails::new(
+                        &request,
                         Some(&auth_guard.user.id),
                         Some(&auth_guard.user.email),
-                        Some(&query.db), 
+                        Some(&query.db),
                         Some(&query.project)
                     )
                 )
@@ -370,30 +409,38 @@ async fn delete_priority_taxon_handler(request: HttpRequest, data: web::Data<App
                 ),
                 Err(err_response) => err_response
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})
-        ),
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})),
     }
 }
 
-
 #[derive(Deserialize)]
 struct CerebroPatchPriorityTaxonDecisionQuery {
-    // Required for access authorization 
+    // Required for access authorization
     // in user guard middleware
     db: DatabaseId,
     project: ProjectId,
     // Comma-separated CerebroIDs on which to perform update
-    id: CerebroIds
+    id: CerebroIds,
 }
 
 #[patch("/cerebro/priority-taxa/decision")]
-async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::Data<AppState>, decision_schema: web::Json<PriorityTaxonDecisionSchema>, query: web::Query<CerebroPatchPriorityTaxonDecisionQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn modify_priority_taxa_decision_handler(
+    request: HttpRequest,
+    data: web::Data<AppState>,
+    decision_schema: web::Json<PriorityTaxonDecisionSchema>,
+    query: web::Query<CerebroPatchPriorityTaxonDecisionQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     // Disable comments on the priority taxon decisionif global security is set
@@ -405,24 +452,20 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
             let mut ds = decision_schema.into_inner();
             ds.decision_comment = String::new();
             ds
-        },
-        false => {
-            decision_schema.into_inner()
         }
+        false => decision_schema.into_inner(),
     };
 
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
-    
+
     // Find matching models/priority-taxon to check if it still exists
     match project_collection
-        .find(
-            doc! { 
-                "id":  { "$in" : &ids }, 
-                "sample.priority.id": &decision_schema.id
-            }
-        )
+        .find(doc! {
+            "id":  { "$in" : &ids },
+            "sample.priority.id": &decision_schema.id
+        })
         .await
-    {   
+    {
         Ok(cursor) => {
             let priority_taxa = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
             match priority_taxa.is_empty() {
@@ -431,12 +474,13 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
                 ),
                 false => {} // continue
             }
-        },
-        Err(err) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})
-        ),
+        }
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())}),
+            )
+        }
     }
-
 
     // Array filter of which priority taxon to update
     // Build an update model to remove the user's previous decision.
@@ -444,11 +488,13 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
         UpdateManyModel::builder()
             .namespace(project_collection.namespace())
             .filter(doc! { "id": { "$in": &ids } })
-            .update(doc! { 
-                "$pull": { "sample.priority.$[pt].decisions": { "user_id": &auth_guard.user.id } } 
+            .update(doc! {
+                "$pull": { "sample.priority.$[pt].decisions": { "user_id": &auth_guard.user.id } }
             })
-            .array_filters(Some(vec![mongodb::bson::Bson::Document(doc! { "pt.id": &decision_schema.id })]))
-            .build()
+            .array_filters(Some(vec![mongodb::bson::Bson::Document(
+                doc! { "pt.id": &decision_schema.id },
+            )]))
+            .build(),
     );
 
     // Build an update model to add the new decision.
@@ -457,31 +503,30 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
         UpdateManyModel::builder()
             .namespace(project_collection.namespace())
             .filter(doc! { "id": { "$in": &ids } })
-            .update(doc! { 
-                "$push": { "sample.priority.$[pt].decisions": mongodb::bson::to_bson(&decision).unwrap() } 
+            .update(doc! {
+                "$push": { "sample.priority.$[pt].decisions": mongodb::bson::to_bson(&decision).unwrap() }
             })
             .array_filters(Some(vec![mongodb::bson::Bson::Document(doc! { "pt.id": &decision_schema.id })]))
             .build()
     );
 
     // Execute both update operations in a single bulk write.
-    match data.db.bulk_write(vec![remove_model, add_model]).await
-    {   
+    match data.db.bulk_write(vec![remove_model, add_model]).await {
         Ok(_) => {
             // Log the action in admin and team databases
             match log_database_change(
-                &data, 
-                auth_guard.team, 
+                &data,
+                auth_guard.team,
                 RequestLog::new(
                     LogModule::UserDecision,
                     match decision.decision { DecisionType::Accept => Action::PriorityTaxonAccepted, DecisionType::Reject => Action::PriorityTaxonRejected },
                     false,
                     decision.log_description(&decision_schema),
-                    AccessDetails::new( 
-                        &request, 
+                    AccessDetails::new(
+                        &request,
                         Some(&auth_guard.user.id),
                         Some(&auth_guard.user.email),
-                        Some(&query.db), 
+                        Some(&query.db),
                         Some(&query.project)
                     )
                 )
@@ -492,34 +537,44 @@ async fn modify_priority_taxa_decision_handler(request: HttpRequest, data: web::
                 ),
                 Err(err_response) => err_response
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})
-        ),
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({"status": "fail", "message": format!("{}", err.to_string())})),
     }
 }
 
-
 #[post("/cerebro/ids")]
-async fn cerebro_identifier_handler(data: web::Data<AppState>, body: web::Json<CerebroIdentifierSchema>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn cerebro_identifier_handler(
+    data: web::Data<AppState>,
+    body: web::Json<CerebroIdentifierSchema>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     // Primary sample request check
     match project_collection
         .find_one(doc! { "sample.id": &body.sample })
-        .await {
-            Ok(Some(_)) => {},
-            Ok(None) => return HttpResponse::NotFound().json(
-                CerebroIdentifierResponse::sample_not_found(&body.sample)
-            ),
-            Err(err) => return HttpResponse::InternalServerError().json(
-                CerebroIdentifierResponse::server_error(err.to_string())
-            )
+        .await
+    {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return HttpResponse::NotFound()
+                .json(CerebroIdentifierResponse::sample_not_found(&body.sample))
         }
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(CerebroIdentifierResponse::server_error(err.to_string()))
+        }
+    }
 
     // Build the match conditions dynamically.
     let mut match_conditions = vec![];
@@ -562,33 +617,24 @@ async fn cerebro_identifier_handler(data: web::Data<AppState>, body: web::Json<C
         } },
     ];
 
-    match project_collection
-        .aggregate(pipeline)
-        .await
-        {
-            Ok(cursor) => {
-                
-                let watchers: Vec<CerebroIdentifierSummary> = cursor
-                    .try_collect::<Vec<_>>()
-                    .await
-                    .unwrap_or_else(|_| vec![])
-                    .into_iter()
-                    .filter_map(|doc| from_document(doc).ok())
-                    .collect();
-    
-                match watchers.is_empty() {
-                    false => HttpResponse::Ok().json(
-                        CerebroIdentifierResponse::success(watchers)
-                    ),
-                    true => HttpResponse::NotFound().json(
-                        CerebroIdentifierResponse::not_found()
-                    )
-                }
-            },
-            Err(err) => HttpResponse::InternalServerError().json(
-                CerebroIdentifierResponse::server_error(err.to_string())
-            )
+    match project_collection.aggregate(pipeline).await {
+        Ok(cursor) => {
+            let watchers: Vec<CerebroIdentifierSummary> = cursor
+                .try_collect::<Vec<_>>()
+                .await
+                .unwrap_or_else(|_| vec![])
+                .into_iter()
+                .filter_map(|doc| from_document(doc).ok())
+                .collect();
+
+            match watchers.is_empty() {
+                false => HttpResponse::Ok().json(CerebroIdentifierResponse::success(watchers)),
+                true => HttpResponse::NotFound().json(CerebroIdentifierResponse::not_found()),
+            }
         }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(CerebroIdentifierResponse::server_error(err.to_string())),
+    }
 }
 
 #[derive(Deserialize)]
@@ -599,24 +645,33 @@ struct TaxaQuery {
     taxid: Option<String>,
     run_id: Option<String>,
     date_range: Option<String>,
-    no_evidence: Option<bool>
+    no_evidence: Option<bool>,
 }
-
 
 #[derive(Deserialize, Debug)]
 struct TaggedTaxa {
     pub id: String,
     pub taxa: Vec<Taxon>,
     pub name: String,
-    pub sample_tags: Vec<String>
+    pub sample_tags: Vec<String>,
 }
 
 #[post("/cerebro/taxa")]
-async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Json<TaxonFilterConfig>, query: web::Query<TaxaQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn filtered_taxa_handler(
+    data: web::Data<AppState>,
+    filter_config: web::Json<TaxonFilterConfig>,
+    query: web::Query<TaxaQuery>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     // Extract and parse optional query parameters
@@ -638,21 +693,16 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
     let filter_config = filter_config.into_inner();
 
     let pipeline = get_matched_id_taxa_cerebro_pipeline(ids, date_range, run_ids);
-    
+
     // Check if we can move the taxon agregation into the aggregation pipelines, maybe even filters - for now ok
 
-    match project_collection
-        .aggregate(pipeline)
-        .await
-    {
+    match project_collection.aggregate(pipeline).await {
         Ok(cursor) => {
             let docs = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
             match docs.is_empty() {
                 false => {
-                    
                     let mut tagged_taxa = Vec::new();
                     for doc in docs {
-
                         let mut model: TaggedTaxa = match mongodb::bson::from_document(doc) {
                             Ok(m) => m,
                             Err(err) => {
@@ -665,14 +715,17 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                                 );
                             }
                         };
-                        
-                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id)
+                            .await
+                        {
                             Ok(taxa) => {
                                 model.taxa = taxa;
                                 tagged_taxa.push(model)
                             }
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(format!("GridFS download error: {}", err));
+                                return HttpResponse::InternalServerError()
+                                    .json(format!("GridFS download error: {}", err));
                             }
                         };
                     }
@@ -681,32 +734,36 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                     let mut aggregated_taxa = HashMap::new();
                     for tt in &tagged_taxa {
                         aggregated_taxa = aggregate(&mut aggregated_taxa, &tt.taxa)
-                    }               
+                    }
 
                     // Create sample name and tags map for filter
-                    let mut tag_map = HashMap::new();       
+                    let mut tag_map = HashMap::new();
                     for tt in tagged_taxa {
                         tag_map.insert(tt.name, tt.sample_tags);
-                    }          
-                         
+                    }
 
                     // Applying the rank/evidence filters from the provided filter configuration
                     let taxa: Vec<Taxon> = apply_filters(
-                        aggregated_taxa.into_values().collect(), 
-                        &filter_config, 
-                        &tag_map, 
-                        match query.no_evidence { Some(no_evidence) => no_evidence, None => false }
+                        aggregated_taxa.into_values().collect(),
+                        &filter_config,
+                        &tag_map,
+                        match query.no_evidence {
+                            Some(no_evidence) => no_evidence,
+                            None => false,
+                        },
                     );
-                    
-                    if query.overview.is_some_and(|x| x) {                        
+
+                    if query.overview.is_some_and(|x| x) {
                         HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
                     } else {
                         // Additional filter for specific taxa by 'taxid':
 
                         if let Some(taxid) = &query.taxid {
-
                             let taxids = taxid.split(",").collect::<Vec<&str>>();
-                            let taxa: Vec<Taxon> = taxa.into_iter().filter(|taxon| taxids.contains(&taxon.taxid.as_str())).collect();
+                            let taxa: Vec<Taxon> = taxa
+                                .into_iter()
+                                .filter(|taxon| taxids.contains(&taxon.taxid.as_str()))
+                                .collect();
 
                             HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
                         } else {
@@ -714,13 +771,13 @@ async fn filtered_taxa_handler(data: web::Data<AppState>, filter_config: web::Js
                             HttpResponse::Ok().json(FilteredTaxaResponse::success(taxa))
                         }
                     }
-                },
-                true => HttpResponse::NotFound().json(FilteredTaxaResponse::not_found())
+                }
+                true => HttpResponse::NotFound().json(FilteredTaxaResponse::not_found()),
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(FilteredTaxaResponse::server_error(err.to_string()))
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(FilteredTaxaResponse::server_error(err.to_string())),
     }
-
 }
 
 pub fn apply_prevalence_contamination_filter(
@@ -729,7 +786,6 @@ pub fn apply_prevalence_contamination_filter(
     threshold: f64,            // Prevalence percentage threshold (e.g., 0.5 for 50%)
     taxid_subset: Vec<String>, // Only consider these Taxon.taxid values
 ) -> Vec<String> {
-
     // Check for edge cases
     if cerebros.is_empty() {
         return Vec::new(); // No data to process
@@ -746,17 +802,14 @@ pub fn apply_prevalence_contamination_filter(
 
     // Iterate through each Cerebro object
     for cerebro in cerebros {
-
         // Collect Taxon IDs with matching evidence in this Cerebro object
         let mut found_taxa: HashSet<String> = HashSet::new();
 
         for taxon in cerebro.taxa {
-
             // Check if the Taxon is in the subset
             if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {
                 continue; // Skip taxa not in the subset if any are defined in subset, otherwise use Taxon
             }
-
 
             // Check if the Taxon has any ProfileRecord evidence matching the criteria
             let has_matching_evidence = taxon
@@ -792,59 +845,81 @@ pub fn apply_prevalence_contamination_filter(
 
 // Prevalence contamination identification - TODO: stratify by sample type (already in ContaminationSchema)
 #[post("/cerebro/taxa/contamination")]
-async fn contamination_taxa_handler_project(data: web::Data<AppState>, contam_schema: web::Json<ContaminationSchema>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn contamination_taxa_handler_project(
+    data: web::Data<AppState>,
+    contam_schema: web::Json<ContaminationSchema>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
-
     // Obtain all models in this collection with the provided tags
-    match project_collection.find(
-            doc! { 
-                "sample.tags":  { "$in" : &contam_schema.tags }
-            }
-        ).await {   
+    match project_collection
+        .find(doc! {
+            "sample.tags":  { "$in" : &contam_schema.tags }
+        })
+        .await
+    {
         Ok(cursor) => {
             let models = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
 
             let mut cerebro = Vec::new();
             for mut model in models {
-                
                 match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
                     Ok(taxa) => {
                         model.taxa = taxa;
                         cerebro.push(model)
                     }
                     Err(err) => {
-                        return HttpResponse::InternalServerError().json(format!("GridFS download error: {}", err));
+                        return HttpResponse::InternalServerError()
+                            .json(format!("GridFS download error: {}", err));
                     }
                 };
             }
 
-            let taxids = apply_prevalence_contamination_filter(cerebro, contam_schema.min_rpm, contam_schema.threshold, contam_schema.taxid.clone());
-            
+            let taxids = apply_prevalence_contamination_filter(
+                cerebro,
+                contam_schema.min_rpm,
+                contam_schema.threshold,
+                contam_schema.taxid.clone(),
+            );
+
             HttpResponse::Ok().json(ContaminationTaxaResponse::success(taxids))
-        },
-        Err(err) => HttpResponse::InternalServerError().json(ContaminationTaxaResponse::server_error(err.to_string()))
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(ContaminationTaxaResponse::server_error(err.to_string())),
     }
 }
-
 
 #[derive(Deserialize)]
 struct TaxaHistoryQuery {
     taxon_label: String,
-    host_label: String
+    host_label: String,
 }
 
-
 #[get("/cerebro/taxa/history")]
-async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaHistoryQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn history_taxa_handler(
+    data: web::Data<AppState>,
+    query: web::Query<TaxaHistoryQuery>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     // Match documents that have the provided tax label in their tax_labels array.
@@ -866,44 +941,50 @@ async fn history_taxa_handler(data: web::Data<AppState>, query: web::Query<TaxaH
 
     match project_collection.aggregate(pipeline).await {
         Ok(cursor) => {
-            
             let docs = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
 
             match docs.is_empty() {
                 false => {
-                    
                     let mut history_results: Vec<TaxonHistoryResult> = Vec::new();
                     for doc in docs {
-                        let mut model: TaxonHistoryResult = match mongodb::bson::from_document(doc) {
+                        let mut model: TaxonHistoryResult = match mongodb::bson::from_document(doc)
+                        {
                             Ok(m) => m,
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(
-                                    TaxonHistoryResponse::server_error(err.to_string())
-                                );
+                                return HttpResponse::InternalServerError()
+                                    .json(TaxonHistoryResponse::server_error(err.to_string()));
                             }
                         };
-                        
-                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id)
+                            .await
+                        {
                             Ok(taxa) => {
-                                model.taxa = taxa.into_iter().filter(|taxon| taxon.lineage.contains(&query.taxon_label) || taxon.lineage.contains(&query.host_label) ).collect();
+                                model.taxa = taxa
+                                    .into_iter()
+                                    .filter(|taxon| {
+                                        taxon.lineage.contains(&query.taxon_label)
+                                            || taxon.lineage.contains(&query.host_label)
+                                    })
+                                    .collect();
                                 history_results.push(model)
                             }
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(TaxonHistoryResponse::server_error(err.to_string()));
+                                return HttpResponse::InternalServerError()
+                                    .json(TaxonHistoryResponse::server_error(err.to_string()));
                             }
                         };
                     }
 
                     HttpResponse::Ok().json(TaxonHistoryResponse::success(history_results))
-
-                },
-                true => HttpResponse::NotFound().json(TaxonHistoryResponse::not_found())
+                }
+                true => HttpResponse::NotFound().json(TaxonHistoryResponse::not_found()),
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(TaxonHistoryResponse::server_error(err.to_string()))
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(TaxonHistoryResponse::server_error(err.to_string())),
     }
 }
-
 
 #[derive(Deserialize)]
 struct CerebroSamplesOverviewPaginatedQuery {
@@ -919,23 +1000,38 @@ struct CerebroSamplesOverviewPaginatedQuery {
     group: Option<String>,
     run: Option<String>,
     workflow: Option<String>,
-
 }
 
 #[get("/cerebro/samples/overview")]
-async fn samples_overview_handler(data: web::Data<AppState>, query: web::Query<CerebroSamplesOverviewPaginatedQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn samples_overview_handler(
+    data: web::Data<AppState>,
+    query: web::Query<CerebroSamplesOverviewPaginatedQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let exclude_tags = match &query.notag {
         Some(value) => value.split(",").map(|x| x.trim()).collect::<Vec<&str>>(),
-        None => Vec::new()
+        None => Vec::new(),
     };
 
-    let pipeline = get_paginated_sample_overview_pipeline(&query.page, &query.limit, exclude_tags, &query.id, &query.run, &query.workflow, &query.group);
+    let pipeline = get_paginated_sample_overview_pipeline(
+        &query.page,
+        &query.limit,
+        exclude_tags,
+        &query.id,
+        &query.run,
+        &query.workflow,
+        &query.group,
+    );
 
     match project_collection
         .aggregate(pipeline)
@@ -943,7 +1039,6 @@ async fn samples_overview_handler(data: web::Data<AppState>, query: web::Query<C
     {
         Ok(cursor) => {
             let sample_overview = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
-            
             match sample_overview.is_empty() {
                 false => HttpResponse::Ok().json(serde_json::json!({
                     "status": "success", "message": "Retrieved sample data", "data": serde_json::json!({"sample_overview": sample_overview})
@@ -952,13 +1047,11 @@ async fn samples_overview_handler(data: web::Data<AppState>, query: web::Query<C
                     "status": "fail", "message": "No samples available - has data been uploaded?", "data": serde_json::json!({"sample_overview": []})
                 })),
             }
-            
         },
         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error", "message": "Error retrieving sample data", "data": serde_json::json!({"sample_overview": []})
         }))
     }
-
 }
 
 #[derive(Deserialize)]
@@ -967,15 +1060,24 @@ struct CerebroSampleOverviewIdQuery {
     db: DatabaseId,
     project: ProjectId,
     // Aggregation pipelines to get specific overviews
-    workflow: Option<bool>
+    workflow: Option<bool>,
 }
 
 #[get("/cerebro/samples/overview/{id}")]
-async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleOverviewIdQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn sample_overview_id_handler(
+    data: web::Data<AppState>,
+    id: web::Path<String>,
+    query: web::Query<CerebroSampleOverviewIdQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let pipeline = get_matched_sample_overview_pipeline(&id, &query.workflow);
@@ -999,15 +1101,25 @@ async fn sample_overview_id_handler(data: web::Data<AppState>, id: web::Path<Str
 #[derive(Deserialize)]
 struct CerebroSampleIdQuery {
     // Specify workflow to limit the sample identifier query
-    workflow: Option<WorkflowId>
+    workflow: Option<WorkflowId>,
 }
 
 #[get("/cerebro/samples/{id}")]
-async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, query: web::Query<CerebroSampleIdQuery>,  auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn sample_id_handler(
+    data: web::Data<AppState>,
+    id: web::Path<String>,
+    query: web::Query<CerebroSampleIdQuery>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let pipeline = get_matched_sample_cerebro_notaxa_pipeline(&id, &query.workflow);
@@ -1033,7 +1145,6 @@ async fn sample_id_handler(data: web::Data<AppState>, id: web::Path<String>, que
     }
 }
 
-
 #[derive(Deserialize, Serialize)]
 struct CerebroQualityControlTableQuery {
     // Return data in comma-separated table format (string)
@@ -1041,11 +1152,21 @@ struct CerebroQualityControlTableQuery {
 }
 
 #[post("/cerebro/table/qc")]
-async fn sample_qc_summary_handler(data: web::Data<AppState>, schema: web::Json<QualityControlTableSchema>, query: web::Query<CerebroQualityControlTableQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn sample_qc_summary_handler(
+    data: web::Data<AppState>,
+    schema: web::Json<QualityControlTableSchema>,
+    query: web::Query<CerebroQualityControlTableQuery>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let mut filter = Document::new();
@@ -1054,31 +1175,24 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, schema: web::Json<
         filter.insert("name", doc! { "$in": &schema.sample_ids });
     }
     if !schema.cerebro_ids.is_empty() {
-        filter.insert("id",   doc! { "$in": &schema.cerebro_ids });
+        filter.insert("id", doc! { "$in": &schema.cerebro_ids });
     }
 
-    match project_collection
-        .find(filter)
-        .await
-    {
+    match project_collection.find(filter).await {
         Ok(cursor) => {
-
-            let mut samples = cursor
-                .try_collect()
-                .await
-                .unwrap_or_else(|_| vec![]);
+            let mut samples = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
 
             match samples.is_empty() {
                 false => {
-
                     let mut records = Vec::new();
                     for model in samples.iter_mut() {
                         let qc = model.quality.reads.with_model(
-                            &model.id, qc_config_from_model(
-                                Some(model.sample.clone()), 
-                                Some(model.run.clone()), 
-                                Some(model.workflow.clone())
-                            )
+                            &model.id,
+                            qc_config_from_model(
+                                Some(model.sample.clone()),
+                                Some(model.run.clone()),
+                                Some(model.workflow.clone()),
+                            ),
                         );
                         records.push(qc)
                     }
@@ -1087,35 +1201,45 @@ async fn sample_qc_summary_handler(data: web::Data<AppState>, schema: web::Json<
                     let csv_output = if let Some(true) = query.csv {
                         match as_csv_string(&records) {
                             Ok(s) => s,
-                            Err(response) => return response
+                            Err(response) => return response,
                         }
                     } else {
                         "".to_string()
                     };
-                    HttpResponse::Ok().json(QualityControlTableResponse::success(records, csv_output))
-                },
-                true => HttpResponse::NotFound().json(QualityControlTableResponse::not_found())
+                    HttpResponse::Ok()
+                        .json(QualityControlTableResponse::success(records, csv_output))
+                }
+                true => HttpResponse::NotFound().json(QualityControlTableResponse::not_found()),
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(QualityControlTableResponse::server_error(err.to_string())),
+        }
+        Err(err) => HttpResponse::InternalServerError()
+            .json(QualityControlTableResponse::server_error(err.to_string())),
     }
 }
-
 
 #[derive(Deserialize, Serialize)]
 struct CerebroPathogenDetectionTableQuery {
     // Return data in comma-separated table format (string)
-    csv: Option<bool>
+    csv: Option<bool>,
 }
 
 #[post("/cerebro/table/pathogen")]
-async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<PathogenDetectionTableSchema>, query: web::Query<CerebroPathogenDetectionTableQuery>, auth_query: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, db, project_collection) = match get_authorized_database_and_project_collection(&data, &auth_query.db, &auth_query.project, &auth_guard) {
+async fn sample_pd_table_handler(
+    data: web::Data<AppState>,
+    schema: web::Json<PathogenDetectionTableSchema>,
+    query: web::Query<CerebroPathogenDetectionTableQuery>,
+    auth_query: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, db, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &auth_query.db,
+        &auth_query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
-
 
     let mut filter = Document::new();
 
@@ -1123,70 +1247,77 @@ async fn sample_pd_table_handler(data: web::Data<AppState>, schema: web::Json<Pa
         filter.insert("name", doc! { "$in": &schema.sample_ids });
     }
     if !schema.cerebro_ids.is_empty() {
-        filter.insert("id",   doc! { "$in": &schema.cerebro_ids });
+        filter.insert("id", doc! { "$in": &schema.cerebro_ids });
     }
 
-    match project_collection
-        .find(filter)
-        .await
-    {
+    match project_collection.find(filter).await {
         Ok(cursor) => {
-
-            let mut samples = cursor
-                .try_collect()
-                .await
-                .unwrap_or_else(|_| vec![]);
+            let mut samples = cursor.try_collect().await.unwrap_or_else(|_| vec![]);
 
             match samples.is_empty() {
                 false => {
-
                     let mut records = Vec::new();
                     for model in samples.iter_mut() {
-                        
-                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id).await {
+                        match gridfs::download_taxa_from_gridfs(db.gridfs_bucket(None), &model.id)
+                            .await
+                        {
                             Ok(taxa) => {
-
-
                                 // Collapse species / taxon variants if option is provided
-                                // WARNING: the function assigns a new taxonomic identifier to the collapsed taxon! 
+                                // WARNING: the function assigns a new taxonomic identifier to the collapsed taxon!
                                 if schema.collapse_variants {
                                     model.taxa = match collapse_taxa(taxa, true, None) {
-                                        Ok(t) => t, Err(err) => return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()))
+                                        Ok(t) => t,
+                                        Err(err) => {
+                                            return HttpResponse::InternalServerError().json(
+                                                PathogenDetectionTableResponse::server_error(
+                                                    err.to_string(),
+                                                ),
+                                            )
+                                        }
                                     };
                                 } else {
                                     model.taxa = taxa;
                                 }
 
-
                                 let recs = match model.into_pathogen_detection_table_records() {
                                     Ok(rec) => rec,
-                                    Err(err) => return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()))
+                                    Err(err) => {
+                                        return HttpResponse::InternalServerError().json(
+                                            PathogenDetectionTableResponse::server_error(
+                                                err.to_string(),
+                                            ),
+                                        )
+                                    }
                                 };
 
                                 records.extend(recs)
                             }
                             Err(err) => {
-                                return HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string()));
+                                return HttpResponse::InternalServerError().json(
+                                    PathogenDetectionTableResponse::server_error(err.to_string()),
+                                );
                             }
                         };
                     }
-
 
                     // Optionally convert the summaries to CSV table (string) if requested.
                     let csv_output = if let Some(true) = query.csv {
                         match as_csv_string(&records) {
                             Ok(s) => s,
-                            Err(response) => return response
+                            Err(response) => return response,
                         }
                     } else {
                         "".to_string()
                     };
-                    HttpResponse::Ok().json(PathogenDetectionTableResponse::success(records, csv_output))
-                },
-                true => HttpResponse::NotFound().json(PathogenDetectionTableResponse::not_found())
+                    HttpResponse::Ok()
+                        .json(PathogenDetectionTableResponse::success(records, csv_output))
+                }
+                true => HttpResponse::NotFound().json(PathogenDetectionTableResponse::not_found()),
             }
-        },
-        Err(err) => HttpResponse::InternalServerError().json(PathogenDetectionTableResponse::server_error(err.to_string())),
+        }
+        Err(err) => HttpResponse::InternalServerError().json(
+            PathogenDetectionTableResponse::server_error(err.to_string()),
+        ),
     }
 }
 
@@ -1196,9 +1327,8 @@ struct CerebroSampleDeleteQuery {
     db: DatabaseId,
     project: ProjectId,
     // Aggregation pipelines to get workflow specific samples
-    workflow: Option<WorkflowId>
+    workflow: Option<WorkflowId>,
 }
-
 
 #[derive(Deserialize)]
 struct DeleteAggregateResult {
@@ -1206,17 +1336,26 @@ struct DeleteAggregateResult {
 }
 
 #[delete("/cerebro/samples")]
-async fn delete_sample_handler(data: web::Data<AppState>, samples: web::Json<SampleDeleteSchema>, query: web::Query<CerebroSampleDeleteQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
+async fn delete_sample_handler(
+    data: web::Data<AppState>,
+    samples: web::Json<SampleDeleteSchema>,
+    query: web::Query<CerebroSampleDeleteQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
             "status": "fail", "message": "You do not have permission to delete a sample", "data": serde_json::json!({"cerebro": []})
-        }))
+        }));
     }
 
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let pipeline = get_matched_sample_ids_cerebro_pipeline(&samples.sample_id, &query.workflow);
@@ -1266,23 +1405,31 @@ struct CerebroSampleDescriptionUpdateQuery {
     db: DatabaseId,
     project: ProjectId,
     // Sample identifier to update in this project
-    id: SampleId
+    id: SampleId,
 }
 
 #[patch("/cerebro/samples/description")]
-async fn sample_description_handler(data: web::Data<AppState>, update: web::Json<SampleDescriptionSchema>, query: web::Query<CerebroSampleDescriptionUpdateQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
+async fn sample_description_handler(
+    data: web::Data<AppState>,
+    update: web::Json<SampleDescriptionSchema>,
+    query: web::Query<CerebroSampleDescriptionUpdateQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
             "status": "fail", "message": "You do not have permission to modify a sample", "data": serde_json::json!({"cerebro": []})
-        }))
+        }));
     }
 
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
-
 
     match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.description": &update.description } }).await
     {
@@ -1295,30 +1442,37 @@ async fn sample_description_handler(data: web::Data<AppState>, update: web::Json
     }
 }
 
-
 #[derive(Deserialize)]
 struct CerebroSampleTypeUpdateQuery {
     // Required for access authorization in user guard middleware
     db: DatabaseId,
     project: ProjectId,
     // Sample identifier to update in this project
-    id: SampleId
+    id: SampleId,
 }
 
 #[patch("/cerebro/samples/type")]
-async fn sample_type_handler(data: web::Data<AppState>, update: web::Json<SampleTypeSchema>, query: web::Query<CerebroSampleTypeUpdateQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
+async fn sample_type_handler(
+    data: web::Data<AppState>,
+    update: web::Json<SampleTypeSchema>,
+    query: web::Query<CerebroSampleTypeUpdateQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
             "status": "fail", "message": "You do not have permission to modify a sample", "data": serde_json::json!({"cerebro": []})
-        }))
+        }));
     }
 
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
-
 
     match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.sample_type": &update.sample_type } }).await
     {
@@ -1331,30 +1485,37 @@ async fn sample_type_handler(data: web::Data<AppState>, update: web::Json<Sample
     }
 }
 
-
 #[derive(Deserialize)]
 struct CerebroSampleGroupUpdateQuery {
     // Required for access authorization in user guard middleware
     db: DatabaseId,
     project: ProjectId,
     // Sample identifier to update in this project
-    id: SampleId
+    id: SampleId,
 }
 
 #[patch("/cerebro/samples/group")]
-async fn sample_group_handler(data: web::Data<AppState>, update: web::Json<SampleGroupSchema>, query: web::Query<CerebroSampleGroupUpdateQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
+async fn sample_group_handler(
+    data: web::Data<AppState>,
+    update: web::Json<SampleGroupSchema>,
+    query: web::Query<CerebroSampleGroupUpdateQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
     if !auth_guard.user.roles.contains(&Role::Data) {
         return HttpResponse::Unauthorized().json(serde_json::json!({
             "status": "fail", "message": "You do not have permission to modify a sample", "data": serde_json::json!({"cerebro": []})
-        }))
+        }));
     }
 
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
-
 
     match project_collection.update_many(doc! { "sample.id": &query.id }, doc! { "$set": { "sample.sample_group": &update.sample_group } }).await
     {
@@ -1367,27 +1528,35 @@ async fn sample_group_handler(data: web::Data<AppState>, update: web::Json<Sampl
     }
 }
 
-
-
 #[derive(Deserialize)]
 struct CerebroSampleCommentAddQuery {
     // Required for access authorization in user guard middleware
     db: DatabaseId,
     project: ProjectId,
     // Comma-separated CerebroIDs for which to add comments
-    id: CerebroIds
+    id: CerebroIds,
 }
 
 #[post("/cerebro/samples/comment")]
-async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>, comment: web::Json<SampleCommentSchema>, query: web::Query<CerebroSampleCommentAddQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn sample_comment_handler(
+    request: HttpRequest,
+    data: web::Data<AppState>,
+    comment: web::Json<SampleCommentSchema>,
+    query: web::Query<CerebroSampleCommentAddQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let comment_schema = comment.into_inner();
-    let comment = SampleComment::from_schema(&comment_schema);    
+    let comment = SampleComment::from_schema(&comment_schema);
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
 
     match project_collection.update_many(doc! { "id":  { "$in" : &ids } }, doc! { "$push": { "sample.comments": &mongodb::bson::to_bson(&comment).unwrap() } }).await
@@ -1395,18 +1564,18 @@ async fn sample_comment_handler(request: HttpRequest, data: web::Data<AppState>,
         Ok(_) => {
             // Log the action in admin and team databases
             match log_database_change(
-                &data, 
-                auth_guard.team, 
+                &data,
+                auth_guard.team,
                 RequestLog::new(
                     LogModule::UserComment,
                     Action::SampleCommentAdded,
                     false,
                     comment.log_description(),
-                    AccessDetails::new( 
-                        &request, 
+                    AccessDetails::new(
+                        &request,
                         Some(&auth_guard.user.id),
                         Some(&auth_guard.user.email),
-                        Some(&query.db), 
+                        Some(&query.db),
                         Some(&query.project)
                     )
                 )
@@ -1431,15 +1600,24 @@ struct CerebroSampleCommentDeleteQuery {
     // Comma-separated CerebroIDs for which to add comments
     id: CerebroIds,
     // Comemnt identifier to delete
-    comment_id: CerebroIds
+    comment_id: CerebroIds,
 }
 
 #[delete("/cerebro/samples/comment")]
-async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<AppState>, query: web::Query<CerebroSampleCommentDeleteQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn delete_sample_comment_handler(
+    request: HttpRequest,
+    data: web::Data<AppState>,
+    query: web::Query<CerebroSampleCommentDeleteQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let ids = query.id.split(",").map(|x| x.trim()).collect::<Vec<&str>>();
@@ -1449,18 +1627,18 @@ async fn delete_sample_comment_handler(request: HttpRequest, data: web::Data<App
         Ok(_) => {
             // Log the action in admin and team databases
             match log_database_change(
-                &data, 
-                auth_guard.team, 
+                &data,
+                auth_guard.team,
                 RequestLog::new(
                     LogModule::UserComment,
                     Action::SampleCommentRemoved,
                     false,
                     format!("Sample comment removed: comment_id={}", &query.comment_id),
-                    AccessDetails::new( 
-                        &request, 
+                    AccessDetails::new(
+                        &request,
                         Some(&auth_guard.user.id),
                         Some(&auth_guard.user.email),
-                        Some(&query.db), 
+                        Some(&query.db),
                         Some(&query.project)
                     )
                 )
@@ -1485,11 +1663,19 @@ struct CerebroSampleQuery {
 }
 
 #[get("/cerebro/samples")]
-async fn sample_handler(data: web::Data<AppState>, query: web::Query<CerebroSampleQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn sample_handler(
+    data: web::Data<AppState>,
+    query: web::Query<CerebroSampleQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     match project_collection
@@ -1507,20 +1693,27 @@ async fn sample_handler(data: web::Data<AppState>, query: web::Query<CerebroSamp
     }
 }
 
-
 #[derive(Deserialize)]
 struct CerebroWorkflowQuery {
     // Required for access authorization in middleware
     db: DatabaseId,
-    project: ProjectId
+    project: ProjectId,
 }
 
 #[get("/cerebro/workflows")]
-async fn workflow_handler(data: web::Data<AppState>,query: web::Query<CerebroWorkflowQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn workflow_handler(
+    data: web::Data<AppState>,
+    query: web::Query<CerebroWorkflowQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     match project_collection
@@ -1540,18 +1733,26 @@ async fn workflow_handler(data: web::Data<AppState>,query: web::Query<CerebroWor
 
 #[derive(Deserialize)]
 struct CerebroRunQuery {
-    // Required for access authorization 
+    // Required for access authorization
     // in user guard middleware
     db: DatabaseId,
-    project: ProjectId
+    project: ProjectId,
 }
 
 #[get("/cerebro/runs")]
-async fn run_handler(data: web::Data<AppState>, query: web::Query<CerebroRunQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn run_handler(
+    data: web::Data<AppState>,
+    query: web::Query<CerebroRunQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     match project_collection
@@ -1568,54 +1769,92 @@ async fn run_handler(data: web::Data<AppState>, query: web::Query<CerebroRunQuer
         })),
     }
 }
-    
 
 #[patch("/cerebro/run")]
-async fn update_run_config_handler(data: web::Data<AppState>, schema: web::Json<UpdateRunConfigSchema>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
+async fn update_run_config_handler(
+    data: web::Data<AppState>,
+    schema: web::Json<UpdateRunConfigSchema>,
+    access: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &access.db,
+        &access.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
-    let filter = doc! { "name": &schema.sample_id };  // cerebro base model name field - identifier as processed in pipeline
+    let filter = doc! { "name": &schema.sample_id }; // cerebro base model name field - identifier as processed in pipeline
     let update = doc! { "$set": { "run.id": &schema.run_id } };
 
     match project_collection.update_many(filter, update).await {
-        Ok(res) if res.matched_count == 0 => return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!("Failed to find: {}", schema.sample_id))),
-        Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
-        Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none())
+        Ok(res) if res.matched_count == 0 => {
+            return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!(
+                "Failed to find: {}",
+                schema.sample_id
+            )))
+        }
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(CerebroResponse::<()>::error(&err.to_string()))
+        }
+        Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none()),
     }
-    
 }
 
-
 #[delete("/cerebro/{sample_name}")]
-async fn delete_model_by_sample_handler(data: web::Data<AppState>, sample_name: web::Path<String>, access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
+async fn delete_model_by_sample_handler(
+    data: web::Data<AppState>,
+    sample_name: web::Path<String>,
+    access: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &access.db,
+        &access.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let id = sample_name.into_inner();
-    let filter = doc! { "name": &id };  // cerebro base model name field - identifier as processed in pipeline
+    let filter = doc! { "name": &id }; // cerebro base model name field - identifier as processed in pipeline
 
     match project_collection.delete_one(filter).await {
-        Ok(res) if res.deleted_count == 0 => return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!("Failed to find: {}", &id))),
-        Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
-        Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none())
+        Ok(res) if res.deleted_count == 0 => {
+            return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!(
+                "Failed to find: {}",
+                &id
+            )))
+        }
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(CerebroResponse::<()>::error(&err.to_string()))
+        }
+        Ok(_) => return HttpResponse::Ok().json(CerebroResponse::<()>::ok_none()),
     }
-    
 }
 
-
 #[get("/cerebro/controls/{sample_id}")]
-async fn get_sample_negative_controls(data: web::Data<AppState>, sample_id: web::Path<String>,  access: web::Query<TeamProjectAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &access.db, &access.project, &auth_guard) {
+async fn get_sample_negative_controls(
+    data: web::Data<AppState>,
+    sample_id: web::Path<String>,
+    access: web::Query<TeamProjectAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &access.db,
+        &access.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
     let sample_id = sample_id.into_inner();
@@ -1624,8 +1863,16 @@ async fn get_sample_negative_controls(data: web::Data<AppState>, sample_id: web:
 
     let model = match project_collection.find_one(filter).await {
         Ok(Some(model)) => model,
-        Err(err) => return  HttpResponse::InternalServerError().json(CerebroResponse::<()>::error(&err.to_string())),
-        Ok(_) => return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!("failed to find sample: {}", &sample_id)))
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(CerebroResponse::<()>::error(&err.to_string()))
+        }
+        Ok(_) => {
+            return HttpResponse::NotFound().json(CerebroResponse::<()>::not_found(&format!(
+                "failed to find sample: {}",
+                &sample_id
+            )))
+        }
     };
 
     let run_id = model.run.id.clone();
@@ -1641,7 +1888,9 @@ async fn get_sample_negative_controls(data: web::Data<AppState>, sample_id: web:
         Ok(mut cursor) => {
             while let Some(res) = cursor.next().await {
                 match res {
-                    Ok(m) => { ids.insert(m.sample.id.clone()); }
+                    Ok(m) => {
+                        ids.insert(m.sample.id.clone());
+                    }
                     Err(e) => {
                         return HttpResponse::InternalServerError()
                             .json(CerebroResponse::<()>::error(&e.to_string()))
@@ -1657,30 +1906,38 @@ async fn get_sample_negative_controls(data: web::Data<AppState>, sample_id: web:
 
     let control_sample_ids: Vec<String> = ids.into_iter().collect();
     HttpResponse::Ok().json(CerebroResponse::<Vec<String>>::ok(control_sample_ids))
-    
 }
-    
 
 #[derive(Deserialize)]
 struct CerebroWorkflowIdQuery {
-    // Required for access authorization 
+    // Required for access authorization
     // in user guard middleware
     db: DatabaseId,
     project: ProjectId,
     // Aggregation pipeline options
     runs: Option<String>,
-    tags: Option<String>
+    tags: Option<String>,
 }
 
 #[get("/cerebro/workflows/{id}")]
-async fn workflow_id_handler(data: web::Data<AppState>, id: web::Path<WorkflowId>, query: web::Query<CerebroWorkflowIdQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-
-    let (_, _, project_collection) = match get_authorized_database_and_project_collection(&data, &query.db, &query.project, &auth_guard) {
+async fn workflow_id_handler(
+    data: web::Data<AppState>,
+    id: web::Path<WorkflowId>,
+    query: web::Query<CerebroWorkflowIdQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let (_, _, project_collection) = match get_authorized_database_and_project_collection(
+        &data,
+        &query.db,
+        &query.project,
+        &auth_guard,
+    ) {
         Ok(authorized) => authorized,
-        Err(error_response) => return error_response
+        Err(error_response) => return error_response,
     };
 
-    let pipeline = get_matched_workflow_cerebro_notaxa_pipeline(&id, &query.runs, &query.tags, &None);
+    let pipeline =
+        get_matched_workflow_cerebro_notaxa_pipeline(&id, &query.runs, &query.tags, &None);
 
     match project_collection
         .aggregate(pipeline)
@@ -1714,67 +1971,78 @@ async fn status_handler(_: web::Data<AppState>, _: jwt::JwtDataMiddleware) -> Ht
 
 type MongoDatabaseName = String;
 
-pub fn get_authorized_database_and_project_collection(data: &web::Data<AppState>, db: &DatabaseId, project: &ProjectId, user_guard: &jwt::JwtDataMiddleware) -> Result<(MongoDatabaseName, Database, Collection<Cerebro>), HttpResponse> {
-    
+pub fn get_authorized_database_and_project_collection(
+    data: &web::Data<AppState>,
+    db: &DatabaseId,
+    project: &ProjectId,
+    user_guard: &jwt::JwtDataMiddleware,
+) -> Result<(MongoDatabaseName, Database, Collection<Cerebro>), HttpResponse> {
     let (database, project) = {
-            let database_matches: Vec<&TeamDatabase> = user_guard.team.databases.iter().filter(|x| &x.id == db || &x.name == db).collect();
+        let database_matches: Vec<&TeamDatabase> = user_guard
+            .team
+            .databases
+            .iter()
+            .filter(|x| &x.id == db || &x.name == db)
+            .collect();
 
-            if database_matches.len() != 1 {
-                return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested database"})))
-            }
+        if database_matches.len() != 1 {
+            return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": "Could not find requested database"})));
+        }
 
-            let database_match = database_matches[0];
-            let project_matches: Vec<&ProjectCollection> = database_match.projects.iter().filter(|x| &x.id == project || &x.name == project).collect();
+        let database_match = database_matches[0];
+        let project_matches: Vec<&ProjectCollection> = database_match
+            .projects
+            .iter()
+            .filter(|x| &x.id == project || &x.name == project)
+            .collect();
 
-            if project_matches.len() != 1 {
-                return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": format!("Could not find requested project ({} projects exist with this name)", project_matches.len())})))
-            }
+        if project_matches.len() != 1 {
+            return Err(HttpResponse::NotFound().json(serde_json::json!({"status": "fail", "message": format!("Could not find requested project ({} projects exist with this name)", project_matches.len())})));
+        }
 
-            let project_match = project_matches[0];
+        let project_match = project_matches[0];
 
-            (database_match.to_owned(), project_match.to_owned())
+        (database_match.to_owned(), project_match.to_owned())
     };
 
     let mongo_db = data.db.database(&database.database);
     let collection = mongo_db.collection(&project.collection);
-    
+
     Ok((database.database, mongo_db, collection))
 }
 
 pub fn cerebro_config(cfg: &mut web::ServiceConfig, config: &Config) {
-    
     cfg.service(insert_model_handler)
-       .service(retrieve_model_handler) 
-       .service(cerebro_identifier_handler)
-       .service(samples_overview_handler)
-       .service(sample_overview_id_handler)
-       .service(sample_id_handler)
-       .service(workflow_id_handler)
-       .service(filtered_taxa_handler)
-       .service(add_priority_taxon_handler)
-       .service(delete_priority_taxon_handler)
-       .service(modify_priority_taxa_decision_handler)
-       .service(workflow_handler)
-       .service(run_handler)
-       .service(sample_handler)
-       .service(delete_sample_handler)
-       .service(sample_qc_summary_handler)
-       .service(sample_pd_table_handler)
-       .service(sample_description_handler)
-       .service(sample_type_handler)
-       .service(sample_group_handler)
-       .service(history_taxa_handler)
-       .service(contamination_taxa_handler_project)
-       .service(status_handler)
-       .service(update_run_config_handler)
-       .service(delete_model_by_sample_handler)
-       .service(get_sample_negative_controls);
-
+        .service(retrieve_model_handler)
+        .service(cerebro_identifier_handler)
+        .service(samples_overview_handler)
+        .service(sample_overview_id_handler)
+        .service(sample_id_handler)
+        .service(workflow_id_handler)
+        .service(filtered_taxa_handler)
+        .service(add_priority_taxon_handler)
+        .service(delete_priority_taxon_handler)
+        .service(modify_priority_taxa_decision_handler)
+        .service(workflow_handler)
+        .service(run_handler)
+        .service(sample_handler)
+        .service(delete_sample_handler)
+        .service(sample_qc_summary_handler)
+        .service(sample_pd_table_handler)
+        .service(sample_description_handler)
+        .service(sample_type_handler)
+        .service(sample_group_handler)
+        .service(history_taxa_handler)
+        .service(contamination_taxa_handler_project)
+        .service(status_handler)
+        .service(update_run_config_handler)
+        .service(delete_model_by_sample_handler)
+        .service(get_sample_negative_controls);
 
     if config.security.components.comments {
         // Disable comments on sample and priority taxon decision comment modification endpoints
         // Comments on priority taxon decisions and submissions are disabled in the endpoints
         cfg.service(sample_comment_handler)
-           .service(delete_sample_comment_handler);
+            .service(delete_sample_comment_handler);
     }
 }

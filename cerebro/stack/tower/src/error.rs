@@ -16,7 +16,7 @@ pub enum TowerError {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
-    
+
     #[error(transparent)]
     SerdeFailure(#[from] serde_json::Error),
 

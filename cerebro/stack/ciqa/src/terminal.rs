@@ -1,14 +1,18 @@
 use std::path::PathBuf;
 
+use meta_gpt::gpt::{AgentPrimer, AssayContext, TaskConfig};
 #[cfg(feature = "local")]
 use meta_gpt::{gpt::TreeConfig, model::GeneratorModel};
-use meta_gpt::gpt::{AssayContext, AgentPrimer, TaskConfig};
 
-use clap::{Args, Parser, Subcommand};
+use crate::{
+    plate::{MissingOrthogonal, PanelColumnHeader, StatsMode},
+    plots::{GridWeight, LabelSize},
+    stats::AdjMethod,
+};
 use cerebro_model::api::cerebro::schema::SampleType;
-use crate::{plate::{MissingOrthogonal, PanelColumnHeader, StatsMode}, plots::{GridWeight, LabelSize}, stats::AdjMethod};
+use clap::{Args, Parser, Subcommand};
 
-/// Cerebro: production file system watcher 
+/// Cerebro: production file system watcher
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 #[command(styles=get_styles())]
@@ -17,78 +21,50 @@ use crate::{plate::{MissingOrthogonal, PanelColumnHeader, StatsMode}, plots::{Gr
 pub struct App {
     /// API URL
     #[clap(
-        long, 
-        short = 'u', 
-        default_value = "http://localhost:8080", 
+        long,
+        short = 'u',
+        default_value = "http://localhost:8080",
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
     /// API token - usually provided with CEREBRO_API_TOKEN
-    #[clap(
-        long, 
-        short = 'e', 
-        env = "CEREBRO_API_TOKEN",
-        hide_env_values = true
-    )]
+    #[clap(long, short = 'e', env = "CEREBRO_API_TOKEN", hide_env_values = true)]
     pub token: Option<String>,
     /// API token file - can be set from environment variable
-    #[clap(
-        long, 
-        short = 'f', 
-        env = "CEREBRO_API_TOKEN_FILE"
-    )]
+    #[clap(long, short = 'f', env = "CEREBRO_API_TOKEN_FILE")]
     pub token_file: Option<PathBuf>,
-    /// User team name or identifier for requests that require team specification 
-    #[clap(
-        long, 
-        short = 't', 
-        env = "CEREBRO_USER_TEAM",
-        hide_env_values = true
-    )]
+    /// User team name or identifier for requests that require team specification
+    #[clap(long, short = 't', env = "CEREBRO_USER_TEAM", hide_env_values = true)]
     pub team: Option<String>,
-    /// Team database name or identifier for requests that require database access 
-    #[clap(
-        long, 
-        short = 'd', 
-        env = "CEREBRO_USER_DB",
-        hide_env_values = true
-    )]
+    /// Team database name or identifier for requests that require database access
+    #[clap(long, short = 'd', env = "CEREBRO_USER_DB", hide_env_values = true)]
     pub db: Option<String>,
-    /// Team database project name or identifier for requests that require project access 
+    /// Team database project name or identifier for requests that require project access
     #[clap(
-        long, 
-        short = 'p', 
+        long,
+        short = 'p',
         env = "CEREBRO_USER_PROJECT",
         hide_env_values = true
     )]
     pub project: Option<String>,
     /// SeaweedFS master node address
     #[clap(
-        long, 
+        long,
         short = 'a',
-        default_value = "http://localhost", 
+        default_value = "http://localhost",
         env = "CEREBRO_FS_URL"
     )]
     pub fs_url: String,
     /// SeaweedFS master node port
-    #[clap(
-        long, 
-        short = 'm',
-        env = "CEREBRO_FS_PORT",
-        default_value = "9333", 
-    )]
+    #[clap(long, short = 'm', env = "CEREBRO_FS_PORT", default_value = "9333")]
     pub fs_port: String,
     /// SSL certificate verification is ignored [DANGER]
-    #[clap(
-        long, 
-        env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE"
-    )]
+    #[clap(long, env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE")]
     pub danger_invalid_certificate: bool,
-    
+
     #[clap(subcommand)]
     pub command: Commands,
 }
-
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
@@ -98,7 +74,7 @@ pub enum Commands {
     Prefetch(PrefetchArgs),
     /// Create a plate JSON from a tab-delimited table (headers: 'sample_id' and 'sample_type')
     CreatePlate(CreatePlateArgs),
-    /// Write the plate to a tab-delimited table 
+    /// Write the plate to a tab-delimited table
     WritePlateTable(WriteTableArgs),
     /// Add data to existing prefetch files (clinical)
     ModifyPlate(ModifyPlateArgs),
@@ -113,7 +89,7 @@ pub enum Commands {
     /// Plot the reference plate quality control summary
     PlotQc(PlotQcArgs),
     /// Plot the reference plate review results
-    PlotReview(PlotReviewArgs),    
+    PlotReview(PlotReviewArgs),
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
     /// Summarize Predictions across replicates
@@ -133,24 +109,22 @@ pub enum Commands {
     DebugPathogen(DebugPathogenArgs),
 }
 
-
 #[derive(Debug, Args)]
 pub struct CreatePlateArgs {
     // Input plate TSV
     #[clap(long, short = 't')]
     pub tsv: PathBuf,
-    /// Output plate JSON 
+    /// Output plate JSON
     #[clap(long, short = 'o')]
     pub output: PathBuf,
-    /// Comma-separated string of substrings that when matched to the species name 
+    /// Comma-separated string of substrings that when matched to the species name
     /// cause the species identification to be excluded from the results
     #[clap(long, short = 'i')]
     pub ignore_taxstr: Option<String>,
     /// Strategy for missing orthogonal reference data during evaluation
-    #[clap(long, short = 'm', default_value="result-only")]
-    pub missing_orthogonal: MissingOrthogonal
+    #[clap(long, short = 'm', default_value = "result-only")]
+    pub missing_orthogonal: MissingOrthogonal,
 }
-
 
 #[derive(Debug, Args)]
 pub struct ModifyPlateArgs {
@@ -171,20 +145,18 @@ pub struct ModifyPlateArgs {
     pub output: PathBuf,
 }
 
-
 #[derive(Debug, Args)]
 pub struct ComputeSummaryArgs {
     /// Input directories named like: qwen3-14b-q8-0_clinical_tiered_*_{rep}
     #[clap(long, short = 'i', num_args=1..)]
     pub input_dirs: Vec<PathBuf>,
     /// Output TSV for GPU VRAM peaks
-    #[clap(long, short = 'g', default_value="gpu_vram.tsv")]
+    #[clap(long, short = 'g', default_value = "gpu_vram.tsv")]
     pub out_vram: PathBuf,
     /// Output TSV for runtime seconds
-    #[clap(long, short = 's', default_value="runtime_seconds.tsv")]
+    #[clap(long, short = 's', default_value = "runtime_seconds.tsv")]
     pub out_seconds: PathBuf,
 }
-
 
 #[derive(Debug, Args)]
 pub struct PredictionSummaryArgs {
@@ -208,13 +180,13 @@ pub struct PlotRadarArgs {
     #[clap(long, short = 'l', num_args=0..)]
     pub labels: Vec<String>,
     /// Output plot file (.svg or .png)
-    #[clap(long, short = 'o', default_value="diagnostic_radar.png")]
+    #[clap(long, short = 'o', default_value = "diagnostic_radar.png")]
     pub output: PathBuf,
     /// Plot width (px)
-    #[clap(long, default_value="1024")]
+    #[clap(long, default_value = "1024")]
     pub width: u32,
     /// Plot height (px)
-    #[clap(long, default_value="1024")]
+    #[clap(long, default_value = "1024")]
     pub height: u32,
     /// Colors for data series
     #[clap(long, num_args=1..)]
@@ -223,10 +195,10 @@ pub struct PlotRadarArgs {
     #[clap(long)]
     pub ref_line: Option<f64>,
     /// Grid weight preset
-    #[clap(long, default_value="light")]
+    #[clap(long, default_value = "light")]
     pub grid_weight: GridWeight,
     /// Label size preset
-    #[clap(long, default_value="normal")]
+    #[clap(long, default_value = "normal")]
     pub label_size: LabelSize,
     /// Label size preset
     #[clap(long)]
@@ -239,10 +211,10 @@ pub struct DiagnosticSummaryArgs {
     #[clap(long, short = 'i', num_args=1..)]
     pub diagnostics: Vec<PathBuf>,
     /// Output TSV summary file
-    #[clap(long, short = 'o', default_value="diagnostic_summary.tsv")]
+    #[clap(long, short = 'o', default_value = "diagnostic_summary.tsv")]
     pub output: PathBuf,
     /// Output TSV summary file
-    #[clap(long, short = 'r', default_value="replicate_summary.tsv")]
+    #[clap(long, short = 'r', default_value = "replicate_summary.tsv")]
     pub replicates: PathBuf,
     /// Output optional column reasoning to extract think or nothink column 'reasoning'
     #[clap(long)]
@@ -258,7 +230,7 @@ pub struct WriteTableArgs {
     #[clap(long, short = 'p')]
     pub plate: PathBuf,
     /// Output plot file (plate.tsv)
-    #[clap(long, short = 'o', default_value="plate.tsv")]
+    #[clap(long, short = 'o', default_value = "plate.tsv")]
     pub output: PathBuf,
     /// Include only positive taxa if test included detection at species rank
     #[clap(long, short = 's')]
@@ -267,7 +239,6 @@ pub struct WriteTableArgs {
     #[clap(long, short = 's')]
     pub clinical: bool,
 }
-
 
 #[derive(Debug, Args)]
 pub struct McnemarArgs {
@@ -278,7 +249,6 @@ pub struct McnemarArgs {
     #[clap(long, short = 'b')]
     pub review_b: String,
 }
-
 
 #[derive(Debug, Args)]
 pub struct McnemarAdjustArgs {
@@ -299,13 +269,13 @@ pub struct PlotPlateArgs {
     #[clap(long, short = 'd')]
     pub diagnostic_data: PathBuf,
     /// Output plot file of diagnostic outcomes (.svg)
-    #[clap(long, short = 'o', default_value="diagnostic_outcomes.svg")]
+    #[clap(long, short = 'o', default_value = "diagnostic_outcomes.svg")]
     pub output: PathBuf,
     /// Set plot width
-    #[clap(long, default_value="950")]
+    #[clap(long, default_value = "950")]
     pub width: u32,
     /// Set plot height
-    #[clap(long, default_value="600")]
+    #[clap(long, default_value = "600")]
     pub height: u32,
     /// Set plot title
     #[clap(long)]
@@ -318,32 +288,30 @@ pub struct PlotPlateArgs {
     pub reference: Option<PathBuf>,
 }
 
-
 #[derive(Debug, Args)]
 pub struct PlotQcArgs {
     /// Cerebro model files from DB (.json)
     #[clap(long, short = 'i', num_args=0..)]
     pub cerebro: Vec<PathBuf>,
     /// Output plot file (.svg)
-    #[clap(long, short = 'o', default_value="qc_summary.svg")]
+    #[clap(long, short = 'o', default_value = "qc_summary.svg")]
     pub output: PathBuf,
     /// Output positive controls summary file (.tsv)
     #[clap(long, short = 'p')]
     pub positive_controls: Option<PathBuf>,
     /// Output directory for summary files (.json)
-    #[clap(long, short = 'd',)]
+    #[clap(long, short = 'd')]
     pub outdir: Option<PathBuf>,
     /// Threads to use for reading models
-    #[clap(long, short = 't', default_value="4")]
+    #[clap(long, short = 't', default_value = "4")]
     pub threads: u64,
     /// Column header format
-    #[clap(long, default_value="panel")]
+    #[clap(long, default_value = "panel")]
     pub column_header: PanelColumnHeader,
     /// Set plot title
     #[clap(long)]
     pub title: Option<String>,
 }
-
 
 #[derive(Debug, Args)]
 pub struct PlotPrefetchArgs {
@@ -351,13 +319,13 @@ pub struct PlotPrefetchArgs {
     #[clap(long, short = 'i')]
     pub prefetch: PathBuf,
     /// Output plot file (.svg)
-    #[clap(long, short = 'o', default_value="qc_summary.svg")]
+    #[clap(long, short = 'o', default_value = "qc_summary.svg")]
     pub output: PathBuf,
     /// Plot width (px)
-    #[clap(long, default_value="800")]
+    #[clap(long, default_value = "800")]
     pub width: u32,
     /// Plot height (px)
-    #[clap(long, default_value="600")]
+    #[clap(long, default_value = "600")]
     pub height: u32,
     /// Set plot title
     #[clap(long)]
@@ -366,7 +334,6 @@ pub struct PlotPrefetchArgs {
 
 #[derive(Debug, Args)]
 pub struct UploadCiqaDatasetArgs {
-    
     /// Read files dataset with NTC/ENV control for showread CI/QA
     #[clap(long, short = 'f', num_args=1..)]
     pub fastq_pe: Vec<PathBuf>,
@@ -382,7 +349,6 @@ pub struct UploadCiqaDatasetArgs {
     /// File description
     #[clap(long, short = 'd')]
     pub description: Option<String>,
-    
 }
 
 #[derive(Debug, Args)]
@@ -392,7 +358,7 @@ pub struct DebugPathogenArgs {
     pub gpt: Vec<PathBuf>,
     /// Summary of pathogen calls output (.tsv)
     #[clap(long, short = 'o')]
-    pub output: PathBuf
+    pub output: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -401,10 +367,10 @@ pub struct PlotReviewArgs {
     #[clap(long, short = 's', num_args=1..)]
     pub stats: Vec<PathBuf>,
     /// Diagnostic statistics selection
-    #[clap(long, short = 'm', default_value="sens-spec")]
+    #[clap(long, short = 'm', default_value = "sens-spec")]
     pub mode: StatsMode,
     /// Output plot file (.svg)
-    #[clap(long, short = 'o', default_value="review_sens_spec.svg")]
+    #[clap(long, short = 'o', default_value = "review_sens_spec.svg")]
     pub output: PathBuf,
     /// Plot 95% CI interval as grey box behind points (assuming normal distribution)
     #[clap(long, short = 'c')]
@@ -415,7 +381,7 @@ pub struct PlotReviewArgs {
     /// Plot barplot overlay
     #[clap(long, short = 'a')]
     pub barplot: bool,
-    /// Custom y-labels 
+    /// Custom y-labels
     #[clap(long, short = 'y', num_args=0..)]
     pub y_labels: Option<Vec<String>>,
     /// Reference line 1 (sensitivity/ppv)
@@ -425,13 +391,12 @@ pub struct PlotReviewArgs {
     #[clap(long)]
     pub ref2: Option<f64>,
     /// Plot width (px)
-    #[clap(long, default_value="800")]
+    #[clap(long, default_value = "800")]
     pub width: u32,
     /// Plot height (px)
-    #[clap(long, default_value="600")]
+    #[clap(long, default_value = "600")]
     pub height: u32,
 }
-
 
 #[cfg(feature = "local")]
 #[derive(Debug, Args)]
@@ -446,13 +411,13 @@ pub struct DiagnoseLocalArgs {
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
     /// Local generator model for diagnostic queries
-    #[clap(long, short = 'm', default_value="qwen3-8b-q8-0")]
+    #[clap(long, short = 'm', default_value = "qwen3-8b-q8-0")]
     pub model: GeneratorModel,
     /// The length of the sample to generate (in tokens) - needs to be long enough to capture model thought process
     #[arg(short = 'n', long, default_value_t = 20000)]
     pub sample_len: usize,
     /// The temperature used to generate samples, use 0 for greedy sampling
-    #[arg(long, short='t', default_value_t = 0.8)]
+    #[arg(long, short = 't', default_value_t = 0.8)]
     pub temperature: f64,
     /// Nucleus sampling probability cutoff.
     #[arg(long)]
@@ -464,52 +429,51 @@ pub struct DiagnoseLocalArgs {
     #[arg(long)]
     pub min_p: Option<f64>,
     /// Number of GPUs to batch sample evaluations on (each must support model)
-    #[arg(long, short='g', default_value_t=1)]
+    #[arg(long, short = 'g', default_value_t = 1)]
     pub num_gpu: usize,
     /// Include clinical notes from plate reference into prompt context (if available)
     #[clap(long, short = 'c')]
     pub clinical_notes: bool,
     /// Include sample description from plate reference into prompt context
-    #[clap(long, short = 's', default_value="true")]
+    #[clap(long, short = 's', default_value = "true")]
     pub sample_context: Option<bool>,
     /// Include assay context into prompt context
-    #[clap(long, short = 'a', default_value="cerebro-filter")]
+    #[clap(long, short = 'a', default_value = "cerebro-filter")]
     pub assay_context: Option<AssayContext>,
     /// System prompt primer for diagnostic agent
-    #[clap(long, default_value="default")]
+    #[clap(long, default_value = "default")]
     pub agent_primer: Option<AgentPrimer>,
     /// Task configuration sets for the tiered decision tree
-    #[clap(long, default_value="default")]
+    #[clap(long, default_value = "default")]
     pub task_config: TaskConfig,
     /// Task configuration sets for the tiered decision tree
-    #[clap(long, default_value="tiered")]
+    #[clap(long, default_value = "tiered")]
     pub tree_config: TreeConfig,
     /// Post process taxa after filtering and retrieval by collapsing species variants and selecting best species per genus (Archaea|Bacteria|Eukaryota)
     #[clap(long)]
     pub post_filter: bool,
     /// Post-filter: minimum species per genus required to enable selecting best species for the genus during post filter processing (Archaea|Bacteria|Eukaryota)
-    #[clap(long, default_value="3")]
+    #[clap(long, default_value = "3")]
     pub min_species: usize,
     /// Post-filter: override default species reduction filter to these domains (Archaea|Bacteria|Eukaryota)
     #[clap(long, num_args=1..)]
     pub species_domains: Option<Vec<String>>,
     /// Post-filter: override default variant species collapse using pruned species name (GTDB, Archaea|Bacteria)
-    #[clap(long, default_value="true")]
+    #[clap(long, default_value = "true")]
     pub collapse_variants: Option<bool>,
     /// Post-filter: override default phage exclusion option for post processing taxa after filtering and retrieval
-    #[clap(long, default_value="true")]
+    #[clap(long, default_value = "true")]
     pub exclude_phage: Option<bool>,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
     pub force: bool,
     /// Model directory for generator model(.gguf) and tokenizer file (.json)
-    #[clap(long, default_value=".")]
+    #[clap(long, default_value = ".")]
     pub model_dir: PathBuf,
     /// Disable thinking in Qwen3
     #[clap(long)]
     pub disable_thinking: bool,
 }
-
 
 #[derive(Debug, Args)]
 pub struct ReviewArgs {
@@ -519,8 +483,8 @@ pub struct ReviewArgs {
     /// Plate review files (.tsv) or `meta-gpt` output directories with diagnostic result files if `--diagnostic-agent` flag enabled
     #[clap(long, short = 'r', num_args=1..)]
     pub review: Vec<PathBuf>,
-    /// Output data (.json) from the reviews 
-    /// 
+    /// Output data (.json) from the reviews
+    ///
     /// Stores an array of `DiagnosticStats` JSON schemas with attribute `name` assigned the review directory name
     #[clap(long, short = 'o')]
     pub output: PathBuf,
@@ -534,7 +498,7 @@ pub struct ReviewArgs {
     #[clap(long, short = 'n', num_args=1..)]
     pub set_none: Option<Vec<String>>,
     /// Handle references with missing orthogonal data and a positive review call
-    #[clap(long, short = 'm', default_value="indeterminate")]
+    #[clap(long, short = 'm', default_value = "indeterminate")]
     pub missing_orthogonal: MissingOrthogonal,
     /// Reference plate review (.json) for plot
     #[clap(long)]
@@ -543,10 +507,10 @@ pub struct ReviewArgs {
     #[clap(long)]
     pub plot: Option<PathBuf>,
     /// Set plot width
-    #[clap(long, default_value="950")]
+    #[clap(long, default_value = "950")]
     pub width: u32,
     /// Set plot height
-    #[clap(long, default_value="600")]
+    #[clap(long, default_value = "600")]
     pub height: u32,
     /// Set plot title
     #[clap(long)]
@@ -555,7 +519,6 @@ pub struct ReviewArgs {
     #[clap(long)]
     pub header_text: Option<String>,
 }
-
 
 #[derive(Debug, Args, Clone)]
 pub struct PrefetchArgs {
@@ -580,7 +543,7 @@ pub struct PrefetchArgs {
     /// Tiered filter config (.json) otherwise default
     #[clap(long)]
     pub tiered_filter: Option<PathBuf>,
-    /// Disable any filters or contamination controls, simply prefetch 
+    /// Disable any filters or contamination controls, simply prefetch
     /// the raw data into the primary filter category
     #[clap(long)]
     pub disable_filter: bool,
@@ -598,7 +561,7 @@ pub struct PrefetchArgs {
     #[clap(long)]
     pub disable_negative_control: bool,
     /// Threads to use for fetching data
-    #[clap(long, short = 't', default_value="4")]
+    #[clap(long, short = 't', default_value = "4")]
     pub threads: u64,
     /// Force overwrite output, otherwise skip if exists
     #[clap(long, short = 'f')]
@@ -617,28 +580,23 @@ pub struct PrefetchArgs {
     pub pathogen_missed: Option<PathBuf>,
 }
 
-
 #[derive(Debug, Args, Clone)]
-pub struct TuiArgs {
-}
+pub struct TuiArgs {}
 
 #[derive(Debug, Args)]
-pub struct GlobalOptions {
-    
-}
-
+pub struct GlobalOptions {}
 
 pub fn get_styles() -> clap::builder::Styles {
-	clap::builder::Styles::styled()
-		.header(
-			anstyle::Style::new()
-				.bold()
-				.underline()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-		)
-		.literal(
-			anstyle::Style::new()
-				.bold()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-		)
+    clap::builder::Styles::styled()
+        .header(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
+        )
+        .literal(
+            anstyle::Style::new()
+                .bold()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
+        )
 }

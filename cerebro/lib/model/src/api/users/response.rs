@@ -1,6 +1,9 @@
+use crate::api::{
+    teams::model::Team,
+    users::model::{Role, UserId},
+};
 use chrono::prelude::*;
-use serde::{Serialize, Deserialize};
-use crate::api::{users::model::{UserId, Role}, teams::model::Team};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct FilteredUser {
@@ -21,7 +24,6 @@ pub struct UserData {
     pub user: FilteredUser,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TeamsData {
     pub teams: Vec<Team>,
@@ -32,7 +34,6 @@ pub struct TeamData {
     pub team: Team,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserSelfResponse {
     pub status: String,
@@ -40,14 +41,12 @@ pub struct UserSelfResponse {
     pub data: UserData,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserSelfTeamsResponse {
     pub status: String,
     pub message: String,
     pub data: TeamsData,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserSelfTeamResponse {

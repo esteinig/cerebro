@@ -107,9 +107,10 @@ impl WorkerContext {
     /// `api()`/`fs()` clones use the new token. Serialised by the lock so concurrent
     /// callers don't stampede the login endpoint. No-op without bot credentials.
     pub async fn relogin(self: &Arc<Self>) -> Result<(), WorkerError> {
-        let (Some(email), Some(password)) =
-            (self.config.bot_email.clone(), self.config.bot_password.clone())
-        else {
+        let (Some(email), Some(password)) = (
+            self.config.bot_email.clone(),
+            self.config.bot_password.clone(),
+        ) else {
             return Ok(());
         };
         let config = self.config.clone();
@@ -177,7 +178,8 @@ impl WorkerContext {
         queue: &str,
         reserve_for: Option<std::time::Duration>,
     ) -> Result<(), WorkerError> {
-        self.enqueue_at(kind, args, queue, None, reserve_for, None).await
+        self.enqueue_at(kind, args, queue, None, reserve_for, None)
+            .await
     }
 
     /// Enqueue a Faktory job, optionally scheduled for a future time (`at`) and with

@@ -1,18 +1,19 @@
 use std::time::Duration;
 
-use actix_web::{post, get, web, HttpResponse};
-use cerebro_model::api::jobs::schema::{EnqueueJobRequest, ScheduleJobRequest};
-use mongodb::bson::{doc, Bson, Uuid};
-use mongodb::Collection;
-use futures::TryStreamExt;
 use crate::api::auth::jwt::JwtAdminMiddleware;
 use crate::api::server::AppState;
 use crate::api::utils::get_cerebro_db_collection;
+use actix_web::{get, post, web, HttpResponse};
+use cerebro_model::api::jobs::schema::{EnqueueJobRequest, ScheduleJobRequest};
 use cerebro_model::api::utils::AdminCollection;
+use futures::TryStreamExt;
+use mongodb::bson::{doc, Bson, Uuid};
+use mongodb::Collection;
 
 use cerebro_model::api::jobs::model::{JobRunDoc, ScheduleJob};
 use cerebro_model::api::jobs::response::{
-    CreateScheduleResponse, EnqueueJobResponse, JobCompletionResponse, JobsStatusData, JobsStatusResponse, ScheduleJobSummary
+    CreateScheduleResponse, EnqueueJobResponse, JobCompletionResponse, JobsStatusData,
+    JobsStatusResponse, ScheduleJobSummary,
 };
 
 /// Build a Faktory job whose args is a one-element JSON array
@@ -20,14 +21,12 @@ fn job_with_val(kind: &str, val: serde_json::Value) -> faktory::Job {
     faktory::Job::new(kind, vec![val])
 }
 
-
 #[post("/jobs/enqueue")]
 pub async fn enqueue_now_handler(
     data: web::Data<AppState>,
     body: web::Json<EnqueueJobRequest>,
     _: JwtAdminMiddleware,
 ) -> HttpResponse {
-    
     let b = body.into_inner();
 
     // Build Faktory client
@@ -54,7 +53,7 @@ pub async fn enqueue_now_handler(
     let id = uuid::Uuid::new_v4();
 
     let doc = JobRunDoc {
-        id: Some(id),                 
+        id: Some(id),
         jid: jid.clone(),
         kind: b.kind.clone(),
         queue: queue.clone(),
@@ -66,8 +65,9 @@ pub async fn enqueue_now_handler(
     };
 
     if let Err(e) = runs.insert_one(&doc).await {
-        return HttpResponse::InternalServerError()
-            .json(EnqueueJobResponse::server_error(format!("jobrun insert: {e}")));
+        return HttpResponse::InternalServerError().json(EnqueueJobResponse::server_error(
+            format!("jobrun insert: {e}"),
+        ));
     }
 
     // Enqueue to Faktory
@@ -175,13 +175,13 @@ pub async fn schedule_job_handler(
     }
 }
 
-
 #[get("/jobs/schedule/status")]
 pub async fn job_schedule_status_handler(
     data: web::Data<AppState>,
     _: JwtAdminMiddleware,
 ) -> HttpResponse {
-    let jobs: Collection<ScheduleJob> = get_cerebro_db_collection(&data, AdminCollection::Scheduler);
+    let jobs: Collection<ScheduleJob> =
+        get_cerebro_db_collection(&data, AdminCollection::Scheduler);
 
     let now = chrono::Utc::now();
 
@@ -193,15 +193,19 @@ pub async fn job_schedule_status_handler(
         .await
     {
         Ok(c) => c,
-        Err(e) => return HttpResponse::InternalServerError()
-            .json(JobsStatusResponse::server_error(e.to_string())),
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(JobsStatusResponse::server_error(e.to_string()))
+        }
     };
 
     let mut next = Vec::new();
     while let Some(job) = match next_cur.try_next().await {
         Ok(v) => v,
-        Err(e) => return HttpResponse::InternalServerError()
-            .json(JobsStatusResponse::server_error(e.to_string())),
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(JobsStatusResponse::server_error(e.to_string()))
+        }
     } {
         next.push(ScheduleJobSummary::from(&job));
     }
@@ -214,15 +218,19 @@ pub async fn job_schedule_status_handler(
         .await
     {
         Ok(c) => c,
-        Err(e) => return HttpResponse::InternalServerError()
-            .json(JobsStatusResponse::server_error(e.to_string())),
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(JobsStatusResponse::server_error(e.to_string()))
+        }
     };
 
     let mut previous = Vec::new();
     while let Some(job) = match prev_cur.try_next().await {
         Ok(v) => v,
-        Err(e) => return HttpResponse::InternalServerError()
-            .json(JobsStatusResponse::server_error(e.to_string())),
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(JobsStatusResponse::server_error(e.to_string()))
+        }
     } {
         previous.push(ScheduleJobSummary::from(&job));
     }
@@ -231,9 +239,11 @@ pub async fn job_schedule_status_handler(
         return HttpResponse::Ok().json(JobsStatusResponse::not_found());
     }
 
-    HttpResponse::Ok().json(JobsStatusResponse::success(JobsStatusData { next, previous }))
+    HttpResponse::Ok().json(JobsStatusResponse::success(JobsStatusData {
+        next,
+        previous,
+    }))
 }
-
 
 // Handler configuration
 pub fn jobs_config(cfg: &mut web::ServiceConfig) {

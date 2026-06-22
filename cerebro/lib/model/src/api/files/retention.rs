@@ -205,7 +205,9 @@ impl Default for RetentionPolicy {
 /// Parse a day count from an optional environment value, falling back to
 /// `default` when absent or unparseable.
 fn parse_days(value: Option<String>, default: i64) -> i64 {
-    value.and_then(|v| v.trim().parse::<i64>().ok()).unwrap_or(default)
+    value
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .unwrap_or(default)
 }
 
 /// Load `KEY=VALUE` pairs from the optional retention config file named by
@@ -242,7 +244,10 @@ fn resolve_config(file: &HashMap<String, String>, key: &str) -> Option<String> {
 /// cold. Resolved from the retention config file or the environment.
 pub fn warm_available_from_env() -> bool {
     let file = retention_config_file();
-    matches!(resolve_config(&file, "CEREBRO_FS_WARM_AVAILABLE").as_deref(), Some("true") | Some("1"))
+    matches!(
+        resolve_config(&file, "CEREBRO_FS_WARM_AVAILABLE").as_deref(),
+        Some("true") | Some("1")
+    )
 }
 
 impl RetentionPolicy {
@@ -258,10 +263,22 @@ impl RetentionPolicy {
         let d = Self::default();
         let file = retention_config_file();
         Self {
-            diagnostic_days: parse_days(resolve_config(&file, "CEREBRO_RETENTION_DIAGNOSTIC_DAYS"), d.diagnostic_days),
-            intermediate_days: parse_days(resolve_config(&file, "CEREBRO_RETENTION_INTERMEDIATE_DAYS"), d.intermediate_days),
-            transient_days: parse_days(resolve_config(&file, "CEREBRO_RETENTION_TRANSIENT_DAYS"), d.transient_days),
-            warm_days: parse_days(resolve_config(&file, "CEREBRO_RETENTION_WARM_DAYS"), d.warm_days),
+            diagnostic_days: parse_days(
+                resolve_config(&file, "CEREBRO_RETENTION_DIAGNOSTIC_DAYS"),
+                d.diagnostic_days,
+            ),
+            intermediate_days: parse_days(
+                resolve_config(&file, "CEREBRO_RETENTION_INTERMEDIATE_DAYS"),
+                d.intermediate_days,
+            ),
+            transient_days: parse_days(
+                resolve_config(&file, "CEREBRO_RETENTION_TRANSIENT_DAYS"),
+                d.transient_days,
+            ),
+            warm_days: parse_days(
+                resolve_config(&file, "CEREBRO_RETENTION_WARM_DAYS"),
+                d.warm_days,
+            ),
         }
     }
 
@@ -330,7 +347,10 @@ impl RetentionPolicy {
         warm_available: bool,
     ) -> LifecycleTransition {
         let (target_tier, cold_move_at) = if warm_available && self.warm_days > 0 {
-            (StorageTier::Warm, Some(reported_at + Duration::days(self.warm_days)))
+            (
+                StorageTier::Warm,
+                Some(reported_at + Duration::days(self.warm_days)),
+            )
         } else {
             (StorageTier::Cold, None)
         };
@@ -492,7 +512,12 @@ mod tests {
 
     #[test]
     fn days_for_maps_each_class() {
-        let p = RetentionPolicy { diagnostic_days: 100, intermediate_days: 50, transient_days: 5, warm_days: 90 };
+        let p = RetentionPolicy {
+            diagnostic_days: 100,
+            intermediate_days: 50,
+            transient_days: 5,
+            warm_days: 90,
+        };
         assert_eq!(p.days_for(RetentionClass::Diagnostic), 100);
         assert_eq!(p.days_for(RetentionClass::Intermediate), 50);
         assert_eq!(p.days_for(RetentionClass::Transient), 5);
@@ -500,7 +525,12 @@ mod tests {
 
     #[test]
     fn retain_until_adds_configured_days() {
-        let p = RetentionPolicy { diagnostic_days: 10, intermediate_days: 1, transient_days: 1, warm_days: 90 };
+        let p = RetentionPolicy {
+            diagnostic_days: 10,
+            intermediate_days: 1,
+            transient_days: 1,
+            warm_days: 90,
+        };
         let from = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
         let until = p.retain_until(RetentionClass::Diagnostic, from).unwrap();
         assert_eq!(until, Utc.with_ymd_and_hms(2025, 1, 11, 0, 0, 0).unwrap());
@@ -508,7 +538,12 @@ mod tests {
 
     #[test]
     fn non_positive_duration_means_no_expiry() {
-        let p = RetentionPolicy { diagnostic_days: 0, intermediate_days: -1, transient_days: 1, warm_days: 0 };
+        let p = RetentionPolicy {
+            diagnostic_days: 0,
+            intermediate_days: -1,
+            transient_days: 1,
+            warm_days: 0,
+        };
         let from = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
         assert!(p.retain_until(RetentionClass::Diagnostic, from).is_none());
         assert!(p.retain_until(RetentionClass::Intermediate, from).is_none());
@@ -518,9 +553,15 @@ mod tests {
     #[test]
     fn report_out_without_warm_targets_cold() {
         // 4-year diagnostic retention, anchored at the report-out date.
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
+        let policy = RetentionPolicy {
+            diagnostic_days: 365 * 4,
+            intermediate_days: 365,
+            transient_days: 30,
+            warm_days: 90,
+        };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
-        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at, false);
+        let transition =
+            policy.report_out_transition(RetentionClass::Diagnostic, reported_at, false);
 
         assert_eq!(transition.reported_at, reported_at);
         assert_eq!(transition.target_tier, StorageTier::Cold);
@@ -533,22 +574,40 @@ mod tests {
 
     #[test]
     fn report_out_with_warm_targets_warm_then_schedules_cold() {
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
+        let policy = RetentionPolicy {
+            diagnostic_days: 365 * 4,
+            intermediate_days: 365,
+            transient_days: 30,
+            warm_days: 90,
+        };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
-        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at, true);
+        let transition =
+            policy.report_out_transition(RetentionClass::Diagnostic, reported_at, true);
 
         // Re-inspection tier first, with the cold (S3) move scheduled after the dwell.
         assert_eq!(transition.target_tier, StorageTier::Warm);
-        assert_eq!(transition.cold_move_at, Some(reported_at + chrono::Duration::days(90)));
+        assert_eq!(
+            transition.cold_move_at,
+            Some(reported_at + chrono::Duration::days(90))
+        );
         // Retention is independent of placement and still anchored at report-out.
-        assert_eq!(transition.retain_until, Some(reported_at + chrono::Duration::days(365 * 4)));
+        assert_eq!(
+            transition.retain_until,
+            Some(reported_at + chrono::Duration::days(365 * 4))
+        );
     }
 
     #[test]
     fn report_out_with_warm_but_zero_dwell_targets_cold() {
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 0 };
+        let policy = RetentionPolicy {
+            diagnostic_days: 365 * 4,
+            intermediate_days: 365,
+            transient_days: 30,
+            warm_days: 0,
+        };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
-        let transition = policy.report_out_transition(RetentionClass::Diagnostic, reported_at, true);
+        let transition =
+            policy.report_out_transition(RetentionClass::Diagnostic, reported_at, true);
         assert_eq!(transition.target_tier, StorageTier::Cold);
         assert_eq!(transition.cold_move_at, None);
     }

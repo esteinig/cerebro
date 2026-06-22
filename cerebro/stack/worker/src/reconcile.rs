@@ -104,7 +104,11 @@ pub fn find_dangling(
         .filter(|c| !c.archived)
         .filter(|c| !within_grace(c.created_at, grace, now))
         .filter(|c| !present_fids.contains(&c.fid))
-        .map(|c| DanglingRef { file_id: c.file_id.clone(), fid: c.fid.clone(), tier: c.tier.clone() })
+        .map(|c| DanglingRef {
+            file_id: c.file_id.clone(),
+            fid: c.fid.clone(),
+            tier: c.tier.clone(),
+        })
         .collect()
 }
 
@@ -132,7 +136,13 @@ mod tests {
     use super::*;
     use chrono::Duration;
 
-    fn cat(file_id: &str, fid: &str, age_days: Option<i64>, archived: bool, now: DateTime<Utc>) -> CatalogueRef {
+    fn cat(
+        file_id: &str,
+        fid: &str,
+        age_days: Option<i64>,
+        archived: bool,
+        now: DateTime<Utc>,
+    ) -> CatalogueRef {
         CatalogueRef {
             file_id: file_id.into(),
             fid: fid.into(),
@@ -162,10 +172,22 @@ mod tests {
     fn orphans_are_store_minus_catalogue_past_grace() {
         let now = Utc::now();
         let store = vec![
-            StoreObjectRef { key: "3,aaa".into(), modified_at: Some(now - Duration::days(10)) }, // catalogued
-            StoreObjectRef { key: "3,zzz".into(), modified_at: Some(now - Duration::days(10)) }, // ORPHAN
-            StoreObjectRef { key: "3,fresh".into(), modified_at: Some(now) },                    // too new -> skip
-            StoreObjectRef { key: "3,unknown".into(), modified_at: None },                       // ORPHAN (no grace)
+            StoreObjectRef {
+                key: "3,aaa".into(),
+                modified_at: Some(now - Duration::days(10)),
+            }, // catalogued
+            StoreObjectRef {
+                key: "3,zzz".into(),
+                modified_at: Some(now - Duration::days(10)),
+            }, // ORPHAN
+            StoreObjectRef {
+                key: "3,fresh".into(),
+                modified_at: Some(now),
+            }, // too new -> skip
+            StoreObjectRef {
+                key: "3,unknown".into(),
+                modified_at: None,
+            }, // ORPHAN (no grace)
         ];
         let catalogue_fids: HashSet<String> = ["3,aaa".to_string()].into_iter().collect();
         let orphans = find_orphans(&store, &catalogue_fids, Duration::days(1), now);
@@ -176,8 +198,12 @@ mod tests {
     #[test]
     fn within_grace_handles_known_and_unknown() {
         let now = Utc::now();
-        assert!(within_grace(Some(now), Duration::days(1), now));            // just now -> protected
-        assert!(!within_grace(Some(now - Duration::days(2)), Duration::days(1), now)); // old -> not
-        assert!(!within_grace(None, Duration::days(1), now));               // unknown -> not protected
+        assert!(within_grace(Some(now), Duration::days(1), now)); // just now -> protected
+        assert!(!within_grace(
+            Some(now - Duration::days(2)),
+            Duration::days(1),
+            now
+        )); // old -> not
+        assert!(!within_grace(None, Duration::days(1), now)); // unknown -> not protected
     }
 }

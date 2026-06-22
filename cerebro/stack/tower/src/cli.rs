@@ -1,16 +1,18 @@
-
-
-use cerebro_tower::{client::TowerClient, terminal::{App, Commands}, tower::{CerebroTower, NextflowConfig}, utils::init_logger};
+use anyhow::Result;
 use cerebro_client::client::CerebroClient;
 use cerebro_fs::client::FileSystemClient;
 use cerebro_fs::config::FsConfig;
+use cerebro_tower::{
+    client::TowerClient,
+    terminal::{App, Commands},
+    tower::{CerebroTower, NextflowConfig},
+    utils::init_logger,
+};
 use clap::Parser;
-use anyhow::Result;
 use tokio::main;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     init_logger();
 
     let cli = App::parse();
@@ -18,10 +20,8 @@ async fn main() -> Result<()> {
     match &cli.command {
         Commands::Slack(args) => {
             // Handle Slack command (implement your logic here)
-        },
+        }
         Commands::Watch(args) => {
-
-
             let client = TowerClient::new(
                 &cli.url,
                 cli.token.clone(),
@@ -62,22 +62,19 @@ async fn main() -> Result<()> {
             tokio::task::spawn_blocking(move || fs_for_ping.ping_status()).await??;
 
             let nextflow = NextflowConfig::new(
-                &args.main, 
-                &args.config, 
-                &args.workdir, 
+                &args.main,
+                &args.config,
+                &args.workdir,
                 &args.databases,
                 &args.profile,
-                args.cleanup
-            ).await?;
+                args.cleanup,
+            )
+            .await?;
 
-            let tower = CerebroTower::new(
-                client, 
-                nextflow,
-                fs_client,
-            )?;
+            let tower = CerebroTower::new(client, nextflow, fs_client)?;
 
             tower.watch(&args.tower_id, true).await?;
-        },
+        }
     }
 
     Ok(())

@@ -1,9 +1,11 @@
+use crate::api::{
+    teams::schema::{RegisterDatabaseSchema, RegisterProjectSchema, RegisterTeamSchema},
+    users::model::UserId,
+};
 use serde::{Deserialize, Serialize};
-use crate::api::{teams::schema::{RegisterDatabaseSchema, RegisterTeamSchema, RegisterProjectSchema}, users::model::UserId};
 
 // A type alias to better track user identifier
 pub type TeamId = String;
-
 
 pub enum TeamAdminCollection {
     Logs,
@@ -13,7 +15,7 @@ pub enum TeamAdminCollection {
     Towers,
     TrainingData,
     TrainingSessions,
-    AuditLogs
+    AuditLogs,
 }
 impl TeamAdminCollection {
     pub fn name(&self) -> String {
@@ -25,14 +27,14 @@ impl TeamAdminCollection {
             TeamAdminCollection::Towers => String::from("towers"),
             TeamAdminCollection::TrainingData => String::from("training_data"),
             TeamAdminCollection::TrainingSessions => String::from("training_sessions"),
-            TeamAdminCollection::AuditLogs => String::from("audit_logs")
+            TeamAdminCollection::AuditLogs => String::from("audit_logs"),
         }
     }
 }
 
-// A team that users can belong to - teams 
+// A team that users can belong to - teams
 // have access to specific MongoDB databases
-// A user can belong to multiple teams and 
+// A user can belong to multiple teams and
 // therefore access multiple MongoDB databases
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Team {
@@ -44,7 +46,7 @@ pub struct Team {
     // Administrative database for this team
     // stores collections of files, watchers,
     // pipelines etc.
-    pub admin: TeamDatabase
+    pub admin: TeamDatabase,
 }
 impl Team {
     pub fn from(schema: &RegisterTeamSchema) -> Team {
@@ -54,23 +56,28 @@ impl Team {
             description: schema.team_description.to_owned(),
             users: vec![schema.team_lead.to_owned()],
             databases: vec![TeamDatabase::from(&schema)],
-            admin: TeamDatabase::admin()
+            admin: TeamDatabase::admin(),
         }
     }
     pub fn database_name_exists(&self, db_name: &str) -> bool {
         self.databases.iter().any(|db| db.name == db_name)
     }
     pub fn project_name_exists(&self, db: &str, project_name: &str) -> bool {
-        self.databases.iter()
+        self.databases
+            .iter()
             .find(|database| database.name.as_str() == db || database.id.as_str() == db)
-            .is_some_and(|database| database.projects.iter()
-            .any(|project| project.name.as_str() == project_name))
+            .is_some_and(|database| {
+                database
+                    .projects
+                    .iter()
+                    .any(|project| project.name.as_str() == project_name)
+            })
     }
 }
 
 pub type DatabaseId = String;
 
-// TODO: ensure that `TeamDatabase.database` and 
+// TODO: ensure that `TeamDatabase.database` and
 // TODO: `ProjectCollection.collection` are unique
 
 // Specifications of the database that users
@@ -99,7 +106,7 @@ impl TeamDatabase {
             name: schema.database_name.to_owned(),
             description: schema.database_description.to_owned(),
             database: uuid,
-            projects: vec![ProjectCollection::default(&schema)]
+            projects: vec![ProjectCollection::default(&schema)],
         }
     }
     pub fn from_database_schema(schema: &RegisterDatabaseSchema) -> TeamDatabase {
@@ -114,8 +121,8 @@ impl TeamDatabase {
                 id: default_collection_uuid.clone(),
                 name: String::from("Data"),
                 description: String::from("Default data collection"),
-                collection: default_collection_uuid
-            }]
+                collection: default_collection_uuid,
+            }],
         }
     }
     pub fn admin() -> TeamDatabase {
@@ -133,16 +140,15 @@ impl TeamDatabase {
                 ProjectCollection::team_reports(),
                 ProjectCollection::team_training_data(),
                 ProjectCollection::team_training_sessions(),
-            ]
+            ],
         }
     }
 }
 
-
 pub type ProjectId = String;
 
 // Specifications of the project collection that
-// users can create and validate collections 
+// users can create and validate collections
 // strings faccording to MongoDB restrictions
 // on collection naming schemes
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -150,7 +156,7 @@ pub struct ProjectCollection {
     pub id: ProjectId,
     pub name: String,
     pub collection: String,
-    pub description: String
+    pub description: String,
 }
 impl ProjectCollection {
     pub fn default(schema: &RegisterTeamSchema) -> ProjectCollection {
@@ -158,7 +164,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: schema.project_name.to_owned(),
             description: schema.project_description.to_owned(),
-            collection: schema.project_mongo_name.to_owned()
+            collection: schema.project_mongo_name.to_owned(),
         }
     }
     pub fn from_project_schema(schema: &RegisterProjectSchema) -> ProjectCollection {
@@ -167,7 +173,7 @@ impl ProjectCollection {
             id: uuid.clone(),
             name: schema.project_name.to_owned(),
             description: schema.project_description.to_owned(),
-            collection: uuid
+            collection: uuid,
         }
     }
     pub fn team_files() -> ProjectCollection {
@@ -175,15 +181,17 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("Files"),
             description: String::from("File registrations for CerebroFS"),
-            collection: TeamAdminCollection::Files.name()
+            collection: TeamAdminCollection::Files.name(),
         }
     }
     pub fn team_watchers() -> ProjectCollection {
         ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("Watchers"),
-            description: String::from("Production watcher registrations for file uploads to CerebroFS"),
-            collection: TeamAdminCollection::Watchers.name()
+            description: String::from(
+                "Production watcher registrations for file uploads to CerebroFS",
+            ),
+            collection: TeamAdminCollection::Watchers.name(),
         }
     }
     pub fn team_pipelines() -> ProjectCollection {
@@ -191,7 +199,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("Pipelines"),
             description: String::from("Production pipeline registrations for Cerebro"),
-            collection: TeamAdminCollection::Towers.name()
+            collection: TeamAdminCollection::Towers.name(),
         }
     }
     pub fn team_logs() -> ProjectCollection {
@@ -199,7 +207,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("Logs"),
             description: String::from("Log entries for the team"),
-            collection: TeamAdminCollection::Logs.name()
+            collection: TeamAdminCollection::Logs.name(),
         }
     }
     pub fn team_reports() -> ProjectCollection {
@@ -207,7 +215,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("Reports"),
             description: String::from("Report storage for team independent of database"),
-            collection: TeamAdminCollection::Reports.name()
+            collection: TeamAdminCollection::Reports.name(),
         }
     }
     pub fn team_training_data() -> ProjectCollection {
@@ -215,7 +223,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("TrainingData"),
             description: String::from("Training prefetch data collection"),
-            collection: TeamAdminCollection::TrainingData.name()
+            collection: TeamAdminCollection::TrainingData.name(),
         }
     }
     pub fn team_training_sessions() -> ProjectCollection {
@@ -223,7 +231,7 @@ impl ProjectCollection {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::from("TrainingRecords"),
             description: String::from("Training session records collection"),
-            collection: TeamAdminCollection::TrainingSessions.name()
+            collection: TeamAdminCollection::TrainingSessions.name(),
         }
     }
 }

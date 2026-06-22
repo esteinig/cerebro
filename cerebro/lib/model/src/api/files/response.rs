@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::api::files::model::SeaweedFile;
+use serde::{Deserialize, Serialize};
 
 use super::model::FileTag;
 
@@ -7,28 +7,28 @@ use super::model::FileTag;
 pub struct RegisterFileResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<String>
+    pub data: Option<String>,
 }
 impl RegisterFileResponse {
     pub fn success(id: &str) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("File registered successfully"),
-            data: Some(id.to_string())
+            data: Some(id.to_string()),
         }
     }
     pub fn conflict(id: &str) -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("File with unique identifier already exists in database"),
-            data: Some(id.to_string())
+            data: Some(id.to_string()),
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database operation: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }
@@ -37,59 +37,58 @@ impl RegisterFileResponse {
 pub struct ListFilesResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<SeaweedFile>>
+    pub data: Option<Vec<SeaweedFile>>,
 }
 impl ListFilesResponse {
     pub fn success(files: Vec<SeaweedFile>) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("File entries found in database"),
-            data: Some(files)
+            data: Some(files),
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("No file entries found in database"),
-            data: None
+            data: None,
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct UpdateTagsResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<FileTag>>
+    pub data: Option<Vec<FileTag>>,
 }
 impl UpdateTagsResponse {
     pub fn success() -> Self {
         Self {
             status: String::from("success"),
             message: String::from("Tags updated for files"),
-            data: None
+            data: None,
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("Tags updated for files"),
-            data: None
+            data: None,
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }
@@ -111,15 +110,26 @@ pub struct ExpireResponse {
 }
 impl ExpireResponse {
     pub fn success(quarantined: u64, dry_run: bool) -> Self {
-        let verb = if dry_run { "eligible for quarantine" } else { "quarantined" };
+        let verb = if dry_run {
+            "eligible for quarantine"
+        } else {
+            "quarantined"
+        };
         Self {
             status: String::from("success"),
             message: format!("{} file(s) {}", quarantined, verb),
-            data: Some(ExpiryData { quarantined, dry_run }),
+            data: Some(ExpiryData {
+                quarantined,
+                dry_run,
+            }),
         }
     }
     pub fn server_error(error_message: String) -> Self {
-        Self { status: String::from("error"), message: format!("Error in database query: {}", error_message), data: None }
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None,
+        }
     }
 }
 
@@ -143,15 +153,27 @@ pub struct PurgeResponse {
 impl PurgeResponse {
     pub fn success(fids: Vec<String>, dry_run: bool) -> Self {
         let purged = fids.len() as u64;
-        let verb = if dry_run { "eligible for purge" } else { "purged" };
+        let verb = if dry_run {
+            "eligible for purge"
+        } else {
+            "purged"
+        };
         Self {
             status: String::from("success"),
             message: format!("{} file(s) {}", purged, verb),
-            data: Some(PurgeData { purged, fids, dry_run }),
+            data: Some(PurgeData {
+                purged,
+                fids,
+                dry_run,
+            }),
         }
     }
     pub fn server_error(error_message: String) -> Self {
-        Self { status: String::from("error"), message: format!("Error in database query: {}", error_message), data: None }
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None,
+        }
     }
 }
 
@@ -172,18 +194,27 @@ pub struct RestoreTransitionResponse {
     pub data: Option<RestoreTransitionData>,
 }
 impl RestoreTransitionResponse {
-    pub fn success(restore_state: crate::api::files::retention::RestoreState, restore_expires_at: Option<chrono::DateTime<chrono::Utc>>) -> Self {
+    pub fn success(
+        restore_state: crate::api::files::retention::RestoreState,
+        restore_expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Self {
         Self {
             status: String::from("success"),
             message: format!("Restore state is now {}", restore_state),
-            data: Some(RestoreTransitionData { restore_state, restore_expires_at }),
+            data: Some(RestoreTransitionData {
+                restore_state,
+                restore_expires_at,
+            }),
         }
     }
     pub fn noop(restore_state: crate::api::files::retention::RestoreState) -> Self {
         Self {
             status: String::from("success"),
             message: format!("Restore state already {}; no change", restore_state),
-            data: Some(RestoreTransitionData { restore_state, restore_expires_at: None }),
+            data: Some(RestoreTransitionData {
+                restore_state,
+                restore_expires_at: None,
+            }),
         }
     }
     pub fn invalid_transition(from: &str, to: &str) -> Self {
@@ -194,10 +225,18 @@ impl RestoreTransitionResponse {
         }
     }
     pub fn not_found(id: &str) -> Self {
-        Self { status: String::from("fail"), message: format!("No file found for id {}", id), data: None }
+        Self {
+            status: String::from("fail"),
+            message: format!("No file found for id {}", id),
+            data: None,
+        }
     }
     pub fn server_error(error_message: String) -> Self {
-        Self { status: String::from("error"), message: format!("Error in database query: {}", error_message), data: None }
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None,
+        }
     }
 }
 
@@ -226,10 +265,18 @@ impl AuditTrailResponse {
         }
     }
     pub fn not_found() -> Self {
-        Self { status: String::from("fail"), message: String::from("No audit events found"), data: None }
+        Self {
+            status: String::from("fail"),
+            message: String::from("No audit events found"),
+            data: None,
+        }
     }
     pub fn server_error(error_message: String) -> Self {
-        Self { status: String::from("error"), message: format!("Error in database query: {}", error_message), data: None }
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None,
+        }
     }
 }
 
@@ -242,13 +289,25 @@ pub struct GetFileResponse {
 }
 impl GetFileResponse {
     pub fn success(file: SeaweedFile) -> Self {
-        Self { status: String::from("success"), message: String::from("File retrieved"), data: Some(file) }
+        Self {
+            status: String::from("success"),
+            message: String::from("File retrieved"),
+            data: Some(file),
+        }
     }
     pub fn not_found(id: &str) -> Self {
-        Self { status: String::from("fail"), message: format!("No file found for id {}", id), data: None }
+        Self {
+            status: String::from("fail"),
+            message: format!("No file found for id {}", id),
+            data: None,
+        }
     }
     pub fn server_error(error_message: String) -> Self {
-        Self { status: String::from("error"), message: format!("Error in database query: {}", error_message), data: None }
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None,
+        }
     }
 }
 
@@ -273,14 +332,25 @@ impl ReportOutResponse {
         Self {
             status: String::from("success"),
             message: format!("Reported out {} file(s)", updated),
-            data: Some(ReportOutData { updated, reported_at }),
+            data: Some(ReportOutData {
+                updated,
+                reported_at,
+            }),
         }
     }
     pub fn not_found(run_id: &str) -> Self {
-        Self { status: String::from("fail"), message: format!("No files found for run {}", run_id), data: None }
+        Self {
+            status: String::from("fail"),
+            message: format!("No files found for run {}", run_id),
+            data: None,
+        }
     }
     pub fn server_error(error_message: String) -> Self {
-        Self { status: String::from("error"), message: format!("Error in database query: {}", error_message), data: None }
+        Self {
+            status: String::from("error"),
+            message: format!("Error in database query: {}", error_message),
+            data: None,
+        }
     }
 }
 
@@ -342,19 +412,18 @@ pub struct WeedUploadResponse {
     pub size: u64,
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct DeleteFileResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<SeaweedFile>
+    pub data: Option<SeaweedFile>,
 }
 impl DeleteFileResponse {
     pub fn success(file: SeaweedFile) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("File entries deleted from database"),
-            data: Some(file)
+            data: Some(file),
         }
     }
     /// Deletion refused because the file is under legal hold or still within its
@@ -364,38 +433,37 @@ impl DeleteFileResponse {
         Self {
             status: String::from("fail"),
             message: format!("File is protected from deletion: {}", reason),
-            data: None
+            data: None,
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("No file entries found in database"),
-            data: None
+            data: None,
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct DeleteFilesResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<String>>
+    pub data: Option<Vec<String>>,
 }
 impl DeleteFilesResponse {
     pub fn success(fids: Vec<String>) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("File entries deleted from database"),
-            data: Some(fids)
+            data: Some(fids),
         }
     }
     pub fn invalid_query() -> Self {
@@ -409,14 +477,14 @@ impl DeleteFilesResponse {
         Self {
             status: String::from("fail"),
             message: String::from("No file entries found in database"),
-            data: None
+            data: None,
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }

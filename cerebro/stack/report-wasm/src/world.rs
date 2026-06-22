@@ -1,22 +1,17 @@
 // Provides access to system resources and compiler functions
 
-
 use parking_lot::Mutex;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
-use chrono::{
-    DateTime, 
-    Datelike, 
-    Local
-};
+use chrono::{DateTime, Datelike, Local};
 
 use std::{
+    cell::OnceCell,
     collections::HashMap,
     path::{Path, PathBuf},
     sync::OnceLock,
-    cell::OnceCell
 };
 
 use typst::{
@@ -34,7 +29,6 @@ type SystemWorldError = JsValue;
 
 #[cfg(not(target_arch = "wasm32"))]
 type SystemWorldError = anyhow::Error;
-
 
 pub struct FileEntry {
     bytes: OnceCell<Bytes>,
@@ -130,14 +124,12 @@ pub struct SystemWorld {
 
     files: Mutex<HashMap<FileId, FileEntry>>,
     now: OnceLock<DateTime<Local>>,
-
 }
 
 impl SystemWorld {
     pub fn new(root: String) -> Result<SystemWorld, SystemWorldError> {
-
         let (book, fonts) = Self::start_embedded_fonts();
-        
+
         Ok(Self {
             root: PathBuf::from(root),
             main: FileId::new(None, VirtualPath::new("")),
@@ -149,8 +141,12 @@ impl SystemWorld {
         })
     }
 
-    pub fn compile(&mut self, text: String, vpath: String, report_logo: Option<Vec<u8>>) -> Result<Document, SystemWorldError> {
-
+    pub fn compile(
+        &mut self,
+        text: String,
+        vpath: String,
+        report_logo: Option<Vec<u8>>,
+    ) -> Result<Document, SystemWorldError> {
         // Check if this adds too much overhead
         if let Some(data) = report_logo {
             self.add_logo(data)?;
@@ -164,19 +160,16 @@ impl SystemWorld {
             .get_mut()
             .insert(self.main, FileEntry::new(self.main, text));
 
-        let document = typst::compile(self)
-            .output
-            .map_err(|_| {
+        let document = typst::compile(self).output.map_err(|_| {
+            #[cfg(target_arch = "wasm32")]
+            let err = JsValue::from("failed to compile document");
+            #[cfg(not(target_arch = "wasm32"))]
+            let err = anyhow::anyhow!("failed to compile document");
 
-                #[cfg(target_arch = "wasm32")]
-                let err = JsValue::from("failed to compile document");
-                #[cfg(not(target_arch = "wasm32"))]
-                let err = anyhow::anyhow!("failed to compile document");
+            // Deallocate sensitive data from virtual path memory on compilation error
+            self.reset();
 
-                // Deallocate sensitive data from virtual path memory on compilation error
-                self.reset();
-
-                err
+            err
         });
 
         // Deallocate sensitive data from virtual path memory after compilation of the document
@@ -187,13 +180,9 @@ impl SystemWorld {
 
     pub fn default_logo() -> Vec<u8> {
         include_bytes!("../logos/vidrl.png").to_vec()
-    }    
+    }
     pub fn add_logo(&mut self, data: Vec<u8>) -> Result<(), SystemWorldError> {
-
-        let logo_id = FileId::new(
-            None, 
-            VirtualPath::new("logo.png")
-        );
+        let logo_id = FileId::new(None, VirtualPath::new("logo.png"));
 
         let logo_bytes = Bytes::from(data);
 
@@ -204,10 +193,10 @@ impl SystemWorld {
 
         if let Err(_) = logo_entry.bytes.set(logo_bytes) {
             #[cfg(target_arch = "wasm32")]
-                let err = JsValue::from("failed to set logo bytes in OnceCell");
-                #[cfg(not(target_arch = "wasm32"))]
-                let err = anyhow::anyhow!("failed to set logo bytes in OnceCell");
-                return Err(err )
+            let err = JsValue::from("failed to set logo bytes in OnceCell");
+            #[cfg(not(target_arch = "wasm32"))]
+            let err = anyhow::anyhow!("failed to set logo bytes in OnceCell");
+            return Err(err);
         };
 
         self.files.lock().insert(logo_id, logo_entry);
@@ -229,18 +218,14 @@ impl SystemWorld {
         })
     }
 
-
     fn file_entry<F, T>(&self, id: FileId, f: F) -> FileResult<T>
     where
         F: FnOnce(&mut FileEntry) -> T,
     {
         let mut map = self.files.lock();
         if !map.contains_key(&id) {
-            let path = self.root.clone();    
-            let resolved_path = id
-                .vpath()
-                .resolve(&path)
-                .ok_or(FileError::AccessDenied)?;
+            let path = self.root.clone();
+            let resolved_path = id.vpath().resolve(&path).ok_or(FileError::AccessDenied)?;
 
             let text = self.read_file(&resolved_path)?;
 
@@ -261,7 +246,7 @@ impl SystemWorld {
             }
         }
         let embedded_fonts = get_embedded_fonts();
-        
+
         for data in embedded_fonts.all_fonts() {
             let buffer = Bytes::from_static(data);
             for font in Font::iter(buffer) {

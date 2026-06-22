@@ -10,7 +10,6 @@ Custom error definitions
 
 #[derive(Error, Debug)]
 pub enum WatcherError {
-    
     #[error(transparent)]
     CerebroClientError(#[from] cerebro_client::error::HttpClientError),
     #[error(transparent)]
@@ -19,7 +18,7 @@ pub enum WatcherError {
     CerebroSlackError(#[from] cerebro_model::slack::SlackError),
     #[error(transparent)]
     FileSystemClientError(#[from] cerebro_fs::error::FileSystemError),
-    
+
     #[error(transparent)]
     NotifyError(#[from] notify::Error),
     #[error(transparent)]
@@ -41,9 +40,8 @@ pub enum WatcherError {
     #[error("failed to detect latest 'Alignment' directory in: {0}")]
     InvalidLatestAlignmentDirectory(PathBuf),
 
-
     #[error("failed to create a watcher configuration - were all required arguments provided? (--name & --location & --format)")]
     InvalidWatcherConfigArgs,
     #[error("failed to create a watcher configuration - were all required arguments provided? (--id | --json)")]
-    WatcherIdentifierArgNotFound
+    WatcherIdentifierArgNotFound,
 }

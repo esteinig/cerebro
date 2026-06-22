@@ -1,61 +1,82 @@
+use crate::error::WorkflowError;
+use crate::utils::{
+    get_compression_writer, get_file_component, get_id, parse_fastx_file_with_check, FileComponent,
+};
 use itertools::Itertools;
 use memchr::memmem;
+use needletail::{parse_fastx_file, parser::write_fastq};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::{collections::{HashMap, HashSet}, fs::File, io::BufReader, path::PathBuf, str::from_utf8};
-use needletail::{parse_fastx_file, parser::write_fastq};
-use crate::utils::{get_compression_writer, get_file_component, get_id, parse_fastx_file_with_check, FileComponent};
-use crate::error::WorkflowError;
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    io::BufReader,
+    path::PathBuf,
+    str::from_utf8,
+};
 
-
-/// Implements a processing pipeline with initial sequence read processing and collapsing of 
+/// Implements a processing pipeline with initial sequence read processing and collapsing of
 /// unique molecular identifier (UMI) sequences from the NEB UNIQUE DUAL INDEX protocol, which
-/// is implemented in the Cerebro metagenomics Illumina sequencing assay. 
-/// 
-/// This pipeline assumes that the sample sheet for BCLConvert demultiplexing is configured 
+/// is implemented in the Cerebro metagenomics Illumina sequencing assay.
+///
+/// This pipeline assumes that the sample sheet for BCLConvert demultiplexing is configured
 /// to the correct threshold cycles. Using the UMI protocol on NextSeq, in this case the setting
 /// is: OverrideCycles,Y151;I8U12;I8;Y151
-/// 
-/// UMI sequence files (I1, I2) are produced by the demultiplexing, where `I1` contains the UMI sequences 
-/// lead by the index sequence (I8U12). `I2` can be discarded. Forward and reverse reads contain the UMI 
+///
+/// UMI sequence files (I1, I2) are produced by the demultiplexing, where `I1` contains the UMI sequences
+/// lead by the index sequence (I8U12). `I2` can be discarded. Forward and reverse reads contain the UMI
 /// sequence in the read identifier as the last field split by `:`
 
-pub struct Umi { 
+pub struct Umi {
     output_format: Option<niffler::compression::Format>,
-    compression_level: Option<niffler::compression::Level>
+    compression_level: Option<niffler::compression::Level>,
 }
 impl Umi {
-    pub fn new(output_format: Option<niffler::compression::Format>, compression_level: Option<niffler::compression::Level>) -> Self {
+    pub fn new(
+        output_format: Option<niffler::compression::Format>,
+        compression_level: Option<niffler::compression::Level>,
+    ) -> Self {
         Self {
             output_format,
-            compression_level
+            compression_level,
         }
     }
     // Trim head bases from UMI sequences in I1 read files (NEB Protocol I8U12)
-    pub fn trim_umi_index(&self, umi_fastq: &PathBuf, output: &PathBuf, head_trim: usize) -> Result<(), WorkflowError> {
-       
+    pub fn trim_umi_index(
+        &self,
+        umi_fastq: &PathBuf,
+        output: &PathBuf,
+        head_trim: usize,
+    ) -> Result<(), WorkflowError> {
         let mut reader = parse_fastx_file(umi_fastq)?;
-        let mut writer = get_compression_writer(output, &self.output_format, &self.compression_level)?;
-        
+        let mut writer =
+            get_compression_writer(output, &self.output_format, &self.compression_level)?;
+
         while let Some(record) = reader.next() {
             let rec = record?;
             let rec_len = rec.num_bases();
 
-            let qual = match rec.qual() { 
+            let qual = match rec.qual() {
                 Some(qual) => Some(&qual[head_trim..rec_len]),
-                None => return Err(WorkflowError::QualityScoresNotPresent)
+                None => return Err(WorkflowError::QualityScoresNotPresent),
             };
 
-            write_fastq(rec.id(), &rec.seq()[head_trim..rec_len], qual, &mut writer, rec.line_ending())?;
+            write_fastq(
+                rec.id(),
+                &rec.seq()[head_trim..rec_len],
+                qual,
+                &mut writer,
+                rec.line_ending(),
+            )?;
         }
         Ok(())
     }
     // Append the UMI sequence from the trimmed UMI fastq to the start of R1 reads (NEB Protocol I8U12) for testing Calib
-    pub fn prepare_calib(&self, fastq: &PathBuf, output: &PathBuf) -> Result<(), WorkflowError> {       
-        
+    pub fn prepare_calib(&self, fastq: &PathBuf, output: &PathBuf) -> Result<(), WorkflowError> {
         let mut reader = parse_fastx_file(fastq)?;
-        let mut writer = get_compression_writer(output, &self.output_format, &self.compression_level)?;
+        let mut writer =
+            get_compression_writer(output, &self.output_format, &self.compression_level)?;
 
         while let Some(record) = reader.next() {
             let rec = record?;
@@ -63,30 +84,44 @@ impl Umi {
 
             let mut umi_seq = match rec_id.split(":").collect::<Vec<&str>>().split_last() {
                 Some((last_field, _)) => last_field.to_string(),
-                None => return Err(WorkflowError::UmiFieldNotFound(rec_id))
+                None => return Err(WorkflowError::UmiFieldNotFound(rec_id)),
             };
-            // Calib does not take read quality into consideration, 
+            // Calib does not take read quality into consideration,
             // we can therefore just add some fake quality data:
             let umi_qual = String::from("C").repeat(umi_seq.len());
 
             umi_seq.push_str(from_utf8(&rec.seq())?);
-                    
-            let rec_qual = match rec.qual() { 
+
+            let rec_qual = match rec.qual() {
                 Some(qual) => qual,
-                None => return Err(WorkflowError::QualityScoresNotPresent)
+                None => return Err(WorkflowError::QualityScoresNotPresent),
             };
 
             let qual = [umi_qual.as_bytes(), rec_qual].concat();
 
-            write_fastq(rec.id(), &umi_seq.as_bytes(), Some(&qual), &mut writer, rec.line_ending())?;
+            write_fastq(
+                rec.id(),
+                &umi_seq.as_bytes(),
+                Some(&qual),
+                &mut writer,
+                rec.line_ending(),
+            )?;
         }
         Ok(())
     }
     /// Cluster sequences naively by their forward sequence (full length sequence - or trim the sequence to {head} base pairs from the start)
-    pub fn naive_dedup(&self, input: &Vec<PathBuf>, output: &Vec<PathBuf>, forward: &PathBuf, clusters: &Option<PathBuf>, prepend_umi: bool, umi_sep: &str, trim_head: Option<usize>) -> Result<DeduplicationReport, WorkflowError> {
-
+    pub fn naive_dedup(
+        &self,
+        input: &Vec<PathBuf>,
+        output: &Vec<PathBuf>,
+        forward: &PathBuf,
+        clusters: &Option<PathBuf>,
+        prepend_umi: bool,
+        umi_sep: &str,
+        trim_head: Option<usize>,
+    ) -> Result<DeduplicationReport, WorkflowError> {
         if !input.len() == output.len() {
-            return Err(WorkflowError::InputOutputFileMismatch)
+            return Err(WorkflowError::InputOutputFileMismatch);
         }
 
         let mut reader = parse_fastx_file(forward)?;
@@ -99,13 +134,15 @@ impl Umi {
 
             let seq = match prepend_umi {
                 true => {
-                    let mut umi_seq = match rec_id.split(umi_sep).collect::<Vec<&str>>().split_last() {  // split last component of identifier to get UMI
-                        Some((last_field, _)) => last_field.to_string(),
-                        None => "".to_string() // if there are no identifier sequences detected, prepend nothing to sequence - this means data without UMI and data with UMI in the same run can be processed together!
-                    };
+                    let mut umi_seq =
+                        match rec_id.split(umi_sep).collect::<Vec<&str>>().split_last() {
+                            // split last component of identifier to get UMI
+                            Some((last_field, _)) => last_field.to_string(),
+                            None => "".to_string(), // if there are no identifier sequences detected, prepend nothing to sequence - this means data without UMI and data with UMI in the same run can be processed together!
+                        };
                     let read_seq = rec.seq();
                     let read_seq = from_utf8(&read_seq)?;
-                    
+
                     let read_seq = match trim_head {
                         Some(bp) => {
                             if rec.num_bases() > bp {
@@ -113,31 +150,23 @@ impl Umi {
                             } else {
                                 read_seq
                             }
-                        },
-                        None => read_seq
+                        }
+                        None => read_seq,
                     };
                     umi_seq.push_str(read_seq);
                     umi_seq
                 }
-                false => {
-                    from_utf8(&rec.seq())?.to_string()
-                }
+                false => from_utf8(&rec.seq())?.to_string(),
             };
-            
 
-            naive_clusters.entry(seq)
-                .and_modify(|cluster| {
-                    cluster.push(
-                        NaiveClusterSequence::new(&rec_id, &rec.qual())
-                    )
-                })
-                .or_insert(Vec::from([
-                    NaiveClusterSequence::new(&rec_id, &rec.qual())
-                ]));
+            naive_clusters
+                .entry(seq)
+                .and_modify(|cluster| cluster.push(NaiveClusterSequence::new(&rec_id, &rec.qual())))
+                .or_insert(Vec::from([NaiveClusterSequence::new(&rec_id, &rec.qual())]));
 
             total_reads += 1;
         }
-        
+
         let mut total_clusters: usize = 0;
         let mut singleton_clusters: usize = 0;
         let mut cluster_records = Vec::new();
@@ -147,7 +176,7 @@ impl Umi {
             let cluster_size = reads.len();
 
             total_clusters += 1;
-            
+
             if cluster_size == 1 {
                 singleton_clusters += 1;
             };
@@ -156,21 +185,25 @@ impl Umi {
                 cluster_records.push(NaiveClusterRecord {
                     id: total_clusters.to_string(),
                     size: cluster_size,
-                    reads: reads.iter().map(|c| c.id.to_owned()).collect::<Vec<String>>().join(";")
+                    reads: reads
+                        .iter()
+                        .map(|c| c.id.to_owned())
+                        .collect::<Vec<String>>()
+                        .join(";"),
                 });
             }
 
-            let qualities = reads.iter().sorted_by(|a, b| {
-                b.mean_quality.partial_cmp(&a.mean_quality).unwrap() 
-            }).collect::<Vec<&NaiveClusterSequence>>();
-            
+            let qualities = reads
+                .iter()
+                .sorted_by(|a, b| b.mean_quality.partial_cmp(&a.mean_quality).unwrap())
+                .collect::<Vec<&NaiveClusterSequence>>();
+
             let best_read_mean_quality_forward = match qualities.first() {
                 Some(best_quality_record) => best_quality_record.id.clone(),
-                None => return Err(WorkflowError::CalibClusterPickNotAvailable)
+                None => return Err(WorkflowError::CalibClusterPickNotAvailable),
             };
 
             cluster_deduplicated_identifiers.insert(best_read_mean_quality_forward);
-
         }
         log::info!(
             "Detected {} naive clusters ({} singleton clusters) out of {} reads (retaining: {:.2} %)", 
@@ -178,7 +211,6 @@ impl Umi {
         );
 
         if let Some(file) = clusters {
-
             cluster_records.sort_by(|a, b| b.size.cmp(&a.size));
 
             let mut writer = csv::WriterBuilder::new()
@@ -192,39 +224,40 @@ impl Umi {
         }
 
         log::info!("Removing duplicated reads from input files");
-        let reports = input.par_iter().enumerate().map(|(idx, fq)| -> Result<DeduplicationReport, WorkflowError> {
-            
-            match parse_fastx_file_with_check(fq)? {
-                None => {
-                    log::warn!("Read file is empty: {}", fq.display());
-                    Ok(DeduplicationReport::default())
-                },
-                Some(mut reader) => {
-
-                    let mut writer = get_compression_writer(
-                        &output[idx], 
-                        &self.output_format, 
-                        &self.compression_level
-                    )?;
-                    
-                    let mut input_reads = 0;
-                    let mut output_reads = 0;
-                    while let Some(record) = reader.next() {
-                        let rec = record?;
-                        let rec_id = get_id(&rec.id())?;
-                        
-                        if cluster_deduplicated_identifiers.contains(&rec_id) {
-                            rec.write(&mut writer, None)?;
-                            output_reads += 1;
-                        }
-        
-                        input_reads += 1;
+        let reports = input
+            .par_iter()
+            .enumerate()
+            .map(|(idx, fq)| -> Result<DeduplicationReport, WorkflowError> {
+                match parse_fastx_file_with_check(fq)? {
+                    None => {
+                        log::warn!("Read file is empty: {}", fq.display());
+                        Ok(DeduplicationReport::default())
                     }
-                    Ok(DeduplicationReport::new(input_reads, output_reads))
-                }
-            }
+                    Some(mut reader) => {
+                        let mut writer = get_compression_writer(
+                            &output[idx],
+                            &self.output_format,
+                            &self.compression_level,
+                        )?;
 
-        }).collect::<Vec<_>>();
+                        let mut input_reads = 0;
+                        let mut output_reads = 0;
+                        while let Some(record) = reader.next() {
+                            let rec = record?;
+                            let rec_id = get_id(&rec.id())?;
+
+                            if cluster_deduplicated_identifiers.contains(&rec_id) {
+                                rec.write(&mut writer, None)?;
+                                output_reads += 1;
+                            }
+
+                            input_reads += 1;
+                        }
+                        Ok(DeduplicationReport::new(input_reads, output_reads))
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
 
         let mut report_data = Vec::new();
         for result in reports {
@@ -235,22 +268,34 @@ impl Umi {
         Ok(DeduplicationReport::from_vec(report_data))
     }
     /// Calib cluster assessment
-    pub fn calib_dedup(&self, fastq: &Vec<PathBuf>, output: &Vec<PathBuf>, calib_clusters: &PathBuf, summary: Option<PathBuf>, identifiers: Option<PathBuf>) -> Result<Vec<()>, WorkflowError> {
-
+    pub fn calib_dedup(
+        &self,
+        fastq: &Vec<PathBuf>,
+        output: &Vec<PathBuf>,
+        calib_clusters: &PathBuf,
+        summary: Option<PathBuf>,
+        identifiers: Option<PathBuf>,
+    ) -> Result<Vec<()>, WorkflowError> {
         if fastq.len() != output.len() {
-            return Err(WorkflowError::InputOutputFileMismatch)
+            return Err(WorkflowError::InputOutputFileMismatch);
         }
 
-        let mut reader = csv::ReaderBuilder::new().delimiter(b'\t').has_headers(false).from_path(&calib_clusters).unwrap();
+        let mut reader = csv::ReaderBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(false)
+            .from_path(&calib_clusters)
+            .unwrap();
         let mut clusters: HashMap<u64, Vec<CalibRecord>> = HashMap::new();
         let mut total_reads: usize = 0;
 
         for record in reader.deserialize() {
-            let rec: CalibClusterReportRecord = record.map_err(|err| WorkflowError::CalibClusterRecordNotValid(err))?;
+            let rec: CalibClusterReportRecord =
+                record.map_err(|err| WorkflowError::CalibClusterRecordNotValid(err))?;
 
-            clusters.entry(rec.cluster_id)
-                    .and_modify(|cluster| cluster.push(CalibRecord::from(&rec)))
-                    .or_insert(Vec::from([CalibRecord::from(&rec)]));
+            clusters
+                .entry(rec.cluster_id)
+                .and_modify(|cluster| cluster.push(CalibRecord::from(&rec)))
+                .or_insert(Vec::from([CalibRecord::from(&rec)]));
 
             total_reads += 1;
         }
@@ -271,32 +316,55 @@ impl Umi {
             cluster_records.push(CalibClusterRecord {
                 id: cluster_id.to_string(),
                 size: cluster_size,
-                reads: records.iter().map(|rec| rec.read_id.to_string()).collect::<Vec<String>>().join(";"),
-                read_quality: records.iter().map(|rec| rec.mean_quality_paired.to_string()).collect::<Vec<String>>().join(";")
+                reads: records
+                    .iter()
+                    .map(|rec| rec.read_id.to_string())
+                    .collect::<Vec<String>>()
+                    .join(";"),
+                read_quality: records
+                    .iter()
+                    .map(|rec| rec.mean_quality_paired.to_string())
+                    .collect::<Vec<String>>()
+                    .join(";"),
             });
 
-            let best_read_mean_quality_paired = match records.iter().sorted_by(|a, b| b.mean_quality_paired.partial_cmp(&a.mean_quality_paired).unwrap() ).collect::<Vec<&CalibRecord>>().first() {
+            let best_read_mean_quality_paired = match records
+                .iter()
+                .sorted_by(|a, b| {
+                    b.mean_quality_paired
+                        .partial_cmp(&a.mean_quality_paired)
+                        .unwrap()
+                })
+                .collect::<Vec<&CalibRecord>>()
+                .first()
+            {
                 Some(best_quality_record) => best_quality_record.read_id.clone(),
-                None => return Err(WorkflowError::CalibClusterPickNotAvailable)
+                None => return Err(WorkflowError::CalibClusterPickNotAvailable),
             };
 
             cluster_deduplicated_identifiers.insert(best_read_mean_quality_paired);
         }
 
         log::info!(
-            "Calib detected {} clusters ({} singleton) out of {} reads", 
-            &total_clusters, &singleton_clusters, &total_reads
+            "Calib detected {} clusters ({} singleton) out of {} reads",
+            &total_clusters,
+            &singleton_clusters,
+            &total_reads
         );
         log::info!(
-            "Deduplicated clusters retaining {} reads ({:.2} %)", 
-            &cluster_deduplicated_identifiers.len(), (cluster_deduplicated_identifiers.len() as f32/total_reads as f32)*100.
+            "Deduplicated clusters retaining {} reads ({:.2} %)",
+            &cluster_deduplicated_identifiers.len(),
+            (cluster_deduplicated_identifiers.len() as f32 / total_reads as f32) * 100.
         );
-
 
         if let Some(summary) = summary {
             log::info!("Writing cluster summary for Calib cluster output");
             cluster_records.sort_by(|a, b| b.size.cmp(&a.size));
-            let mut writer = csv::WriterBuilder::new().delimiter(b'\t').has_headers(true).from_path(&summary).unwrap();
+            let mut writer = csv::WriterBuilder::new()
+                .delimiter(b'\t')
+                .has_headers(true)
+                .from_path(&summary)
+                .unwrap();
             for cluster in cluster_records {
                 writer.serialize(&cluster).unwrap();
             }
@@ -304,79 +372,102 @@ impl Umi {
 
         if let Some(identifiers) = identifiers {
             log::info!("Writing deduplicated read identifiers to file");
-            let mut writer = csv::WriterBuilder::new().delimiter(b'\t').has_headers(false).from_path(&identifiers).unwrap();
+            let mut writer = csv::WriterBuilder::new()
+                .delimiter(b'\t')
+                .has_headers(false)
+                .from_path(&identifiers)
+                .unwrap();
             for read_id in &cluster_deduplicated_identifiers {
-                writer.serialize(&CalibDeduplicatedId { read_id: read_id.to_string() }).unwrap();
+                writer
+                    .serialize(&CalibDeduplicatedId {
+                        read_id: read_id.to_string(),
+                    })
+                    .unwrap();
             }
         }
 
         log::info!("Removing duplicated reads from input files");
-        
-        let result: Result<Vec<()>, WorkflowError> = fastq.par_iter().enumerate().map(|(idx, fq)| -> Result<(), WorkflowError> {
-            let mut reader = parse_fastx_file(fq)?;
-            let mut writer = get_compression_writer(&output[idx], &self.output_format, &self.compression_level)?;
-            
-            while let Some(record) = reader.next() {
-                let rec = record?;
-                let rec_id = get_id(&rec.id())?;
-                
-                if cluster_deduplicated_identifiers.contains(&rec_id) {
-                    rec.write(&mut writer, None)?;
+
+        let result: Result<Vec<()>, WorkflowError> = fastq
+            .par_iter()
+            .enumerate()
+            .map(|(idx, fq)| -> Result<(), WorkflowError> {
+                let mut reader = parse_fastx_file(fq)?;
+                let mut writer = get_compression_writer(
+                    &output[idx],
+                    &self.output_format,
+                    &self.compression_level,
+                )?;
+
+                while let Some(record) = reader.next() {
+                    let rec = record?;
+                    let rec_id = get_id(&rec.id())?;
+
+                    if cluster_deduplicated_identifiers.contains(&rec_id) {
+                        rec.write(&mut writer, None)?;
+                    }
                 }
-            }
-            Ok(())
-        }).collect();
+                Ok(())
+            })
+            .collect();
 
         result
-        
     }
     // Sanity check - is the UMI sequence still in the read or has it been trimmed off
-    pub fn check_umi_in_read(&self, fastq: &Vec<PathBuf>, output: &PathBuf) -> Result<(), WorkflowError> {
+    pub fn check_umi_in_read(
+        &self,
+        fastq: &Vec<PathBuf>,
+        output: &PathBuf,
+    ) -> Result<(), WorkflowError> {
+        let records: Result<Vec<CheckRecord>, WorkflowError> = fastq
+            .par_iter()
+            .map(|fq| -> Result<CheckRecord, WorkflowError> {
+                let name = get_file_component(fq, FileComponent::FileStem)?;
 
-        let records: Result<Vec<CheckRecord>, WorkflowError> = fastq.par_iter().map(|fq| -> Result<CheckRecord, WorkflowError> {
+                let mut reader = parse_fastx_file(fq)?;
 
-            let name = get_file_component(fq, FileComponent::FileStem)?;
-            
-            let mut reader = parse_fastx_file(fq)?;
+                let mut total_found: usize = 0;
+                let mut total_reads: usize = 0;
 
-            let mut total_found: usize = 0;
-            let mut total_reads: usize = 0;
+                while let Some(record) = reader.next() {
+                    let rec = record?;
 
-            while let Some(record) = reader.next() {
-                let rec = record?;
-    
-                let rec_id = get_id(&rec.id())?;
-                let umi_seq = match rec_id.split(':').last() {
-                    Some(umi_seq) => umi_seq.as_bytes(),
-                    None => return Err(WorkflowError::RecordIdentifierNotParsed)
-                };
-                
-                let found = memmem::find(&rec.seq(), umi_seq);
-    
-                if let Some(_) = found {
-                    total_found += 1;
-    
+                    let rec_id = get_id(&rec.id())?;
+                    let umi_seq = match rec_id.split(':').last() {
+                        Some(umi_seq) => umi_seq.as_bytes(),
+                        None => return Err(WorkflowError::RecordIdentifierNotParsed),
+                    };
+
+                    let found = memmem::find(&rec.seq(), umi_seq);
+
+                    if let Some(_) = found {
+                        total_found += 1;
+                    }
+                    total_reads += 1;
                 }
-                total_reads += 1;
-            }
-            Ok(CheckRecord {
-                file_name: name,
-                total_reads,
-                umi_in_read: total_found,
-                umi_in_read_percent: (total_found as f32 / total_reads as f32)*100.
+                Ok(CheckRecord {
+                    file_name: name,
+                    total_reads,
+                    umi_in_read: total_found,
+                    umi_in_read_percent: (total_found as f32 / total_reads as f32) * 100.,
+                })
             })
-        }).collect();
+            .collect();
 
         match records {
             Ok(mut records) => {
                 records.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-                let mut writer = csv::WriterBuilder::new().delimiter(b'\t').has_headers(true).from_path(&output).unwrap();
+                let mut writer = csv::WriterBuilder::new()
+                    .delimiter(b'\t')
+                    .has_headers(true)
+                    .from_path(&output)
+                    .unwrap();
                 for cluster in records {
                     writer.serialize(&cluster).unwrap();
                 }
                 Ok(())
-            },
-            Err(err) => Err(err)
+            }
+            Err(err) => Err(err),
         }
     }
 }
@@ -385,19 +476,19 @@ impl Umi {
 pub struct NaiveClusterRecord {
     id: String,
     size: usize,
-    reads: String
+    reads: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct NaiveClusterSequence {
     id: String,
-    mean_quality: f32
+    mean_quality: f32,
 }
 impl NaiveClusterSequence {
     pub fn new(rec_id: &String, rec_qual: &Option<&[u8]>) -> Self {
         Self {
             id: rec_id.to_owned(),
-            mean_quality: mean_qual(rec_qual.unwrap())
+            mean_quality: mean_qual(rec_qual.unwrap()),
         }
     }
 }
@@ -407,7 +498,7 @@ pub struct CalibClusterRecord {
     id: String,
     size: usize,
     reads: String,
-    read_quality: String
+    read_quality: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -415,51 +506,49 @@ pub struct CalibDeduplicatedId {
     read_id: String,
 }
 
-
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct CheckRecord {
     file_name: String,
     total_reads: usize,
     umi_in_read: usize,
-    umi_in_read_percent: f32
+    umi_in_read_percent: f32,
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CalibClusterReportRecord {
-   cluster_id: u64,
-   cluster_node: u64,
-   read_idx: u64,
-   read_id_fwd: String,
-   read_seq_fwd: String,
-   read_qual_fwd: String,
-   read_id_rev: String,
-   read_seq_rev: String,
-   read_qual_rev: String
+    cluster_id: u64,
+    cluster_node: u64,
+    read_idx: u64,
+    read_id_fwd: String,
+    read_seq_fwd: String,
+    read_qual_fwd: String,
+    read_id_rev: String,
+    read_seq_rev: String,
+    read_qual_rev: String,
 }
 #[allow(dead_code)]
 // Assumes same identifier of forward and reverse reads
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CalibRecord {
-   cluster: u64,
-   read_id: String,
-   mean_quality_forward: f32,
-   mean_quality_reverse: f32,
-   mean_quality_paired: f32,
+    cluster: u64,
+    read_id: String,
+    mean_quality_forward: f32,
+    mean_quality_reverse: f32,
+    mean_quality_paired: f32,
 }
 impl CalibRecord {
     pub fn from(cluster_record: &CalibClusterReportRecord) -> Self {
-
         let mean_q_fwd: f32 = mean_qual(cluster_record.read_qual_fwd.as_bytes());
         let mean_q_rev = mean_qual(cluster_record.read_qual_rev.as_bytes());
-        let mean_q_all = (mean_q_fwd+mean_q_rev) / 2.;
+        let mean_q_all = (mean_q_fwd + mean_q_rev) / 2.;
 
         Self {
             cluster: cluster_record.cluster_id,
-            read_id: cluster_record.read_id_fwd[1..].to_string(),  // uses fwd id, cluster ids retain @ from identifier, needs to be stripped
+            read_id: cluster_record.read_id_fwd[1..].to_string(), // uses fwd id, cluster ids retain @ from identifier, needs to be stripped
             mean_quality_forward: mean_q_fwd,
             mean_quality_reverse: mean_q_rev,
-            mean_quality_paired: mean_q_all
+            mean_quality_paired: mean_q_all,
         }
     }
 }
@@ -478,32 +567,28 @@ pub struct DeduplicationReport {
     pub input_reads: usize,
     pub output_reads: usize,
     pub deduplicated: usize,
-    pub deduplicated_percent: f64
+    pub deduplicated_percent: f64,
 }
 
 impl DeduplicationReport {
-    pub fn new(
-        input_reads: usize,
-        output_reads: usize
-    ) -> Self {
-
+    pub fn new(input_reads: usize, output_reads: usize) -> Self {
         let deduplicated = if input_reads - output_reads > 0 {
-            input_reads - output_reads 
+            input_reads - output_reads
         } else {
             0
         };
 
-        let deduplicated_percent = if input_reads > 0 { 
-            (deduplicated as f64 / input_reads as f64)*100.0
-        } else { 
-            0.0 
+        let deduplicated_percent = if input_reads > 0 {
+            (deduplicated as f64 / input_reads as f64) * 100.0
+        } else {
+            0.0
         };
 
         Self {
             input_reads,
             output_reads,
             deduplicated,
-            deduplicated_percent
+            deduplicated_percent,
         }
     }
     pub fn from_vec(reports: Vec<DeduplicationReport>) -> Self {
@@ -512,9 +597,9 @@ impl DeduplicationReport {
 
         for report in reports {
             input_reads += report.input_reads;
-            output_reads +=  report.output_reads;
+            output_reads += report.output_reads;
         }
-        
+
         Self::new(input_reads, output_reads)
     }
     pub fn from_json(path: &PathBuf) -> Result<Self, WorkflowError> {
@@ -535,7 +620,7 @@ impl Default for DeduplicationReport {
             input_reads: 0,
             output_reads: 0,
             deduplicated: 0,
-            deduplicated_percent: 0.0
+            deduplicated_percent: 0.0,
         }
     }
 }

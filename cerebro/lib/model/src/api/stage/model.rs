@@ -1,10 +1,11 @@
-use std::{fs::File, path::PathBuf};
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use serde::{Serialize, Deserialize};
+use std::{fs::File, path::PathBuf};
 
 use crate::api::towers::model::Pipeline;
-use crate::api::{cerebro::model::ModelError, files::model::SeaweedFile, towers::model::ProductionTower};
-
+use crate::api::{
+    cerebro::model::ModelError, files::model::SeaweedFile, towers::model::ProductionTower,
+};
 
 /*
 ========================
@@ -25,10 +26,9 @@ pub struct StagedSample {
     pub project: String,
     pub pipeline: Pipeline,
     pub tower: ProductionTower,
-    pub files: Vec<SeaweedFile>
+    pub files: Vec<SeaweedFile>,
 }
 impl StagedSample {
-
     pub fn from_json(path: &PathBuf) -> Result<Self, ModelError> {
         let mut file = File::open(path)?;
         let mut json_data = String::new();
@@ -37,7 +37,8 @@ impl StagedSample {
         Ok(schema)
     }
     pub fn to_json(&self, path: &PathBuf) -> Result<(), ModelError> {
-        let json_data = serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
+        let json_data =
+            serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
         let mut file = File::create(path)?;
         file.write_all(json_data.as_bytes())?;
 

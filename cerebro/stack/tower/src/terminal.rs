@@ -1,7 +1,7 @@
-use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
+use std::path::PathBuf;
 
-/// Cerebro: production file system watcher 
+/// Cerebro: production file system watcher
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 #[command(styles=get_styles())]
@@ -10,66 +10,42 @@ use clap::{Args, Parser, Subcommand};
 pub struct App {
     /// API URL
     #[clap(
-        long, 
-        short = 'u', 
-        default_value = "http://localhost:8080", 
+        long,
+        short = 'u',
+        default_value = "http://localhost:8080",
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
     /// API token - usually provided with CEREBRO_API_TOKEN
-    #[clap(
-        long, 
-        short = 'e', 
-        env = "CEREBRO_API_TOKEN",
-        hide_env_values = true
-    )]
+    #[clap(long, short = 'e', env = "CEREBRO_API_TOKEN", hide_env_values = true)]
     pub token: Option<String>,
     /// API token file - can be set from environment variable
-    #[clap(
-        long, 
-        short = 'f', 
-        env = "CEREBRO_API_TOKEN_FILE"
-    )]
+    #[clap(long, short = 'f', env = "CEREBRO_API_TOKEN_FILE")]
     pub token_file: Option<PathBuf>,
-    /// User team name or identifier for requests that require team specification 
-    #[clap(
-        long, 
-        short = 't', 
-        env = "CEREBRO_USER_TEAM",
-        hide_env_values = true
-    )]
+    /// User team name or identifier for requests that require team specification
+    #[clap(long, short = 't', env = "CEREBRO_USER_TEAM", hide_env_values = true)]
     pub team: Option<String>,
-    /// Team database name or identifier for requests that require database access 
-    #[clap(
-        long, 
-        short = 'd', 
-        env = "CEREBRO_USER_DB",
-        hide_env_values = true
-    )]
+    /// Team database name or identifier for requests that require database access
+    #[clap(long, short = 'd', env = "CEREBRO_USER_DB", hide_env_values = true)]
     pub db: Option<String>,
-    /// Team database project name or identifier for requests that require project access 
+    /// Team database project name or identifier for requests that require project access
     #[clap(
-        long, 
-        short = 'p', 
+        long,
+        short = 'p',
         env = "CEREBRO_USER_PROJECT",
         hide_env_values = true
     )]
     pub project: Option<String>,
     /// SeaweedFS master node address
     #[clap(
-        long, 
+        long,
         short = 'a',
-        default_value = "http://localhost", 
+        default_value = "http://localhost",
         env = "CEREBRO_FS_URL"
     )]
     pub fs_url: String,
     /// SeaweedFS master node port
-    #[clap(
-        long, 
-        short = 'm',
-        env = "CEREBRO_FS_PORT",
-        default_value = "9333", 
-    )]
+    #[clap(long, short = 'm', env = "CEREBRO_FS_PORT", default_value = "9333")]
     pub fs_port: String,
     /// SeaweedFS filer HTTP API base URL (path-addressed access)
     #[clap(
@@ -79,20 +55,12 @@ pub struct App {
     )]
     pub fs_filer_url: String,
     /// Object I/O access mode: weed (fid, default) or filer (path)
-    #[clap(
-        long,
-        value_enum,
-        env = "CEREBRO_FS_ACCESS",
-        default_value = "weed"
-    )]
+    #[clap(long, value_enum, env = "CEREBRO_FS_ACCESS", default_value = "weed")]
     pub fs_access: cerebro_fs::config::FsAccessMode,
     /// SSL certificate verification is ignored [DANGER]
-    #[clap(
-        long, 
-        env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE"
-    )]
+    #[clap(long, env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE")]
     pub danger_invalid_certificate: bool,
-    
+
     #[clap(subcommand)]
     pub command: Commands,
 }
@@ -102,7 +70,7 @@ pub enum Commands {
     /// Watch a file path with the provided configuration
     Watch(WatchArgs),
     /// Send a message to the provided Slack channel
-    Slack(SlackArgs)
+    Slack(SlackArgs),
 }
 
 #[derive(Debug, Args)]
@@ -126,13 +94,12 @@ pub struct WatchArgs {
     pub profile: Vec<String>,
 
     /// Working directory for pipeline executions
-    #[clap(long, short = 'w', default_value=".")]
+    #[clap(long, short = 'w', default_value = ".")]
     pub workdir: PathBuf,
     /// Cleanup pipeline execution directories of successful runs
     #[clap(long)]
     pub cleanup: bool,
 }
-
 
 #[derive(Debug, Args)]
 pub struct SlackArgs {
@@ -147,23 +114,20 @@ pub struct SlackArgs {
     pub token: String,
 }
 
-
 #[derive(Debug, Args)]
-pub struct GlobalOptions {
-}
-
+pub struct GlobalOptions {}
 
 pub fn get_styles() -> clap::builder::Styles {
-	clap::builder::Styles::styled()
-		.header(
-			anstyle::Style::new()
-				.bold()
-				.underline()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-		)
-		.literal(
-			anstyle::Style::new()
-				.bold()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-		)
+    clap::builder::Styles::styled()
+        .header(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
+        )
+        .literal(
+            anstyle::Style::new()
+                .bold()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
+        )
 }

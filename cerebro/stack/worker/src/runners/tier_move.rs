@@ -43,8 +43,8 @@ use serde_json::json;
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::retention::StorageTier;
-use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
 use cerebro_model::api::files::schema::FileRelocateSchema;
+use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
 use cerebro_model::api::files::telemetry::{TelemetryEvent, TelemetryOp, TelemetryOutcome};
 
 use crate::archive::archive_key_for;
@@ -89,8 +89,16 @@ pub struct TierMove {
 }
 
 impl TierMove {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
-        Self { ctx, metrics, archive }
+    pub fn new(
+        ctx: Arc<WorkerContext>,
+        metrics: Metrics,
+        archive: Option<ArchiveSettings>,
+    ) -> Self {
+        Self {
+            ctx,
+            metrics,
+            archive,
+        }
     }
 
     /// Physically archive a Cold-committed object to the cold store and repoint the
@@ -138,7 +146,8 @@ impl TierMove {
         };
         self.ctx
             .run_blocking(move || {
-                api.relocate_file(&id, &schema).map_err(|e| WorkerError::Api(e.to_string()))
+                api.relocate_file(&id, &schema)
+                    .map_err(|e| WorkerError::Api(e.to_string()))
             })
             .await?;
         Ok(())
@@ -156,7 +165,10 @@ impl TierMove {
             let api = api.clone();
             let id = id.clone();
             self.ctx
-                .run_blocking(move || api.get_file(&id).map_err(|e| WorkerError::Api(e.to_string())))
+                .run_blocking(move || {
+                    api.get_file(&id)
+                        .map_err(|e| WorkerError::Api(e.to_string()))
+                })
                 .await?
         };
         let current = file.tier;
@@ -181,7 +193,8 @@ impl TierMove {
                 .await
                 .map_err(|e| {
                     tracing::warn!(%id, "tier-move claim rejected/failed: {e}");
-                    self.metrics.record(&TelemetryEvent::rejected(TelemetryOp::TierMove));
+                    self.metrics
+                        .record(&TelemetryEvent::rejected(TelemetryOp::TierMove));
                     e
                 })?;
         }
@@ -426,13 +439,23 @@ impl TierMoveScan {
     /// Due = a warm-tier file whose recomputed `cold_move_at` has elapsed, not
     /// legally held, with no claim already in flight.
     fn is_due(file: &SeaweedFile, warm_days: i64, now: DateTime<Utc>) -> bool {
-        due(file.tier, file.legal_hold, file.pending_tier, file.reported_at, warm_days, now)
+        due(
+            file.tier,
+            file.legal_hold,
+            file.pending_tier,
+            file.reported_at,
+            warm_days,
+            now,
+        )
     }
 
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
         let args: TierMoveScanArgs = parse_args(&job)?;
         let api = self.ctx.api()?.clone();
-        let queue = args.queue.clone().unwrap_or_else(|| "lifecycle".to_string());
+        let queue = args
+            .queue
+            .clone()
+            .unwrap_or_else(|| "lifecycle".to_string());
         let now = Utc::now();
 
         let mut scanned = 0u64;
@@ -490,7 +513,12 @@ impl TierMoveScan {
                 // Faktory re-deliver it mid-flight.
                 match self
                     .ctx
-                    .enqueue("tier_move", job_args, &queue, Some(StdDuration::from_secs(3600)))
+                    .enqueue(
+                        "tier_move",
+                        job_args,
+                        &queue,
+                        Some(StdDuration::from_secs(3600)),
+                    )
                     .await
                 {
                     Ok(()) => enqueued += 1,
@@ -504,8 +532,11 @@ impl TierMoveScan {
         }
 
         tracing::info!(scanned, enqueued, target = ?args.target, "tier_move_scan complete");
-        self.metrics
-            .record(&TelemetryEvent::with_detail(TelemetryOp::TierMove, TelemetryOutcome::Success, "scan"));
+        self.metrics.record(&TelemetryEvent::with_detail(
+            TelemetryOp::TierMove,
+            TelemetryOutcome::Success,
+            "scan",
+        ));
         Ok(JobOutcome::Succeeded)
     }
 }
@@ -540,28 +571,70 @@ mod tests {
 
     #[test]
     fn due_warm_file_past_dwell_is_due() {
-        assert!(due(StorageTier::Warm, false, None, reported(400), 365, Utc::now()));
+        assert!(due(
+            StorageTier::Warm,
+            false,
+            None,
+            reported(400),
+            365,
+            Utc::now()
+        ));
     }
 
     #[test]
     fn warm_file_within_dwell_is_not_due() {
-        assert!(!due(StorageTier::Warm, false, None, reported(10), 365, Utc::now()));
+        assert!(!due(
+            StorageTier::Warm,
+            false,
+            None,
+            reported(10),
+            365,
+            Utc::now()
+        ));
     }
 
     #[test]
     fn legally_held_file_is_never_due() {
-        assert!(!due(StorageTier::Warm, true, None, reported(400), 365, Utc::now()));
+        assert!(!due(
+            StorageTier::Warm,
+            true,
+            None,
+            reported(400),
+            365,
+            Utc::now()
+        ));
     }
 
     #[test]
     fn already_claimed_file_is_not_re_enqueued() {
-        assert!(!due(StorageTier::Warm, false, Some(StorageTier::Cold), reported(400), 365, Utc::now()));
+        assert!(!due(
+            StorageTier::Warm,
+            false,
+            Some(StorageTier::Cold),
+            reported(400),
+            365,
+            Utc::now()
+        ));
     }
 
     #[test]
     fn non_warm_tiers_are_not_due() {
-        assert!(!due(StorageTier::Hot, false, None, reported(400), 365, Utc::now()));
-        assert!(!due(StorageTier::Cold, false, None, reported(400), 365, Utc::now()));
+        assert!(!due(
+            StorageTier::Hot,
+            false,
+            None,
+            reported(400),
+            365,
+            Utc::now()
+        ));
+        assert!(!due(
+            StorageTier::Cold,
+            false,
+            None,
+            reported(400),
+            365,
+            Utc::now()
+        ));
     }
 
     #[test]
@@ -584,26 +657,50 @@ mod tests {
     #[test]
     fn fresh_claim_is_not_stale() {
         let now = Utc::now();
-        assert!(!stale_claim(Some(StorageTier::Cold), Some(now), false, 3600, now));
+        assert!(!stale_claim(
+            Some(StorageTier::Cold),
+            Some(now),
+            false,
+            3600,
+            now
+        ));
     }
 
     #[test]
     fn old_claim_is_stale() {
         let now = Utc::now();
         let since = now - Duration::hours(2);
-        assert!(stale_claim(Some(StorageTier::Cold), Some(since), false, 3600, now));
+        assert!(stale_claim(
+            Some(StorageTier::Cold),
+            Some(since),
+            false,
+            3600,
+            now
+        ));
     }
 
     #[test]
     fn unaged_claim_without_pending_since_is_stale() {
         // pending_tier set but no pending_since (pre-#4 claim) -> treat as stale.
-        assert!(stale_claim(Some(StorageTier::Cold), None, false, 3600, Utc::now()));
+        assert!(stale_claim(
+            Some(StorageTier::Cold),
+            None,
+            false,
+            3600,
+            Utc::now()
+        ));
     }
 
     #[test]
     fn legally_held_claim_is_never_stale() {
         let now = Utc::now();
         let since = now - Duration::hours(5);
-        assert!(!stale_claim(Some(StorageTier::Cold), Some(since), true, 3600, now));
+        assert!(!stale_claim(
+            Some(StorageTier::Cold),
+            Some(since),
+            true,
+            3600,
+            now
+        ));
     }
 }

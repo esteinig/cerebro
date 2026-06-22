@@ -1,7 +1,6 @@
-
+use cerebro_model::api::cerebro::model::{CerebroId, RunId, SampleId, Tag, WorkflowId};
 use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use mongodb::bson::{doc, Document};
-use cerebro_model::api::cerebro::model::{SampleId, WorkflowId, CerebroId, RunId, Tag};
 
 /*
 ============================
@@ -9,14 +8,12 @@ MONGDB AGGREGATION PIPELINES
 ============================
 */
 
-
 pub fn get_matched_uuid_cerebro_pipeline(id: &CerebroId, taxa: &Option<bool>) -> Vec<Document> {
-    
-    let pipeline1= vec![
+    let pipeline1 = vec![
         doc! {
             "$match": {
                 "id": &id
-            }  
+            }
         },
         doc! {
             "$set": {
@@ -40,22 +37,18 @@ pub fn get_matched_uuid_cerebro_pipeline(id: &CerebroId, taxa: &Option<bool>) ->
     ];
 
     match taxa {
-        Some(value) => {
-            match value {
-                true => pipeline1,
-                false => pipeline2,
-            }
+        Some(value) => match value {
+            true => pipeline1,
+            false => pipeline2,
         },
-        None => pipeline1
+        None => pipeline1,
     }
-    
 }
-
 
 pub fn get_matched_id_taxa_cerebro_pipeline(
     ids: Option<Vec<CerebroId>>,
     date_range: Option<Vec<String>>,
-    run_ids: Option<Vec<String>>
+    run_ids: Option<Vec<String>>,
 ) -> Vec<Document> {
     let mut match_conditions = Document::new();
 
@@ -98,56 +91,52 @@ pub fn get_matched_id_taxa_cerebro_pipeline(
                 "id": 1,
                 "taxa": 1,
                 "name": 1,
-                "sample_tags": "$sample.tags", 
+                "sample_tags": "$sample.tags",
             }
         },
     ]
 }
 
-pub fn get_matched_taxa_summary_pipeline(sample_ids: &Vec<String>, run_ids: &Vec<String>, workflow_ids: &Vec<String>, workflow_names: &Vec<String>) -> Vec<Document> {
-
+pub fn get_matched_taxa_summary_pipeline(
+    sample_ids: &Vec<String>,
+    run_ids: &Vec<String>,
+    workflow_ids: &Vec<String>,
+    workflow_names: &Vec<String>,
+) -> Vec<Document> {
     let run_match_stage = match run_ids.is_empty() {
-        false => Some(
-            doc! {
-                "$match": {
-                    "run.id": { "$in": &run_ids}
-                },
+        false => Some(doc! {
+            "$match": {
+                "run.id": { "$in": &run_ids}
             },
-        ),
-        true => None
+        }),
+        true => None,
     };
 
     let sample_match_stage = match sample_ids.is_empty() {
-        false => Some(
-            doc! {
-                "$match": {
-                    "sample.id": { "$in": &sample_ids}
-                },
+        false => Some(doc! {
+            "$match": {
+                "sample.id": { "$in": &sample_ids}
             },
-        ),
-        true => None
+        }),
+        true => None,
     };
 
     let workflow_match_stage = match workflow_ids.is_empty() {
-        false => Some(
-            doc! {
-                "$match": {
-                    "workflow.id": { "$in": &workflow_ids}
-                },
+        false => Some(doc! {
+            "$match": {
+                "workflow.id": { "$in": &workflow_ids}
             },
-        ),
-        true => None
+        }),
+        true => None,
     };
 
     let workflow_name_match_stage = match workflow_names.is_empty() {
-        false => Some(
-            doc! {
-                "$match": {
-                    "workflow.name": { "$in": &workflow_names}
-                },
+        false => Some(doc! {
+            "$match": {
+                "workflow.name": { "$in": &workflow_names}
             },
-        ),
-        true => None
+        }),
+        true => None,
     };
 
     vec![
@@ -156,7 +145,7 @@ pub fn get_matched_taxa_summary_pipeline(sample_ids: &Vec<String>, run_ids: &Vec
         run_match_stage,
         sample_match_stage,
         Some(doc! {
-            
+
             "$project": {
                 "_id": 0,
                 "cerebro_id": "$id",
@@ -171,11 +160,13 @@ pub fn get_matched_taxa_summary_pipeline(sample_ids: &Vec<String>, run_ids: &Vec
                 "taxa": "$taxa"
             }
         }),
-    ].into_iter().flatten().collect()  // removes the optional matching stages
+    ]
+    .into_iter()
+    .flatten()
+    .collect() // removes the optional matching stages
 }
 
 // pub fn get_matched_id_sample_comments_pipeline(id: &Vec<CerebroId>) -> Vec<Document> {
-
 
 //     vec![
 //         doc! {
@@ -197,8 +188,15 @@ pub fn get_matched_taxa_summary_pipeline(sample_ids: &Vec<String>, run_ids: &Vec
 
 // }
 
-pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_tags: Vec<&str>, id: &Option<SampleId>, run: &Option<String>, workflow: &Option<String>, group: &Option<String>,) -> Vec<Document> {
-    
+pub fn get_paginated_sample_overview_pipeline(
+    page: &i64,
+    limit: &i64,
+    exclude_tags: Vec<&str>,
+    id: &Option<SampleId>,
+    run: &Option<String>,
+    workflow: &Option<String>,
+    group: &Option<String>,
+) -> Vec<Document> {
     let base_match = Some(doc! {
         "$match": {
             "sample.tags": {
@@ -213,7 +211,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 "sample.id": id_query
             }
         }),
-        None => None
+        None => None,
     };
     let group_match: Option<Document> = match group {
         Some(group_query) => Some(doc! {
@@ -223,7 +221,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 }
             }
         }),
-        None => None
+        None => None,
     };
 
     let run_match: Option<Document> = match run {
@@ -234,7 +232,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 }
             }
         }),
-        None => None
+        None => None,
     };
     let workflow_match = match workflow {
         Some(workflow_query) => Some(doc! {
@@ -244,7 +242,7 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 }
             }
         }),
-        None => None
+        None => None,
     };
 
     vec![
@@ -253,7 +251,6 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
         group_match,
         run_match,
         workflow_match,
-
         // Depending on the priority taxa selection (sample.priority) this might get large for memory?
         Some(doc! {
             "$project": {
@@ -291,22 +288,22 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
                 "tags": {
                     "$addToSet": "$sample.tags"
                 },
-                "groups": { 
+                "groups": {
                     "$addToSet": "$sample.sample_group"
                 },
-                "types": { 
+                "types": {
                     "$addToSet": "$sample.sample_type"
                 },
                 "reports": {
                     "$addToSet": "$sample.reports"
                 },
-                "priority": { 
-                    "$addToSet": "$sample.priority" // this should have only the common priority taxa for this sample due to adding to set - it does however not discriminate based on workflow 
+                "priority": {
+                    "$addToSet": "$sample.priority" // this should have only the common priority taxa for this sample due to adding to set - it does however not discriminate based on workflow
                 },
             }
         }),
         Some(doc! {
-            "$set": {  
+            "$set": {
                 "id": "$_id",
                 "_id": "$$REMOVE",
                 // Flatten nested fields
@@ -340,30 +337,30 @@ pub fn get_paginated_sample_overview_pipeline(page: &i64, limit: &i64, exclude_t
             // get limited
             "$limit": limit
         }),
-        
-    ].into_iter().flatten().collect()  // removes the optional matching stages
-
+    ]
+    .into_iter()
+    .flatten()
+    .collect() // removes the optional matching stages
 }
 
 pub fn get_matched_sample_overview_pipeline(id: &str, workflow: &Option<bool>) -> Vec<Document> {
-    
     let extract_stage = match workflow {
         Some(true) => {
             doc! {
                 "$group": {
                     "_id": "$sample.id",
-                    "workflows": { 
-                        "$addToSet": "$workflow" 
+                    "workflows": {
+                        "$addToSet": "$workflow"
                     }
                 }
             }
-        },
+        }
         _ => {
             doc! {
                 "$group": {
                     "_id": "$sample.id",
-                    "data": { 
-                        "$addToSet": "$$ROOT"  
+                    "data": {
+                        "$addToSet": "$$ROOT"
                     }
                 }
             }
@@ -389,14 +386,14 @@ pub fn get_matched_sample_overview_pipeline(id: &str, workflow: &Option<bool>) -
                 "id": "$_id",
                 "_id": "$$REMOVE",
             }
-        }
+        },
     ]
-
 }
 
-
-pub fn get_matched_sample_cerebro_notaxa_pipeline(id: &str, workflow: &Option<WorkflowId>) -> Vec<Document> {
-    
+pub fn get_matched_sample_cerebro_notaxa_pipeline(
+    id: &str,
+    workflow: &Option<WorkflowId>,
+) -> Vec<Document> {
     let match_stage = match workflow {
         Some(wf_id) => {
             doc! {
@@ -405,7 +402,7 @@ pub fn get_matched_sample_cerebro_notaxa_pipeline(id: &str, workflow: &Option<Wo
                     "workflow.id": &wf_id
                 }
             }
-        },
+        }
         _ => {
             doc! {
                 "$match": {
@@ -422,12 +419,15 @@ pub fn get_matched_sample_cerebro_notaxa_pipeline(id: &str, workflow: &Option<Wo
                 "_id": "$$REMOVE",
                 "taxa": "$$REMOVE"
             }
-        }
+        },
     ]
 }
 
-pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cerebro_ids: &Vec<String>, workflow: &Option<WorkflowId>) -> Vec<Document> {
-    
+pub fn get_matched_samples_cerebro_notaxa_pipeline(
+    sample_ids: &Vec<String>,
+    cerebro_ids: &Vec<String>,
+    workflow: &Option<WorkflowId>,
+) -> Vec<Document> {
     let match_stage = match workflow {
         Some(wf_id) => {
             match (sample_ids.is_empty(), cerebro_ids.is_empty()) {
@@ -438,7 +438,7 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                             "workflow.id": &wf_id
                         }
                     }
-                },
+                }
                 (true, false) => {
                     doc! {
                         "$match": {
@@ -446,11 +446,9 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                             "workflow.id": &wf_id
                         }
                     }
-                },
+                }
                 // If neither, return empty aggregate pipeline
-                (true, true) => {
-                    return vec![]
-                },
+                (true, true) => return vec![],
                 // If both use more specific model identifiers
                 (false, false) => {
                     doc! {
@@ -461,7 +459,7 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                     }
                 }
             }
-        },
+        }
         _ => {
             match (sample_ids.is_empty(), cerebro_ids.is_empty()) {
                 (false, true) => {
@@ -470,18 +468,18 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                             "sample.id": { "$in": &sample_ids }
                         }
                     }
-                },
+                }
                 (true, false) => {
                     doc! {
                         "$match": {
                             "id": { "$in": &cerebro_ids }
                         }
                     }
-                },
+                }
                 // If neither, match all documents
                 (true, true) => {
                     doc! { "$match": {} }
-                },
+                }
                 // If both use more specific model identifiers
                 (false, false) => {
                     doc! {
@@ -506,12 +504,14 @@ pub fn get_matched_samples_cerebro_notaxa_pipeline(sample_ids: &Vec<String>, cer
                 "workflow": "$workflow",
                 "control_taxa": { "$ifNull": [ "$control_taxa", null ] }
             }
-        }
+        },
     ]
 }
 
-pub fn get_matched_sample_ids_cerebro_pipeline(ids: &Vec<String>, workflow: &Option<WorkflowId>) -> Vec<Document> {
-    
+pub fn get_matched_sample_ids_cerebro_pipeline(
+    ids: &Vec<String>,
+    workflow: &Option<WorkflowId>,
+) -> Vec<Document> {
     let match_stage = match workflow {
         Some(wf_id) => {
             doc! {
@@ -520,7 +520,7 @@ pub fn get_matched_sample_ids_cerebro_pipeline(ids: &Vec<String>, workflow: &Opt
                     "workflow.id": &wf_id
                 }
             }
-        },
+        }
         _ => {
             doc! {
                 "$match": {
@@ -537,13 +537,16 @@ pub fn get_matched_sample_ids_cerebro_pipeline(ids: &Vec<String>, workflow: &Opt
                 "_id": 0,
                 "sample_id": "$sample.id"
             }
-        }
+        },
     ]
 }
 
-
-pub fn get_matched_workflow_cerebro_notaxa_pipeline(workflow: &str, runs: &Option<String>, tags: &Option<String>,  return_uuid: &Option<bool>) -> Vec<Document> {
-    
+pub fn get_matched_workflow_cerebro_notaxa_pipeline(
+    workflow: &str,
+    runs: &Option<String>,
+    tags: &Option<String>,
+    return_uuid: &Option<bool>,
+) -> Vec<Document> {
     let default = vec![
         doc! {
             "$match": {
@@ -559,31 +562,33 @@ pub fn get_matched_workflow_cerebro_notaxa_pipeline(workflow: &str, runs: &Optio
 
     let mut pipeline = match tags {
         Some(tag_str) => {
-            let include_tags = tag_str.split(",").map(|x| x.trim().to_string()).collect::<Vec<Tag>>();
-                vec![
-                    doc! {
-                        "$match": {
-                            "sample.tags": {
-                                "$in": include_tags
-                            }
-                        }
+            let include_tags = tag_str
+                .split(",")
+                .map(|x| x.trim().to_string())
+                .collect::<Vec<Tag>>();
+            vec![doc! {
+                "$match": {
+                    "sample.tags": {
+                        "$in": include_tags
                     }
-                ]
-        },
-        None => default
+                }
+            }]
+        }
+        None => default,
     };
 
     if let Some(run_str) = runs {
-        let include_runs = run_str.split(",").map(|x| x.trim().to_string()).collect::<Vec<RunId>>();
-            pipeline.push(
-                doc! {
-                    "$match": {
-                        "run.id" : {
-                            "$in": include_runs
-                        }
-                    }
+        let include_runs = run_str
+            .split(",")
+            .map(|x| x.trim().to_string())
+            .collect::<Vec<RunId>>();
+        pipeline.push(doc! {
+            "$match": {
+                "run.id" : {
+                    "$in": include_runs
                 }
-            )
+            }
+        })
     };
 
     if let Some(return_uuid) = return_uuid {

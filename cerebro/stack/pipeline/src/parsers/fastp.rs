@@ -2,9 +2,8 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use std::io::Write;
 use crate::error::WorkflowError;
-
+use std::io::Write;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FastpReport {
@@ -14,7 +13,7 @@ pub struct FastpReport {
     // May not be run with duplication option
     pub duplication: Option<Duplication>,
     #[serde(rename = "adapter_cutting")]
-    pub adapter: Option<Adapters>
+    pub adapter: Option<Adapters>,
 }
 
 impl FastpReport {
@@ -33,62 +32,61 @@ impl FastpReport {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Summary {
-    #[serde(rename = "fastp_version")] 
+    #[serde(rename = "fastp_version")]
     pub version: String,
-    #[serde(rename = "before_filtering")] 
+    #[serde(rename = "before_filtering")]
     pub before: ReadSummary,
-    #[serde(rename = "after_filtering")] 
-    pub after: ReadSummary
+    #[serde(rename = "after_filtering")]
+    pub after: ReadSummary,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReadSummary {
-    #[serde(rename = "total_reads")] 
+    #[serde(rename = "total_reads")]
     pub reads: u64,
-    #[serde(rename = "total_bases")] 
+    #[serde(rename = "total_bases")]
     pub bases: u64,
-    #[serde(rename = "q20_rate")] 
+    #[serde(rename = "q20_rate")]
     pub q20: f64,
-    #[serde(rename = "q30_rate")] 
+    #[serde(rename = "q30_rate")]
     pub q30: f64,
-    #[serde(rename = "read1_mean_length")] 
+    #[serde(rename = "read1_mean_length")]
     pub mean_length_r1: u64,
-    #[serde(rename = "read2_mean_length")] 
+    #[serde(rename = "read2_mean_length")]
     pub mean_length_r2: u64,
-    #[serde(rename = "gc_content")] 
-    pub gc: f64
+    #[serde(rename = "gc_content")]
+    pub gc: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Filter {
-    #[serde(rename = "passed_filter_reads")] 
+    #[serde(rename = "passed_filter_reads")]
     pub pass_filter: u64,
-    #[serde(rename = "low_quality_reads")] 
+    #[serde(rename = "low_quality_reads")]
     pub low_quality: u64,
-    #[serde(rename = "low_complexity_reads")] 
-    pub low_complexity:  Option<u64>,
-    #[serde(rename = "too_many_N_reads")] 
+    #[serde(rename = "low_complexity_reads")]
+    pub low_complexity: Option<u64>,
+    #[serde(rename = "too_many_N_reads")]
     pub min_missing: u64,
-    #[serde(rename = "too_short_reads")] 
+    #[serde(rename = "too_short_reads")]
     pub min_length: u64,
-    #[serde(rename = "too_long_reads")] 
-    pub max_length: u64
+    #[serde(rename = "too_long_reads")]
+    pub max_length: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Duplication {
-    pub rate: f64
+    pub rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Adapters {
-    #[serde(rename = "adapter_trimmed_reads")] 
+    #[serde(rename = "adapter_trimmed_reads")]
     pub total_reads: u64,
-    #[serde(rename = "adapter_trimmed_bases")] 
+    #[serde(rename = "adapter_trimmed_bases")]
     pub total_bases: u64,
-    #[serde(rename = "read1_adapter_sequence")] 
+    #[serde(rename = "read1_adapter_sequence")]
     pub sequence_r1: String,
-    #[serde(rename = "read2_adapter_sequence")] 
-    pub sequence_r2: String
+    #[serde(rename = "read2_adapter_sequence")]
+    pub sequence_r2: String,
 }
-

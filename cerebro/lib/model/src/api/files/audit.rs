@@ -56,7 +56,10 @@ pub struct AuditActor {
 }
 impl AuditActor {
     pub fn system() -> Self {
-        Self { id: String::from("system"), email: String::from("system") }
+        Self {
+            id: String::from("system"),
+            email: String::from("system"),
+        }
     }
 }
 

@@ -36,8 +36,16 @@ pub struct CatalogueBackup {
 }
 
 impl CatalogueBackup {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, settings: Option<BackupSettings>) -> Self {
-        Self { ctx, metrics, settings }
+    pub fn new(
+        ctx: Arc<WorkerContext>,
+        metrics: Metrics,
+        settings: Option<BackupSettings>,
+    ) -> Self {
+        Self {
+            ctx,
+            metrics,
+            settings,
+        }
     }
 
     async fn run_inner(&self, _job: Job) -> anyhow::Result<()> {
@@ -50,17 +58,19 @@ impl CatalogueBackup {
 
         // 1. chain-verify-before (best-effort): record the audit-chain state.
         let (audit_event_count, audit_chain_verified) = match self.ctx.api() {
-            Ok(api) => match tokio::task::spawn_blocking(move || api.get_audit_trail(None, None)).await {
-                Ok(Ok((events, verified))) => (events.len(), Some(verified)),
-                Ok(Err(e)) => {
-                    tracing::warn!("audit chain check failed; recording as unknown: {e}");
-                    (0, None)
+            Ok(api) => {
+                match tokio::task::spawn_blocking(move || api.get_audit_trail(None, None)).await {
+                    Ok(Ok((events, verified))) => (events.len(), Some(verified)),
+                    Ok(Err(e)) => {
+                        tracing::warn!("audit chain check failed; recording as unknown: {e}");
+                        (0, None)
+                    }
+                    Err(e) => {
+                        tracing::warn!("audit chain check task failed; recording as unknown: {e}");
+                        (0, None)
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("audit chain check task failed; recording as unknown: {e}");
-                    (0, None)
-                }
-            },
+            }
             Err(e) => {
                 tracing::warn!("API client unavailable for audit chain check: {e}");
                 (0, None)
@@ -132,8 +142,14 @@ impl CatalogueBackup {
             Utc::now(),
         );
         for b in &stale {
-            store.delete(&format!("{}/{}/catalogue.archive.gz", settings.prefix, b.backup_id))?;
-            store.delete(&format!("{}/{}/manifest.json", settings.prefix, b.backup_id))?;
+            store.delete(&format!(
+                "{}/{}/catalogue.archive.gz",
+                settings.prefix, b.backup_id
+            ))?;
+            store.delete(&format!(
+                "{}/{}/manifest.json",
+                settings.prefix, b.backup_id
+            ))?;
         }
 
         tracing::info!(

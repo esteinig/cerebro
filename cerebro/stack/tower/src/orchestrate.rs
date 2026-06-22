@@ -90,12 +90,18 @@ fn load_provenance(dir: &Path) -> ManifestProvenance {
         .unwrap_or_default();
 
     if provenance.tool_versions.is_empty() {
-        if let Some(versions) = dirs.iter().find_map(|d| read_tool_versions(&d.join("tool_versions.tsv"))) {
+        if let Some(versions) = dirs
+            .iter()
+            .find_map(|d| read_tool_versions(&d.join("tool_versions.tsv")))
+        {
             provenance.tool_versions = versions;
         }
     }
     if provenance.reference_dbs.is_empty() {
-        if let Some(dbs) = dirs.iter().find_map(|d| read_reference_dbs(&d.join("reference_dbs.tsv"))) {
+        if let Some(dbs) = dirs
+            .iter()
+            .find_map(|d| read_reference_dbs(&d.join("reference_dbs.tsv")))
+        {
             provenance.reference_dbs = dbs;
         }
     }
@@ -113,10 +119,21 @@ fn read_tool_versions(path: &Path) -> Option<Vec<ToolVersion>> {
             let mut it = line.splitn(2, '\t');
             let name = it.next()?.trim();
             let version = it.next().unwrap_or("").trim();
-            if name.is_empty() { None } else { Some(ToolVersion { name: name.to_string(), version: version.to_string() }) }
+            if name.is_empty() {
+                None
+            } else {
+                Some(ToolVersion {
+                    name: name.to_string(),
+                    version: version.to_string(),
+                })
+            }
         })
         .collect();
-    if versions.is_empty() { None } else { Some(versions) }
+    if versions.is_empty() {
+        None
+    } else {
+        Some(versions)
+    }
 }
 
 /// Parse a `name<TAB>version[<TAB>hash]` TSV into [`ReferenceDb`] entries (`None`
@@ -129,11 +146,26 @@ fn read_reference_dbs(path: &Path) -> Option<Vec<ReferenceDb>> {
             let mut it = line.split('\t');
             let name = it.next()?.trim();
             let version = it.next().unwrap_or("").trim();
-            let hash = it.next().map(|h| h.trim().to_string()).filter(|h| !h.is_empty());
-            if name.is_empty() { None } else { Some(ReferenceDb { name: name.to_string(), version: version.to_string(), hash }) }
+            let hash = it
+                .next()
+                .map(|h| h.trim().to_string())
+                .filter(|h| !h.is_empty());
+            if name.is_empty() {
+                None
+            } else {
+                Some(ReferenceDb {
+                    name: name.to_string(),
+                    version: version.to_string(),
+                    hash,
+                })
+            }
         })
         .collect();
-    if dbs.is_empty() { None } else { Some(dbs) }
+    if dbs.is_empty() {
+        None
+    } else {
+        Some(dbs)
+    }
 }
 
 /// Capture a completed run's outputs and provenance into cerebro-fs, then return
@@ -146,9 +178,11 @@ pub async fn finalize_run(
     execution_dir: PathBuf,
     staged_samples: Vec<StagedSample>,
 ) -> Result<FinalizeReport, TowerError> {
-    tokio::task::spawn_blocking(move || finalize_run_blocking(&fs_client, &execution_dir, &staged_samples))
-        .await
-        .map_err(|e| TowerError::Finalize(format!("capture task panicked: {e}")))?
+    tokio::task::spawn_blocking(move || {
+        finalize_run_blocking(&fs_client, &execution_dir, &staged_samples)
+    })
+    .await
+    .map_err(|e| TowerError::Finalize(format!("capture task panicked: {e}")))?
 }
 
 fn finalize_run_blocking(
@@ -156,7 +190,6 @@ fn finalize_run_blocking(
     execution_dir: &Path,
     staged_samples: &[StagedSample],
 ) -> Result<FinalizeReport, TowerError> {
-
     let upload_config = UploadConfig {
         retention_policy: RetentionPolicy::from_env(),
         ..UploadConfig::default()
@@ -168,15 +201,28 @@ fn finalize_run_blocking(
     let mut failures = Vec::new();
 
     for run_id in &run_ids {
-        let run_samples: Vec<&StagedSample> = staged_samples.iter().filter(|s| &s.run_id == run_id).collect();
+        let run_samples: Vec<&StagedSample> = staged_samples
+            .iter()
+            .filter(|s| &s.run_id == run_id)
+            .collect();
 
         // Per-sample capture where a per-sample output subdirectory exists.
         let mut captured_per_sample = false;
         for sample in &run_samples {
             let sample_dir = execution_dir.join(&sample.sample_id);
             if sample_dir.is_dir() {
-                match capture_target(fs_client, &sample_dir, run_id, Some(&sample.sample_id), &rules, &upload_config) {
-                    Ok(()) => { captured += 1; captured_per_sample = true; }
+                match capture_target(
+                    fs_client,
+                    &sample_dir,
+                    run_id,
+                    Some(&sample.sample_id),
+                    &rules,
+                    &upload_config,
+                ) {
+                    Ok(()) => {
+                        captured += 1;
+                        captured_per_sample = true;
+                    }
                     Err(e) => failures.push(format!("{}/{}: {}", run_id, sample.sample_id, e)),
                 }
             }
@@ -184,14 +230,25 @@ fn finalize_run_blocking(
 
         // Otherwise capture the whole execution directory once under the run.
         if !captured_per_sample {
-            match capture_target(fs_client, execution_dir, run_id, None, &rules, &upload_config) {
+            match capture_target(
+                fs_client,
+                execution_dir,
+                run_id,
+                None,
+                &rules,
+                &upload_config,
+            ) {
                 Ok(()) => captured += 1,
                 Err(e) => failures.push(format!("{}: {}", run_id, e)),
             }
         }
     }
 
-    Ok(FinalizeReport { runs: run_ids.len(), captured, failures })
+    Ok(FinalizeReport {
+        runs: run_ids.len(),
+        captured,
+        failures,
+    })
 }
 
 /// Capture one target directory and seal+store its provenance manifest.
@@ -203,7 +260,6 @@ fn capture_target(
     rules: &[CaptureRule],
     upload_config: &UploadConfig,
 ) -> Result<(), TowerError> {
-
     let report = fs_client.capture_outputs(
         Some(run_id.to_string()),
         sample_id.map(String::from),
@@ -214,7 +270,9 @@ fn capture_target(
     )?;
     if !report.ok() {
         return Err(TowerError::Finalize(format!(
-            "{} of {} file(s) failed to capture", report.failed(), report.outcomes.len()
+            "{} of {} file(s) failed to capture",
+            report.failed(),
+            report.outcomes.len()
         )));
     }
 
@@ -237,14 +295,25 @@ mod tests {
     #[test]
     fn distinct_in_order_dedupes_first_seen() {
         let ids = vec!["RUN2".to_string(), "RUN1".to_string(), "RUN2".to_string()];
-        assert_eq!(distinct_in_order(ids.into_iter()), vec!["RUN2".to_string(), "RUN1".to_string()]);
+        assert_eq!(
+            distinct_in_order(ids.into_iter()),
+            vec!["RUN2".to_string(), "RUN1".to_string()]
+        );
     }
 
     #[test]
     fn report_ok_only_without_failures() {
-        let ok = FinalizeReport { runs: 1, captured: 1, failures: vec![] };
+        let ok = FinalizeReport {
+            runs: 1,
+            captured: 1,
+            failures: vec![],
+        };
         assert!(ok.ok());
-        let bad = FinalizeReport { runs: 1, captured: 0, failures: vec!["x".into()] };
+        let bad = FinalizeReport {
+            runs: 1,
+            captured: 0,
+            failures: vec!["x".into()],
+        };
         assert!(!bad.ok());
     }
 }

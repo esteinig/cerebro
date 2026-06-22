@@ -1,15 +1,15 @@
-use std::collections::HashMap;
-use std::io::Write;
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
 use cerebro_client::client::CerebroClient;
 use cerebro_fs::client::UploadConfig;
-use cerebro_model::api::watchers::model::{WatcherFormat, ProductionWatcher};
+use cerebro_model::api::watchers::model::{ProductionWatcher, WatcherFormat};
 use cerebro_model::api::watchers::schema::RegisterWatcherSchema;
 use cerebro_model::slack::SlackConfig;
-use env_logger::Builder;
 use env_logger::fmt::Color;
-use log::{LevelFilter, Level};
+use env_logger::Builder;
+use log::{Level, LevelFilter};
+use std::collections::HashMap;
+use std::ffi::OsStr;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use crate::error::WatcherError;
 use crate::terminal::WatchArgs;
@@ -42,7 +42,6 @@ impl StringUtils for String {
     }
 }
 
-
 pub trait UuidUtils {
     fn shorten(&self, len: usize) -> String;
 }
@@ -54,7 +53,6 @@ impl UuidUtils for uuid::Uuid {
 }
 
 pub fn init_logger() {
-
     Builder::new()
         .format(|buf, record| {
             let timestamp = buf.timestamp();
@@ -66,16 +64,35 @@ pub fn init_logger() {
             let mut white_style = buf.style();
             white_style.set_color(Color::White).set_bold(false);
             let mut orange_style = buf.style();
-            orange_style.set_color(Color::Rgb(255, 102, 0)).set_bold(true);
+            orange_style
+                .set_color(Color::Rgb(255, 102, 0))
+                .set_bold(true);
             let mut apricot_style = buf.style();
-            apricot_style.set_color(Color::Rgb(255, 195, 0)).set_bold(true);
+            apricot_style
+                .set_color(Color::Rgb(255, 195, 0))
+                .set_bold(true);
 
-            let msg = match record.level(){
-                Level::Warn => (orange_style.value(record.level()), orange_style.value(record.args())),
-                Level::Info => (green_style.value(record.level()), white_style.value(record.args())),
-                Level::Debug => (apricot_style.value(record.level()), apricot_style.value(record.args())),
-                Level::Error => (red_style.value(record.level()), red_style.value(record.args())),
-                _ => (white_style.value(record.level()), white_style.value(record.args()))
+            let msg = match record.level() {
+                Level::Warn => (
+                    orange_style.value(record.level()),
+                    orange_style.value(record.args()),
+                ),
+                Level::Info => (
+                    green_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
+                Level::Debug => (
+                    apricot_style.value(record.level()),
+                    apricot_style.value(record.args()),
+                ),
+                Level::Error => (
+                    red_style.value(record.level()),
+                    red_style.value(record.args()),
+                ),
+                _ => (
+                    white_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
             };
 
             writeln!(
@@ -91,7 +108,7 @@ pub fn init_logger() {
 }
 
 pub trait WatcherSlackArgs {
-    fn from_args(watch_args: &WatchArgs)-> Option<Self>
+    fn from_args(watch_args: &WatchArgs) -> Option<Self>
     where
         Self: Sized;
 }
@@ -99,9 +116,10 @@ pub trait WatcherSlackArgs {
 impl WatcherSlackArgs for SlackConfig {
     fn from_args(watch_args: &WatchArgs) -> Option<Self> {
         match (&watch_args.slack_channel, &watch_args.slack_token) {
-            (Some(channel), Some(token)) => Some(
-                SlackConfig { channel: channel.to_string(), token: token.to_string() }
-            ),
+            (Some(channel), Some(token)) => Some(SlackConfig {
+                channel: channel.to_string(),
+                token: token.to_string(),
+            }),
             _ => {
                 log::info!("Slack channel and token configuration not provided for this watcher");
                 None
@@ -111,12 +129,17 @@ impl WatcherSlackArgs for SlackConfig {
 }
 
 pub trait WatcherConfigArgs {
-    fn from_args(watch_args: &WatchArgs, api_client: &CerebroClient) -> Result<ProductionWatcher, WatcherError>;
+    fn from_args(
+        watch_args: &WatchArgs,
+        api_client: &CerebroClient,
+    ) -> Result<ProductionWatcher, WatcherError>;
 }
 
 impl WatcherConfigArgs for ProductionWatcher {
-    fn from_args(watch_args: &WatchArgs, api_client: &CerebroClient) -> Result<ProductionWatcher, WatcherError> {
-
+    fn from_args(
+        watch_args: &WatchArgs,
+        api_client: &CerebroClient,
+    ) -> Result<ProductionWatcher, WatcherError> {
         let registered_provided = watch_args.id.is_some() || watch_args.json.is_some();
 
         let new_provided = watch_args.name.is_some()
@@ -130,18 +153,14 @@ impl WatcherConfigArgs for ProductionWatcher {
                 let watcher_id = match (watch_args.json.clone(), watch_args.id.clone()) {
                     (Some(path), _) => RegisterWatcherSchema::from_json(&path)?.id,
                     (None, Some(id)) => id.to_owned(),
-                    (None, None) => return Err(WatcherError::WatcherIdentifierArgNotFound)
+                    (None, None) => return Err(WatcherError::WatcherIdentifierArgNotFound),
                 };
 
-                let watchers = api_client.list_watchers(
-                     Some(watcher_id), 
-                     false
-                )?;
+                let watchers = api_client.list_watchers(Some(watcher_id), false)?;
 
                 // With the optional identifier, the call returns a single item
                 Ok(watchers[0].clone())
-
-            },
+            }
             (false, true) => {
                 log::info!("New watcher arguments provided, registering watcher...");
 
@@ -149,28 +168,21 @@ impl WatcherConfigArgs for ProductionWatcher {
                     &watch_args.name.clone().unwrap(),
                     &watch_args.location.clone().unwrap(),
                     watch_args.format.clone().unwrap(),
-                    watch_args.glob.clone()
+                    watch_args.glob.clone(),
                 );
 
-                api_client.register_watcher(
-                    &schema, 
-                    false
-                )?;
-                
-                Ok(ProductionWatcher::from_schema(&schema))
-                
-            },
-            _ => return Err(WatcherError::InvalidWatcherConfigArgs)
-        }
+                api_client.register_watcher(&schema, false)?;
 
-        
+                Ok(ProductionWatcher::from_schema(&schema))
+            }
+            _ => return Err(WatcherError::InvalidWatcherConfigArgs),
+        }
     }
 }
 
 pub trait UploadConfigArgs {
     fn from_args(watch_args: &WatchArgs) -> UploadConfig;
 }
-
 
 impl UploadConfigArgs for UploadConfig {
     fn from_args(watch_args: &WatchArgs) -> UploadConfig {
@@ -183,12 +195,13 @@ impl UploadConfigArgs for UploadConfig {
     }
 }
 
-
-
-
 pub trait FileGetter {
     fn get_fastq_dir(&self, input_path: &PathBuf) -> Result<PathBuf, WatcherError>;
-    fn get_fastq_files(&self, dir: &PathBuf, glob: Option<String>) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError>;
+    fn get_fastq_files(
+        &self,
+        dir: &PathBuf,
+        glob: Option<String>,
+    ) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError>;
 }
 
 impl FileGetter for WatcherFormat {
@@ -219,8 +232,16 @@ impl FileGetter for WatcherFormat {
             }
         }
     }
-    fn get_fastq_files(&self, input_path: &PathBuf, glob: Option<String>) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError> {
-        get_read_files(&self.get_fastq_dir(input_path)?, &glob.unwrap_or(self.default_glob()), false)
+    fn get_fastq_files(
+        &self,
+        input_path: &PathBuf,
+        glob: Option<String>,
+    ) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError> {
+        get_read_files(
+            &self.get_fastq_dir(input_path)?,
+            &glob.unwrap_or(self.default_glob()),
+            false,
+        )
     }
 }
 
@@ -264,8 +285,6 @@ fn find_latest_alignment_directory(path: &Path) -> Result<PathBuf, WatcherError>
     latest_dir.ok_or_else(|| WatcherError::InvalidLatestAlignmentDirectory(path.to_path_buf()))
 }
 
-
-
 fn to_lexical_absolute(path: &PathBuf) -> Result<PathBuf, WatcherError> {
     let mut absolute = if path.is_absolute() {
         PathBuf::new()
@@ -274,34 +293,54 @@ fn to_lexical_absolute(path: &PathBuf) -> Result<PathBuf, WatcherError> {
     };
     for component in path.components() {
         match component {
-            std::path::Component::CurDir => {},
-            std::path::Component::ParentDir => { absolute.pop(); },
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                absolute.pop();
+            }
             component @ _ => absolute.push(component.as_os_str()),
         }
     }
     Ok(absolute)
 }
 
-
 // A helper function to get read files from a suitable glob match
-pub fn get_read_files(directory: &Path, glob: &str, symlinks: bool) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError> {
-   
+pub fn get_read_files(
+    directory: &Path,
+    glob: &str,
+    symlinks: bool,
+) -> Result<HashMap<String, Vec<PathBuf>>, WatcherError> {
     let glob = wax::Glob::new(glob).map_err(|_| WatcherError::GlobCreate(glob.to_string()))?;
 
     // Get potentially paired file paths into a HashMap
     let mut files = HashMap::new();
-    for entry in glob.walk_with_behavior(directory, match symlinks { true => wax::LinkBehavior::ReadTarget, false => wax::LinkBehavior::ReadFile }) {
+    for entry in glob.walk_with_behavior(
+        directory,
+        match symlinks {
+            true => wax::LinkBehavior::ReadTarget,
+            false => wax::LinkBehavior::ReadFile,
+        },
+    ) {
         let entry = entry.map_err(|_| WatcherError::GlobWalk(directory.to_path_buf()))?;
         let file_path = match symlinks {
             true => entry.path().canonicalize()?,
-            false => to_lexical_absolute(&entry.path().to_path_buf())?
+            false => to_lexical_absolute(&entry.path().to_path_buf())?,
         };
-        let sample_id = entry.matched().get(1).ok_or_else(|| WatcherError::GlobMatchSampleIdentifier(file_path.to_path_buf()))?;
-        log::debug!("Sample sheet utility - [{:?}] - detected paired-end file: {:?}", sample_id, file_path);
-        files.entry(sample_id.to_owned()).or_insert_with(Vec::new).push(file_path.to_path_buf());
-    } 
+        let sample_id = entry
+            .matched()
+            .get(1)
+            .ok_or_else(|| WatcherError::GlobMatchSampleIdentifier(file_path.to_path_buf()))?;
+        log::debug!(
+            "Sample sheet utility - [{:?}] - detected paired-end file: {:?}",
+            sample_id,
+            file_path
+        );
+        files
+            .entry(sample_id.to_owned())
+            .or_insert_with(Vec::new)
+            .push(file_path.to_path_buf());
+    }
 
-    // For paired files the entries are unsorted! Sort them here by their names 
+    // For paired files the entries are unsorted! Sort them here by their names
     // this will only work for traditional reverse/forward names like R1 and R2
 
     let mut sorted = HashMap::new();
@@ -309,7 +348,7 @@ pub fn get_read_files(directory: &Path, glob: &str, symlinks: bool) -> Result<Ha
         file_paths.sort();
         sorted.insert(sample_id, file_paths);
     }
-    
+
     log::info!("{:#?}", files);
 
     Ok(sorted)

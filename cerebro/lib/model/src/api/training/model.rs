@@ -1,8 +1,14 @@
+use crate::api::{
+    cerebro::schema::{SampleType, TestResult},
+    training::{
+        response::TrainingPrefetchData,
+        schema::{CreateTrainingPrefetch, CreateTrainingSession, TrainingRecord},
+    },
+};
 use chrono::{SecondsFormat, Utc};
+use rand::{rng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use rand::{seq::SliceRandom, rng};
-use crate::api::{cerebro::schema::{SampleType, TestResult}, training::{response::TrainingPrefetchData, schema::{CreateTrainingPrefetch, CreateTrainingSession, TrainingRecord}}};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingPrefetchRecord {
@@ -24,7 +30,7 @@ impl TrainingPrefetchRecord {
             collection: req.collection.clone(),
             description: req.description.clone(),
             name: req.name.clone(),
-            preselect: req.preselect
+            preselect: req.preselect,
         }
     }
 }
@@ -52,46 +58,65 @@ pub struct TrainingSessionRecord {
 }
 
 impl TrainingSessionRecord {
-    pub fn from_request(session: &CreateTrainingSession, records: Vec<TrainingPrefetchData>, user_id: &str, user_name: &str) -> Self {
-
+    pub fn from_request(
+        session: &CreateTrainingSession,
+        records: Vec<TrainingPrefetchData>,
+        user_id: &str,
+        user_name: &str,
+    ) -> Self {
         let mut recs: Vec<TrainingRecord> = records
             .into_iter()
             .map(|r| {
-                
                 // preselect enabled only if explicitly true
                 let preselect_enabled = r.preselect == Some(true);
 
-                let first_candidate = r
-                    .prefetch
-                    .config
-                    .candidates
-                    .as_ref()
-                    .and_then(|v| {
-                        // First try to find the first "s__" candidate
-                        v.iter()
-                            .find(|s| {
-                                let s = s.trim();
-                                !s.is_empty() && s.starts_with("s__")
-                            })
-                            // Fallback to the first non-empty candidate
-                            .or_else(|| {
-                                v.iter()
-                                    .find(|s| !s.trim().is_empty())
-                            })
-                            .cloned()
-                    });
+                let first_candidate = r.prefetch.config.candidates.as_ref().and_then(|v| {
+                    // First try to find the first "s__" candidate
+                    v.iter()
+                        .find(|s| {
+                            let s = s.trim();
+                            !s.is_empty() && s.starts_with("s__")
+                        })
+                        // Fallback to the first non-empty candidate
+                        .or_else(|| v.iter().find(|s| !s.trim().is_empty()))
+                        .cloned()
+                });
 
                 // seed user-facing selection if preselect enabled and candidate exists
                 let (result, candidates) = if preselect_enabled {
                     if let Some(c) = first_candidate.clone() {
                         // candidate must be trimmed from genus/species prefix that comes with the reference species designation
-                        let c_trim = c.trim_start_matches("s__").trim_start_matches("g__").to_string();
-                        (r.prefetch.config.test_result.clone().unwrap_or(TestResult::Positive), Some(vec![c_trim]))
+                        let c_trim = c
+                            .trim_start_matches("s__")
+                            .trim_start_matches("g__")
+                            .to_string();
+                        (
+                            r.prefetch
+                                .config
+                                .test_result
+                                .clone()
+                                .unwrap_or(TestResult::Positive),
+                            Some(vec![c_trim]),
+                        )
                     } else {
-                        (r.prefetch.config.test_result.clone().unwrap_or(TestResult::Negative), None)
+                        (
+                            r.prefetch
+                                .config
+                                .test_result
+                                .clone()
+                                .unwrap_or(TestResult::Negative),
+                            None,
+                        )
                     }
                 } else {
-                    (r.prefetch.config.test_result.clone().unwrap_or(TestResult::Negative), None)
+                    (
+                        r.prefetch
+                            .config
+                            .test_result
+                            .clone()
+                            .unwrap_or(TestResult::Negative),
+                        None,
+                    )
                 };
 
                 TrainingRecord {
@@ -103,7 +128,7 @@ impl TrainingSessionRecord {
                     sample_type: Some(r.prefetch.config.sample_type),
                     reference_result: r.prefetch.config.test_result,
                     reference_candidates: r.prefetch.config.candidates,
-                    exclude_lod: r.prefetch.config.exclude_lod
+                    exclude_lod: r.prefetch.config.exclude_lod,
                 }
             })
             .collect();
@@ -125,7 +150,6 @@ impl TrainingSessionRecord {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingResult {
@@ -199,15 +223,19 @@ impl TrainingSessionRecord {
                 Some(TestResult::Positive) => match r.result {
                     TestResult::Positive => match (&r.candidates, &r.reference_candidates) {
                         (Some(cands), Some(ref_cands)) => {
-
-                            let overlap = cands.iter().any(|c| ref_cands.iter().any(|rc| *rc == normalize_candidate(c)));
+                            let overlap = cands
+                                .iter()
+                                .any(|c| ref_cands.iter().any(|rc| *rc == normalize_candidate(c)));
                             matched_any_candidate = Some(overlap);
-                            if overlap { Decision::TP } else { Decision::FP }
+                            if overlap {
+                                Decision::TP
+                            } else {
+                                Decision::FP
+                            }
                         }
                         _ => {
-                            exclude_reason = Some(
-                                "positive/positive with missing candidates".into(),
-                            );
+                            exclude_reason =
+                                Some("positive/positive with missing candidates".into());
                             Decision::Excluded
                         }
                     },
@@ -250,12 +278,12 @@ impl TrainingSessionRecord {
 
         let total = tp + tn + fp + fn_;
         let sensitivity = if tp + fn_ > 0 {
-            (tp as f64 / (tp + fn_) as f64)*100.
+            (tp as f64 / (tp + fn_) as f64) * 100.
         } else {
             0.0
         };
         let specificity = if tn + fp > 0 {
-            (tn as f64 / (tn + fp) as f64)*100.
+            (tn as f64 / (tn + fp) as f64) * 100.
         } else {
             0.0
         };

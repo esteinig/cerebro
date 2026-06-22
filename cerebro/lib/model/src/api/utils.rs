@@ -24,7 +24,6 @@ impl std::fmt::Display for HttpMethod {
             Self::Delete => write!(f, "DELETE"),
             Self::Put => write!(f, "PUT"),
             Self::Patch => write!(f, "PATCH"),
-
         }
     }
 }
@@ -34,5 +33,5 @@ pub enum AdminCollection {
     Teams,
     Logs,
     Scheduler,
-    Jobs
+    Jobs,
 }

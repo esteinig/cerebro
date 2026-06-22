@@ -1,8 +1,8 @@
-use std::path::PathBuf;
 use cerebro_model::api::{towers::model::Pipeline, watchers::model::WatcherFormat};
 use clap::{ArgGroup, Args, Parser, Subcommand};
+use std::path::PathBuf;
 
-/// Cerebro: production file system watcher 
+/// Cerebro: production file system watcher
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 #[command(styles=get_styles())]
@@ -11,74 +11,47 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 pub struct App {
     /// API URL
     #[clap(
-        long, 
-        short = 'u', 
-        default_value = "http://localhost:8080", 
+        long,
+        short = 'u',
+        default_value = "http://localhost:8080",
         env = "CEREBRO_API_URL"
     )]
     pub url: String,
     /// API token - usually provided with CEREBRO_API_TOKEN
-    #[clap(
-        long, 
-        short = 'e', 
-        env = "CEREBRO_API_TOKEN",
-        hide_env_values = true
-    )]
+    #[clap(long, short = 'e', env = "CEREBRO_API_TOKEN", hide_env_values = true)]
     pub token: Option<String>,
     /// API token file - can be set from environment variable
-    #[clap(
-        long, 
-        short = 'f', 
-        env = "CEREBRO_API_TOKEN_FILE"
-    )]
+    #[clap(long, short = 'f', env = "CEREBRO_API_TOKEN_FILE")]
     pub token_file: Option<PathBuf>,
-    /// User team name or identifier for requests that require team specification 
-    #[clap(
-        long, 
-        short = 't', 
-        env = "CEREBRO_USER_TEAM",
-        hide_env_values = true
-    )]
+    /// User team name or identifier for requests that require team specification
+    #[clap(long, short = 't', env = "CEREBRO_USER_TEAM", hide_env_values = true)]
     pub team: Option<String>,
-    /// Team database name or identifier for requests that require database access 
-    #[clap(
-        long, 
-        short = 'd', 
-        env = "CEREBRO_USER_DB",
-        hide_env_values = true
-    )]
+    /// Team database name or identifier for requests that require database access
+    #[clap(long, short = 'd', env = "CEREBRO_USER_DB", hide_env_values = true)]
     pub db: Option<String>,
-    /// Team database project name or identifier for requests that require project access 
+    /// Team database project name or identifier for requests that require project access
     #[clap(
-        long, 
-        short = 'p', 
+        long,
+        short = 'p',
         env = "CEREBRO_USER_PROJECT",
         hide_env_values = true
     )]
     pub project: Option<String>,
     /// SeaweedFS master node address
     #[clap(
-        long, 
+        long,
         short = 'a',
-        default_value = "http://localhost", 
+        default_value = "http://localhost",
         env = "CEREBRO_FS_URL"
     )]
     pub fs_url: String,
     /// SeaweedFS master node port
-    #[clap(
-        long, 
-        short = 'm',
-        env = "CEREBRO_FS_PORT",
-        default_value = "9333", 
-    )]
+    #[clap(long, short = 'm', env = "CEREBRO_FS_PORT", default_value = "9333")]
     pub fs_port: String,
     /// SSL certificate verification is ignored [DANGER]
-    #[clap(
-        long, 
-        env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE"
-    )]
+    #[clap(long, env = "CEREBRO_DANGER_ACCEPT_INVALID_TLS_CERTIFICATE")]
     pub danger_invalid_certificate: bool,
-    
+
     #[clap(subcommand)]
     pub command: Commands,
 }
@@ -88,7 +61,7 @@ pub enum Commands {
     /// Watch a file path with the provided configuration
     Watch(WatchArgs),
     /// Send a message to the provided Slack channel
-    Slack(SlackArgs)
+    Slack(SlackArgs),
 }
 
 #[derive(Debug, Args)]
@@ -112,10 +85,20 @@ pub struct WatchArgs {
     pub path: PathBuf,
 
     /// Watcher identifier generated during registration
-    #[clap(long, short = 'i', group = "registered", help_heading = "Registered Watcher")]
+    #[clap(
+        long,
+        short = 'i',
+        group = "registered",
+        help_heading = "Registered Watcher"
+    )]
     pub id: Option<String>,
     /// Watcher registration record (.json)
-    #[clap(long, short = 'j', group = "registered", help_heading = "Registered Watcher")]
+    #[clap(
+        long,
+        short = 'j',
+        group = "registered",
+        help_heading = "Registered Watcher"
+    )]
     pub json: Option<PathBuf>,
 
     /// Watcher name to register new watcher
@@ -128,10 +111,10 @@ pub struct WatchArgs {
     #[clap(long, short = 'f', group = "new", help_heading = "New Watcher")]
     pub format: Option<WatcherFormat>,
     /// Optional file glob, overwrites defaults based on format (see long --help)
-    /// 
-    /// 'fastq' = "*.fastq.gz", 
-    /// 'fastq-pe' = "*_{R1,R2}.fastq.gz", 
-    /// 'iseq' = "*_{L001_R1_001,L001_R2_001}.fastq.gz", 
+    ///
+    /// 'fastq' = "*.fastq.gz",
+    /// 'fastq-pe' = "*_{R1,R2}.fastq.gz",
+    /// 'iseq' = "*_{L001_R1_001,L001_R2_001}.fastq.gz",
     /// 'nextseq' = "*_{R1_001,R2_001}.fastq.gz"
     #[clap(long)]
     pub glob: Option<String>,
@@ -145,13 +128,13 @@ pub struct WatchArgs {
     #[clap(long)]
     pub ttl: Option<String>,
     /// Interval for polling file path recursively in seconds
-    #[clap(long, default_value="3")]
+    #[clap(long, default_value = "3")]
     pub interval: u64,
     /// Timeout in seconds to proceed after no further events on input folder
-    #[clap(long, default_value="10")]
+    #[clap(long, default_value = "10")]
     pub timeout: u64,
     /// Timeout interval for polling input folder recursively in seconds
-    #[clap(long, default_value="1")]
+    #[clap(long, default_value = "1")]
     pub timeout_interval: u64,
     /// Slack API token
     #[clap(long, env = "CEREBRO_SLACK_TOKEN", hide_env_values = true)]
@@ -166,10 +149,7 @@ pub struct WatchArgs {
     /// Pipeline to launch when files are pulled by the tower
     #[clap(long, group = "automatic", help_heading = "Automatic Launch")]
     pub pipeline: Option<Pipeline>,
-
-
 }
-
 
 #[derive(Debug, Args)]
 pub struct SlackArgs {
@@ -184,23 +164,20 @@ pub struct SlackArgs {
     pub token: String,
 }
 
-
 #[derive(Debug, Args)]
-pub struct GlobalOptions {
-}
-
+pub struct GlobalOptions {}
 
 pub fn get_styles() -> clap::builder::Styles {
-	clap::builder::Styles::styled()
-		.header(
-			anstyle::Style::new()
-				.bold()
-				.underline()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-		)
-		.literal(
-			anstyle::Style::new()
-				.bold()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-		)
+    clap::builder::Styles::styled()
+        .header(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
+        )
+        .literal(
+            anstyle::Style::new()
+                .bold()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
+        )
 }

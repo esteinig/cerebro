@@ -1,10 +1,9 @@
 use cerebro_client::error::HttpClientError;
 use cerebro_model::api::cerebro::model::ModelError;
-use thiserror::Error;
-use std::{io::Error as IoError, path::PathBuf};
-use serde_json::Error as SerdeError;
 use reqwest::StatusCode;
-
+use serde_json::Error as SerdeError;
+use std::{io::Error as IoError, path::PathBuf};
+use thiserror::Error;
 
 /// Errors that can occur during oepration of SeaweedFS
 #[derive(Error, Debug)]
@@ -22,7 +21,6 @@ pub enum WeedError {
     #[error("Failed to run command, output is:\n{0}")]
     CommandExecutionFailed(String),
 }
-
 
 /// Errors that can occur during the download and installation of the `weed` executable
 #[derive(Error, Debug)]

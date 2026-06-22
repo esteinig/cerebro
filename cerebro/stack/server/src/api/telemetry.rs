@@ -39,7 +39,10 @@ impl Metrics {
             .register(Box::new(lifecycle_ops.clone()))
             .expect("lifecycle metric registers once");
 
-        Self { registry, lifecycle_ops }
+        Self {
+            registry,
+            lifecycle_ops,
+        }
     }
 
     /// Record a telemetry event as a counter increment.
@@ -72,7 +75,9 @@ impl Default for Metrics {
 /// PII (operational counters only); scrape it from an internal network / behind a
 /// firewall.
 #[actix_web::get("/metrics")]
-async fn metrics_handler(data: actix_web::web::Data<crate::api::server::AppState>) -> actix_web::HttpResponse {
+async fn metrics_handler(
+    data: actix_web::web::Data<crate::api::server::AppState>,
+) -> actix_web::HttpResponse {
     actix_web::HttpResponse::Ok()
         .content_type("text/plain; version=0.0.4")
         .body(data.metrics.encode())
@@ -92,7 +97,11 @@ mod tests {
     fn records_and_encodes() {
         let m = Metrics::new();
         m.record(&TelemetryEvent::success(TelemetryOp::Expire));
-        m.record(&TelemetryEvent::with_detail(TelemetryOp::TierMove, TelemetryOutcome::Success, "warm"));
+        m.record(&TelemetryEvent::with_detail(
+            TelemetryOp::TierMove,
+            TelemetryOutcome::Success,
+            "warm",
+        ));
         m.record(&TelemetryEvent::rejected(TelemetryOp::Restore));
 
         let text = m.encode();

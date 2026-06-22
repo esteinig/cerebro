@@ -1,7 +1,6 @@
-
-use std::io::Write;
-use rayon::iter::{ParallelIterator, IntoParallelRefIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use crate::{error::WorkflowError, utils::parse_fastx_file_with_check};
@@ -9,7 +8,7 @@ use crate::{error::WorkflowError, utils::parse_fastx_file_with_check};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanReport {
     pub reads: usize,
-    pub bases: usize
+    pub bases: usize,
 }
 impl ScanReport {
     pub fn new(reads: usize, bases: usize) -> Self {
@@ -37,10 +36,7 @@ impl ScanReport {
 }
 impl Default for ScanReport {
     fn default() -> Self {
-        Self {
-            reads: 0,
-            bases: 0
-        }
+        Self { reads: 0, bases: 0 }
     }
 }
 
@@ -52,46 +48,44 @@ impl ScanReads {
     pub fn new(input: &Vec<PathBuf>) -> Self {
         Self {
             input: input.to_owned(),
-            report: ScanReport::new(0, 0)
+            report: ScanReport::new(0, 0),
         }
     }
     pub fn report(&self) -> Result<ScanReport, WorkflowError> {
+        let reports = self
+            .input
+            .par_iter()
+            .map(|path| {
+                let mut reads = 0;
+                let mut bases = 0;
 
-        let reports = self.input.par_iter().map(|path| {
-
-            let mut reads = 0;
-            let mut bases = 0;
-
-           match parse_fastx_file_with_check(&path) {
-                Ok(reader) => {
-                    if let Some(mut reader) = reader {
-                        while let Some(record) = reader.next() {
-                            match record {
-                                Ok(rec) => {
-                                    reads += 1;
-                                    bases += rec.num_bases();
-                                },
-                                Err(err) => {
-                                    log::error!("{}", err.to_string())
-                                }
-                            };
+                match parse_fastx_file_with_check(&path) {
+                    Ok(reader) => {
+                        if let Some(mut reader) = reader {
+                            while let Some(record) = reader.next() {
+                                match record {
+                                    Ok(rec) => {
+                                        reads += 1;
+                                        bases += rec.num_bases();
+                                    }
+                                    Err(err) => {
+                                        log::error!("{}", err.to_string())
+                                    }
+                                };
+                            }
+                        } else {
+                            log::warn!("Input file is empty: {}", path.display())
                         }
-                    } else {
-                        log::warn!(
-                            "Input file is empty: {}", 
-                            path.display()
-                        )
                     }
-                },
-                Err(err) => {
-                    log::error!("{}", err.to_string())
-                }
-            };
-            
-            ScanReport::new(reads, bases)
-        }).collect::<Vec<ScanReport>>();
+                    Err(err) => {
+                        log::error!("{}", err.to_string())
+                    }
+                };
+
+                ScanReport::new(reads, bases)
+            })
+            .collect::<Vec<ScanReport>>();
 
         Ok(ScanReport::from_vec(&reports))
     }
 }
-

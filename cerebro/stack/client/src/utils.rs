@@ -1,17 +1,23 @@
-use std::{ffi::OsStr, fs::File, io::{BufWriter, Write}, path::Path};
-use cerebro_model::api::{cerebro::{model::Cerebro, schema::TestResult}, training::model::TrainingResultRecord};
+use cerebro_model::api::{
+    cerebro::{model::Cerebro, schema::TestResult},
+    training::model::TrainingResultRecord,
+};
 use csv::{Writer, WriterBuilder};
-use env_logger::Builder;
 use env_logger::fmt::Color;
-use log::{LevelFilter, Level};
+use env_logger::Builder;
+use log::{Level, LevelFilter};
 use niffler::get_writer;
 use serde::{Deserialize, Serialize};
+use std::{
+    ffi::OsStr,
+    fs::File,
+    io::{BufWriter, Write},
+    path::Path,
+};
 
 use crate::error::HttpClientError;
 
-
 pub fn init_logger() {
-
     Builder::new()
         .format(|buf, record| {
             let timestamp = buf.timestamp();
@@ -23,16 +29,35 @@ pub fn init_logger() {
             let mut white_style = buf.style();
             white_style.set_color(Color::White).set_bold(false);
             let mut orange_style = buf.style();
-            orange_style.set_color(Color::Rgb(255, 102, 0)).set_bold(true);
+            orange_style
+                .set_color(Color::Rgb(255, 102, 0))
+                .set_bold(true);
             let mut apricot_style = buf.style();
-            apricot_style.set_color(Color::Rgb(255, 195, 0)).set_bold(true);
+            apricot_style
+                .set_color(Color::Rgb(255, 195, 0))
+                .set_bold(true);
 
-            let msg = match record.level(){
-                Level::Warn => (orange_style.value(record.level()), orange_style.value(record.args())),
-                Level::Info => (green_style.value(record.level()), white_style.value(record.args())),
-                Level::Debug => (apricot_style.value(record.level()), apricot_style.value(record.args())),
-                Level::Error => (red_style.value(record.level()), red_style.value(record.args())),
-                _ => (white_style.value(record.level()), white_style.value(record.args()))
+            let msg = match record.level() {
+                Level::Warn => (
+                    orange_style.value(record.level()),
+                    orange_style.value(record.args()),
+                ),
+                Level::Info => (
+                    green_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
+                Level::Debug => (
+                    apricot_style.value(record.level()),
+                    apricot_style.value(record.args()),
+                ),
+                Level::Error => (
+                    red_style.value(record.level()),
+                    red_style.value(record.args()),
+                ),
+                _ => (
+                    white_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
             };
 
             writeln!(
@@ -48,8 +73,7 @@ pub fn init_logger() {
 }
 
 // Matches the META-GPT implementation - need to find a better way to
-// provide this struct across Cerebro 
-
+// provide this struct across Cerebro
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Diagnosis {
@@ -58,7 +82,7 @@ pub enum Diagnosis {
     NonInfectious,
     NonInfectiousReview,
     Tumor,
-    Unknown
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -72,11 +96,12 @@ impl DiagnosticResult {
         Self {
             diagnosis: Diagnosis::NonInfectious,
             candidates: vec![],
-            pathogen: None
+            pathogen: None,
         }
     }
     pub fn to_json(&self, path: &Path) -> Result<(), HttpClientError> {
-        let agent_state = serde_json::to_string_pretty(self).map_err(|err| HttpClientError::SerdeFailure(err))?;
+        let agent_state =
+            serde_json::to_string_pretty(self).map_err(|err| HttpClientError::SerdeFailure(err))?;
         let mut writer = BufWriter::new(File::create(path)?);
         write!(writer, "{agent_state}")?;
         Ok(())
@@ -88,32 +113,35 @@ impl DiagnosticResult {
     }
 
     pub fn from_training_result(record: &TrainingResultRecord) -> Self {
-        
         let candidates = match &record.candidates {
-            Some(candidates) => candidates.split(";").map(|x| x.trim().to_string()).collect(),
-            None => vec![]
+            Some(candidates) => candidates
+                .split(";")
+                .map(|x| x.trim().to_string())
+                .collect(),
+            None => vec![],
         };
-        
+
         Self {
-            diagnosis: match record.result { 
+            diagnosis: match record.result {
                 TestResult::Positive => Diagnosis::Infectious,
-                TestResult::Negative => Diagnosis::NonInfectious
+                TestResult::Negative => Diagnosis::NonInfectious,
             },
             pathogen: candidates.first().cloned(),
-            candidates
+            candidates,
         }
     }
 }
 
-
-pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>>, HttpClientError> {
-    
+pub fn get_tsv_writer(
+    file: &Path,
+    header: bool,
+) -> Result<Writer<Box<dyn Write>>, HttpClientError> {
     let buf_writer = BufWriter::new(File::create(&file)?);
 
     let writer = get_writer(
-        Box::new(buf_writer), 
-        niffler::Format::from_path(file), 
-        niffler::compression::Level::Six
+        Box::new(buf_writer),
+        niffler::Format::from_path(file),
+        niffler::compression::Level::Six,
     )?;
 
     let csv_writer = WriterBuilder::new()
@@ -124,8 +152,11 @@ pub fn get_tsv_writer(file: &Path, header: bool) -> Result<Writer<Box<dyn Write>
     Ok(csv_writer)
 }
 
-pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Result<(), HttpClientError> {
-
+pub fn write_tsv<T: Serialize>(
+    data: &Vec<T>,
+    file: &Path,
+    header: bool,
+) -> Result<(), HttpClientError> {
     let mut writer = get_tsv_writer(file, header)?;
 
     for value in data {
@@ -135,10 +166,9 @@ pub fn write_tsv<T: Serialize>(data: &Vec<T>, file: &Path, header: bool) -> Resu
 
     // Flush and complete writing
     writer.flush()?;
-    
+
     Ok(())
 }
-
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
@@ -157,7 +187,6 @@ impl CompressionExt for niffler::compression::Format {
         }
     }
 }
-
 
 #[derive(Serialize)]
 struct SummaryRow {
@@ -180,13 +209,18 @@ struct SummaryRow {
 
 impl From<&Cerebro> for SummaryRow {
     fn from(c: &Cerebro) -> Self {
-
         SummaryRow {
             cerebro_id: c.id.to_string(),
             cerebro_name: c.name.clone(),
 
             sample_id: c.sample.id.to_string(),
-            sample_tags: c.sample.tags.iter().map(String::from).collect::<Vec<_>>().join("-"),
+            sample_tags: c
+                .sample
+                .tags
+                .iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+                .join("-"),
             sample_group: c.sample.sample_group.clone(),
             sample_type: c.sample.sample_type.clone(),
             sample_date: c.sample.sample_date.clone(),

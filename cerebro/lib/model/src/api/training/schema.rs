@@ -1,8 +1,11 @@
 use std::path::Path;
 
+use crate::api::cerebro::{
+    model::ModelError,
+    schema::{PrefetchData, SampleType, TestResult},
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::api::cerebro::{model::ModelError, schema::{PrefetchData, SampleType, TestResult}};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTrainingPrefetch {
@@ -14,8 +17,12 @@ pub struct CreateTrainingPrefetch {
     pub preselect: Option<bool>,
 }
 impl CreateTrainingPrefetch {
-    pub fn from_file(path: &Path, collection: &str, description: &str, preselect: Option<bool>) -> Result<Self, ModelError> {
-
+    pub fn from_file(
+        path: &Path,
+        collection: &str,
+        description: &str,
+        preselect: Option<bool>,
+    ) -> Result<Self, ModelError> {
         let prefetch_data = PrefetchData::from_json(path)?;
 
         Ok(Self {
@@ -26,7 +33,6 @@ impl CreateTrainingPrefetch {
             prefetch: prefetch_data,
             preselect,
         })
-
     }
 }
 
@@ -40,21 +46,21 @@ pub struct TrainingPrefetchOverview {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingRecord {
-    pub id: String, 
-    pub data_id: String,    // matches identifier of TrainingPrefetchData
+    pub id: String,
+    pub data_id: String, // matches identifier of TrainingPrefetchData
     pub result: TestResult,
     pub sample_name: Option<String>,
     pub sample_type: Option<SampleType>,
     pub candidates: Option<Vec<String>>,
     pub reference_result: Option<TestResult>,
     pub reference_candidates: Option<Vec<String>>,
-    pub exclude_lod: Option<bool>
+    pub exclude_lod: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTrainingSession {
     pub collection: String,
-    pub shuffle: bool
+    pub shuffle: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -76,7 +82,7 @@ pub struct QueryTrainingPrefetch {
     /// Optional filter by identifier
     pub id: Option<String>,
     /// Optional filter by name
-    pub name: Option<String>
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

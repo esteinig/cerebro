@@ -120,8 +120,16 @@ pub struct RestoreDrive {
 }
 
 impl RestoreDrive {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
-        Self { ctx, metrics, archive }
+    pub fn new(
+        ctx: Arc<WorkerContext>,
+        metrics: Metrics,
+        archive: Option<ArchiveSettings>,
+    ) -> Self {
+        Self {
+            ctx,
+            metrics,
+            archive,
+        }
     }
 
     /// Re-materialise an archived object from the cold store back into SeaweedFS and
@@ -155,8 +163,15 @@ impl RestoreDrive {
                 let store = archive_c
                     .open_store()
                     .map_err(|e| WorkerError::Other(format!("open cold store: {e}")))?;
-                crate::archive::restore_object(&fs, store.as_ref(), &archive_key, &effective, &name, Some(&expected_hash))
-                    .map_err(|e| WorkerError::Other(e.to_string()))
+                crate::archive::restore_object(
+                    &fs,
+                    store.as_ref(),
+                    &archive_key,
+                    &effective,
+                    &name,
+                    Some(&expected_hash),
+                )
+                .map_err(|e| WorkerError::Other(e.to_string()))
             })
             .await?;
 
@@ -178,7 +193,8 @@ impl RestoreDrive {
         };
         self.ctx
             .run_blocking(move || {
-                api.relocate_file(&id, &schema).map_err(|e| WorkerError::Api(e.to_string()))
+                api.relocate_file(&id, &schema)
+                    .map_err(|e| WorkerError::Api(e.to_string()))
             })
             .await?;
         Ok(())
@@ -193,7 +209,10 @@ impl RestoreDrive {
             let api = api.clone();
             let id = id.clone();
             self.ctx
-                .run_blocking(move || api.get_file(&id).map_err(|e| WorkerError::Api(e.to_string())))
+                .run_blocking(move || {
+                    api.get_file(&id)
+                        .map_err(|e| WorkerError::Api(e.to_string()))
+                })
                 .await?
         };
 
@@ -235,7 +254,9 @@ impl RestoreDrive {
                 }
                 RestoreProgress::Failed => {
                     self.transition(&api, &id, RestoreState::Failed).await?;
-                    Err(WorkerError::Other(format!("archival restore failed at provider for {id}")))
+                    Err(WorkerError::Other(format!(
+                        "archival restore failed at provider for {id}"
+                    )))
                 }
                 RestoreProgress::Pending => {
                     if args.attempt + 1 >= args.max_polls {
@@ -279,7 +300,12 @@ impl RestoreDrive {
     }
 
     /// Apply a restore-state transition via the CAS-guarded server endpoint.
-    async fn transition(&self, api: &CerebroClient, id: &str, target: RestoreState) -> Result<(), WorkerError> {
+    async fn transition(
+        &self,
+        api: &CerebroClient,
+        id: &str,
+        target: RestoreState,
+    ) -> Result<(), WorkerError> {
         let api = api.clone();
         let id = id.to_string();
         self.ctx
@@ -294,7 +320,11 @@ impl RestoreDrive {
     /// Re-enqueue this driver for the same file at `now + poll_seconds`, carrying the
     /// incremented attempt counter. `retry = 0`: the explicit poll chain is the only
     /// continuation, so Faktory's own retry never races it.
-    async fn poll_again(&self, args: &RestoreDriveArgs, msg: &str) -> Result<JobOutcome, WorkerError> {
+    async fn poll_again(
+        &self,
+        args: &RestoreDriveArgs,
+        msg: &str,
+    ) -> Result<JobOutcome, WorkerError> {
         let at = Utc::now() + Duration::seconds(args.poll_seconds.max(1));
         let next = json!({
             "file_id": args.file_id,
@@ -354,19 +384,31 @@ mod tests {
     #[test]
     fn simulation_ready_after_elapsed() {
         // requested 120s ago, sim window 60s -> ready
-        assert_eq!(progress_from(Some(60), ago(120), Utc::now()), RestoreProgress::Ready);
+        assert_eq!(
+            progress_from(Some(60), ago(120), Utc::now()),
+            RestoreProgress::Ready
+        );
         // requested 10s ago, sim window 60s -> still pending
-        assert_eq!(progress_from(Some(60), ago(10), Utc::now()), RestoreProgress::Pending);
+        assert_eq!(
+            progress_from(Some(60), ago(10), Utc::now()),
+            RestoreProgress::Pending
+        );
     }
 
     #[test]
     fn no_provider_stays_pending() {
-        assert_eq!(progress_from(None, ago(10_000), Utc::now()), RestoreProgress::Pending);
+        assert_eq!(
+            progress_from(None, ago(10_000), Utc::now()),
+            RestoreProgress::Pending
+        );
     }
 
     #[test]
     fn not_yet_requested_is_pending() {
-        assert_eq!(progress_from(Some(60), None, Utc::now()), RestoreProgress::Pending);
+        assert_eq!(
+            progress_from(Some(60), None, Utc::now()),
+            RestoreProgress::Pending
+        );
     }
 
     #[test]

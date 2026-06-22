@@ -1,10 +1,9 @@
-
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use std::io::Write;
 use crate::error::WorkflowError;
+use std::io::Write;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NanoqReport {
@@ -17,7 +16,7 @@ pub struct NanoqReport {
     pub median_length: u64,
     pub mean_quality: Option<f64>,
     pub median_quality: Option<f64>,
-    pub filtered: u64
+    pub filtered: u64,
 }
 
 impl NanoqReport {

@@ -46,9 +46,7 @@ fn is_reclaim_candidate(
     grace: Duration,
     now: DateTime<Utc>,
 ) -> bool {
-    archived
-        && archive_key.is_some()
-        && matches!(tier_moved_at, Some(t) if now - t >= grace)
+    archived && archive_key.is_some() && matches!(tier_moved_at, Some(t) if now - t >= grace)
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,8 +75,16 @@ pub struct ArchiveReclaim {
 }
 
 impl ArchiveReclaim {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
-        Self { ctx, metrics, archive }
+    pub fn new(
+        ctx: Arc<WorkerContext>,
+        metrics: Metrics,
+        archive: Option<ArchiveSettings>,
+    ) -> Self {
+        Self {
+            ctx,
+            metrics,
+            archive,
+        }
     }
 
     async fn run_inner(&self, job: Job) -> anyhow::Result<()> {
@@ -226,13 +232,37 @@ mod tests {
         let now = Utc::now();
         let grace = Duration::days(7);
         // archived + key + archived 10 days ago (> 7) -> candidate
-        assert!(is_reclaim_candidate(true, Some("k"), Some(now - Duration::days(10)), grace, now));
+        assert!(is_reclaim_candidate(
+            true,
+            Some("k"),
+            Some(now - Duration::days(10)),
+            grace,
+            now
+        ));
         // still within grace (3 days) -> not yet
-        assert!(!is_reclaim_candidate(true, Some("k"), Some(now - Duration::days(3)), grace, now));
+        assert!(!is_reclaim_candidate(
+            true,
+            Some("k"),
+            Some(now - Duration::days(3)),
+            grace,
+            now
+        ));
         // not archived -> never
-        assert!(!is_reclaim_candidate(false, Some("k"), Some(now - Duration::days(10)), grace, now));
+        assert!(!is_reclaim_candidate(
+            false,
+            Some("k"),
+            Some(now - Duration::days(10)),
+            grace,
+            now
+        ));
         // no archive_key -> nothing to fall back to, never
-        assert!(!is_reclaim_candidate(true, None, Some(now - Duration::days(10)), grace, now));
+        assert!(!is_reclaim_candidate(
+            true,
+            None,
+            Some(now - Duration::days(10)),
+            grace,
+            now
+        ));
         // unknown archival time -> cannot age it out, never
         assert!(!is_reclaim_candidate(true, Some("k"), None, grace, now));
     }
@@ -242,7 +272,13 @@ mod tests {
         let now = Utc::now();
         let grace = Duration::days(7);
         // archived exactly `grace` ago: now - t == grace, and the gate is `>= grace`.
-        assert!(is_reclaim_candidate(true, Some("k"), Some(now - Duration::days(7)), grace, now));
+        assert!(is_reclaim_candidate(
+            true,
+            Some("k"),
+            Some(now - Duration::days(7)),
+            grace,
+            now
+        ));
     }
 
     #[test]

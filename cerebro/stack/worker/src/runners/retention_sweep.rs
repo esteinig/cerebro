@@ -70,7 +70,11 @@ impl RetentionSweep {
     }
 
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
-        let RetentionSweepArgs { run_id, sample_id, dry_run } = parse_args(&job)?;
+        let RetentionSweepArgs {
+            run_id,
+            sample_id,
+            dry_run,
+        } = parse_args(&job)?;
         let api = self.ctx.api()?.clone();
 
         // Bulk server-side quarantine. The Expire telemetry is recorded server-side
@@ -141,7 +145,11 @@ impl PurgeReclaim {
     }
 
     async fn run_inner(&self, job: Job) -> Result<JobOutcome, WorkerError> {
-        let PurgeReclaimArgs { run_id, sample_id, dry_run } = parse_args(&job)?;
+        let PurgeReclaimArgs {
+            run_id,
+            sample_id,
+            dry_run,
+        } = parse_args(&job)?;
         let api = self.ctx.api()?.clone();
 
         // 1. Server-side purge: deletes the catalogue records (Purge telemetry is
@@ -160,7 +168,10 @@ impl PurgeReclaim {
         };
 
         if dry {
-            tracing::info!(eligible = fids.len(), "purge_reclaim dry-run; no records or bytes deleted");
+            tracing::info!(
+                eligible = fids.len(),
+                "purge_reclaim dry-run; no records or bytes deleted"
+            );
             return Ok(JobOutcome::Skipped);
         }
 
@@ -175,20 +186,29 @@ impl PurgeReclaim {
                 let fs = fs.clone();
                 let fid_c = fid.clone();
                 self.ctx
-                    .run_blocking(move || fs.delete_file(&fid_c).map_err(|e| WorkerError::Fs(e.to_string())))
+                    .run_blocking(move || {
+                        fs.delete_file(&fid_c)
+                            .map_err(|e| WorkerError::Fs(e.to_string()))
+                    })
                     .await
             };
             match res {
                 Ok(()) => {
                     reclaimed += 1;
-                    self.metrics
-                        .record(&TelemetryEvent::with_detail(TelemetryOp::Delete, TelemetryOutcome::Success, "reclaim"));
+                    self.metrics.record(&TelemetryEvent::with_detail(
+                        TelemetryOp::Delete,
+                        TelemetryOutcome::Success,
+                        "reclaim",
+                    ));
                 }
                 Err(e) => {
                     failed += 1;
                     tracing::warn!(%fid, "byte reclaim failed (orphaned until reconcile): {e}");
-                    self.metrics
-                        .record(&TelemetryEvent::with_detail(TelemetryOp::Delete, TelemetryOutcome::Failure, "reclaim"));
+                    self.metrics.record(&TelemetryEvent::with_detail(
+                        TelemetryOp::Delete,
+                        TelemetryOutcome::Failure,
+                        "reclaim",
+                    ));
                 }
             }
         }

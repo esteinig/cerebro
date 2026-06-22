@@ -48,7 +48,10 @@ pub fn verify(manifest: &RunManifest) -> Result<bool, FileSystemError> {
 
 /// True for artefacts that are run inputs (raw reads) rather than outputs.
 fn is_input(file: &SeaweedFile) -> bool {
-    matches!(file.ftype, Some(FileType::ReadPaired) | Some(FileType::ReadSingle))
+    matches!(
+        file.ftype,
+        Some(FileType::ReadPaired) | Some(FileType::ReadSingle)
+    )
 }
 
 impl FileSystemClient {
@@ -66,9 +69,14 @@ impl FileSystemClient {
         pipeline_id: Option<String>,
         provenance: ManifestProvenance,
     ) -> Result<RunManifest, FileSystemError> {
-        let files = self.api_client.list_files(run_id.clone(), None, 0, 100_000, false)?;
+        let files = self
+            .api_client
+            .list_files(run_id.clone(), None, 0, 100_000, false)?;
         let files: Vec<SeaweedFile> = match &sample_id {
-            Some(sid) => files.into_iter().filter(|f| f.sample_id.as_deref() == Some(sid.as_str())).collect(),
+            Some(sid) => files
+                .into_iter()
+                .filter(|f| f.sample_id.as_deref() == Some(sid.as_str()))
+                .collect(),
             None => files,
         };
 
@@ -106,7 +114,6 @@ impl FileSystemClient {
         manifest: &RunManifest,
         upload_config: &UploadConfig,
     ) -> Result<String, FileSystemError> {
-
         let json = serde_json::to_vec_pretty(manifest)
             .map_err(|e| FileSystemError::ManifestSerialization(e.to_string()))?;
 
@@ -147,7 +154,9 @@ impl FileSystemClient {
             path: stored.path,
             tier: upload_config.tier,
             retention: RetentionClass::Diagnostic,
-            retain_until: upload_config.retention_policy.retain_until(RetentionClass::Diagnostic, now),
+            retain_until: upload_config
+                .retention_policy
+                .retain_until(RetentionClass::Diagnostic, now),
             legal_hold: upload_config.legal_hold,
             replicas: None,
             archived: false,
@@ -173,10 +182,19 @@ mod tests {
             Some("RUN01".into()),
             Some("S1".into()),
             None,
-            ManifestProvenance { pipeline_name: "cerebro".into(), pipeline_version: "1.0.0".into(), ..Default::default() },
+            ManifestProvenance {
+                pipeline_name: "cerebro".into(),
+                pipeline_version: "1.0.0".into(),
+                ..Default::default()
+            },
             Utc::now(),
         );
-        m.outputs.push(ManifestArtefact { name: "S1.cerebro.json".into(), hash: "abc".into(), file_id: Some("id1".into()), ftype: Some(FileType::CerebroModel) });
+        m.outputs.push(ManifestArtefact {
+            name: "S1.cerebro.json".into(),
+            hash: "abc".into(),
+            file_id: Some("id1".into()),
+            ftype: Some(FileType::CerebroModel),
+        });
         m
     }
 

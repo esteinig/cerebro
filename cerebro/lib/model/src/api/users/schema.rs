@@ -1,7 +1,7 @@
 // Schemas to validate and access request data
 
-use serde::Deserialize;
 use crate::api::users::model::Role;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterUserSchema {
@@ -11,7 +11,7 @@ pub struct RegisterUserSchema {
     pub verified: bool,
     pub title: Option<String>,
     pub positions: Vec<String>,
-    pub roles: Vec<Role>
+    pub roles: Vec<Role>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,5 +22,5 @@ pub struct UpdateUserSchema {
     pub password: Option<String>,
     pub verified: bool,
     pub positions: Vec<String>,
-    pub roles: Vec<Role>
+    pub roles: Vec<Role>,
 }

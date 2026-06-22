@@ -1,10 +1,10 @@
-use std::{path::PathBuf, process::Output};
-use std::process::Command;
+use anyhow::Result;
 use reqwest::blocking::get;
 use std::fs::{self, create_dir_all};
 use std::io::Cursor;
+use std::process::Command;
+use std::{path::PathBuf, process::Output};
 use tar::Archive;
-use anyhow::Result;
 
 use crate::error::{WeedDownloadError, WeedError};
 use cerebro_model::api::files::response::WeedUploadResponse;
@@ -32,7 +32,7 @@ use cerebro_model::api::files::response::WeedUploadResponse;
 /// ```no_run
 /// use std::path::PathBuf;
 /// use cerebro_fs::weed::weed_upload;
-/// 
+///
 /// let input_file = PathBuf::from("path/to/your/file.pdf");
 /// let response = weed_upload(
 ///     &input_file,
@@ -64,7 +64,6 @@ pub fn weed_upload(
     ttl: Option<String>,
     use_public_url: bool,
 ) -> Result<WeedUploadResponse, WeedError> {
-
     let command = get_upload_command(
         input_file,
         data_center,
@@ -75,7 +74,7 @@ pub fn weed_upload(
         options,
         replication,
         ttl,
-        use_public_url
+        use_public_url,
     );
 
     log::info!("Executing upload command: weed {}", command.join(" "));
@@ -85,20 +84,21 @@ pub fn weed_upload(
     let response: Vec<WeedUploadResponse> = serde_json::from_str(&output_str)?;
 
     if response.len() > 1 {
-        return  Err(WeedError::SingleUploadResponseError);
+        return Err(WeedError::SingleUploadResponseError);
     }
 
-    response.first().ok_or(WeedError::SingleUploadResponseError).cloned()
+    response
+        .first()
+        .ok_or(WeedError::SingleUploadResponseError)
+        .cloned()
 }
 
 pub fn weed_download(
     fid: &str,
     outdir: &PathBuf,
     master: Option<String>,
-    port: Option<String>, 
+    port: Option<String>,
 ) -> Result<(), WeedError> {
-
-
     if !outdir.exists() || !outdir.is_dir() {
         create_dir_all(&outdir)?;
     }
@@ -106,9 +106,10 @@ pub fn weed_download(
     let mut args = vec!["download".to_owned()];
 
     // Strip "http://" and "https://" prefixes from the master parameter
-    let master_arg = master.unwrap_or_else(|| "localhost".to_owned())
-                            .replace("http://", "")
-                            .replace("https://", "");
+    let master_arg = master
+        .unwrap_or_else(|| "localhost".to_owned())
+        .replace("http://", "")
+        .replace("https://", "");
 
     let master_port = port.unwrap_or_else(|| "9333".to_owned());
 
@@ -119,13 +120,9 @@ pub fn weed_download(
     run_command(args, "weed")?;
 
     Ok(())
-
 }
 
-
-
 pub fn run_command(args: Vec<String>, program: &str) -> Result<Output, WeedError> {
-
     let output = Command::new(program)
         .args(args)
         .output()
@@ -133,11 +130,12 @@ pub fn run_command(args: Vec<String>, program: &str) -> Result<Output, WeedError
 
     // Ensure command ran successfully
     if !output.status.success() {
-        return Err(WeedError::CommandExecutionFailed(String::from_utf8_lossy(&output.stderr).to_string()));
+        return Err(WeedError::CommandExecutionFailed(
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        ));
     }
     Ok(output)
 }
-
 
 pub fn get_upload_command(
     input_file: &PathBuf,
@@ -151,7 +149,6 @@ pub fn get_upload_command(
     ttl: Option<String>,
     use_public_url: bool,
 ) -> Vec<String> {
-
     let mut command_parts = vec!["upload".to_owned()];
 
     if let Some(incl) = include {
@@ -163,9 +160,10 @@ pub fn get_upload_command(
     }
 
     // Strip "http://" and "https://" prefixes from the master parameter
-    let master_arg = master.unwrap_or_else(|| "localhost".to_owned())
-                            .replace("http://", "")
-                            .replace("https://", "");
+    let master_arg = master
+        .unwrap_or_else(|| "localhost".to_owned())
+        .replace("http://", "")
+        .replace("https://", "");
 
     let master_port = port.unwrap_or_else(|| "9333".to_owned());
 
@@ -192,7 +190,7 @@ pub fn get_upload_command(
     }
 
     command_parts.push(input_file.display().to_string());
-    
+
     command_parts
 }
 
@@ -212,11 +210,14 @@ pub fn get_upload_command(
 ///
 /// ```no_run
 /// use cerebro_fs::weed::download_and_install_weed;
-/// 
+///
 /// let bin_path = std::path::PathBuf::from("/usr/local/bin/weed");
 /// download_and_install_weed("4.33", &bin_path).expect("Failed to download and install `weed`");
 /// ```
-pub fn download_and_install_weed(version: &str, bin_path: &PathBuf) -> Result<(), WeedDownloadError> {
+pub fn download_and_install_weed(
+    version: &str,
+    bin_path: &PathBuf,
+) -> Result<(), WeedDownloadError> {
     let url = format!(
         "https://github.com/seaweedfs/seaweedfs/releases/download/{version}/linux_amd64_large_disk.tar.gz"
     );
@@ -228,12 +229,16 @@ pub fn download_and_install_weed(version: &str, bin_path: &PathBuf) -> Result<()
         return Err(WeedDownloadError::DownloadError);
     }
 
-    let bytes = response.bytes().map_err(|_| WeedDownloadError::DownloadError)?;
+    let bytes = response
+        .bytes()
+        .map_err(|_| WeedDownloadError::DownloadError)?;
 
     log::info!("Extracting `weed` archive...");
     let cursor = Cursor::new(bytes);
     let mut archive = Archive::new(cursor);
-    archive.unpack(".").map_err(|_| WeedDownloadError::ExtractError)?;
+    archive
+        .unpack(".")
+        .map_err(|_| WeedDownloadError::ExtractError)?;
 
     log::info!("Setting permissions...");
     Command::new("chmod")
@@ -244,7 +249,10 @@ pub fn download_and_install_weed(version: &str, bin_path: &PathBuf) -> Result<()
     log::info!("Moving binary to: {}", bin_path.display());
     fs::rename(PathBuf::from("./weed"), bin_path).map_err(|_| WeedDownloadError::MoveError)?;
 
-    log::info!("SeaweedFS executable `weed` has been installed successfully at {}", bin_path.display());
+    log::info!(
+        "SeaweedFS executable `weed` has been installed successfully at {}",
+        bin_path.display()
+    );
 
     Ok(())
 }

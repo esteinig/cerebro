@@ -1,8 +1,8 @@
+use crate::error::FileSystemError;
 use blake3::Hasher;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
-use crate::error::FileSystemError;
 
 /// Computes a BLAKE3 hash of the file at the given path.
 ///
@@ -79,7 +79,10 @@ pub fn hash_bytes(data: &[u8]) -> String {
 /// b3sum-style checksum file (`<hash>  <relative-path>` per line, sorted) to
 /// `output`. Produce-time integrity snapshot for the produce -> capture -> verify
 /// chain (intermission-3). Returns the number of files hashed.
-pub fn hash_directory(dir: &std::path::Path, output: &std::path::Path) -> Result<usize, FileSystemError> {
+pub fn hash_directory(
+    dir: &std::path::Path,
+    output: &std::path::Path,
+) -> Result<usize, FileSystemError> {
     let mut entries: Vec<PathBuf> = Vec::new();
     collect_files_recursive(dir, &mut entries)?;
     entries.sort();
@@ -99,7 +102,10 @@ pub fn hash_directory(dir: &std::path::Path, output: &std::path::Path) -> Result
     Ok(count)
 }
 
-fn collect_files_recursive(dir: &std::path::Path, acc: &mut Vec<PathBuf>) -> Result<(), FileSystemError> {
+fn collect_files_recursive(
+    dir: &std::path::Path,
+    acc: &mut Vec<PathBuf>,
+) -> Result<(), FileSystemError> {
     for entry in std::fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_dir() {

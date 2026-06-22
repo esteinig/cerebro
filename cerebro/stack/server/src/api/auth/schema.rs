@@ -28,7 +28,6 @@ pub struct AuthOneTimeCheckSchema {
     pub access_token: String,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct AuthResetPasswordSchema {
     pub access_token: String,

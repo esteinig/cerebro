@@ -3,7 +3,11 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 use taxonomy::TaxRank;
 
-use crate::{error::WorkflowError, tools::download::{Aligner, Classifier}, tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex}};
+use crate::{
+    error::WorkflowError,
+    tools::download::{Aligner, Classifier},
+    tools::download::{CerebroDownloader, CerebroDownloaderBuilder, CerebroIndex},
+};
 
 /// Cerebro: production stack server
 #[derive(Debug, Parser)]
@@ -28,7 +32,6 @@ pub enum Commands {
     /// Internal pipeline utilities and sample sheets
     Tools(ToolsCommands),
 }
-
 
 #[derive(Debug, Subcommand)]
 pub enum TableCommands {
@@ -56,7 +59,6 @@ pub struct QualityControlTableArgs {
     pub background: PathBuf,
 }
 
-
 #[derive(Debug, Args)]
 pub struct PathogenDetectionTableArgs {
     /// Pathogen detection summaries (.pd.json)
@@ -73,7 +75,6 @@ pub struct PathogenDetectionTableArgs {
     pub rank: Option<TaxRank>,
 }
 
-
 #[derive(Debug, Args)]
 pub struct FilterTableArgs {
     /// Pathogen detection summaries (.json)
@@ -84,7 +85,7 @@ pub struct FilterTableArgs {
     pub output: PathBuf,
     /// Provide filters as JSON
     #[clap(long, short = 'f')]
-    pub filter_json: Option<PathBuf>
+    pub filter_json: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -117,7 +118,6 @@ pub struct ScanReadArgs {
     pub json: Option<PathBuf>,
 }
 
-
 #[derive(Debug, Args)]
 pub struct UmiDedupCalibArgs {
     /// Input read files for deduplication (.fastq)
@@ -126,7 +126,7 @@ pub struct UmiDedupCalibArgs {
     /// Output deduplicated read files  (length and order must match input files) (.fastq)
     #[clap(long, short = 'o', num_args(0..))]
     pub output: Vec<PathBuf>,
-    /// Input cluster report from Calib output 
+    /// Input cluster report from Calib output
     #[clap(long, short = 'c')]
     pub clusters: PathBuf,
     /// Output cluster summary file (.tsv)
@@ -156,9 +156,9 @@ pub struct UmiDedupNaiveArgs {
     #[clap(long, short = 'o', num_args(0..))]
     pub output: Vec<PathBuf>,
     /// Input reads with UMI in last field of read identifier (:) (.fastq)
-    /// 
+    ///
     /// Deduplicates reads with UMI prepended: clusters identical reads, and selects
-    /// the best average read quality read (identfier) from each cluster to be subset 
+    /// the best average read quality read (identfier) from each cluster to be subset
     /// from the input files. Usually the forward reads of input files should be used.
     #[clap(long, short = 'f')]
     pub reads: PathBuf,
@@ -172,10 +172,10 @@ pub struct UmiDedupNaiveArgs {
     #[clap(long, short = 'c')]
     pub clusters: Option<PathBuf>,
     /// Delimiter in tail of read ids to extract UMI sequence
-    #[clap(long, short = 'd', default_value=":")]
+    #[clap(long, short = 'd', default_value = ":")]
     pub delim: String,
     /// Do not extract UMI sequence from read identifier and prepend
-    /// 
+    ///
     /// If activated, only the read sequence is used for deduplication.
     #[clap(long, short = 'n')]
     pub no_umi: bool,
@@ -190,7 +190,7 @@ pub struct UmiTrimArgs {
     #[clap(long, short = 'o')]
     pub output: PathBuf,
     /// Index length to trim from sequence
-    #[clap(long, short = 't', default_value="8")]
+    #[clap(long, short = 't', default_value = "8")]
     pub trim: usize,
 }
 
@@ -204,7 +204,6 @@ pub struct UmiPrepareCalibArgs {
     pub output: PathBuf,
 }
 
-
 #[derive(Debug, Args)]
 pub struct SampleSheetArgs {
     /// Input directory to collect sample files from
@@ -214,60 +213,60 @@ pub struct SampleSheetArgs {
     #[clap(long, short = 'o')]
     pub output: PathBuf,
     /// Sample glob - pattern matching to find paired samples
-    /// 
+    ///
     /// The glob string to specify paired sample extensions should be in format: {forward_extension,reverse_extension}
     /// where the wildcard specifies the sample identifier, for example: *_{R1,R2}.fastq.gz will match files
     /// "Sample1_R1.fastq.gz" and "Sample1_R2.fastq.gz" to sample identifier "Sample1"
     #[clap(long, short = 'g', default_value = "*_{R1_001,R2_001}.fastq.gz")]
     pub glob: String,
     /// Sample prefix file - only collect samples starting with prefix
-    /// 
+    ///
     /// One sample prefix per line to collect using the directory and glob search.
     #[clap(long, short = 'p')]
     pub prefix: Option<PathBuf>,
     /// Run identifier - if not provided uses input directory name
-    /// 
-    /// If you want to fill in custom run identifiers for each sample, 
-    /// you can provide an empty string ("") and edit the sample sheet 
+    ///
+    /// If you want to fill in custom run identifiers for each sample,
+    /// you can provide an empty string ("") and edit the sample sheet
     /// manually.
     #[clap(long, short = 'i')]
     pub run_id: Option<String>,
     /// Run date - if not provided uses current date (YYYYMMDD)
-    /// 
-    /// If you want to fill in custom run dates for each sample, 
-    /// you can provide an empty string ("") and edit the sample sheet 
+    ///
+    /// If you want to fill in custom run dates for each sample,
+    /// you can provide an empty string ("") and edit the sample sheet
     /// manually.
     #[clap(long, short = 'd')]
     pub run_date: Option<String>,
     /// Sample group - if not provided sample group designation is an empty string
-    /// 
+    ///
     /// Sample groups can be specified manually for larger runs containing
     /// samples from multiple experimental groups - these are later available
     /// in the front-end application and therefore should have permission from
-    /// governance and ethics to store such types; please check your local 
+    /// governance and ethics to store such types; please check your local
     /// regulartory framework for inclusion of this data type.
     #[clap(long, short = 'g')]
     pub sample_group: Option<String>,
     /// Sample type - if not provided sample type designation is an empty string
-    /// 
+    ///
     /// Sample types can be specified manually for larger runs containing
     /// samples from multiple biological sources- these are later available
     /// in the front-end application and therefore should have permission from
-    /// governance and ethics to store such types; please check your local 
+    /// governance and ethics to store such types; please check your local
     /// regulartory framework for inclusion of this data type.
     #[clap(long, short = 't')]
     pub sample_type: Option<String>,
     /// Sample date - if not provided sample date designation is an empty string
-    /// 
+    ///
     /// Sample dates can be specified manually for larger runs containing
     /// samples from multiple biological sources- these are later available
     /// in the front-end application and therefore should have permission from
-    /// governance and ethics to store such types; please check your local 
+    /// governance and ethics to store such types; please check your local
     /// regulartory framework for inclusion of this data type.
     #[clap(long, short = 's')]
     pub sample_date: Option<String>,
     /// ERCC input mass in picogram - if not provided input mass is 0
-    /// 
+    ///
     /// In the validation experiments, we test different input masses per sample.
     /// Generally not needed and can be overwritten with options in the fixed
     /// workflow settings later. Set to 25 pg for standard ERCC inputs.
@@ -282,11 +281,10 @@ pub struct SampleSheetArgs {
     /// Allow non-unique sample identifiers in sample sheet (caution)
     #[clap(long, short = 'u')]
     pub not_unique: bool,
-    /// Single reads for Oxford Nanopore Technology 
+    /// Single reads for Oxford Nanopore Technology
     #[clap(long)]
-    pub ont: bool
+    pub ont: bool,
 }
-
 
 #[derive(Args, Debug, Clone)]
 pub struct DownloadArgs {
@@ -297,16 +295,16 @@ pub struct DownloadArgs {
     #[arg(short, long, num_args(0..))]
     pub index: Vec<CerebroIndex>,
     /// Output directory for index download
-    #[arg(short, long, default_value=".")]
+    #[arg(short, long, default_value = ".")]
     pub outdir: PathBuf,
-    /// Download index for one or more aligners 
+    /// Download index for one or more aligners
     #[arg(short, long, num_args(0..))]
     pub aligner: Option<Vec<Aligner>>,
-    /// Download index for one or more classifiers 
+    /// Download index for one or more classifiers
     #[arg(short, long, num_args(0..))]
     pub classfier: Option<Vec<Classifier>>,
     /// Download timeout in minutes - increase for large files and slow connections
-    #[arg(short, long, default_value="360")]
+    #[arg(short, long, default_value = "360")]
     pub timeout: u64,
     /// Download a specific version of the database, no version downloads latest
     #[arg(short, long)]
@@ -318,37 +316,33 @@ pub struct DownloadArgs {
 impl DownloadArgs {
     /// Validates the provided arguments and builds a `CerebroDownloader` instance.
     ///
-    /// This method checks the provided arguments for consistency and constructs 
+    /// This method checks the provided arguments for consistency and constructs
     /// a `CerebroDownloader` instance based on the validated arguments.
     ///
     /// # Returns
     ///
     /// * `Result<CerebroDownloader, WorkflowError>` - Ok with the constructed CerebroDownloader instance, otherwise an error.
-    /// 
+    ///
     /// # Example
     ///
     /// ```ignore
     /// use clap::Parser;
-    /// 
+    ///
     /// let dl_args = Download::parse();
     /// let dl = dl_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(self) -> Result<CerebroDownloader, WorkflowError> {
-        
-        let downloader = CerebroDownloaderBuilder::new(
-            self.outdir, self.index
-        )
-        .classifier(self.classfier)
-        .aligner(self.aligner)
-        .timeout(self.timeout)
-        .reference(self.reference)
-        .version(self.version)
-        .build()?;
+        let downloader = CerebroDownloaderBuilder::new(self.outdir, self.index)
+            .classifier(self.classfier)
+            .aligner(self.aligner)
+            .timeout(self.timeout)
+            .reference(self.reference)
+            .version(self.version)
+            .build()?;
 
         Ok(downloader)
     }
 }
-
 
 #[derive(Debug, Subcommand)]
 pub enum ProcessCommands {
@@ -360,16 +354,15 @@ pub enum ProcessCommands {
     Quality(ProcessArgs),
 }
 
-
 #[derive(Debug, Args)]
 pub struct ProcessArgs {
     /// Input directory containing the output files for the pathogen or panviral pipeline
-    #[clap(long, short = 'i', default_value=".")]
+    #[clap(long, short = 'i', default_value = ".")]
     pub input: PathBuf,
-    /// Input directory containing the output files for the quality control module 
-    /// 
+    /// Input directory containing the output files for the quality control module
+    ///
     /// If not provided will check the '--input' directory for the quality control module outputs
-    #[clap(long, short = 'q', default_value=".")]
+    #[clap(long, short = 'q', default_value = ".")]
     pub input_qc: Option<PathBuf>,
     /// Sample identifier to parse, directory basename by default
     #[clap(long, short = 's')]
@@ -393,28 +386,25 @@ pub struct ProcessArgs {
     #[clap(long, short = 'f')]
     pub qc_fail_ok: bool,
     /// Paired-end reads (same identifier for each mate) used as input
-    /// 
+    ///
     /// Classifiers like Kraken2 or Metabuli output reads as unique reads
     /// identifiers that were classified, therefore the read counts are
     /// usually half of what they are expected.
     #[clap(long)]
     pub paired_end: bool,
-
 }
 
-
-
 pub fn get_styles() -> clap::builder::Styles {
-	clap::builder::Styles::styled()
-		.header(
-			anstyle::Style::new()
-				.bold()
-				.underline()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-		)
-		.literal(
-			anstyle::Style::new()
-				.bold()
-				.fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-		)
+    clap::builder::Styles::styled()
+        .header(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
+        )
+        .literal(
+            anstyle::Style::new()
+                .bold()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
+        )
 }

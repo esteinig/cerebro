@@ -6,39 +6,42 @@ use serde::{Deserialize, Serialize};
 use taxonomy::TaxRank;
 
 use crate::error::WorkflowError;
+use crate::modules::pathogen::AbundanceMode;
 use crate::modules::pathogen::PathogenDetectionRank;
 use crate::modules::pathogen::ProfileTool;
-use crate::modules::pathogen::AbundanceMode;
 use crate::utils::read_tsv;
 use crate::utils::write_tsv;
 
 use super::taxon::LineageOperations;
 use super::taxon::Taxon;
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TaxonFilterConfig {
-    pub rank: Option<PathogenDetectionRank>,        // Filter by specific taxonomic rank
-    pub domains: Vec<String>,                       // Filter by domain names
-    pub tools: Vec<ProfileTool>,                    // Filter by specific detection tools
-    pub modes: Vec<AbundanceMode>,                  // Filter by detection modes (Sequence/Profile)
+    pub rank: Option<PathogenDetectionRank>, // Filter by specific taxonomic rank
+    pub domains: Vec<String>,                // Filter by domain names
+    pub tools: Vec<ProfileTool>,             // Filter by specific detection tools
+    pub modes: Vec<AbundanceMode>,           // Filter by detection modes (Sequence/Profile)
     pub min_bases: u64,
     pub max_bases: Option<u64>,
-    pub min_bpm: f64,                             
-    pub min_reads: u64,                             // Minimum read count for inclusion
-    pub min_rpm: f64,                               // Minimum RPM (Reads per million) for inclusion
+    pub min_bpm: f64,
+    pub min_reads: u64, // Minimum read count for inclusion
+    pub min_rpm: f64,   // Minimum RPM (Reads per million) for inclusion
     pub max_rpm: Option<f64>,
-    pub min_abundance: f64,                         // Minimum abundance for inclusion
-    pub ntc_ratio: Option<f64>,                     // NTC ratio threshold
-    pub lineage: Option<Vec<LineageFilterConfig>>,  // Lineage filter configuration if specified
-    pub targets: Option<Vec<String>>,               // Subset taxa to these lineage components
-    pub ignore_taxstr: Option<Vec<String>>,         // Remove any of these matches 
+    pub min_abundance: f64,     // Minimum abundance for inclusion
+    pub ntc_ratio: Option<f64>, // NTC ratio threshold
+    pub lineage: Option<Vec<LineageFilterConfig>>, // Lineage filter configuration if specified
+    pub targets: Option<Vec<String>>, // Subset taxa to these lineage components
+    pub ignore_taxstr: Option<Vec<String>>, // Remove any of these matches
 }
 
 impl TaxonFilterConfig {
     pub fn target_set(&self) -> Option<HashSet<&str>> {
         // Build a HashSet of target names for efficient lookup.
-        if let Some(targets) = &self.targets { Some(HashSet::from_iter(targets.into_iter().map(|t| t.as_str()))) } else { None }
+        if let Some(targets) = &self.targets {
+            Some(HashSet::from_iter(targets.into_iter().map(|t| t.as_str())))
+        } else {
+            None
+        }
     }
     /// Checks if the given taxon passes *all* defined lineage filter configurations.
     pub fn passes_filters(&self, taxon: &Taxon) -> bool {
@@ -71,7 +74,7 @@ impl Default for TaxonFilterConfig {
             ntc_ratio: None,
             lineage: None,
             targets: None,
-            ignore_taxstr: None
+            ignore_taxstr: None,
         }
     }
 }
@@ -81,7 +84,13 @@ impl TaxonFilterConfig {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
-            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![
+                ProfileTool::Kraken2,
+                ProfileTool::Metabuli,
+                ProfileTool::Ganon2,
+                ProfileTool::Blast,
+                ProfileTool::Vircov,
+            ],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -94,17 +103,23 @@ impl TaxonFilterConfig {
             lineage: Some(vec![
                 LineageFilterConfig::gp_bacteria_above_threshold(),
                 LineageFilterConfig::gp_viruses_above_threshold(),
-                LineageFilterConfig::gp_eukaryota_above_threshold()
+                LineageFilterConfig::gp_eukaryota_above_threshold(),
             ]),
             targets: None,
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
         }
     }
     pub fn gp_below_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
-            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![
+                ProfileTool::Kraken2,
+                ProfileTool::Metabuli,
+                ProfileTool::Ganon2,
+                ProfileTool::Blast,
+                ProfileTool::Vircov,
+            ],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -120,14 +135,20 @@ impl TaxonFilterConfig {
                 LineageFilterConfig::gp_eukaryota_below_threshold(),
             ]),
             targets: None,
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
         }
     }
     pub fn dev_below_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: Vec::new(),
-            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![
+                ProfileTool::Kraken2,
+                ProfileTool::Metabuli,
+                ProfileTool::Ganon2,
+                ProfileTool::Blast,
+                ProfileTool::Vircov,
+            ],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -138,25 +159,31 @@ impl TaxonFilterConfig {
             min_abundance: 0.0,
             ntc_ratio: Some(1.0),
             lineage: Some(vec![
-                LineageFilterConfig::dev_bacteria_below_threshold(),   // more stringent bacterial subthreshold category
+                LineageFilterConfig::dev_bacteria_below_threshold(), // more stringent bacterial subthreshold category
                 LineageFilterConfig::gp_eukaryota_below_threshold(),
                 LineageFilterConfig::gp_viruses_below_threshold(),
             ]),
             targets: None,
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
         }
     }
     pub fn gp_target_threshold(taxstr: Option<Vec<String>>) -> Self {
-        
         let targets = TargetList::combine(&[
-            TargetList::gp_vertebrate_viruses(), 
-            TargetList::gp_cns_bacteria() // no bacteria provided for now!
-        ]).to_vec();
+            TargetList::gp_vertebrate_viruses(),
+            TargetList::gp_cns_bacteria(), // no bacteria provided for now!
+        ])
+        .to_vec();
 
         Self {
             rank: Some(PathogenDetectionRank::Species),
             domains: vec![],
-            tools: vec![ProfileTool::Kraken2, ProfileTool::Metabuli, ProfileTool::Ganon2, ProfileTool::Blast, ProfileTool::Vircov],
+            tools: vec![
+                ProfileTool::Kraken2,
+                ProfileTool::Metabuli,
+                ProfileTool::Ganon2,
+                ProfileTool::Blast,
+                ProfileTool::Vircov,
+            ],
             modes: vec![AbundanceMode::Mixed],
             min_bases: 0,
             max_bases: None,
@@ -166,11 +193,9 @@ impl TaxonFilterConfig {
             max_rpm: None,
             min_abundance: 0.0,
             ntc_ratio: Some(1.0),
-            lineage: Some(vec![
-                LineageFilterConfig::gp_viruses_target_threshold(),
-            ]),
+            lineage: Some(vec![LineageFilterConfig::gp_viruses_target_threshold()]),
             targets: Some(targets),
-            ignore_taxstr: taxstr
+            ignore_taxstr: taxstr,
         }
     }
 }
@@ -236,7 +261,7 @@ impl TargetList {
                     target_name: trimmed.to_string(),
                 });
             }
-        } 
+        }
         // Deduplicate the target records based on target_name.
         let mut seen = HashSet::new();
         targets.retain(|record| seen.insert(record.target_name.clone()));
@@ -249,7 +274,9 @@ impl TargetList {
         let tsv_data = include_str!("../../templates/ictv_vertebrate_targets.tsv");
         Self::from_tsv_str(tsv_data).unwrap_or_else(|e| {
             log::error!("Error parsing TSV data: {:?}", e);
-            Self { targets: Vec::new() }
+            Self {
+                targets: Vec::new(),
+            }
         })
     }
     /// Loads the target list from an embedded TSV file.
@@ -258,7 +285,9 @@ impl TargetList {
         let tsv_data = include_str!("../../templates/ictv_prokaryote_targets.tsv");
         Self::from_tsv_str(tsv_data).unwrap_or_else(|e| {
             log::error!("Error parsing TSV data: {:?}", e);
-            Self { targets: Vec::new() }
+            Self {
+                targets: Vec::new(),
+            }
         })
     }
     /// Loads the target list from an embedded TSV file.
@@ -267,11 +296,12 @@ impl TargetList {
         let tsv_data = include_str!("../../templates/cns_prokaryote_targets.tsv");
         Self::from_tsv_str(tsv_data).unwrap_or_else(|e| {
             log::error!("Error parsing TSV data: {:?}", e);
-            Self { targets: Vec::new() }
+            Self {
+                targets: Vec::new(),
+            }
         })
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LineageFilterConfig {
@@ -286,9 +316,8 @@ pub struct LineageFilterConfig {
     pub min_assembly_tools: Option<usize>,
 }
 impl LineageFilterConfig {
-     /// Checks whether the given taxon meets the alignment evidence criteria.
-     pub fn passes_alignment_filters(&self, taxon: &Taxon) -> bool {
-
+    /// Checks whether the given taxon meets the alignment evidence criteria.
+    pub fn passes_alignment_filters(&self, taxon: &Taxon) -> bool {
         if let Some(min_tools) = self.min_alignment_tools {
             if min_tools > 0 && taxon.evidence.alignment.is_empty() {
                 return false;
@@ -299,7 +328,8 @@ impl LineageFilterConfig {
             // If minimum alignment regions is specified without the coverage thresholds
             // the 100.0% coverage setting forces considerations of alignment regions at
             // any coverage, otherwise only below the specified coverage
-            let min_alignment_regions_coverage = self.min_alignment_regions_coverage.unwrap_or(100.0);
+            let min_alignment_regions_coverage =
+                self.min_alignment_regions_coverage.unwrap_or(100.0);
 
             let valid_alignment = taxon.evidence.alignment.iter().any(|record| {
                 if record.scan_coverage > min_alignment_regions_coverage {
@@ -326,7 +356,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(10.0),
-            min_assembly_tools: None
+            min_assembly_tools: None,
         }
     }
     pub fn gp_bacteria_above_threshold() -> Self {
@@ -338,8 +368,8 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
-            min_assembly_tools: None
+            min_kmer_rpm: Some(10.0),
+            min_assembly_tools: None,
         }
     }
     pub fn gp_eukaryota_above_threshold() -> Self {
@@ -351,8 +381,8 @@ impl LineageFilterConfig {
             min_alignment_regions: None,
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
-            min_kmer_rpm: Some(10.0) ,
-            min_assembly_tools: Some(1)
+            min_kmer_rpm: Some(10.0),
+            min_assembly_tools: Some(1),
         }
     }
 
@@ -366,7 +396,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(2),
             min_kmer_rpm: Some(3.0),
-            min_assembly_tools: None
+            min_assembly_tools: None,
         }
     }
     pub fn gp_bacteria_below_threshold() -> Self {
@@ -379,7 +409,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(1.0),
-            min_assembly_tools: None
+            min_assembly_tools: None,
         }
     }
     pub fn dev_bacteria_below_threshold() -> Self {
@@ -392,7 +422,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(3.0),
-            min_assembly_tools: None
+            min_assembly_tools: None,
         }
     }
     pub fn gp_eukaryota_below_threshold() -> Self {
@@ -405,7 +435,7 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(5.0),
-            min_assembly_tools: Some(1)
+            min_assembly_tools: Some(1),
         }
     }
 
@@ -419,10 +449,10 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: Some(20.0),
             min_kmer_tools: Some(1),
             min_kmer_rpm: Some(0.0),
-            min_assembly_tools: None
+            min_assembly_tools: None,
         }
     }
-    
+
     pub fn gp_bacteria_target_threshold() -> Self {
         Self {
             lineages: vec!["d__Bacteria".to_string(), "d__Archaea".to_string()],
@@ -433,18 +463,20 @@ impl LineageFilterConfig {
             min_alignment_regions_coverage: None,
             min_kmer_tools: Some(3),
             min_kmer_rpm: Some(0.5),
-            min_assembly_tools: None
+            min_assembly_tools: None,
         }
     }
 }
 
-
 type SampleId = String;
 type Tag = String;
 
-
-pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sample_tags: &HashMap<SampleId, Vec<Tag>>, allow_no_evidence: bool) -> Vec<Taxon> {
-
+pub fn apply_filters(
+    mut taxa: Vec<Taxon>,
+    filter_config: &TaxonFilterConfig,
+    sample_tags: &HashMap<SampleId, Vec<Tag>>,
+    allow_no_evidence: bool,
+) -> Vec<Taxon> {
     // Filter by taxonomic rank
     if let Some(rank) = &filter_config.rank {
         let tax_rank: TaxRank = (*rank).clone().into(); // Convert PathogenDetectionRank to TaxRank --> important because the taxon abstraction uses TaxRank from taxonomy crate (might need to change this)
@@ -458,36 +490,35 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     if !filter_config.domains.is_empty() {
         taxa = taxa
             .into_iter()
-            .filter(|taxon| {
-                match taxon.lineage.get_domain() {
-                    Some(taxon_domain) => filter_config.domains.contains(&taxon_domain),
-                    None => false
-                }
+            .filter(|taxon| match taxon.lineage.get_domain() {
+                Some(taxon_domain) => filter_config.domains.contains(&taxon_domain),
+                None => false,
             })
             .collect();
     }
 
     // Apply target filter if specified - this is really slow at the moment because of the String checks?
     if let Some(target_set) = &filter_config.target_set() {
-        taxa = taxa.into_iter()
+        taxa = taxa
+            .into_iter()
             .filter(|taxon| target_set.contains(taxon.name.as_str()))
             .collect();
     }
 
     // Apply taxstr filter to remove matches in name
     if let Some(taxstr) = &filter_config.ignore_taxstr {
-        taxa = taxa.into_iter()
+        taxa = taxa
+            .into_iter()
             .filter(|taxon| {
                 for s in taxstr {
                     if taxon.name.contains(s) {
-                        return false
+                        return false;
                     }
                 }
                 true
             })
             .collect();
     }
-
 
     // Filter by detection tools, modes, and thresholds
     taxa = apply_evidence_filters(taxa, filter_config, sample_tags, allow_no_evidence);
@@ -500,16 +531,17 @@ pub fn apply_filters(mut taxa: Vec<Taxon>, filter_config: &TaxonFilterConfig, sa
     taxa
 }
 
-
 pub fn apply_evidence_filters(
     taxa: Vec<Taxon>,
     filter_config: &TaxonFilterConfig,
     sample_tags: &HashMap<SampleId, Vec<Tag>>,
-    allow_no_evidence: bool
+    allow_no_evidence: bool,
 ) -> Vec<Taxon> {
-
     // Are the evidence-aggregated Taxa only from NTC or ENV controls (no sample library present)
-    let only_ntc = sample_tags.clone().into_values().all(|tags| tags.contains(&"NTC".to_string()) || tags.contains(&"ENV".to_string()));
+    let only_ntc = sample_tags
+        .clone()
+        .into_values()
+        .all(|tags| tags.contains(&"NTC".to_string()) || tags.contains(&"ENV".to_string()));
 
     taxa
     .into_iter()
@@ -541,7 +573,7 @@ pub fn apply_evidence_filters(
                     }
                 }
             });
-        
+
         // Step 2: Filter profile records based on ntc_ratio
         taxon.evidence.profile = taxon
             .evidence
@@ -566,10 +598,8 @@ pub fn apply_evidence_filters(
                         if let Some(ntc_rpm) = ntc_rpms.get(&key) {
                             let retain = (ntc_rpm / record.rpm) <= ratio_threshold; // Retain evidence if the NTC RPM / Library RPM ratio is larger than the provided threshold
 
-                            return retain; 
-                            
+                            return retain;
                         }
-                        
                     }
                 }
                 true // Keep if no NTC comparison or ratio is specified
@@ -608,14 +638,14 @@ pub fn apply_evidence_filters(
                     )
                 )
                 &&
-                if record.mode != AbundanceMode::Bases { 
+                if record.mode != AbundanceMode::Bases {
                     // For non-Bases records, check min_reads and min_rpm, and optionally enforce max_rpm
-                    record.reads >= filter_config.min_reads && 
+                    record.reads >= filter_config.min_reads &&
                     record.rpm >= filter_config.min_rpm &&
                     filter_config.max_rpm.map_or(true, |max| record.rpm <= max)
                 } else {
                     // For Bases records, check min_bases and min_bpm, and optionally enforce max_bases
-                    record.bases >= filter_config.min_bases && 
+                    record.bases >= filter_config.min_bases &&
                     record.bpm >= filter_config.min_bpm &&
                     filter_config.max_bases.map_or(true, |max| record.bases <= max)
                 }
@@ -627,13 +657,12 @@ pub fn apply_evidence_filters(
         })
         .filter(|taxon| if allow_no_evidence { true } else { !taxon.evidence.profile.is_empty() }) // Remove taxa with no evidence left (or retain if allow_no_evidence is true)
         .collect()
-
 }
 
 pub fn apply_lineage_filters(
     taxa: Vec<Taxon>,
     lineage_filters: &Vec<LineageFilterConfig>,
-    sample_tags: &HashMap<String, Vec<String>> // keys: record.id, values: tags for the sample
+    sample_tags: &HashMap<String, Vec<String>>, // keys: record.id, values: tags for the sample
 ) -> Vec<Taxon> {
     taxa.into_iter()
         .filter(|taxon| {
@@ -644,7 +673,8 @@ pub fn apply_lineage_filters(
             // For each taxon, create a filtered evidence profile that only retains
             // records whose associated sample tags include one or more required tags.
             // We combine all required tags from filters that match this taxon’s lineage.
-            let required_tags: Vec<String> = lineage_filters.iter()
+            let required_tags: Vec<String> = lineage_filters
+                .iter()
                 .filter(|lf| {
                     // Only consider filters that list tag requirements and whose lineages match.
                     !lf.tags.is_empty() && lf.lineages.iter().any(|l| lineage_str.contains(l))
@@ -655,15 +685,21 @@ pub fn apply_lineage_filters(
             // If there are required tags, filter the profile records accordingly.
             // If none are required, keep all records.
             let filtered_profile: Vec<_> = if !required_tags.is_empty() {
-                taxon.evidence.profile.iter().filter(|record| {
-                    if let Some(record_tags) = sample_tags.get(&record.id) {
-                        // Retain record if at least one of its tags is in the required set.
-                        record_tags.iter().any(|tag| required_tags.contains(tag))
-                    } else {
-                        // No sample tags available for this record: exclude it.
-                        false
-                    }
-                }).cloned().collect()
+                taxon
+                    .evidence
+                    .profile
+                    .iter()
+                    .filter(|record| {
+                        if let Some(record_tags) = sample_tags.get(&record.id) {
+                            // Retain record if at least one of its tags is in the required set.
+                            record_tags.iter().any(|tag| required_tags.contains(tag))
+                        } else {
+                            // No sample tags available for this record: exclude it.
+                            false
+                        }
+                    })
+                    .cloned()
+                    .collect()
             } else {
                 taxon.evidence.profile.clone()
             };
@@ -678,7 +714,6 @@ pub fn apply_lineage_filters(
             let mut passes_all = true;
             for lf in lineage_filters {
                 if lf.lineages.iter().any(|l| lineage_str.contains(l)) {
-
                     // Alignment filter for Vircov records
                     if !lf.passes_alignment_filters(taxon) {
                         passes_all = false;
@@ -688,12 +723,15 @@ pub fn apply_lineage_filters(
                     // K-mer filter for non-Vircov/Blast records
                     if let Some(min_kmer_tools) = lf.min_kmer_tools {
                         let min_kmer_rpm = lf.min_kmer_rpm.unwrap_or(0.0);
-                        let kmer_count = filtered_profile.iter().filter(|record| {
-                            match record.tool {
-                                ProfileTool::Vircov | ProfileTool::Blast | ProfileTool::Sylph => false,
+                        let kmer_count = filtered_profile
+                            .iter()
+                            .filter(|record| match record.tool {
+                                ProfileTool::Vircov | ProfileTool::Blast | ProfileTool::Sylph => {
+                                    false
+                                }
                                 _ => record.rpm >= min_kmer_rpm,
-                            }
-                        }).count();
+                            })
+                            .count();
                         if kmer_count < min_kmer_tools {
                             passes_all = false;
                             break;
@@ -702,9 +740,10 @@ pub fn apply_lineage_filters(
 
                     // Assembly filter for Blast records
                     if let Some(min_assembly_tools) = lf.min_assembly_tools {
-                        let assembly_count = filtered_profile.iter().filter(|record| {
-                            record.tool == ProfileTool::Blast
-                        }).count();
+                        let assembly_count = filtered_profile
+                            .iter()
+                            .filter(|record| record.tool == ProfileTool::Blast)
+                            .count();
                         if assembly_count < min_assembly_tools {
                             passes_all = false;
                             break;
@@ -716,4 +755,3 @@ pub fn apply_lineage_filters(
         })
         .collect()
 }
-

@@ -26,7 +26,9 @@ use tracing::Level;
 use crate::config::WorkerConfig;
 use crate::context::WorkerContext;
 use crate::runners::{
-    CatalogueBackup, Ping, PurgeReclaim, ReconcileReclaim, ReconcileScan, RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyRepair, VerifyScan, ArchiveReclaim,
+    ArchiveReclaim, CatalogueBackup, Ping, PurgeReclaim, ReconcileReclaim, ReconcileScan,
+    RestoreDrive, RestoreScan, RetentionSweep, TierMove, TierMoveScan, VerifyFile, VerifyRepair,
+    VerifyScan,
 };
 use crate::telemetry::Metrics;
 
@@ -89,23 +91,67 @@ async fn main() -> std::io::Result<()> {
 
     // Register runners: a liveness ping plus the full lifecycle taxonomy
     // (movement, retention, restore, integrity).
-        // Register runners: a liveness ping plus the full lifecycle taxonomy
+    // Register runners: a liveness ping plus the full lifecycle taxonomy
     // (movement, retention, restore, integrity).
     let mut worker = Worker::builder()
         .register("ping", Ping::new(metrics.clone()))
-        .register("tier_move", TierMove::new(ctx.clone(), metrics.clone(), config.archive.clone()))
-        .register("tier_move_scan", TierMoveScan::new(ctx.clone(), metrics.clone()))
-        .register("retention_sweep", RetentionSweep::new(ctx.clone(), metrics.clone()))
-        .register("purge_reclaim", PurgeReclaim::new(ctx.clone(), metrics.clone()))
-        .register("restore_drive", RestoreDrive::new(ctx.clone(), metrics.clone(), config.archive.clone()))
-        .register("restore_scan", RestoreScan::new(ctx.clone(), metrics.clone()))
-        .register("verify_file", VerifyFile::new(ctx.clone(), metrics.clone(), config.archive.clone()))
+        .register(
+            "tier_move",
+            TierMove::new(ctx.clone(), metrics.clone(), config.archive.clone()),
+        )
+        .register(
+            "tier_move_scan",
+            TierMoveScan::new(ctx.clone(), metrics.clone()),
+        )
+        .register(
+            "retention_sweep",
+            RetentionSweep::new(ctx.clone(), metrics.clone()),
+        )
+        .register(
+            "purge_reclaim",
+            PurgeReclaim::new(ctx.clone(), metrics.clone()),
+        )
+        .register(
+            "restore_drive",
+            RestoreDrive::new(ctx.clone(), metrics.clone(), config.archive.clone()),
+        )
+        .register(
+            "restore_scan",
+            RestoreScan::new(ctx.clone(), metrics.clone()),
+        )
+        .register(
+            "verify_file",
+            VerifyFile::new(ctx.clone(), metrics.clone(), config.archive.clone()),
+        )
         .register("verify_scan", VerifyScan::new(ctx.clone(), metrics.clone()))
-        .register("catalogue_backup", CatalogueBackup::new(ctx.clone(), metrics.clone(), config.backup.clone()))
-        .register("reconcile_scan", ReconcileScan::new(ctx.clone(), metrics.clone(), config.backup.as_ref().map(|b| b.store_root.clone())))
-        .register("reconcile_reclaim", ReconcileReclaim::new(ctx.clone(), metrics.clone()))
-        .register("verify_repair", VerifyRepair::new(ctx.clone(), metrics.clone(), config.backup.as_ref().map(|b| b.store_root.clone())))
-        .register("archive_reclaim", ArchiveReclaim::new(ctx.clone(), metrics.clone(), config.archive.clone()))
+        .register(
+            "catalogue_backup",
+            CatalogueBackup::new(ctx.clone(), metrics.clone(), config.backup.clone()),
+        )
+        .register(
+            "reconcile_scan",
+            ReconcileScan::new(
+                ctx.clone(),
+                metrics.clone(),
+                config.backup.as_ref().map(|b| b.store_root.clone()),
+            ),
+        )
+        .register(
+            "reconcile_reclaim",
+            ReconcileReclaim::new(ctx.clone(), metrics.clone()),
+        )
+        .register(
+            "verify_repair",
+            VerifyRepair::new(
+                ctx.clone(),
+                metrics.clone(),
+                config.backup.as_ref().map(|b| b.store_root.clone()),
+            ),
+        )
+        .register(
+            "archive_reclaim",
+            ArchiveReclaim::new(ctx.clone(), metrics.clone(), config.archive.clone()),
+        )
         .connect()
         .await
         .expect("connect to faktory");

@@ -1,3 +1,3 @@
-pub mod utils;
 pub mod handler;
 pub mod mongo;
+pub mod utils;

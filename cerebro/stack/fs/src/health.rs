@@ -109,21 +109,31 @@ mod tests {
     use super::*;
 
     fn component(name: &str, reachable: bool) -> ComponentHealth {
-        ComponentHealth { component: name.to_string(), reachable, detail: String::new() }
+        ComponentHealth {
+            component: name.to_string(),
+            reachable,
+            detail: String::new(),
+        }
     }
 
     #[test]
     fn healthy_requires_all_components_reachable() {
-        let all_ok = TopologyHealth { components: vec![component("master", true), component("filer", true)] };
+        let all_ok = TopologyHealth {
+            components: vec![component("master", true), component("filer", true)],
+        };
         assert!(all_ok.healthy());
 
-        let degraded = TopologyHealth { components: vec![component("master", true), component("filer", false)] };
+        let degraded = TopologyHealth {
+            components: vec![component("master", true), component("filer", false)],
+        };
         assert!(!degraded.healthy());
     }
 
     #[test]
     fn empty_topology_is_not_healthy() {
-        let empty = TopologyHealth { components: Vec::new() };
+        let empty = TopologyHealth {
+            components: Vec::new(),
+        };
         assert!(!empty.healthy());
     }
 }

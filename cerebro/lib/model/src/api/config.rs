@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use thiserror::Error;
 
 /*
@@ -20,11 +20,10 @@ pub enum ConfigError {
     ConfigFileNotSerialized(#[source] toml::ser::Error),
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub connections: DatabaseConnectionConfig,
-    pub names: DatabaseNameConfig
+    pub names: DatabaseNameConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,7 +35,7 @@ pub struct DatabaseConnectionConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseNameConfig {
-    // Administrative database collections 
+    // Administrative database collections
     pub admin_database_name: String,
     pub admin_database_user_collection: String,
     pub admin_database_team_collection: String,
@@ -72,25 +71,25 @@ pub struct TokenEncryptionConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig { 
+pub struct SecurityConfig {
     pub components: SecurityComponentsConfig,
     pub token: TokenConfig,
     pub cors: SecurityCorsConfig,
-    pub cookies: SecurityCookiesConfig
+    pub cookies: SecurityCookiesConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityComponentsConfig { 
-    pub email: bool,            // verification and password emails
-    pub comments: bool,         // sample comments, priority taxon submission and decision comments
-    pub annotation: bool,       // sample annotations including fields in sample sheet parser
-    pub report_header: bool,    // sample or patient data in report header
+pub struct SecurityComponentsConfig {
+    pub email: bool,         // verification and password emails
+    pub comments: bool,      // sample comments, priority taxon submission and decision comments
+    pub annotation: bool,    // sample annotations including fields in sample sheet parser
+    pub report_header: bool, // sample or patient data in report header
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityCookiesConfig { 
-    pub domain: String,                  // Cookie domain settings for sharing between subdomains
-    pub secure: bool                     // Cookie secure attribute set; requests through SSL/TLS 
+pub struct SecurityCookiesConfig {
+    pub domain: String, // Cookie domain settings for sharing between subdomains
+    pub secure: bool,   // Cookie secure attribute set; requests through SSL/TLS
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,7 +99,6 @@ pub struct SecurityCorsConfig {
     pub app_origin_public_url: String,
     pub app_origin_docker_url: String,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmtpConfig {
@@ -121,12 +119,15 @@ pub struct Config {
 
 impl Config {
     pub fn from_toml(path: &PathBuf) -> Result<Self, ConfigError> {
-        let toml_str = std::fs::read_to_string(path).map_err(|_| ConfigError::ConfigFileInputInvalid)?;
-        let config = toml::from_str(&toml_str).map_err(|err| ConfigError::ConfigFileNotDeserialized(err))?;
+        let toml_str =
+            std::fs::read_to_string(path).map_err(|_| ConfigError::ConfigFileInputInvalid)?;
+        let config =
+            toml::from_str(&toml_str).map_err(|err| ConfigError::ConfigFileNotDeserialized(err))?;
         Ok(config)
     }
     pub fn to_toml(&self, path: &PathBuf) -> Result<(), ConfigError> {
-        let config = toml::to_string_pretty(&self).map_err(|err| ConfigError::ConfigFileNotSerialized(err))?;
+        let config = toml::to_string_pretty(&self)
+            .map_err(|err| ConfigError::ConfigFileNotSerialized(err))?;
         std::fs::write(path, config).map_err(|_| ConfigError::ConfigFileOutputInvalid)
     }
 }

@@ -1,13 +1,12 @@
-pub mod weed;
+pub mod capture;
+pub mod client;
+pub mod config;
 pub mod error;
+pub mod filer;
+pub mod hash;
+pub mod health;
+pub mod integrity;
+pub mod manifest;
 pub mod terminal;
 pub mod utils;
-pub mod client;
-pub mod hash;
-pub mod config;
-pub mod filer;
-pub mod integrity;
-pub mod health;
-pub mod capture;
-pub mod manifest;
-
+pub mod weed;

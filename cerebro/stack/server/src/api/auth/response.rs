@@ -12,4 +12,3 @@ pub struct AuthRefreshResponseSuccess {
     pub access_token: String,
     pub status: String,
 }
-

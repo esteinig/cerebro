@@ -50,8 +50,8 @@ use serde::Deserialize;
 use serde_json::json;
 
 use cerebro_model::api::files::model::SeaweedFile;
-use cerebro_model::api::files::schema::FileRelocateSchema;
 use cerebro_model::api::files::retention::StorageTier;
+use cerebro_model::api::files::schema::FileRelocateSchema;
 use cerebro_model::api::files::telemetry::{TelemetryEvent, TelemetryOp, TelemetryOutcome};
 
 use crate::config::ArchiveSettings;
@@ -118,8 +118,16 @@ pub struct VerifyFile {
 }
 
 impl VerifyFile {
-    pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, archive: Option<ArchiveSettings>) -> Self {
-        Self { ctx, metrics, archive }
+    pub fn new(
+        ctx: Arc<WorkerContext>,
+        metrics: Metrics,
+        archive: Option<ArchiveSettings>,
+    ) -> Self {
+        Self {
+            ctx,
+            metrics,
+            archive,
+        }
     }
 
     /// Attempt to repair a corrupt file from its cold backup (S4-6 H4).
@@ -135,8 +143,14 @@ impl VerifyFile {
         if !is_repairable(self.archive.is_some(), file.archive_key.as_deref()) {
             return Ok(false); // no cold store configured, or no retained backup
         }
-        let archive = self.archive.clone().expect("repairable checked archive present");
-        let archive_key = file.archive_key.clone().expect("repairable checked key present");
+        let archive = self
+            .archive
+            .clone()
+            .expect("repairable checked archive present");
+        let archive_key = file
+            .archive_key
+            .clone()
+            .expect("repairable checked key present");
 
         let fs = self.ctx.fs()?;
         let name = file.name.clone();
@@ -149,8 +163,15 @@ impl VerifyFile {
                 let store = archive
                     .open_store()
                     .map_err(|e| WorkerError::Other(format!("open cold store: {e}")))?;
-                crate::archive::restore_object(&fs, store.as_ref(), &key, &effective, &name, Some(&expected_hash))
-                    .map_err(|e| WorkerError::Other(e.to_string()))
+                crate::archive::restore_object(
+                    &fs,
+                    store.as_ref(),
+                    &key,
+                    &effective,
+                    &name,
+                    Some(&expected_hash),
+                )
+                .map_err(|e| WorkerError::Other(e.to_string()))
             })
             .await?;
 
@@ -170,7 +191,8 @@ impl VerifyFile {
         };
         self.ctx
             .run_blocking(move || {
-                api.relocate_file(&id, &schema).map_err(|e| WorkerError::Api(e.to_string()))
+                api.relocate_file(&id, &schema)
+                    .map_err(|e| WorkerError::Api(e.to_string()))
             })
             .await?;
 
@@ -183,7 +205,8 @@ impl VerifyFile {
             if let Err(e) = self
                 .ctx
                 .run_blocking(move || {
-                    fs2.delete_store_object(&old).map_err(|e| WorkerError::Fs(e.to_string()))
+                    fs2.delete_store_object(&old)
+                        .map_err(|e| WorkerError::Fs(e.to_string()))
                 })
                 .await
             {
@@ -201,7 +224,10 @@ impl VerifyFile {
             let api = api.clone();
             let id = file_id.clone();
             self.ctx
-                .run_blocking(move || api.get_file(&id).map_err(|e| WorkerError::Api(e.to_string())))
+                .run_blocking(move || {
+                    api.get_file(&id)
+                        .map_err(|e| WorkerError::Api(e.to_string()))
+                })
                 .await?
         };
 
@@ -230,7 +256,8 @@ impl VerifyFile {
                     let id = file_id.clone();
                     self.ctx
                         .run_blocking(move || {
-                            api.mark_verified(&id).map_err(|e| WorkerError::Api(e.to_string()))
+                            api.mark_verified(&id)
+                                .map_err(|e| WorkerError::Api(e.to_string()))
                         })
                         .await
                 };
@@ -239,7 +266,8 @@ impl VerifyFile {
                     // still count success — the file will simply be re-picked sooner.
                     tracing::warn!(%file_id, "verify ok but failed to stamp verified_at: {e}");
                 }
-                self.metrics.record(&TelemetryEvent::success(TelemetryOp::Verify));
+                self.metrics
+                    .record(&TelemetryEvent::success(TelemetryOp::Verify));
                 tracing::info!(%file_id, "integrity verified");
                 Ok(JobOutcome::Succeeded)
             }
@@ -255,24 +283,28 @@ impl VerifyFile {
                             let id = file_id.clone();
                             self.ctx
                                 .run_blocking(move || {
-                                    api.mark_verified(&id).map_err(|e| WorkerError::Api(e.to_string()))
+                                    api.mark_verified(&id)
+                                        .map_err(|e| WorkerError::Api(e.to_string()))
                                 })
                                 .await
                         };
                         if let Err(e) = stamp {
                             tracing::warn!(%file_id, "repaired but failed to stamp verified_at: {e}");
                         }
-                        self.metrics.record(&TelemetryEvent::success(TelemetryOp::Verify));
+                        self.metrics
+                            .record(&TelemetryEvent::success(TelemetryOp::Verify));
                         tracing::warn!(%file_id, fid = %file.fid, "integrity failure REPAIRED from cold backup");
                         Ok(JobOutcome::Succeeded)
                     }
                     Ok(false) => {
-                        self.metrics.record(&TelemetryEvent::failure(TelemetryOp::Verify));
+                        self.metrics
+                            .record(&TelemetryEvent::failure(TelemetryOp::Verify));
                         tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: stored bytes do not match catalogue hash (no cold backup to repair from)");
                         Ok(JobOutcome::Succeeded)
                     }
                     Err(e) => {
-                        self.metrics.record(&TelemetryEvent::failure(TelemetryOp::Verify));
+                        self.metrics
+                            .record(&TelemetryEvent::failure(TelemetryOp::Verify));
                         tracing::error!(%file_id, fid = %file.fid, "INTEGRITY FAILURE on verify: repair from cold failed: {e:#}");
                         Ok(JobOutcome::Succeeded)
                     }
@@ -398,7 +430,12 @@ impl VerifyScan {
                 let job_args = json!({ "file_id": file.id });
                 match self
                     .ctx
-                    .enqueue("verify_file", job_args, &args.queue, Some(StdDuration::from_secs(1800)))
+                    .enqueue(
+                        "verify_file",
+                        job_args,
+                        &args.queue,
+                        Some(StdDuration::from_secs(1800)),
+                    )
                     .await
                 {
                     Ok(()) => enqueued += 1,
@@ -412,8 +449,11 @@ impl VerifyScan {
         }
 
         tracing::info!(scanned, enqueued, "verify_scan complete");
-        self.metrics
-            .record(&TelemetryEvent::with_detail(TelemetryOp::Verify, TelemetryOutcome::Success, "scan"));
+        self.metrics.record(&TelemetryEvent::with_detail(
+            TelemetryOp::Verify,
+            TelemetryOutcome::Success,
+            "scan",
+        ));
         Ok(JobOutcome::Succeeded)
     }
 }
@@ -464,9 +504,17 @@ mod tests {
         // Verified just now -> not due.
         assert!(!is_verify_due(Some(now), now, 3600));
         // Verified 2h ago, interval 1h -> due.
-        assert!(is_verify_due(Some(now - chrono::Duration::hours(2)), now, 3600));
+        assert!(is_verify_due(
+            Some(now - chrono::Duration::hours(2)),
+            now,
+            3600
+        ));
         // Verified 30m ago, interval 1h -> not due.
-        assert!(!is_verify_due(Some(now - chrono::Duration::minutes(30)), now, 3600));
+        assert!(!is_verify_due(
+            Some(now - chrono::Duration::minutes(30)),
+            now,
+            3600
+        ));
     }
 
     #[test]

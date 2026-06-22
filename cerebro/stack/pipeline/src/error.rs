@@ -8,7 +8,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum WorkflowError {
-
     #[error(transparent)]
     CsvError(#[from] csv::Error),
     #[error(transparent)]
@@ -37,7 +36,7 @@ pub enum WorkflowError {
     /// Failed to configure the downloader through the builder pattern due to missing field
     #[error("failed to configure the output directory field for the downloader")]
     DownloaderMissingOutdir,
-    
+
     #[error("Failed to convert OsString to String")]
     FileNameConversionError,
 
@@ -56,7 +55,7 @@ pub enum WorkflowError {
     /// Represents an error when failing to extract a valid header of a read.
     #[error("failed to extract a valid header of read")]
     NeedletailFastqHeader,
-    
+
     /// Indicates failure to parse a the nanoq JSON
     #[error("failed to parse nanoq output from JSON")]
     ParseNanoq(#[source] serde_json::Error),
@@ -138,7 +137,7 @@ pub enum WorkflowError {
     /// Indicates a failure to obtain a row from the sample summary table of taxa
     #[error("failed to obtain a row from the sample summary of taxa")]
     SampleSummaryTableRows,
-    // Indicates a failure to obtain a row from the sample summary quality control 
+    // Indicates a failure to obtain a row from the sample summary quality control
     #[error("failed to obtain a row from the sample summary of quality control data")]
     SampleSummaryQualityRows,
     /// Indicates a failure to obtain a record from the vector of BlastRecords
@@ -150,7 +149,7 @@ pub enum WorkflowError {
     /// Indicates a failure to obtain a taxids for LCA lineage computations
     #[error("failed to obtain some taxonomic identifiers for LCA computation")]
     BlastLcaTaxidsNotFound,
-    /// Indicates a failure to obtain the record with the lowest evalue from a vector of BlastRecords 
+    /// Indicates a failure to obtain the record with the lowest evalue from a vector of BlastRecords
     #[error("failed to obtain the lowest evalue record")]
     BlastLcaRecordExtractionEvalue,
     /// Represents a failure to convert the field from string to numeric field
@@ -207,7 +206,7 @@ pub enum WorkflowError {
     /// Indicates failure to parse remap stage alignment summary
     #[error("failed get parse vircov records from remap stage")]
     VircovRemapParseFailed,
-    /// Indicates failure to find a matching scan record for a remap record - 
+    /// Indicates failure to find a matching scan record for a remap record -
     /// remap records should always subsets of scan records
     #[error("failed get a matching remap record for the scan record of reference: {0}")]
     VircovRemapMatchingScanRecordNotFound(String),
@@ -238,8 +237,8 @@ pub enum WorkflowError {
     /// Indicates failure to parse file with Needletail
     #[error("failed read file input")]
     FastxParser(#[from] needletail::errors::ParseError),
-    /// Indicates failure to specify a matchign number of input and 
-    /// output file paths used in methods with parallel file processing 
+    /// Indicates failure to specify a matchign number of input and
+    /// output file paths used in methods with parallel file processing
     #[error("number of input and output files does not match")]
     InputOutputFileMismatch,
     /// Indicates failure to parse the last field of the sequence identifier which shoudl contain the UMI
@@ -261,7 +260,9 @@ pub enum WorkflowError {
     #[error("failed to deserialize cluster record")]
     CalibClusterRecordNotValid(#[source] csv::Error),
     /// Indicates failure to deduplicate a cluster from Calib
-    #[error("failed to select a read identifier from a cluster based on best average paired quality")]
+    #[error(
+        "failed to select a read identifier from a cluster based on best average paired quality"
+    )]
     CalibClusterPickNotAvailable,
     /// Indicates failure to parse a group by index in a record identifier
     #[error("failed to parse group index [{0}] from record identifier [{1}]")]
@@ -298,22 +299,22 @@ pub enum WorkflowError {
     /// Represents a failure to extract the sample identifier from a glob matched pattern
     #[error("failed to extract pattern match for sample identifier from: {0}")]
     GlobMatchSampleIdentifier(String),
-    /// Represents a failure to 
+    /// Represents a failure to
     #[error("failed to extract an entry from the globbed walk through directory: {0}")]
     GlobWalk(String),
-    /// Represents a failure to 
+    /// Represents a failure to
     #[error("failed to create a glob matcher for pattern: {0}")]
     GlobCreate(String),
-    /// Represents a failure to 
+    /// Represents a failure to
     #[error("failed to find paired files for sample: {0}")]
     GlobPairedFiles(String),
-    /// Represents a failure to 
+    /// Represents a failure to
     #[error("failed to create a sample sheet entry, number of files is incorrect: {0}")]
     SampleSheetEntryFiles(String),
-    /// Represents a failure to 
+    /// Represents a failure to
     #[error("sample identifiers in sample sheet are not unique")]
     SampleSheetIdsNotUnique,
-    /// Represents a failure to 
+    /// Represents a failure to
     #[error("failed to create a sample sheet entry, number of files is incorrect: {0}")]
     SampleSheetEntryRunDirectoryPath(String),
     /// Represents a failure to initiate writer
@@ -350,11 +351,10 @@ pub enum WorkflowError {
 
 #[derive(Error, Debug)]
 pub enum WorkflowUtilityError {
-   
     /// Represents all other cases of `csv::Error`.
     #[error("failed to process CSV")]
     CsvError(#[from] csv::Error),
     /// Represents all other cases of `std::io::Error`.
     #[error("failed to process input/output (IO)")]
-    IoError(#[from] std::io::Error)
+    IoError(#[from] std::io::Error),
 }

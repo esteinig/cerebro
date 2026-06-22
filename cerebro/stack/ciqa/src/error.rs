@@ -21,7 +21,7 @@ pub enum CiqaError {
     #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
     #[error("plotters crate error: {0}")]
-    PlottersError(#[from] Box<dyn std::error::Error + Send + Sync>), 
+    PlottersError(#[from] Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     NifflerError(#[from] niffler::Error),
     #[error(transparent)]
@@ -41,7 +41,7 @@ pub enum CiqaError {
     #[error("no columns found for plate plot")]
     NoColumnsFound,
     #[error("sample identifier must be specified when not using prefetch data")]
-    SampleIdentifierMissing, 
+    SampleIdentifierMissing,
 }
 
 impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for CiqaError

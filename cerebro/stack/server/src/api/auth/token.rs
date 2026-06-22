@@ -1,11 +1,11 @@
 //! Helper functions for token signatures and verification
 
 use base64::{engine::general_purpose, Engine as _};
-use cerebro_model::api::auth::schema::{TokenDetails, TokenClaims};
+use cerebro_model::api::auth::schema::{TokenClaims, TokenDetails};
 
 /// This helper function uses the private keys to sign JSON Web Tokens using the RS256 algorithm.
 /// It first converts the base64-encoded private key back to its original string format and then uses
-/// it to sign the JWT. The function then returns the TokenDetails struct containing the metadata of 
+/// it to sign the JWT. The function then returns the TokenDetails struct containing the metadata of
 /// the generated token. We will store the token metadata in the Redis database so that we can invalidate
 /// the token when necessary.
 pub fn generate_jwt_token(
@@ -38,21 +38,19 @@ pub fn generate_jwt_token(
         &claims,
         &jsonwebtoken::EncodingKey::from_rsa_pem(decoded_private_key.as_bytes())?,
     )?;
-    
+
     token_details.token = Some(token);
 
     Ok(token_details)
 }
 
-
-// This utility function allows for JWT authentication using the public keys. It first decodes the base64-encoded 
+// This utility function allows for JWT authentication using the public keys. It first decodes the base64-encoded
 // public key to its original string format and then verifies the JWT using the key to extract the corresponding
 // payload. The extracted payload is then used to construct the TokenDetails struct, which is returned by the function.
 pub fn verify_jwt_token(
     public_key: String,
     token: &str,
 ) -> Result<TokenDetails, jsonwebtoken::errors::Error> {
-
     let bytes_public_key = general_purpose::STANDARD.decode(public_key).unwrap();
     let decoded_public_key = String::from_utf8(bytes_public_key).unwrap();
 

@@ -1,3 +1,3 @@
 pub mod filter;
-pub mod taxon;
 pub mod score;
+pub mod taxon;

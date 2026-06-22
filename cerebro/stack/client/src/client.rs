@@ -1,10 +1,4 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fs::create_dir_all;
-use std::fs::File;
-use std::io::BufWriter;
-use std::time::Duration;
-use std::io::Write;
+use actix_web_httpauth::headers::authorization::Bearer;
 use anyhow::Result;
 use cerebro_model::api::cerebro::response::CerebroIdentifierResponse;
 use cerebro_model::api::cerebro::response::CerebroIdentifierSummary;
@@ -18,20 +12,20 @@ use cerebro_model::api::cerebro::response::TaxonHistoryResponse;
 use cerebro_model::api::cerebro::schema::CerebroIdentifierSchema;
 use cerebro_model::api::cerebro::schema::ContaminationSchema;
 use cerebro_model::api::cerebro::schema::PathogenDetectionTableSchema;
-use cerebro_model::api::cerebro::schema::QualityControlTableSchema;
 use cerebro_model::api::cerebro::schema::PrevalenceContaminationConfig;
+use cerebro_model::api::cerebro::schema::QualityControlTableSchema;
 use cerebro_model::api::cerebro::schema::UpdateRunConfigSchema;
+use cerebro_model::api::files::audit::AuditEvent;
 use cerebro_model::api::files::model::SeaweedFile;
 use cerebro_model::api::files::model::SeaweedFileId;
+use cerebro_model::api::files::response::AuditTrailResponse;
 use cerebro_model::api::files::response::DeleteFileResponse;
 use cerebro_model::api::files::response::DeleteFilesResponse;
 use cerebro_model::api::files::response::ListFilesResponse;
-use cerebro_model::api::files::response::{GetFileResponse, ReportOutResponse};
-use cerebro_model::api::files::response::{ExpireResponse, PurgeResponse};
 use cerebro_model::api::files::response::RestoreTransitionResponse;
+use cerebro_model::api::files::response::{ExpireResponse, PurgeResponse};
+use cerebro_model::api::files::response::{GetFileResponse, ReportOutResponse};
 use cerebro_model::api::files::schema::RestoreTransitionSchema;
-use cerebro_model::api::files::response::AuditTrailResponse;
-use cerebro_model::api::files::audit::AuditEvent;
 use cerebro_model::api::files::schema::{ExpireSchema, PurgeSchema, ReportOutSchema};
 use cerebro_model::api::jobs::response::CreateScheduleResponse;
 use cerebro_model::api::jobs::response::EnqueueJobResponse;
@@ -39,6 +33,10 @@ use cerebro_model::api::jobs::response::JobCompletionResponse;
 use cerebro_model::api::jobs::response::JobsStatusResponse;
 use cerebro_model::api::jobs::schema::EnqueueJobRequest;
 use cerebro_model::api::jobs::schema::ScheduleJobRequest;
+use cerebro_model::api::stage::model::StagedSample;
+use cerebro_model::api::stage::response::DeleteStagedSampleResponse;
+use cerebro_model::api::stage::response::ListStagedSamplesResponse;
+use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::teams::schema::RegisterDatabaseSchema;
 use cerebro_model::api::teams::schema::RegisterTeamSchema;
 use cerebro_model::api::towers::model::ProductionTower;
@@ -47,10 +45,6 @@ use cerebro_model::api::towers::response::ListTowersResponse;
 use cerebro_model::api::towers::response::PingTowerResponse;
 use cerebro_model::api::towers::response::RegisterTowerResponse;
 use cerebro_model::api::towers::schema::RegisterTowerSchema;
-use cerebro_model::api::stage::model::StagedSample;
-use cerebro_model::api::stage::response::DeleteStagedSampleResponse;
-use cerebro_model::api::stage::response::ListStagedSamplesResponse;
-use cerebro_model::api::stage::schema::RegisterStagedSampleSchema;
 use cerebro_model::api::training::response::TrainingPrefetchData;
 use cerebro_model::api::training::response::TrainingResponse;
 use cerebro_model::api::training::response::TrainingSessionData;
@@ -69,38 +63,42 @@ use cerebro_pipeline::taxa::taxon::Taxon;
 use cerebro_pipeline::utils::read_tsv;
 use cerebro_pipeline::utils::write_tsv;
 use chrono::Utc;
-use reqwest::blocking::RequestBuilder;
-use reqwest::blocking::Response;
-use reqwest::StatusCode;
-use serde::de::DeserializeOwned;
-use std::path::PathBuf;
 use itertools::Itertools;
 use reqwest::blocking::Client;
-use rpassword::prompt_password;
+use reqwest::blocking::RequestBuilder;
+use reqwest::blocking::Response;
 use reqwest::header::AUTHORIZATION;
-use serde::{Serialize, Deserialize};
-use actix_web_httpauth::headers::authorization::Bearer;
+use reqwest::StatusCode;
+use rpassword::prompt_password;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fs::create_dir_all;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::Duration;
 
-use cerebro_model::api::utils::ErrorResponse;
-use cerebro_model::api::cerebro::model::Cerebro;
-use cerebro_model::api::auth::schema::AuthLoginSchema;
-use cerebro_model::api::users::response::UserSelfResponse;
 use cerebro_model::api::auth::response::AuthLoginResponseSuccess;
-use cerebro_model::api::teams::schema::RegisterProjectSchema;
+use cerebro_model::api::auth::schema::AuthLoginSchema;
+use cerebro_model::api::cerebro::model::Cerebro;
+use cerebro_model::api::files::retention::{RestoreState, StorageTier};
+use cerebro_model::api::files::schema::FileRelocateSchema;
 use cerebro_model::api::files::schema::RegisterFileSchema;
 use cerebro_model::api::files::schema::UpdateFileLifecycleSchema;
-use cerebro_model::api::files::schema::FileRelocateSchema;
-use cerebro_model::api::files::retention::{RestoreState, StorageTier};
+use cerebro_model::api::teams::schema::RegisterProjectSchema;
+use cerebro_model::api::users::response::UserSelfResponse;
+use cerebro_model::api::utils::ErrorResponse;
 
 use crate::error::HttpClientError;
 use crate::regression::RpmAnalysisResult;
 use crate::regression::RpmAnalyzer;
 use crate::regression::RpmConfigBuilder;
-use crate::utils::DiagnosticResult;
 use crate::utils::write_models_summary;
+use crate::utils::DiagnosticResult;
 use std::fmt;
-
-
 
 #[derive(Debug, Clone)]
 pub enum Route {
@@ -126,7 +124,7 @@ pub enum Route {
     TeamProjectCreate,
     TeamProjectDelete,
     TeamDatabaseCreate,
-    TeamDatabaseDelete, 
+    TeamDatabaseDelete,
     TeamFilesRegister,
     TeamFilesList,
     TeamFilesDelete,
@@ -158,7 +156,7 @@ pub enum Route {
     TrainingList,
     TrainingDelete,
     TrainingSessionList,
-    TrainingSessionDelete
+    TrainingSessionDelete,
 }
 
 impl Route {
@@ -186,7 +184,7 @@ impl Route {
             Route::TeamDatabaseCreate => "teams/database",
             Route::TeamDatabaseDelete => "teams-database",
             Route::TeamProjectCreate => "teams/project",
-            Route::TeamProjectDelete => "teams-project", 
+            Route::TeamProjectDelete => "teams-project",
             Route::TeamFilesRegister => "files/register",
             Route::TeamFilesList => "files",
             Route::TeamFilesDelete => "files",
@@ -272,7 +270,7 @@ pub struct CerebroClient {
     pub routes: CerebroRoutes,
     pub token_data: Option<AuthLoginTokenFile>,
     pub token_file: Option<PathBuf>,
-    pub max_model_size: Option<f64>
+    pub max_model_size: Option<f64>,
 }
 
 impl CerebroClient {
@@ -308,7 +306,7 @@ impl CerebroClient {
             team,
             db,
             project,
-            max_model_size: Some(100.0)
+            max_model_size: Some(100.0),
         })
     }
     pub fn log_team_warning(&self) {
@@ -319,7 +317,9 @@ impl CerebroClient {
     }
     pub fn log_db_warning(&self) {
         if let None = self.db {
-            log::warn!("No database configured for authentication - you may need this for data access");
+            log::warn!(
+                "No database configured for authentication - you may need this for data access"
+            );
             log::warn!("Use database name or unique identifier with global argument '--db' or with environment variable '$CEREBRO_USER_DB'")
         }
     }
@@ -347,8 +347,8 @@ impl CerebroClient {
 
         if let Some(token_path) = token_file {
             if token_path.exists() {
-                let token_str = std::fs::read_to_string(&token_path)
-                    .map_err(HttpClientError::IOFailure)?;
+                let token_str =
+                    std::fs::read_to_string(&token_path).map_err(HttpClientError::IOFailure)?;
                 let token_data: AuthLoginTokenFile = serde_json::from_str(&token_str)?;
                 return Ok(Some(token_data));
             } else {
@@ -376,12 +376,17 @@ impl CerebroClient {
         }
     }
 
-    fn send_request(&self, mut request: RequestBuilder, auth: bool) -> Result<Response, HttpClientError> {
-        
+    fn send_request(
+        &self,
+        mut request: RequestBuilder,
+        auth: bool,
+    ) -> Result<Response, HttpClientError> {
         if auth {
             request = request.header(AUTHORIZATION, self.get_bearer_token(None));
         }
-        request.send().map_err(|e| HttpClientError::ReqwestFailure(e))
+        request
+            .send()
+            .map_err(|e| HttpClientError::ReqwestFailure(e))
     }
 
     fn check_response_status(&self, response: &Response) -> Result<(), HttpClientError> {
@@ -393,11 +398,12 @@ impl CerebroClient {
                 format!("Server error: {}", response.status()),
             ))
         }
-    } 
+    }
 
     // Ping server status
     pub fn ping_status(&self) -> Result<(), HttpClientError> {
-        let response = self.send_request(self.client.get(self.routes.url(Route::ServerStatus)), false)?;
+        let response =
+            self.send_request(self.client.get(self.routes.url(Route::ServerStatus)), false)?;
         self.check_response_status(&response)?;
         log::info!("Cerebro API status: ok");
         Ok(())
@@ -405,7 +411,10 @@ impl CerebroClient {
 
     // Ping server status routes - currently running a single server.
     pub fn ping_servers(&self) -> Result<(), HttpClientError> {
-        let response = self.send_request(self.client.get(self.routes.url(Route::AuthServerStatus)), true)?;
+        let response = self.send_request(
+            self.client.get(self.routes.url(Route::AuthServerStatus)),
+            true,
+        )?;
         self.check_response_status(&response)?;
         log::info!("Cerebro API status: ok");
         Ok(())
@@ -413,13 +422,20 @@ impl CerebroClient {
 
     // Get logged in user
     pub fn get_user(&self) -> Result<FilteredUser, HttpClientError> {
-        let response = self.send_request(self.client.get(self.routes.url(Route::DataUserSelf)), true)?;
-        let user: UserSelfResponse = self.handle_response(response, None, "failed to fetch  current user")?;
+        let response =
+            self.send_request(self.client.get(self.routes.url(Route::DataUserSelf)), true)?;
+        let user: UserSelfResponse =
+            self.handle_response(response, None, "failed to fetch  current user")?;
         Ok(user.data.user)
     }
 
     // Login user and save tokens
-    pub fn login_user(&self, email: &str, password: Option<String>, bot: bool) -> Result<(), HttpClientError> {
+    pub fn login_user(
+        &self,
+        email: &str,
+        password: Option<String>,
+        bot: bool,
+    ) -> Result<(), HttpClientError> {
         let password = password.unwrap_or_else(|| {
             prompt_password(format!("Password [{}]: ", email)).expect("Password input failed")
         });
@@ -435,10 +451,7 @@ impl CerebroClient {
             self.routes.url(Route::AuthLoginUser)
         };
 
-        let response = self.client
-            .post(url)
-            .json(&login_schema)
-            .send()?;
+        let response = self.client.post(url).json(&login_schema).send()?;
 
         let status = response.status();
 
@@ -459,20 +472,24 @@ impl CerebroClient {
         login_response: &AuthLoginResponseSuccess,
     ) -> Result<(), HttpClientError> {
         let access_token = Some(login_response.access_token.clone());
-        let response = self.client
+        let response = self
+            .client
             .get(self.routes.url(Route::DataUserSelf))
             .header(AUTHORIZATION, self.get_bearer_token(access_token))
             .send()?;
 
         let status = response.status();
 
-        let user_response: Result<UserSelfResponse, HttpClientError> = response.json().map_err(|_| {
-            HttpClientError::ResponseFailure(status)
-        });
+        let user_response: Result<UserSelfResponse, HttpClientError> = response
+            .json()
+            .map_err(|_| HttpClientError::ResponseFailure(status));
 
         if status.is_success() {
             let user_response = user_response?;
-            log::info!("Login successful. Welcome back, {}!", user_response.data.user.name);
+            log::info!(
+                "Login successful. Welcome back, {}!",
+                user_response.data.user.name
+            );
         } else {
             let user_error_response = user_response.map_err(|_| {
                 HttpClientError::DataResponseFailure(
@@ -488,7 +505,10 @@ impl CerebroClient {
         Ok(())
     }
 
-    fn save_token_to_file(&self, login_response: &AuthLoginResponseSuccess) -> Result<(), HttpClientError> {
+    fn save_token_to_file(
+        &self,
+        login_response: &AuthLoginResponseSuccess,
+    ) -> Result<(), HttpClientError> {
         if let Some(path) = &self.token_file {
             log::info!("Token will be written to file: {}", path.display());
             std::fs::write(
@@ -503,49 +523,72 @@ impl CerebroClient {
         Ok(())
     }
     fn send_request_with_team(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
-
         self.log_team_warning();
 
-        let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
+        let team = self
+            .team
+            .as_deref()
+            .ok_or(HttpClientError::RequireTeamNotConfigured)?;
 
         let response = request
             .query(&[("team", team)])
-            .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
-        
-        
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
+
         Ok(response)
     }
-    fn send_request_with_team_db(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
-
+    fn send_request_with_team_db(
+        &self,
+        request: RequestBuilder,
+    ) -> Result<Response, HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
 
-        let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
-        let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
+        let team = self
+            .team
+            .as_deref()
+            .ok_or(HttpClientError::RequireTeamNotConfigured)?;
+        let db = self
+            .db
+            .as_deref()
+            .ok_or(HttpClientError::RequireDbNotConfigured)?;
 
         let response = request
             .query(&[("team", team)])
             .query(&[("db", db)])
-            .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
-        
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
+
         Ok(response)
     }
-    fn send_request_with_team_db_project(&self, request: RequestBuilder) -> Result<Response, HttpClientError> {
-
+    fn send_request_with_team_db_project(
+        &self,
+        request: RequestBuilder,
+    ) -> Result<Response, HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
 
-        let team = self.team.as_deref().ok_or(HttpClientError::RequireTeamNotConfigured)?;
-        let db = self.db.as_deref().ok_or(HttpClientError::RequireDbNotConfigured)?;
-        let project = self.project.as_deref().ok_or(HttpClientError::RequireProjectNotConfigured)?;
+        let team = self
+            .team
+            .as_deref()
+            .ok_or(HttpClientError::RequireTeamNotConfigured)?;
+        let db = self
+            .db
+            .as_deref()
+            .ok_or(HttpClientError::RequireDbNotConfigured)?;
+        let project = self
+            .project
+            .as_deref()
+            .ok_or(HttpClientError::RequireProjectNotConfigured)?;
 
         let response = request
             .query(&[("team", team)])
             .query(&[("db", db)])
             .query(&[("project", project)])
-            .header(AUTHORIZATION, self.get_bearer_token(None)).send()?;
-        
+            .header(AUTHORIZATION, self.get_bearer_token(None))
+            .send()?;
+
         Ok(response)
     }
 
@@ -586,14 +629,12 @@ impl CerebroClient {
     fn build_request_url<T, R>(&self, route: R, params: &[(&str, T)]) -> String
     where
         T: Into<Option<String>> + Clone,
-        R: Into<String> + Clone
+        R: Into<String> + Clone,
     {
         let mut url = route.into().clone();
         let query_string: Vec<String> = params
             .iter()
-            .filter_map(|(key, value)| {
-                value.clone().into().map(|v| format!("{}={}", key, v))
-            })
+            .filter_map(|(key, value)| value.clone().into().map(|v| format!("{}={}", key, v)))
             .collect();
 
         if !query_string.is_empty() {
@@ -603,22 +644,19 @@ impl CerebroClient {
 
         url
     }
-    pub fn create_project(
-        &self,
-        name: &str,
-        description: &str,
-    ) -> Result<(), HttpClientError> {
-
+    pub fn create_project(&self, name: &str, description: &str) -> Result<(), HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
 
         let project_schema = RegisterProjectSchema {
             project_name: name.to_owned(),
-            project_description: description.to_owned()
+            project_description: description.to_owned(),
         };
 
         let response = self.send_request_with_team_db(
-            self.client.post(self.routes.url(Route::TeamProjectCreate)).json(&project_schema)
+            self.client
+                .post(self.routes.url(Route::TeamProjectCreate))
+                .json(&project_schema),
         )?;
 
         self.handle_response::<serde_json::Value>(
@@ -630,7 +668,6 @@ impl CerebroClient {
     }
 
     pub fn delete_project(&self) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
@@ -638,7 +675,7 @@ impl CerebroClient {
         // DELETE /teams/project?team=...&db=...&project=...
         let response = self.send_request_with_team_db_project(
             self.client
-                .delete(self.routes.url(Route::TeamProjectDelete))
+                .delete(self.routes.url(Route::TeamProjectDelete)),
         )?;
 
         self.handle_response::<serde_json::Value>(
@@ -656,7 +693,8 @@ impl CerebroClient {
     // Schedule status summary (GET /jobs/schedule/status)
     // Returns a single pretty line-per-item string for "next" and "previous".
     pub fn schedule_status(&self) -> Result<String, HttpClientError> {
-        let response = self.client
+        let response = self
+            .client
             .get(self.routes.url(Route::JobsScheduleStatus))
             .header(AUTHORIZATION, self.get_bearer_token(None))
             .send()?;
@@ -670,7 +708,10 @@ impl CerebroClient {
                     String::from("failed to parse error response"),
                 )
             })?;
-            return Err(HttpClientError::ResponseFailureWithMessage(status, err.message));
+            return Err(HttpClientError::ResponseFailureWithMessage(
+                status,
+                err.message,
+            ));
         }
 
         let res: JobsStatusResponse = response.json().map_err(|_| {
@@ -696,10 +737,13 @@ impl CerebroClient {
             }
 
             if !data.previous.is_empty() {
-                if !out.is_empty() { out.push('\n'); }
+                if !out.is_empty() {
+                    out.push('\n');
+                }
                 out.push_str("Previous:\n");
                 for j in &data.previous {
-                    let last = j.last_run_at
+                    let last = j
+                        .last_run_at
                         .as_ref()
                         .map(|d| d.to_string())
                         .unwrap_or_else(|| "-".into());
@@ -724,7 +768,8 @@ impl CerebroClient {
     // Returns a compact one-line summary with completed/status and optional result/error.
     pub fn job_status(&self, id: &str) -> Result<String, HttpClientError> {
         let url = format!("{}/{}", self.routes.url(Route::JobsEnqueueStatus), id);
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header(AUTHORIZATION, self.get_bearer_token(None))
             .send()?;
@@ -737,7 +782,10 @@ impl CerebroClient {
                     String::from("failed to parse error response"),
                 )
             })?;
-            return Err(HttpClientError::ResponseFailureWithMessage(status, err.message));
+            return Err(HttpClientError::ResponseFailureWithMessage(
+                status,
+                err.message,
+            ));
         }
 
         let res: JobCompletionResponse = response.json().map_err(|_| {
@@ -747,7 +795,11 @@ impl CerebroClient {
             )
         })?;
 
-        let mut line = format!("completed={} status={}", res.completed, res.status.unwrap_or_else(|| "unknown".into()));
+        let mut line = format!(
+            "completed={} status={}",
+            res.completed,
+            res.status.unwrap_or_else(|| "unknown".into())
+        );
 
         if let Some(err) = res.error {
             line.push_str(&format!(" error={}", err));
@@ -762,7 +814,8 @@ impl CerebroClient {
     // Returns "yes" or "no"
     pub fn job_complete(&self, id: &str) -> Result<String, HttpClientError> {
         let url = format!("{}/{}", self.routes.url(Route::JobsEnqueueStatus), id);
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header(AUTHORIZATION, self.get_bearer_token(None))
             .send()?;
@@ -775,7 +828,10 @@ impl CerebroClient {
                     String::from("failed to parse error response"),
                 )
             })?;
-            return Err(HttpClientError::ResponseFailureWithMessage(status, err.message));
+            return Err(HttpClientError::ResponseFailureWithMessage(
+                status,
+                err.message,
+            ));
         }
 
         let res: JobCompletionResponse = response.json().map_err(|_| {
@@ -785,14 +841,16 @@ impl CerebroClient {
             )
         })?;
 
-        Ok(if res.completed { "yes".into() } else { "no".into() })
+        Ok(if res.completed {
+            "yes".into()
+        } else {
+            "no".into()
+        })
     }
     /// Fire-and-forget enqueue to Faktory via API
-    pub fn enqueue_job(
-        &self,
-        req: &EnqueueJobRequest,
-    ) -> Result<Option<String>, HttpClientError> {
-        let response = self.client
+    pub fn enqueue_job(&self, req: &EnqueueJobRequest) -> Result<Option<String>, HttpClientError> {
+        let response = self
+            .client
             .post(self.routes.url(Route::JobsEnqueue))
             .header(AUTHORIZATION, self.get_bearer_token(None))
             .json(req)
@@ -808,12 +866,9 @@ impl CerebroClient {
     }
 
     /// Create a schedule (one-shot or recurring)
-    pub fn schedule_job(
-        &self,
-        req: &ScheduleJobRequest,
-    ) -> Result<String, HttpClientError> {
-        
-        let response = self.client
+    pub fn schedule_job(&self, req: &ScheduleJobRequest) -> Result<String, HttpClientError> {
+        let response = self
+            .client
             .post(self.routes.url(Route::JobsSchedule))
             .header(AUTHORIZATION, self.get_bearer_token(None))
             .json(req)
@@ -832,21 +887,18 @@ impl CerebroClient {
             )
         })
     }
-    pub fn create_database(
-        &self,
-        name: &str,
-        description: &str,
-    ) -> Result<(), HttpClientError> {
-
+    pub fn create_database(&self, name: &str, description: &str) -> Result<(), HttpClientError> {
         self.log_team_warning();
 
         let database_schema = RegisterDatabaseSchema {
             database_name: name.to_owned(),
-            database_description: description.to_owned()
+            database_description: description.to_owned(),
         };
 
         let response = self.send_request_with_team(
-            self.client.post(self.routes.url(Route::TeamDatabaseCreate)).json(&database_schema)
+            self.client
+                .post(self.routes.url(Route::TeamDatabaseCreate))
+                .json(&database_schema),
         )?;
 
         self.handle_response::<serde_json::Value>(
@@ -857,12 +909,7 @@ impl CerebroClient {
         Ok(())
     }
 
-    pub fn create_team(
-        &self,
-        name: &str,
-        description: &str,
-    ) -> Result<(), HttpClientError> {
-
+    pub fn create_team(&self, name: &str, description: &str) -> Result<(), HttpClientError> {
         let current_user = self.get_user()?;
 
         let team_schema = RegisterTeamSchema {
@@ -878,7 +925,10 @@ impl CerebroClient {
         };
 
         let response = self.send_request(
-            self.client.post(self.routes.url(Route::TeamCreate)).json(&team_schema), true
+            self.client
+                .post(self.routes.url(Route::TeamCreate))
+                .json(&team_schema),
+            true,
         )?;
 
         self.handle_response::<serde_json::Value>(
@@ -890,13 +940,12 @@ impl CerebroClient {
     }
 
     pub fn delete_database(&self) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
 
         let response = self.send_request_with_team_db(
             self.client
-                .delete(self.routes.url(Route::TeamDatabaseDelete))
+                .delete(self.routes.url(Route::TeamDatabaseDelete)),
         )?;
 
         self.handle_response::<serde_json::Value>(
@@ -910,12 +959,11 @@ impl CerebroClient {
 
         Ok(())
     }
-    
+
     pub fn register_file(
         &self,
         register_file_schema: RegisterFileSchema,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
         let response = self.send_request_with_team(
@@ -942,14 +990,15 @@ impl CerebroClient {
         id: &str,
         schema: &UpdateFileLifecycleSchema,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
-        let url = format!("{}/{}/lifecycle", self.routes.url(Route::TeamFilesLifecycle), id);
+        let url = format!(
+            "{}/{}/lifecycle",
+            self.routes.url(Route::TeamFilesLifecycle),
+            id
+        );
 
-        let response = self.send_request_with_team(
-            self.client.patch(url).json(schema),
-        )?;
+        let response = self.send_request_with_team(self.client.patch(url).json(schema))?;
 
         self.handle_response::<serde_json::Value>(
             response,
@@ -972,14 +1021,15 @@ impl CerebroClient {
         id: &str,
         schema: &FileRelocateSchema,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
-        let url = format!("{}/{}/relocate", self.routes.url(Route::TeamFilesRelocate), id);
+        let url = format!(
+            "{}/{}/relocate",
+            self.routes.url(Route::TeamFilesRelocate),
+            id
+        );
 
-        let response = self.send_request_with_team(
-            self.client.post(url).json(schema),
-        )?;
+        let response = self.send_request_with_team(self.client.post(url).json(schema))?;
 
         self.handle_response::<serde_json::Value>(
             response,
@@ -991,7 +1041,12 @@ impl CerebroClient {
     /// only if the file's current tier equals `expected` (compare-and-set). A
     /// `409` (precondition not met) means another mover already handled it — safe
     /// to treat as success under at-least-once delivery.
-    pub fn claim_tier_move(&self, id: &str, target: StorageTier, expected: StorageTier) -> Result<(), HttpClientError> {
+    pub fn claim_tier_move(
+        &self,
+        id: &str,
+        target: StorageTier,
+        expected: StorageTier,
+    ) -> Result<(), HttpClientError> {
         let schema = UpdateFileLifecycleSchema {
             pending_tier: Some(target),
             expected_tier: Some(expected),
@@ -1006,7 +1061,12 @@ impl CerebroClient {
     /// `tier_moved_at` and clearing the claim), applied only if the current tier
     /// still equals `expected`. Call only after verifying the destination hash
     /// matches the stored hash; delete the source bytes afterwards.
-    pub fn commit_tier_move(&self, id: &str, target: StorageTier, expected: StorageTier) -> Result<(), HttpClientError> {
+    pub fn commit_tier_move(
+        &self,
+        id: &str,
+        target: StorageTier,
+        expected: StorageTier,
+    ) -> Result<(), HttpClientError> {
         let schema = UpdateFileLifecycleSchema {
             tier: Some(target),
             expected_tier: Some(expected),
@@ -1047,16 +1107,23 @@ impl CerebroClient {
         sample_id: Option<String>,
         dry_run: bool,
     ) -> Result<(u64, bool), HttpClientError> {
-
         self.log_team_warning();
 
         let url = format!("{}/expire", self.routes.url(Route::TeamFilesExpire));
-        let schema = ExpireSchema { run_id, sample_id, dry_run };
+        let schema = ExpireSchema {
+            run_id,
+            sample_id,
+            dry_run,
+        };
 
         let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
 
         let data = self
-            .handle_response::<ExpireResponse>(response, Some("Expiry sweep complete"), "Failed to run expiry sweep")?
+            .handle_response::<ExpireResponse>(
+                response,
+                Some("Expiry sweep complete"),
+                "Failed to run expiry sweep",
+            )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1076,16 +1143,23 @@ impl CerebroClient {
         sample_id: Option<String>,
         dry_run: bool,
     ) -> Result<(Vec<String>, bool), HttpClientError> {
-
         self.log_team_warning();
 
         let url = format!("{}/purge", self.routes.url(Route::TeamFilesPurge));
-        let schema = PurgeSchema { run_id, sample_id, dry_run };
+        let schema = PurgeSchema {
+            run_id,
+            sample_id,
+            dry_run,
+        };
 
         let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
 
         let data = self
-            .handle_response::<PurgeResponse>(response, Some("Purge complete"), "Failed to run purge")?
+            .handle_response::<PurgeResponse>(
+                response,
+                Some("Purge complete"),
+                "Failed to run purge",
+            )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1100,17 +1174,28 @@ impl CerebroClient {
     /// S2-11). The server validates `target` against the current state and stamps
     /// the relevant timestamps; returns the resulting state. A `409` means the
     /// transition was invalid or already superseded.
-    pub fn transition_restore(&self, id: &str, target: RestoreState) -> Result<RestoreState, HttpClientError> {
-
+    pub fn transition_restore(
+        &self,
+        id: &str,
+        target: RestoreState,
+    ) -> Result<RestoreState, HttpClientError> {
         self.log_team_warning();
 
-        let url = format!("{}/{}/restore", self.routes.url(Route::TeamFilesRestore), id);
+        let url = format!(
+            "{}/{}/restore",
+            self.routes.url(Route::TeamFilesRestore),
+            id
+        );
         let schema = RestoreTransitionSchema { target };
 
         let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
 
         let data = self
-            .handle_response::<RestoreTransitionResponse>(response, None, "Restore transition failed")?
+            .handle_response::<RestoreTransitionResponse>(
+                response,
+                None,
+                "Restore transition failed",
+            )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1133,7 +1218,6 @@ impl CerebroClient {
         file_id: Option<String>,
         run_id: Option<String>,
     ) -> Result<(Vec<AuditEvent>, bool), HttpClientError> {
-
         self.log_team_warning();
 
         let url = self.build_request_url(
@@ -1144,7 +1228,11 @@ impl CerebroClient {
         let response = self.send_request_with_team(self.client.get(&url))?;
 
         let data = self
-            .handle_response::<AuditTrailResponse>(response, None, "Failed to retrieve audit trail")?
+            .handle_response::<AuditTrailResponse>(
+                response,
+                None,
+                "Failed to retrieve audit trail",
+            )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1157,7 +1245,6 @@ impl CerebroClient {
 
     /// Fetch a single file record by id (`GET /files/{id}`).
     pub fn get_file(&self, id: &str) -> Result<SeaweedFile, HttpClientError> {
-
         self.log_team_warning();
 
         let url = format!("{}/{}", self.routes.url(Route::TeamFilesGet), id);
@@ -1187,16 +1274,23 @@ impl CerebroClient {
         sample_id: Option<String>,
         reported_at: Option<chrono::DateTime<Utc>>,
     ) -> Result<u64, HttpClientError> {
-
         self.log_team_warning();
 
         let url = format!("{}/report-out", self.routes.url(Route::TeamFilesReportOut));
-        let schema = ReportOutSchema { run_id: run_id.to_string(), sample_id, reported_at };
+        let schema = ReportOutSchema {
+            run_id: run_id.to_string(),
+            sample_id,
+            reported_at,
+        };
 
         let response = self.send_request_with_team(self.client.post(&url).json(&schema))?;
 
         let data = self
-            .handle_response::<ReportOutResponse>(response, Some("Reported out files"), "Failed to report out files")?
+            .handle_response::<ReportOutResponse>(
+                response,
+                Some("Reported out files"),
+                "Failed to report out files",
+            )?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1208,54 +1302,49 @@ impl CerebroClient {
     }
 
     pub fn delete_file(&self, id: &str) -> Result<SeaweedFile, HttpClientError> {
-
         self.log_team_warning();
 
         let url = format!("{}/{id}", self.routes.url(Route::TeamFilesDelete));
 
-        let response = self.send_request_with_team(
-            self.client.delete(url)
-        )?;
+        let response = self.send_request_with_team(self.client.delete(url))?;
 
-        self.handle_response::<DeleteFileResponse>(
-            response,
-            None,
-            "File deletion failed",
-        )?
-        .data
-        .ok_or_else(|| {
-            HttpClientError::DataResponseFailure(
-                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                String::from("File data not returned after deletion"),
-            )
-        })
+        self.handle_response::<DeleteFileResponse>(response, None, "File deletion failed")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("File data not returned after deletion"),
+                )
+            })
     }
 
-    pub fn delete_files(&self, run_id: Option<String>, sample_id: Option<String>, all: Option<bool>) -> Result<Vec<SeaweedFileId>, HttpClientError> {
-
+    pub fn delete_files(
+        &self,
+        run_id: Option<String>,
+        sample_id: Option<String>,
+        all: Option<bool>,
+    ) -> Result<Vec<SeaweedFileId>, HttpClientError> {
         self.log_team_warning();
 
         let url = self.build_request_url(
-            self.routes.url(Route::TeamFilesDelete), &[("run_id", run_id), ("sample_id", sample_id), ("all", all.map(|b| b.to_string()))]
+            self.routes.url(Route::TeamFilesDelete),
+            &[
+                ("run_id", run_id),
+                ("sample_id", sample_id),
+                ("all", all.map(|b| b.to_string())),
+            ],
         );
 
+        let response = self.send_request_with_team(self.client.delete(url))?;
 
-        let response = self.send_request_with_team(
-            self.client.delete(url)
-        )?;
-
-        self.handle_response::<DeleteFilesResponse>(
-            response,
-            None,
-            "Files deletion failed",
-        )?
-        .data
-        .ok_or_else(|| {
-            HttpClientError::DataResponseFailure(
-                reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                String::from("File identifiers not returned after deletion"),
-            )
-        })
+        self.handle_response::<DeleteFilesResponse>(response, None, "Files deletion failed")?
+            .data
+            .ok_or_else(|| {
+                HttpClientError::DataResponseFailure(
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("File identifiers not returned after deletion"),
+                )
+            })
     }
 
     pub fn list_files(
@@ -1266,7 +1355,6 @@ impl CerebroClient {
         limit: u32,
         print: bool,
     ) -> Result<Vec<SeaweedFile>, HttpClientError> {
-
         self.log_team_warning();
 
         let url = self.build_request_url(
@@ -1279,17 +1367,10 @@ impl CerebroClient {
             ],
         );
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(&url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(&url))?;
 
         let files = self
-            .handle_response::<ListFilesResponse>(
-                response,
-                None,
-                "Failed to retrieve files",
-            )?
+            .handle_response::<ListFilesResponse>(response, None, "Failed to retrieve files")?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1329,7 +1410,6 @@ impl CerebroClient {
         schema: &RegisterTowerSchema,
         print: bool,
     ) -> Result<String, HttpClientError> {
-
         self.log_team_warning();
 
         let response = self.send_request_with_team(
@@ -1338,13 +1418,14 @@ impl CerebroClient {
                 .json(schema),
         )?;
 
-        let tower_id = self.handle_response::<RegisterTowerResponse>(
-            response,
-            Some("Tower registered successfully"),
-            "Tower registration failed",
-        )?
-        .data
-        .unwrap_or(schema.id.clone());
+        let tower_id = self
+            .handle_response::<RegisterTowerResponse>(
+                response,
+                Some("Tower registered successfully"),
+                "Tower registration failed",
+            )?
+            .data
+            .unwrap_or(schema.id.clone());
 
         if print {
             println!("{}", tower_id);
@@ -1358,25 +1439,14 @@ impl CerebroClient {
         id: Option<String>,
         print: bool,
     ) -> Result<Vec<ProductionTower>, HttpClientError> {
-        
         self.log_team_warning();
 
-        let url = self.build_request_url(
-            self.routes.url(Route::TeamTowersList), 
-            &[("id", id)]
-        );
+        let url = self.build_request_url(self.routes.url(Route::TeamTowersList), &[("id", id)]);
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(&url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(&url))?;
 
         let towers = self
-            .handle_response::<ListTowersResponse>(
-                response,
-                None,
-                "Failed to retrieve towers",
-            )?
+            .handle_response::<ListTowersResponse>(response, None, "Failed to retrieve towers")?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1404,16 +1474,15 @@ impl CerebroClient {
     }
 
     pub fn delete_tower(
-        &self, 
-        id: Option<String>, 
-        json: Option<PathBuf>, 
-        name: Option<String>, 
-        location: Option<String>
+        &self,
+        id: Option<String>,
+        json: Option<PathBuf>,
+        name: Option<String>,
+        location: Option<String>,
     ) -> Result<Option<ProductionTower>, HttpClientError> {
-
         self.log_team_warning();
 
-        let mut url = self.routes.url(Route::TeamTowersDelete);  // deletes all
+        let mut url = self.routes.url(Route::TeamTowersDelete); // deletes all
 
         if let Some(id) = id {
             url = format!("{url}/{id}")
@@ -1426,42 +1495,29 @@ impl CerebroClient {
 
         if name.is_some() | location.is_some() {
             url = self.build_request_url(
-                self.routes.url(Route::TeamTowersDelete), 
-                &[("name", name), ("location", location)]
+                self.routes.url(Route::TeamTowersDelete),
+                &[("name", name), ("location", location)],
             );
         }
 
-        let response = self.send_request_with_team(
-            self.client.delete(url)
-        )?;
+        let response = self.send_request_with_team(self.client.delete(url))?;
 
-        Ok(self.handle_response::<DeleteTowerResponse>(
-            response,
-            None,
-            "Tower deletion failed",
-        )?
-        .data)
+        Ok(self
+            .handle_response::<DeleteTowerResponse>(response, None, "Tower deletion failed")?
+            .data)
     }
 
     pub fn ping_tower(&self, tower_id: &str, print: bool) -> Result<String, HttpClientError> {
-
         self.log_team_warning();
 
-        let response = self.send_request_with_team(
-            self.client
-                .patch(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamTowersPing),
-                    tower_id
-                ))
-        )?;
+        let response = self.send_request_with_team(self.client.patch(&format!(
+            "{}/{}",
+            self.routes.url(Route::TeamTowersPing),
+            tower_id
+        )))?;
 
         let data = self
-            .handle_response::<PingTowerResponse>(
-                response,
-                None,
-                "Tower ping failed",
-            )?
+            .handle_response::<PingTowerResponse>(response, None, "Tower ping failed")?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1482,7 +1538,6 @@ impl CerebroClient {
         register_watcher_schema: &RegisterWatcherSchema,
         print: bool,
     ) -> Result<String, HttpClientError> {
-
         self.log_team_warning();
 
         let response = self.send_request_with_team(
@@ -1491,13 +1546,14 @@ impl CerebroClient {
                 .json(register_watcher_schema),
         )?;
 
-        let watcher_id = self.handle_response::<RegisterWatcherResponse>(
-            response,
-            Some("Watcher registered successfully"),
-            "Watcher registration failed",
-        )?
-        .data
-        .unwrap_or(register_watcher_schema.id.clone());
+        let watcher_id = self
+            .handle_response::<RegisterWatcherResponse>(
+                response,
+                Some("Watcher registered successfully"),
+                "Watcher registration failed",
+            )?
+            .data
+            .unwrap_or(register_watcher_schema.id.clone());
 
         if print {
             println!("{}", watcher_id);
@@ -1511,25 +1567,14 @@ impl CerebroClient {
         id: Option<String>,
         print: bool,
     ) -> Result<Vec<ProductionWatcher>, HttpClientError> {
-
         self.log_team_warning();
 
-        let url = self.build_request_url(
-            self.routes.url(Route::TeamWatchersList), 
-            &[("id", id)]
-        );
+        let url = self.build_request_url(self.routes.url(Route::TeamWatchersList), &[("id", id)]);
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(&url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(&url))?;
 
         let watchers = self
-            .handle_response::<ListWatchersResponse>(
-                response,
-                None,
-                "Failed to retrieve watchers",
-            )?
+            .handle_response::<ListWatchersResponse>(response, None, "Failed to retrieve watchers")?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1556,13 +1601,12 @@ impl CerebroClient {
     }
 
     pub fn delete_watcher(
-        &self, 
-        id: Option<String>, 
-        json: Option<PathBuf>, 
-        name: Option<String>, 
-        location: Option<String>
+        &self,
+        id: Option<String>,
+        json: Option<PathBuf>,
+        name: Option<String>,
+        location: Option<String>,
     ) -> Result<Option<ProductionWatcher>, HttpClientError> {
-
         self.log_team_warning();
 
         let mut url = self.routes.url(Route::TeamWatchersDelete); // deletes all
@@ -1578,42 +1622,29 @@ impl CerebroClient {
 
         if name.is_some() | location.is_some() {
             url = self.build_request_url(
-                self.routes.url(Route::TeamWatchersDelete), 
-                &[("name", name), ("location", location)]
+                self.routes.url(Route::TeamWatchersDelete),
+                &[("name", name), ("location", location)],
             );
         }
 
-        let response = self.send_request_with_team(
-            self.client.delete(url)
-        )?;
+        let response = self.send_request_with_team(self.client.delete(url))?;
 
-        Ok(self.handle_response::<DeleteWatcherResponse>(
-            response,
-            None,
-            "Watcher deletion failed",
-        )?
-        .data)
+        Ok(self
+            .handle_response::<DeleteWatcherResponse>(response, None, "Watcher deletion failed")?
+            .data)
     }
 
     pub fn ping_watcher(&self, id: &str, print: bool) -> Result<String, HttpClientError> {
-
         self.log_team_warning();
 
-        let response = self.send_request_with_team(
-            self.client
-                .patch(&format!(
-                    "{}/{}",
-                    self.routes.url(Route::TeamWatchersPing),
-                    id
-                ))
-        )?;
+        let response = self.send_request_with_team(self.client.patch(&format!(
+            "{}/{}",
+            self.routes.url(Route::TeamWatchersPing),
+            id
+        )))?;
 
         let data = self
-            .handle_response::<PingWatcherResponse>(
-                response,
-                None,
-                "Watcher ping failed",
-            )?
+            .handle_response::<PingWatcherResponse>(response, None, "Watcher ping failed")?
             .data
             .ok_or_else(|| {
                 HttpClientError::DataResponseFailure(
@@ -1630,9 +1661,8 @@ impl CerebroClient {
     }
     pub fn register_staged_samples(
         &self,
-        register_staged_sample_schema: &RegisterStagedSampleSchema
+        register_staged_sample_schema: &RegisterStagedSampleSchema,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
@@ -1640,7 +1670,7 @@ impl CerebroClient {
         let response = self.send_request_with_team_db_project(
             self.client
                 .post(self.routes.url(Route::TeamStagedSamplesRegister))
-                .json(register_staged_sample_schema)
+                .json(register_staged_sample_schema),
         )?;
 
         self.handle_response::<serde_json::Value>(
@@ -1657,19 +1687,14 @@ impl CerebroClient {
         sample_id: Option<String>,
         print: bool,
     ) -> Result<Vec<StagedSample>, HttpClientError> {
-
         self.log_team_warning();
 
         let url = self.build_request_url(
-            &format!("{}/{}", self.routes.url(Route::TeamStagedSamplesList), id), &[
-                ("run_id", run_id), ("sample_id", sample_id)
-            ]
+            &format!("{}/{}", self.routes.url(Route::TeamStagedSamplesList), id),
+            &[("run_id", run_id), ("sample_id", sample_id)],
         );
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(&url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(&url))?;
 
         let staged_samples = self
             .handle_response::<ListStagedSamplesResponse>(
@@ -1705,63 +1730,64 @@ impl CerebroClient {
     }
 
     pub fn delete_staged_sample(
-        &self, 
-        id: &str, 
+        &self,
+        id: &str,
         staged_id: Option<String>,
         run_id: Option<String>,
         sample_id: Option<String>,
     ) -> Result<Option<StagedSample>, HttpClientError> {
-
         self.log_team_warning();
 
         let mut url = format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)); // deletes all
 
         if run_id.is_some() | sample_id.is_some() | staged_id.is_some() {
             url = self.build_request_url(
-                format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)), 
-                &[("run_id", run_id), ("sample_id", sample_id), ("stage_id", staged_id)]
+                format!("{}/{id}", self.routes.url(Route::TeamStagedSamplesDelete)),
+                &[
+                    ("run_id", run_id),
+                    ("sample_id", sample_id),
+                    ("stage_id", staged_id),
+                ],
             );
         }
 
-        let response = self.send_request_with_team(
-            self.client
-                .delete(url)
-        )?;
+        let response = self.send_request_with_team(self.client.delete(url))?;
 
-        Ok(self.handle_response::<DeleteStagedSampleResponse>(
-            response,
-            None,
-            "Staged sample deletion failed",
-        )?
-        .data)
+        Ok(self
+            .handle_response::<DeleteStagedSampleResponse>(
+                response,
+                None,
+                "Staged sample deletion failed",
+            )?
+            .data)
     }
 
     pub fn pull_staged_samples(
-        &self, 
-        id: &str, 
+        &self,
+        id: &str,
         run_id: Option<String>,
         sample_id: Option<String>,
         outdir: &PathBuf,
         delete: bool,
     ) -> Result<(), HttpClientError> {
-        
         self.log_team_warning();
 
         if !outdir.exists() && outdir.is_dir() {
             create_dir_all(&outdir)?;
         }
 
-        let staged_samples = match self.list_staged_samples(id, run_id, sample_id, false){
-            Ok(samples) => samples, Err(err) => {
+        let staged_samples = match self.list_staged_samples(id, run_id, sample_id, false) {
+            Ok(samples) => samples,
+            Err(err) => {
                 match err {
                     HttpClientError::ResponseFailure(code) => {
                         if code == StatusCode::NOT_FOUND {
-                            Vec::new()  // no samples staged will not raise 404
+                            Vec::new() // no samples staged will not raise 404
                         } else {
-                            return Err(err)
+                            return Err(err);
                         }
-                    },
-                    _ => return Err(err)
+                    }
+                    _ => return Err(err),
                 }
             }
         };
@@ -1769,19 +1795,12 @@ impl CerebroClient {
         let _timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
         for staged_sample in &staged_samples {
-            staged_sample.to_json(&outdir.join(
-                format!("{}.json", staged_sample.id)
-            ))?;
+            staged_sample.to_json(&outdir.join(format!("{}.json", staged_sample.id)))?;
         }
 
         if delete {
             for staged_sample in &staged_samples {
-                self.delete_staged_sample(
-                    &id, 
-                    Some(staged_sample.id.to_string()), 
-                    None, 
-                    None
-                )?;
+                self.delete_staged_sample(&id, Some(staged_sample.id.to_string()), None, None)?;
             }
         }
 
@@ -1791,18 +1810,15 @@ impl CerebroClient {
     pub fn download_models(
         &self,
         outdir: &PathBuf,
-        summary_table: Option<PathBuf>
+        summary_table: Option<PathBuf>,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
 
         let url = format!("{}", self.routes.url(Route::DataCerebroRetrieveModel));
 
-        let response = self.send_request_with_team_db_project(
-            self.client.get(url)
-        )?;
+        let response = self.send_request_with_team_db_project(self.client.get(url))?;
 
         let model_response = self.handle_response::<RetrieveModelResponse>(
             response,
@@ -1815,11 +1831,7 @@ impl CerebroClient {
         } else {
             for model in &model_response.data {
                 log::info!("Writing model to file: {}.json", model.name);
-                model.write_json(
-                    &outdir.join(
-                        format!("{}.json", model.name)
-                    )
-                )?
+                model.write_json(&outdir.join(format!("{}.json", model.name)))?
             }
 
             if let Some(path) = summary_table {
@@ -1829,34 +1841,22 @@ impl CerebroClient {
 
         Ok(())
     }
-    pub fn upload_models(
-        &self,
-        models: &[Cerebro]
-    ) -> Result<(), HttpClientError> {
-
+    pub fn upload_models(&self, models: &[Cerebro]) -> Result<(), HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
-        
+
         for model in models {
-            
             if model.sample.id.is_empty() {
                 return Err(HttpClientError::ModelSampleIdentifierEmpty);
             }
-            
-            model.check_size(
-                self.max_model_size, 
-                true, 
-                Some(16.0)
-            )?;
+
+            model.check_size(self.max_model_size, true, Some(16.0))?;
 
             let url = format!("{}", self.routes.url(Route::DataCerebroInsertModel));
 
-            let response = self.send_request_with_team_db_project(
-                self.client
-                    .post(url)
-                    .json(model)
-            )?;
+            let response =
+                self.send_request_with_team_db_project(self.client.post(url).json(model))?;
 
             self.handle_response::<serde_json::Value>(
                 response,
@@ -1871,29 +1871,23 @@ impl CerebroClient {
         Ok(())
     }
 
-    pub fn update_models(
-        &self,
-        run_tsv: Option<PathBuf>
-    ) -> Result<(), HttpClientError> {
-
+    pub fn update_models(&self, run_tsv: Option<PathBuf>) -> Result<(), HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
-        
 
         if let Some(path) = run_tsv {
-
             // Run configuration update
             let update_data: Vec<UpdateRunConfigSchema> = read_tsv(&path, false, true)?;
 
             for update_schema in update_data {
-
-                let url = format!("{}", self.routes.url(Route::DataCerebroUpdateModelRunConfig));
+                let url = format!(
+                    "{}",
+                    self.routes.url(Route::DataCerebroUpdateModelRunConfig)
+                );
 
                 let response = self.send_request_with_team_db_project(
-                    self.client
-                        .patch(url)
-                        .json(&update_schema)
+                    self.client.patch(url).json(&update_schema),
                 )?;
 
                 log::info!("Update schema: {:?}", &update_schema);
@@ -1906,8 +1900,8 @@ impl CerebroClient {
                     )),
                     "Update failed",
                 ) {
-                    Ok(_) => {},
-                    Err(err) => log::warn!("{}", err.to_string())
+                    Ok(_) => {}
+                    Err(err) => log::warn!("{}", err.to_string()),
                 };
             }
         }
@@ -1915,46 +1909,36 @@ impl CerebroClient {
         Ok(())
     }
 
-
-    pub fn delete_models(
-        &self,
-        name_tsv: Option<PathBuf>
-    ) -> Result<(), HttpClientError> {
-
+    pub fn delete_models(&self, name_tsv: Option<PathBuf>) -> Result<(), HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
-        
-        if let Some(path) = name_tsv {
 
+        if let Some(path) = name_tsv {
             #[derive(Deserialize)]
             struct FileRow {
-                sample_name: String
+                sample_name: String,
             }
 
             // Run configuration update
             let delete_models: Vec<FileRow> = read_tsv(&path, false, true)?;
 
             for row in delete_models {
-                
-                
-                let url = format!("{}/{}", self.routes.url(Route::DataCerebroDeleteModel), row.sample_name);
+                let url = format!(
+                    "{}/{}",
+                    self.routes.url(Route::DataCerebroDeleteModel),
+                    row.sample_name
+                );
 
-                let response = self.send_request_with_team_db_project(
-                    self.client
-                        .delete(url)
-                )?;
+                let response = self.send_request_with_team_db_project(self.client.delete(url))?;
 
                 match self.handle_response::<CerebroResponse<()>>(
                     response,
-                    Some(&format!(
-                        "Model '{}' deleted successfully",
-                        row.sample_name
-                    )),
+                    Some(&format!("Model '{}' deleted successfully", row.sample_name)),
                     &format!("Deletion failed for: {}", row.sample_name),
                 ) {
-                    Ok(_) => {},
-                    Err(err) => log::warn!("{}", err.to_string())
+                    Ok(_) => {}
+                    Err(err) => log::warn!("{}", err.to_string()),
                 };
             }
         }
@@ -1962,27 +1946,26 @@ impl CerebroClient {
         Ok(())
     }
     pub fn upload_training_prefetch(
-        &self, 
+        &self,
         prefetch: &Vec<PathBuf>,
         collection: &str,
         description: &str,
-        preselect: Option<bool>
+        preselect: Option<bool>,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
         for file in prefetch {
-
-            let schema = CreateTrainingPrefetch::from_file(file, collection, description, preselect)?;
+            let schema =
+                CreateTrainingPrefetch::from_file(file, collection, description, preselect)?;
             let url = format!("{}", self.routes.url(Route::TrainingRegister));
 
-            log::info!("Uploading prefetch data '{}' to collection '{}'", schema.name, collection);
+            log::info!(
+                "Uploading prefetch data '{}' to collection '{}'",
+                schema.name,
+                collection
+            );
 
-            let response = self.send_request_with_team(
-                self.client
-                    .post(url)
-                    .json(&schema)
-            )?;
+            let response = self.send_request_with_team(self.client.post(url).json(&schema))?;
 
             let _ = self.handle_response::<TrainingResponse<String>>(
                 response,
@@ -1991,94 +1974,102 @@ impl CerebroClient {
             )?;
         }
 
-
         Ok(())
     }
 
     pub fn list_training_collections(
-        &self, 
-        collection: Option<String>
+        &self,
+        collection: Option<String>,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
         let url = if let Some(c) = collection {
             self.build_request_url(
-                format!("{}", self.routes.url(Route::TrainingList)), 
-                &[("collection", c)]
+                format!("{}", self.routes.url(Route::TrainingList)),
+                &[("collection", c)],
             )
         } else {
             self.routes.url(Route::TrainingList)
         };
-        
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(url))?;
 
-        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingPrefetchData>>>(
-            response,
-            None,
-            "Prefetch data retrieval failed",
-        )?;
+        let training_response = self
+            .handle_response::<TrainingResponse<Vec<TrainingPrefetchData>>>(
+                response,
+                None,
+                "Prefetch data retrieval failed",
+            )?;
 
         if let Some(data) = training_response.data {
             println!("collection\tname\tuuid\tuuid_short");
-            for training_prefetch in data  {
-                println!("{}\t{}\t{}\t{}", training_prefetch.collection, training_prefetch.name, training_prefetch.id, training_prefetch.id.chars().take(8).collect_vec().iter().join(""));
+            for training_prefetch in data {
+                println!(
+                    "{}\t{}\t{}\t{}",
+                    training_prefetch.collection,
+                    training_prefetch.name,
+                    training_prefetch.id,
+                    training_prefetch
+                        .id
+                        .chars()
+                        .take(8)
+                        .collect_vec()
+                        .iter()
+                        .join("")
+                );
             }
         }
 
         Ok(())
     }
 
-
     pub fn delete_training_data(
-        &self, 
+        &self,
         collection: String,
-        name: Option<String>
+        name: Option<String>,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
-        
         let url = self.build_request_url(
-            format!("{}", self.routes.url(Route::TrainingList)), 
-            &[("collection", collection.clone())]
+            format!("{}", self.routes.url(Route::TrainingList)),
+            &[("collection", collection.clone())],
         );
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(url))?;
 
-        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingPrefetchData>>>(
-            response,
-            None,
-            "Prefetch data retrieval failed",
-        )?;
-
+        let training_response = self
+            .handle_response::<TrainingResponse<Vec<TrainingPrefetchData>>>(
+                response,
+                None,
+                "Prefetch data retrieval failed",
+            )?;
 
         if let Some(data) = training_response.data {
-            log::info!("{} entries in training collection '{}'", data.len(), &collection);
-            for training_prefetch in data  {
-
+            log::info!(
+                "{} entries in training collection '{}'",
+                data.len(),
+                &collection
+            );
+            for training_prefetch in data {
                 if let Some(ref name) = name {
                     if name.as_str() != training_prefetch.name {
-                        continue 
+                        continue;
                     }
                 }
 
-                let url = format!("{}/{}", self.routes.url(Route::TrainingDelete), training_prefetch.id);
+                let url = format!(
+                    "{}/{}",
+                    self.routes.url(Route::TrainingDelete),
+                    training_prefetch.id
+                );
 
-                log::info!("Deleting entry '{}' from collection '{collection}'", training_prefetch.name);
+                log::info!(
+                    "Deleting entry '{}' from collection '{collection}'",
+                    training_prefetch.name
+                );
 
-                let response = self.send_request_with_team(
-                    self.client
-                        .delete(url)
-                )?;
-                
+                let response = self.send_request_with_team(self.client.delete(url))?;
+
                 let _ = self.handle_response::<TrainingResponse<String>>(
                     response,
                     None,
@@ -2093,91 +2084,118 @@ impl CerebroClient {
     }
 
     pub fn list_training_sessions(
-        &self, 
+        &self,
         completed: bool,
         user_name: Option<String>,
-        results: Option<PathBuf>
+        results: Option<PathBuf>,
     ) -> Result<Option<Vec<TrainingSessionData>>, HttpClientError> {
-
         self.log_team_warning();
 
         let url = self.routes.url(Route::TrainingSessionList);
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(url))?;
 
-        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingSessionData>>>(
-            response,
-            None,
-            "Training session data retrieval failed",
-        )?;
+        let training_response = self
+            .handle_response::<TrainingResponse<Vec<TrainingSessionData>>>(
+                response,
+                None,
+                "Training session data retrieval failed",
+            )?;
 
         if let Some(ref data) = training_response.data {
-
             if data.is_empty() {
                 log::warn!("No training session data available for this team")
             }
 
-            for session in data  {
+            for session in data {
                 if completed {
                     if session.completed.is_some() {
                         if let Some(ref user_name) = user_name {
                             if *user_name == session.user_name {
-                                log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                                log::info!(
+                                    "id={} user_name='{}' user_id={} started={} completed={}",
+                                    session.id,
+                                    session.user_name,
+                                    session.user_id,
+                                    session.started,
+                                    session.completed.as_deref().unwrap_or("false")
+                                );
                             }
                         } else {
-                            log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                            log::info!(
+                                "id={} user_name='{}' user_id={} started={} completed={}",
+                                session.id,
+                                session.user_name,
+                                session.user_id,
+                                session.started,
+                                session.completed.as_deref().unwrap_or("false")
+                            );
                         }
-                        
                     }
                 } else {
                     if let Some(ref user_name) = user_name {
                         if *user_name == session.user_name {
-                            log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                            log::info!(
+                                "id={} user_name='{}' user_id={} started={} completed={}",
+                                session.id,
+                                session.user_name,
+                                session.user_id,
+                                session.started,
+                                session.completed.as_deref().unwrap_or("false")
+                            );
                         }
                     } else {
-                        log::info!("id={} user_name='{}' user_id={} started={} completed={}", session.id, session.user_name, session.user_id, session.started, session.completed.as_deref().unwrap_or("false"));
+                        log::info!(
+                            "id={} user_name='{}' user_id={} started={} completed={}",
+                            session.id,
+                            session.user_name,
+                            session.user_id,
+                            session.started,
+                            session.completed.as_deref().unwrap_or("false")
+                        );
                     }
                 }
-                
             }
 
             // Output session results
             if let Some(ref results) = results {
-
                 create_dir_all(results)?;
 
                 for session in data {
                     if let Some(date) = &session.completed {
-                        
                         let user_path = results.join(session.user_name.replace(" ", ""));
                         let session_path = user_path.join(&session.collection).join(date);
                         let session_ciqa = session_path.join("ciqa");
 
                         create_dir_all(&session_ciqa)?;
 
-                        log::info!("Output complete session results to: {}", session_path.display());
+                        log::info!(
+                            "Output complete session results to: {}",
+                            session_path.display()
+                        );
 
                         // Output full session data:
                         session.to_json(session_path.join("session.json"))?;
 
                         if let Some(ref result_data) = session.result {
-
                             log::info!("dataset={} user_name='{}' completed={} - n={} sensitivity={:.1} specificity={:.1}", session.collection, session.user_name, date, result_data.total, result_data.sensitivity, result_data.specificity);
 
                             // Output evaluation results table
                             write_tsv(&result_data.data, &session_path.join("results.tsv"), true)?;
-                            
+
                             // Output diagnostic results compatible with META-GPT and CIQA
                             for record in &result_data.data {
                                 let result = DiagnosticResult::from_training_result(&record);
-                                let result_filename = format!("{}.json", record.sample_name.clone().unwrap_or(record.record_id.clone()));
+                                let result_filename = format!(
+                                    "{}.json",
+                                    record
+                                        .sample_name
+                                        .clone()
+                                        .unwrap_or(record.record_id.clone())
+                                );
                                 result.to_json(&session_ciqa.join(result_filename))?;
                             }
                         }
-
                     }
                 }
             }
@@ -2186,25 +2204,19 @@ impl CerebroClient {
         Ok(training_response.data)
     }
 
-
     pub fn delete_training_sessions(
-        &self, 
+        &self,
         session_id: Option<String>,
         user_id: Option<String>,
-        incomplete: bool
+        incomplete: bool,
     ) -> Result<(), HttpClientError> {
-
         self.log_team_warning();
 
         // Delete single session by identifier
         if let Some(id) = session_id {
-
             let url = format!("{}/{id}", self.routes.url(Route::TrainingSessionDelete));
 
-            let response = self.send_request_with_team(
-                self.client
-                    .delete(url)
-            )?;
+            let response = self.send_request_with_team(self.client.delete(url))?;
 
             self.handle_response::<TrainingResponse<()>>(
                 response,
@@ -2215,20 +2227,17 @@ impl CerebroClient {
 
         let url = self.routes.url(Route::TrainingSessionList);
 
-        let response = self.send_request_with_team(
-            self.client
-                .get(url)
-        )?;
+        let response = self.send_request_with_team(self.client.get(url))?;
 
-        let training_response = self.handle_response::<TrainingResponse<Vec<TrainingSessionData>>>(
-            response,
-            None,
-            "Training session data retrieval failed",
-        )?;
+        let training_response = self
+            .handle_response::<TrainingResponse<Vec<TrainingSessionData>>>(
+                response,
+                None,
+                "Training session data retrieval failed",
+            )?;
 
         if let Some(data) = training_response.data {
-            for session in data  {
-
+            for session in data {
                 if let Some(ref user_id) = user_id {
                     if *user_id != session.user_id {
                         continue;
@@ -2241,12 +2250,13 @@ impl CerebroClient {
                     }
                 };
 
-                let url = format!("{}/{}", self.routes.url(Route::TrainingSessionDelete), session.id);
+                let url = format!(
+                    "{}/{}",
+                    self.routes.url(Route::TrainingSessionDelete),
+                    session.id
+                );
 
-                let response = self.send_request_with_team(
-                    self.client
-                        .delete(url)
-                )?;
+                let response = self.send_request_with_team(self.client.delete(url))?;
 
                 self.handle_response::<TrainingResponse<()>>(
                     response,
@@ -2263,18 +2273,14 @@ impl CerebroClient {
         &self,
         schema: &CerebroIdentifierSchema,
     ) -> Result<Option<Vec<CerebroIdentifierSummary>>, HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
-        
+
         let url = format!("{}", self.routes.url(Route::DataCerebroIdentifiers));
 
-        let response = self.send_request_with_team_db_project(
-            self.client
-                .post(url)
-                .json(schema)
-        )?;
+        let response =
+            self.send_request_with_team_db_project(self.client.post(url).json(schema))?;
 
         let response = self.handle_response::<CerebroIdentifierResponse>(
             response,
@@ -2283,23 +2289,22 @@ impl CerebroClient {
         )?;
 
         Ok(response.data)
-    } 
+    }
 
     pub fn get_negative_controls(
         &self,
         sample_id: &str,
     ) -> Result<Option<Vec<String>>, HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
-        
-        let url = format!("{}/{sample_id}", self.routes.url(Route::DataCerebroSampleNegativeControls));
 
-        let response = self.send_request_with_team_db_project(
-            self.client
-                .get(url)
-        )?;
+        let url = format!(
+            "{}/{sample_id}",
+            self.routes.url(Route::DataCerebroSampleNegativeControls)
+        );
+
+        let response = self.send_request_with_team_db_project(self.client.get(url))?;
 
         let response = self.handle_response::<CerebroResponse<Vec<String>>>(
             response,
@@ -2308,25 +2313,33 @@ impl CerebroClient {
         )?;
 
         Ok(response.data)
-    } 
+    }
     pub fn _get_aneuploidy(&self, _sample: &str) -> Result<Option<&str>, HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
 
         Ok(None)
     }
-    pub fn get_quality_control(&self, schema: &QualityControlTableSchema, csv: Option<PathBuf>) -> Result<Vec<ReadQualityControl>, HttpClientError> {
-
+    pub fn get_quality_control(
+        &self,
+        schema: &QualityControlTableSchema,
+        csv: Option<PathBuf>,
+    ) -> Result<Vec<ReadQualityControl>, HttpClientError> {
         let url = self.build_request_url(
-            format!("{}", self.routes.url(Route::DataCerebroQualityControl)), 
-            &[("csv", if let Some(_) = csv { true.to_string() } else { false.to_string() })]
+            format!("{}", self.routes.url(Route::DataCerebroQualityControl)),
+            &[(
+                "csv",
+                if let Some(_) = csv {
+                    true.to_string()
+                } else {
+                    false.to_string()
+                },
+            )],
         );
 
-        let response = self.send_request_with_team_db_project(
-            self.client.post(url).json(schema)
-        )?;
+        let response =
+            self.send_request_with_team_db_project(self.client.post(url).json(schema))?;
 
         let qc_table_response = self.handle_response::<QualityControlTableResponse>(
             response,
@@ -2343,45 +2356,63 @@ impl CerebroClient {
         Ok(qc_table_response.data.records)
     }
 
-    pub fn get_pathogen_detection(&self, schema: &PathogenDetectionTableSchema, csv: Option<PathBuf>) -> Result<Vec<PathogenDetectionTableRecord>, HttpClientError> {
-
+    pub fn get_pathogen_detection(
+        &self,
+        schema: &PathogenDetectionTableSchema,
+        csv: Option<PathBuf>,
+    ) -> Result<Vec<PathogenDetectionTableRecord>, HttpClientError> {
         let url = self.build_request_url(
-            format!("{}", self.routes.url(Route::DataCerebroPathogenDetection)), 
-            &[("csv", if let Some(_) = csv { true.to_string() } else { false.to_string() })]
+            format!("{}", self.routes.url(Route::DataCerebroPathogenDetection)),
+            &[(
+                "csv",
+                if let Some(_) = csv {
+                    true.to_string()
+                } else {
+                    false.to_string()
+                },
+            )],
         );
 
-        let response = self.send_request_with_team_db_project(
-            self.client.post(url).json(schema)
-        )?;
+        let response =
+            self.send_request_with_team_db_project(self.client.post(url).json(schema))?;
 
-        let pathogen_detection_table_response = self.handle_response::<PathogenDetectionTableResponse>(
-            response,
-            None,
-            "Sample summary (pathogen detection table) retrieval failed",
-        )?;
+        let pathogen_detection_table_response = self
+            .handle_response::<PathogenDetectionTableResponse>(
+                response,
+                None,
+                "Sample summary (pathogen detection table) retrieval failed",
+            )?;
 
         if let Some(path) = csv {
             let mut writer = BufWriter::new(File::create(path)?);
-            write!(&mut writer, "{}", pathogen_detection_table_response.data.csv)?;
+            write!(
+                &mut writer,
+                "{}",
+                pathogen_detection_table_response.data.csv
+            )?;
             writer.flush()?;
         }
 
         Ok(pathogen_detection_table_response.data.records)
     }
-    pub fn get_taxon_history(&self, taxon_label: String, host_label: String, regression: bool, print_regression: bool, plot: Option<PathBuf>) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
-
+    pub fn get_taxon_history(
+        &self,
+        taxon_label: String,
+        host_label: String,
+        regression: bool,
+        print_regression: bool,
+        plot: Option<PathBuf>,
+    ) -> Result<Option<RpmAnalysisResult>, HttpClientError> {
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
 
         let url = self.build_request_url(
-            format!("{}", self.routes.url(Route::DataCerebroTaxaHistory)), 
-            &[("taxon_label", taxon_label), ("host_label", host_label)]
+            format!("{}", self.routes.url(Route::DataCerebroTaxaHistory)),
+            &[("taxon_label", taxon_label), ("host_label", host_label)],
         );
 
-        let response = self.send_request_with_team_db_project(
-            self.client.get(url)
-        )?;
+        let response = self.send_request_with_team_db_project(self.client.get(url))?;
 
         let response = self.handle_response::<TaxonHistoryResponse>(
             response,
@@ -2390,33 +2421,39 @@ impl CerebroClient {
         )?;
 
         if regression & !response.data.is_empty() {
-
             // Build the analysis configuration.
             let config = RpmConfigBuilder::new()
-            .confidence_level(0.95)
-            .only_high_outliers(true)
-            .build();
-                
+                .confidence_level(0.95)
+                .only_high_outliers(true)
+                .build();
+
             // Create the analyzer from taxon history.
             let analyzer = RpmAnalyzer::from_taxon_history(config, response.data);
 
             // Run the regression and outlier detection.
             let result = match analyzer.run() {
                 Ok(result) => result,
-                Err(_) => return Ok(None)
+                Err(_) => return Ok(None),
             };
 
             if print_regression {
                 log::info!("Regression result:");
                 log::info!("Intercept (log₁₀ scale): {:.4}", result.intercept);
                 log::info!("Slope: {:.4} ({})", result.slope, result.relationship);
-                log::info!("Residual standard error: {:.4}", result.residual_standard_error);
+                log::info!(
+                    "Residual standard error: {:.4}",
+                    result.residual_standard_error
+                );
 
                 if !result.outliers.is_empty() {
                     log::info!("Outliers detected:");
                     for outlier in &result.outliers {
-                        log::info!("Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}", 
-                            outlier.sample_id, outlier.raw_host, outlier.raw_taxon);
+                        log::info!(
+                            "Sample ID: {}, Raw host RPM: {:.2}, Raw taxon RPM: {:.2}",
+                            outlier.sample_id,
+                            outlier.raw_host,
+                            outlier.raw_taxon
+                        );
                     }
                 } else {
                     log::info!("No outliers detected.");
@@ -2426,46 +2463,43 @@ impl CerebroClient {
             if let Some(path) = plot {
                 analyzer.plot_regression(&result, &path.display().to_string())?;
             }
-            
 
             Ok(Some(result))
-
         } else {
             Ok(None)
         }
     }
-    fn split_taxa(&self, map: HashMap<String, (Vec<Taxon>, Vec<Taxon>)>) -> (Vec<Taxon>, Vec<Taxon>) {
+    fn split_taxa(
+        &self,
+        map: HashMap<String, (Vec<Taxon>, Vec<Taxon>)>,
+    ) -> (Vec<Taxon>, Vec<Taxon>) {
         let mut sample_taxa: Vec<Taxon> = Vec::new();
         let mut contam_taxa: Vec<Taxon> = Vec::new();
-        
+
         for (_key, (sample_vec, contam_vec)) in map.into_iter() {
             sample_taxa.extend(sample_vec);
             contam_taxa.extend(contam_vec);
         }
-        
+
         (sample_taxa, contam_taxa)
     }
-    pub fn get_prevalence_contamination(&self, 
+    pub fn get_prevalence_contamination(
+        &self,
         contam_config: &PrevalenceContaminationConfig,
         tags: Vec<String>,
     ) -> Result<HashSet<String>, HttpClientError> {
-
         // Obtain the collection's prevalence contamination for this tag
 
         let url = format!("{}", self.routes.url(Route::DataCerebroTaxaContamination));
 
         let contamination_schema = ContaminationSchema::from_config(
             vec![], // not limited to specific taxids present in that sample, obtain all from collection
-            tags, 
-            &contam_config
+            tags,
+            &contam_config,
         );
 
-        let response = self.send_request_with_team_db_project(
-            self.client
-                .post(url)
-                .json(&contamination_schema)
-        )?;
-
+        let response = self
+            .send_request_with_team_db_project(self.client.post(url).json(&contamination_schema))?;
 
         let contam_response_data = self.handle_response::<ContaminationTaxaResponse>(
             response,
@@ -2474,16 +2508,14 @@ impl CerebroClient {
         )?;
 
         Ok(HashSet::from_iter(contam_response_data.data.taxid))
-
     }
     pub fn get_taxa(
         &self,
         schema: &CerebroIdentifierSchema,
         filter_config: &TaxonFilterConfig,
         contam_taxid_tagged: HashMap<String, HashSet<String>>, // tag: {taxid}
-        contam_history: bool
+        contam_history: bool,
     ) -> Result<(Vec<Taxon>, Vec<Taxon>), HttpClientError> {
-
         self.log_team_warning();
         self.log_db_warning();
         self.log_project_warning();
@@ -2496,15 +2528,12 @@ impl CerebroClient {
 
         let mut tag_data = HashMap::new();
         if let Some(identifiers) = identifier_response {
-
             // Initialize the DNA and RNA groups
-            let mut groups: HashMap<&str, Vec<CerebroIdentifierSummary>> = HashMap::from([
-                ("DNA", Vec::new()), ("RNA", Vec::new())
-            ]);
+            let mut groups: HashMap<&str, Vec<CerebroIdentifierSummary>> =
+                HashMap::from([("DNA", Vec::new()), ("RNA", Vec::new())]);
 
             // Group each summary based on its sample tags
             for summary in identifiers {
-
                 if summary.sample_tags.contains(&"DNA".to_string()) {
                     groups.get_mut("DNA").unwrap().push(summary.clone());
                 }
@@ -2516,7 +2545,6 @@ impl CerebroClient {
 
             // Log the grouped summaries
             for (tag, summaries) in groups {
-
                 let contam_taxids = match contam_taxid_tagged.get(tag) {
                     Some(contam_taxids) => Some(contam_taxids),
                     None => {
@@ -2526,18 +2554,15 @@ impl CerebroClient {
                 };
 
                 if !summaries.is_empty() {
-
                     let ids: Vec<String> = summaries.iter().map(|s| s.cerebro_id.clone()).collect();
 
                     let url = self.build_request_url(
-                        format!("{}", self.routes.url(Route::DataCerebroTaxaFiltered)), 
-                        &[("id", ids.join(","))]
+                        format!("{}", self.routes.url(Route::DataCerebroTaxaFiltered)),
+                        &[("id", ids.join(","))],
                     );
 
                     let response = self.send_request_with_team_db_project(
-                        self.client
-                            .post(url)
-                            .json(filter_config)
+                        self.client.post(url).json(filter_config),
                     )?;
 
                     let taxa_response_data = self.handle_response::<FilteredTaxaResponse>(
@@ -2547,14 +2572,17 @@ impl CerebroClient {
                     )?;
 
                     if let Some(contam_taxids) = contam_taxids {
-
-                        let contam_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                        let contam_taxa: Vec<Taxon> = taxa_response_data
+                            .data
+                            .taxa
                             .iter()
                             .filter(|tax| contam_taxids.contains(&tax.taxid))
                             .cloned()
                             .collect();
 
-                        let mut sample_control_taxa: Vec<Taxon> = taxa_response_data.data.taxa
+                        let mut sample_control_taxa: Vec<Taxon> = taxa_response_data
+                            .data
+                            .taxa
                             .iter()
                             .filter(|tax| !contam_taxids.contains(&tax.taxid))
                             .cloned()
@@ -2564,11 +2592,11 @@ impl CerebroClient {
                         if contam_history {
                             'contam: for contam_taxon in &contam_taxa {
                                 let reg = self.get_taxon_history(
-                                    format!("s__{}", contam_taxon.name), 
+                                    format!("s__{}", contam_taxon.name),
                                     format!("s__Homo sapiens"), // hardcoded for now
                                     true,
                                     false,
-                                    None
+                                    None,
                                 )?;
                                 if let Some(reg) = reg {
                                     for outlier in reg.outliers {
@@ -2579,20 +2607,22 @@ impl CerebroClient {
                                     }
                                 }
                                 clear_contam_taxa.push(contam_taxon.clone())
-                            }    
+                            }
                         } else {
                             clear_contam_taxa = contam_taxa.clone();
                         }
-                        tag_data.insert(tag.to_string(), (sample_control_taxa.clone(), clear_contam_taxa.clone()));
+                        tag_data.insert(
+                            tag.to_string(),
+                            (sample_control_taxa.clone(), clear_contam_taxa.clone()),
+                        );
                     } else {
-                        tag_data.insert(tag.to_string(), (taxa_response_data.data.taxa, Vec::new()));
+                        tag_data
+                            .insert(tag.to_string(), (taxa_response_data.data.taxa, Vec::new()));
                     }
-                }   
+                }
             }
-        }   
-        
+        }
+
         Ok(self.split_taxa(tag_data))
     }
-
-    
 }

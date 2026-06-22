@@ -10,7 +10,7 @@
 //!   deployment), enabling directory listings and lifecycle operations; and
 //! * auto-chunks large objects server-side, so uploads/downloads can be
 //!   **streamed** from/to disk without buffering whole files in memory.
-//! 
+//!
 //! Directory listing ([`FilerClient::list_objects`]) backs store-side orphan
 //! detection; an object-presence probe ([`FilerClient::exists`]) backs the archival
 //! reclaim's safety gate.
@@ -101,7 +101,9 @@ impl FilerClient {
         remote_path: &str,
     ) -> Result<FilerUploadResponse, FilerError> {
         if !local_path.exists() {
-            return Err(FilerError::LocalFileMissing(local_path.display().to_string()));
+            return Err(FilerError::LocalFileMissing(
+                local_path.display().to_string(),
+            ));
         }
 
         // `multipart::Form::file` opens the file and streams it; the whole file
@@ -209,7 +211,7 @@ impl FilerClient {
     /// Lightweight reachability check: a successful GET of the filer root is
     /// treated as healthy.
     ///
-    /// A full topology health check (master + filer + volumes + S3); this method 
+    /// A full topology health check (master + filer + volumes + S3); this method
     /// exists so callers can fail fast on an unreachable filer.
     pub fn health(&self) -> Result<(), FilerError> {
         let url = format!("{}/", self.base_url);
@@ -244,7 +246,11 @@ impl FilerClient {
     /// returned (the caller treats a truncated listing as inconclusive for orphan
     /// deletion). Used by the consistency-reconcile scan to enumerate what the
     /// store actually holds, for orphan detection.
-    pub fn list_objects(&self, base: &str, max_objects: usize) -> Result<Vec<FilerObject>, FilerError> {
+    pub fn list_objects(
+        &self,
+        base: &str,
+        max_objects: usize,
+    ) -> Result<Vec<FilerObject>, FilerError> {
         let mut out: Vec<FilerObject> = Vec::new();
         let mut stack: Vec<String> = vec![base.to_string()];
 
@@ -265,7 +271,10 @@ impl FilerClient {
                     if e.is_dir() {
                         stack.push(e.full_path.clone());
                     } else {
-                        out.push(FilerObject { path: e.full_path.clone(), mtime: e.parsed_mtime() });
+                        out.push(FilerObject {
+                            path: e.full_path.clone(),
+                            mtime: e.parsed_mtime(),
+                        });
                         if out.len() >= max_objects {
                             return Ok(out);
                         }
@@ -297,7 +306,11 @@ impl FilerClient {
             url.push_str(&l.replace(' ', "%20"));
         }
 
-        let response = self.http.get(&url).header("Accept", "application/json").send()?;
+        let response = self
+            .http
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()?;
         match response.status() {
             s if s.is_success() => {
                 let body = response.text()?;
@@ -393,12 +406,23 @@ mod tests {
     #[test]
     fn entry_directory_bit_detected() {
         // The directory bit is Go's os.ModeDir = 1 << 31.
-        let dir = RawFilerEntry { full_path: "/a/b".into(), mtime: None, mode: 1 << 31 };
+        let dir = RawFilerEntry {
+            full_path: "/a/b".into(),
+            mtime: None,
+            mode: 1 << 31,
+        };
         assert!(dir.is_dir());
-        let dir_with_perms =
-            RawFilerEntry { full_path: "/a/b".into(), mtime: None, mode: (1 << 31) | 0o755 };
+        let dir_with_perms = RawFilerEntry {
+            full_path: "/a/b".into(),
+            mtime: None,
+            mode: (1 << 31) | 0o755,
+        };
         assert!(dir_with_perms.is_dir());
-        let file = RawFilerEntry { full_path: "/a/b.gz".into(), mtime: None, mode: 0o644 };
+        let file = RawFilerEntry {
+            full_path: "/a/b.gz".into(),
+            mtime: None,
+            mode: 0o644,
+        };
         assert!(!file.is_dir());
     }
 
@@ -410,10 +434,17 @@ mod tests {
             mode: 0,
         };
         assert!(ok.parsed_mtime().is_some());
-        let bad =
-            RawFilerEntry { full_path: "/f".into(), mtime: Some("not-a-date".into()), mode: 0 };
+        let bad = RawFilerEntry {
+            full_path: "/f".into(),
+            mtime: Some("not-a-date".into()),
+            mode: 0,
+        };
         assert!(bad.parsed_mtime().is_none()); // unparseable -> None, never an error
-        let missing = RawFilerEntry { full_path: "/f".into(), mtime: None, mode: 0 };
+        let missing = RawFilerEntry {
+            full_path: "/f".into(),
+            mtime: None,
+            mode: 0,
+        };
         assert!(missing.parsed_mtime().is_none());
     }
 

@@ -18,8 +18,8 @@
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
-use uuid::Uuid;
 use serde::Deserialize;
+use uuid::Uuid;
 
 use cerebro_model::api::files::model::FileType;
 use cerebro_model::api::files::retention::RetentionClass;
@@ -33,7 +33,10 @@ use crate::hash::fast_file_hash;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArtefactClass {
     /// Capture the file under the given type and retention class.
-    Capture { ftype: Option<FileType>, retention: RetentionClass },
+    Capture {
+        ftype: Option<FileType>,
+        retention: RetentionClass,
+    },
     /// Skip the file entirely (e.g. scratch, logs, Nextflow work dirs).
     Ignore,
 }
@@ -47,10 +50,19 @@ pub struct CaptureRule {
 }
 impl CaptureRule {
     fn capture(pattern: &str, ftype: FileType, retention: RetentionClass) -> Self {
-        Self { pattern: pattern.to_string(), class: ArtefactClass::Capture { ftype: Some(ftype), retention } }
+        Self {
+            pattern: pattern.to_string(),
+            class: ArtefactClass::Capture {
+                ftype: Some(ftype),
+                retention,
+            },
+        }
     }
     fn ignore(pattern: &str) -> Self {
-        Self { pattern: pattern.to_string(), class: ArtefactClass::Ignore }
+        Self {
+            pattern: pattern.to_string(),
+            class: ArtefactClass::Ignore,
+        }
     }
 
     /// A default ruleset for the Cerebro pipeline outputs. Ordered — first match
@@ -66,15 +78,39 @@ impl CaptureRule {
             CaptureRule::ignore(".nextflow"),
             CaptureRule::ignore(".log"),
             // Primary result document.
-            CaptureRule::capture(".cerebro.json", FileType::CerebroModel, RetentionClass::Diagnostic),
+            CaptureRule::capture(
+                ".cerebro.json",
+                FileType::CerebroModel,
+                RetentionClass::Diagnostic,
+            ),
             // Diagnostic outputs.
             CaptureRule::capture("consensus", FileType::Consensus, RetentionClass::Diagnostic),
-            CaptureRule::capture("panviral", FileType::PanviralOutput, RetentionClass::Diagnostic),
-            CaptureRule::capture("pathogen", FileType::PathogenOutput, RetentionClass::Diagnostic),
+            CaptureRule::capture(
+                "panviral",
+                FileType::PanviralOutput,
+                RetentionClass::Diagnostic,
+            ),
+            CaptureRule::capture(
+                "pathogen",
+                FileType::PathogenOutput,
+                RetentionClass::Diagnostic,
+            ),
             // Quality control — useful for re-inspection but intermediate.
-            CaptureRule::capture("quality", FileType::QualityOutput, RetentionClass::Intermediate),
-            CaptureRule::capture("fastp", FileType::QualityOutput, RetentionClass::Intermediate),
-            CaptureRule::capture("fastqc", FileType::QualityOutput, RetentionClass::Intermediate),
+            CaptureRule::capture(
+                "quality",
+                FileType::QualityOutput,
+                RetentionClass::Intermediate,
+            ),
+            CaptureRule::capture(
+                "fastp",
+                FileType::QualityOutput,
+                RetentionClass::Intermediate,
+            ),
+            CaptureRule::capture(
+                "fastqc",
+                FileType::QualityOutput,
+                RetentionClass::Intermediate,
+            ),
         ]
     }
 }
@@ -88,7 +124,10 @@ pub fn classify(relative_path: &str, rules: &[CaptureRule]) -> ArtefactClass {
             return rule.class.clone();
         }
     }
-    ArtefactClass::Capture { ftype: Some(FileType::Other), retention: RetentionClass::Intermediate }
+    ArtefactClass::Capture {
+        ftype: Some(FileType::Other),
+        retention: RetentionClass::Intermediate,
+    }
 }
 
 /// A single rule as declared by the pipeline in `outputs.json` (intermission-3).
@@ -119,8 +158,12 @@ impl CaptureRule {
     /// empty vec when the file is absent or invalid (capture then falls back to the
     /// defaults). Patterns are lowercased to match [`classify`].
     pub fn from_manifest(path: &Path) -> Vec<CaptureRule> {
-        let Ok(bytes) = std::fs::read(path) else { return Vec::new(); };
-        let Ok(manifest) = serde_json::from_slice::<OutputsManifest>(&bytes) else { return Vec::new(); };
+        let Ok(bytes) = std::fs::read(path) else {
+            return Vec::new();
+        };
+        let Ok(manifest) = serde_json::from_slice::<OutputsManifest>(&bytes) else {
+            return Vec::new();
+        };
         manifest
             .rules
             .into_iter()
@@ -128,9 +171,15 @@ impl CaptureRule {
                 let class = if r.ignore {
                     ArtefactClass::Ignore
                 } else {
-                    ArtefactClass::Capture { ftype: r.ftype, retention: r.retention }
+                    ArtefactClass::Capture {
+                        ftype: r.ftype,
+                        retention: r.retention,
+                    }
                 };
-                CaptureRule { pattern: r.pattern.to_lowercase(), class }
+                CaptureRule {
+                    pattern: r.pattern.to_lowercase(),
+                    class,
+                }
             })
             .collect()
     }
@@ -139,7 +188,10 @@ impl CaptureRule {
 /// Locate a pipeline `outputs.json` for a capture target: the dir itself or its
 /// `output/` child (where the pipeline publishes it).
 fn find_outputs_manifest(dir: &Path) -> Option<PathBuf> {
-    for candidate in [dir.join("outputs.json"), dir.join("output").join("outputs.json")] {
+    for candidate in [
+        dir.join("outputs.json"),
+        dir.join("output").join("outputs.json"),
+    ] {
         if candidate.is_file() {
             return Some(candidate);
         }
@@ -150,7 +202,10 @@ fn find_outputs_manifest(dir: &Path) -> Option<PathBuf> {
 /// Outcome of handling a single file during capture.
 #[derive(Debug, Clone)]
 pub enum CaptureStatus {
-    Captured { ftype: Option<FileType>, retention: RetentionClass },
+    Captured {
+        ftype: Option<FileType>,
+        retention: RetentionClass,
+    },
     Ignored,
     Failed(String),
 }
@@ -170,13 +225,22 @@ pub struct CaptureReport {
 }
 impl CaptureReport {
     pub fn captured(&self) -> usize {
-        self.outcomes.iter().filter(|o| matches!(o.status, CaptureStatus::Captured { .. })).count()
+        self.outcomes
+            .iter()
+            .filter(|o| matches!(o.status, CaptureStatus::Captured { .. }))
+            .count()
     }
     pub fn ignored(&self) -> usize {
-        self.outcomes.iter().filter(|o| matches!(o.status, CaptureStatus::Ignored)).count()
+        self.outcomes
+            .iter()
+            .filter(|o| matches!(o.status, CaptureStatus::Ignored))
+            .count()
     }
     pub fn failed(&self) -> usize {
-        self.outcomes.iter().filter(|o| matches!(o.status, CaptureStatus::Failed(_))).count()
+        self.outcomes
+            .iter()
+            .filter(|o| matches!(o.status, CaptureStatus::Failed(_)))
+            .count()
     }
     /// True when nothing failed.
     pub fn ok(&self) -> bool {
@@ -221,7 +285,6 @@ impl FileSystemClient {
         rules: &[CaptureRule],
         upload_config: &UploadConfig,
     ) -> Result<CaptureReport, FileSystemError> {
-
         if !output_dir.is_dir() {
             return Err(FileSystemError::FileDoesNotExist(output_dir.to_path_buf()));
         }
@@ -232,8 +295,15 @@ impl FileSystemClient {
         let effective_rules: Vec<CaptureRule> = match find_outputs_manifest(output_dir) {
             Some(manifest) => {
                 let pipeline_rules = CaptureRule::from_manifest(&manifest);
-                log::info!("Using {} pipeline-declared capture rule(s) from {}", pipeline_rules.len(), manifest.display());
-                pipeline_rules.into_iter().chain(rules.iter().cloned()).collect()
+                log::info!(
+                    "Using {} pipeline-declared capture rule(s) from {}",
+                    pipeline_rules.len(),
+                    manifest.display()
+                );
+                pipeline_rules
+                    .into_iter()
+                    .chain(rules.iter().cloned())
+                    .collect()
             }
             None => rules.to_vec(),
         };
@@ -251,15 +321,32 @@ impl FileSystemClient {
 
             let (ftype, retention) = match classify(&relative_path, &effective_rules) {
                 ArtefactClass::Ignore => {
-                    outcomes.push(CaptureOutcome { relative_path, status: CaptureStatus::Ignored });
+                    outcomes.push(CaptureOutcome {
+                        relative_path,
+                        status: CaptureStatus::Ignored,
+                    });
                     continue;
                 }
                 ArtefactClass::Capture { ftype, retention } => (ftype, retention),
             };
 
-            match self.capture_one(file, run_id.as_deref(), sample_id.as_deref(), pipeline_id.as_deref(), ftype.clone(), retention, upload_config) {
-                Ok(()) => outcomes.push(CaptureOutcome { relative_path, status: CaptureStatus::Captured { ftype, retention } }),
-                Err(err) => outcomes.push(CaptureOutcome { relative_path, status: CaptureStatus::Failed(err.to_string()) }),
+            match self.capture_one(
+                file,
+                run_id.as_deref(),
+                sample_id.as_deref(),
+                pipeline_id.as_deref(),
+                ftype.clone(),
+                retention,
+                upload_config,
+            ) {
+                Ok(()) => outcomes.push(CaptureOutcome {
+                    relative_path,
+                    status: CaptureStatus::Captured { ftype, retention },
+                }),
+                Err(err) => outcomes.push(CaptureOutcome {
+                    relative_path,
+                    status: CaptureStatus::Failed(err.to_string()),
+                }),
             }
         }
 
@@ -321,26 +408,41 @@ mod tests {
 
         assert_eq!(
             classify("sample1/sample1.cerebro.json", &rules),
-            ArtefactClass::Capture { ftype: Some(FileType::CerebroModel), retention: RetentionClass::Diagnostic }
+            ArtefactClass::Capture {
+                ftype: Some(FileType::CerebroModel),
+                retention: RetentionClass::Diagnostic
+            }
         );
         assert_eq!(
             classify("pathogen/sample1.tsv", &rules),
-            ArtefactClass::Capture { ftype: Some(FileType::PathogenOutput), retention: RetentionClass::Diagnostic }
+            ArtefactClass::Capture {
+                ftype: Some(FileType::PathogenOutput),
+                retention: RetentionClass::Diagnostic
+            }
         );
         assert_eq!(
             classify("consensus/sample1.fasta", &rules),
-            ArtefactClass::Capture { ftype: Some(FileType::Consensus), retention: RetentionClass::Diagnostic }
+            ArtefactClass::Capture {
+                ftype: Some(FileType::Consensus),
+                retention: RetentionClass::Diagnostic
+            }
         );
         assert_eq!(
             classify("quality/fastp.json", &rules),
-            ArtefactClass::Capture { ftype: Some(FileType::QualityOutput), retention: RetentionClass::Intermediate }
+            ArtefactClass::Capture {
+                ftype: Some(FileType::QualityOutput),
+                retention: RetentionClass::Intermediate
+            }
         );
     }
 
     #[test]
     fn ignores_scratch_and_logs() {
         let rules = CaptureRule::default_ruleset();
-        assert_eq!(classify("work/ab/cd/scratch.tmp", &rules), ArtefactClass::Ignore);
+        assert_eq!(
+            classify("work/ab/cd/scratch.tmp", &rules),
+            ArtefactClass::Ignore
+        );
         assert_eq!(classify("pipeline.log", &rules), ArtefactClass::Ignore);
         assert_eq!(classify(".command.sh", &rules), ArtefactClass::Ignore);
     }
@@ -350,7 +452,10 @@ mod tests {
         let rules = CaptureRule::default_ruleset();
         assert_eq!(
             classify("misc/unknown.dat", &rules),
-            ArtefactClass::Capture { ftype: Some(FileType::Other), retention: RetentionClass::Intermediate }
+            ArtefactClass::Capture {
+                ftype: Some(FileType::Other),
+                retention: RetentionClass::Intermediate
+            }
         );
     }
 
@@ -358,9 +463,21 @@ mod tests {
     fn report_counts() {
         let report = CaptureReport {
             outcomes: vec![
-                CaptureOutcome { relative_path: "a".into(), status: CaptureStatus::Captured { ftype: Some(FileType::Other), retention: RetentionClass::Diagnostic } },
-                CaptureOutcome { relative_path: "b".into(), status: CaptureStatus::Ignored },
-                CaptureOutcome { relative_path: "c".into(), status: CaptureStatus::Failed("boom".into()) },
+                CaptureOutcome {
+                    relative_path: "a".into(),
+                    status: CaptureStatus::Captured {
+                        ftype: Some(FileType::Other),
+                        retention: RetentionClass::Diagnostic,
+                    },
+                },
+                CaptureOutcome {
+                    relative_path: "b".into(),
+                    status: CaptureStatus::Ignored,
+                },
+                CaptureOutcome {
+                    relative_path: "c".into(),
+                    status: CaptureStatus::Failed("boom".into()),
+                },
             ],
         };
         assert_eq!(report.captured(), 1);

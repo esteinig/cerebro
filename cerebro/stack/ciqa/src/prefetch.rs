@@ -1,7 +1,7 @@
 use cerebro_model::api::cerebro::schema::{MetaGpConfig, PrefetchData, TestResult};
+use cerebro_pipeline::taxa::taxon::LineageOperations;
 use cerebro_pipeline::taxa::taxon::Taxon;
 use serde::Serialize;
-use cerebro_pipeline::taxa::taxon::LineageOperations;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DomainTally {
@@ -48,22 +48,26 @@ pub fn tally_domain(v: &[Taxon]) -> DomainTally {
             _ => {}
         }
     }
-    DomainTally { prokaryotes: p, eukaryotes: e, viruses: vrs }
+    DomainTally {
+        prokaryotes: p,
+        eukaryotes: e,
+        viruses: vrs,
+    }
 }
 
 pub fn counts_by_category(d: &PrefetchData) -> CountsByCategory {
     CountsByCategory {
-        primary:   tally_domain(&d.primary),
+        primary: tally_domain(&d.primary),
         secondary: tally_domain(&d.secondary),
-        target:    tally_domain(&d.target),
+        target: tally_domain(&d.target),
     }
 }
 
 pub fn counts_by_category_contam(d: &PrefetchData) -> CountsByCategory {
     CountsByCategory {
-        primary:   tally_domain(&d.primary_contamination),
+        primary: tally_domain(&d.primary_contamination),
         secondary: tally_domain(&d.secondary_contamination),
-        target:    tally_domain(&d.target_contamination),
+        target: tally_domain(&d.target_contamination),
     }
 }
 
@@ -79,17 +83,14 @@ pub fn positive_candidate_match(d: &PrefetchData) -> (bool, bool) {
             .collect()
     };
 
-    let set_primary   = labels_in_any(&d.primary);
+    let set_primary = labels_in_any(&d.primary);
     let set_secondary = labels_in_any(&d.secondary);
-    let set_target    = labels_in_any(&d.target);
+    let set_target = labels_in_any(&d.target);
 
     let mut matched = false;
     match &d.config.candidates {
         None => {
-            log::warn!(
-                "Positive sample '{}' has no candidates",
-                d.config.sample
-            );
+            log::warn!("Positive sample '{}' has no candidates", d.config.sample);
         }
         Some(cands) if cands.is_empty() => {
             log::warn!(
@@ -110,17 +111,16 @@ pub fn positive_candidate_match(d: &PrefetchData) -> (bool, bool) {
     (true, matched)
 }
 
-
 #[derive(Debug, Clone, Serialize)]
 pub enum PrefetchStatus {
-    NotDetected
+    NotDetected,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MissedDetectionRow {
     pub sample: String,
-    pub reference: String,                 
-    pub status: PrefetchStatus,            
+    pub reference: String,
+    pub status: PrefetchStatus,
 }
 
 pub fn lineage_label_set(taxa: &[Taxon]) -> std::collections::HashSet<String> {
@@ -153,13 +153,13 @@ pub fn is_missed_detection(d: &PrefetchData) -> bool {
         Some(v) => v,
     };
 
-    let s_primary   = lineage_label_set(&d.primary);
+    let s_primary = lineage_label_set(&d.primary);
     let s_secondary = lineage_label_set(&d.secondary);
-    let s_target    = lineage_label_set(&d.target);
+    let s_target = lineage_label_set(&d.target);
 
-    !cands.iter().any(|c|
-        s_primary.contains(c) || s_secondary.contains(c) || s_target.contains(c)
-    )
+    !cands
+        .iter()
+        .any(|c| s_primary.contains(c) || s_secondary.contains(c) || s_target.contains(c))
 }
 
 pub fn reference_names_from_config(cfg: &MetaGpConfig) -> String {

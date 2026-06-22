@@ -137,7 +137,11 @@ mod tests {
             Some("RUN".into()),
             None,
             None,
-            ManifestProvenance { pipeline_name: "cerebro".into(), pipeline_version: "1.0".into(), ..Default::default() },
+            ManifestProvenance {
+                pipeline_name: "cerebro".into(),
+                pipeline_version: "1.0".into(),
+                ..Default::default()
+            },
             Utc::now(),
         );
         m.set_content_hash("deadbeef".into());
@@ -146,6 +150,9 @@ mod tests {
         // Setting the seal must not perturb the rest of the body.
         let mut cleared = m.clone();
         cleared.content_hash = None;
-        assert_eq!(serde_json::to_value(&cleared).unwrap(), serde_json::to_value(&m.body_for_seal()).unwrap());
+        assert_eq!(
+            serde_json::to_value(&cleared).unwrap(),
+            serde_json::to_value(&m.body_for_seal()).unwrap()
+        );
     }
 }

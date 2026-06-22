@@ -1,7 +1,7 @@
 use csv::WriterBuilder;
 use meta_gpt::gpt::{Diagnosis, DiagnosticResult};
 use serde::Serialize;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -160,7 +160,6 @@ fn consensus_pathogen_support_pct(
 }
 
 pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()> {
-
     // Determine replicate labels, preserving order of input_dirs
     let mut replicate_labels: Vec<String> = Vec::new();
     let mut replicate_dirs: Vec<PathBuf> = Vec::new();
@@ -179,7 +178,6 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
         let rep_label = &replicate_labels[rep_idx];
 
         for entry in fs::read_dir(dir)? {
-            
             let entry = entry?;
             let path = entry.path();
 
@@ -199,7 +197,8 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
                 .or_insert_with(SampleAggregate::default);
 
             // Diagnosis is always present in DiagnosticResult.
-            agg.diagnoses.insert(rep_label.clone(), Some(result.diagnosis));
+            agg.diagnoses
+                .insert(rep_label.clone(), Some(result.diagnosis));
 
             // Pathogen is Option<String>.
             agg.pathogens.insert(rep_label.clone(), result.pathogen);
@@ -216,16 +215,14 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
         .delimiter(b'\t')
         .from_path(&args.diagnoses)?;
 
-
-
     // Header: sample_id, one column per replicate, consensus, consensus_certainty
     let mut diag_header: Vec<String> = Vec::new();
     diag_header.push("sample_id".to_string());
     for rep_label in &replicate_labels {
-        diag_header.push(rep_label.clone()); 
+        diag_header.push(rep_label.clone());
     }
     diag_header.push("consensus".to_string());
-    diag_header.push("consensus_certainty".to_string()); 
+    diag_header.push("consensus_certainty".to_string());
     diag_writer.write_record(&diag_header)?;
 
     // pathogens.tsv
@@ -287,17 +284,27 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
         diag_row.push(sample_id.clone());
         for v in diag_values {
             diag_row.push(
-                v.map(|d| serde_json::to_string(&d).unwrap().trim_matches('"').to_string())
-                    .unwrap_or_default(),
+                v.map(|d| {
+                    serde_json::to_string(&d)
+                        .unwrap()
+                        .trim_matches('"')
+                        .to_string()
+                })
+                .unwrap_or_default(),
             );
         }
         diag_row.push(
             diag_consensus
-                .map(|d| serde_json::to_string(&d).unwrap().trim_matches('"').to_string())
+                .map(|d| {
+                    serde_json::to_string(&d)
+                        .unwrap()
+                        .trim_matches('"')
+                        .to_string()
+                })
                 .unwrap_or_default(),
         );
-        diag_row.push(format!("{:.2}", diag_support_pct)); 
-        
+        diag_row.push(format!("{:.2}", diag_support_pct));
+
         diag_writer.write_record(&diag_row)?;
 
         // Build pathogen row
@@ -309,7 +316,8 @@ pub fn summarize_predictions(args: &PredictionSummaryArgs) -> anyhow::Result<()>
         }
 
         let pathogen_consensus = consensus_pathogen(&agg.diagnoses, &agg.pathogens);
-        let pathogen_support_pct =  consensus_pathogen_support_pct(&agg.diagnoses, &agg.pathogens, &pathogen_consensus);
+        let pathogen_support_pct =
+            consensus_pathogen_support_pct(&agg.diagnoses, &agg.pathogens, &pathogen_consensus);
 
         path_row.push(pathogen_consensus.unwrap_or_default());
         path_row.push(format!("{:.2}", pathogen_support_pct));

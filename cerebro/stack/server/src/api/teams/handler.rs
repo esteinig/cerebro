@@ -1,19 +1,20 @@
-
-
-
-use cerebro_model::api::users::model::{UserId, User};
-use cerebro_model::api::teams::model::{TeamId, Team, TeamDatabase, ProjectCollection};
-use cerebro_model::api::teams::schema::{RegisterTeamSchema, RegisterDatabaseSchema, RegisterProjectSchema, UpdateTeamSchema};
+use cerebro_model::api::teams::model::{ProjectCollection, Team, TeamDatabase, TeamId};
+use cerebro_model::api::teams::schema::{
+    RegisterDatabaseSchema, RegisterProjectSchema, RegisterTeamSchema, UpdateTeamSchema,
+};
+use cerebro_model::api::users::model::{User, UserId};
 use cerebro_model::api::utils::AdminCollection;
 
-use crate::api::auth::jwt::{self, TeamAccessQuery, TeamDatabaseAccessQuery, TeamProjectAccessQuery};
+use crate::api::auth::jwt::{
+    self, TeamAccessQuery, TeamDatabaseAccessQuery, TeamProjectAccessQuery,
+};
 use crate::api::server::AppState;
 use crate::api::utils::get_cerebro_db_collection;
 
-use actix_web::{web, get, post, HttpResponse, Responder, delete, patch};
+use actix_web::{delete, get, patch, post, web, HttpResponse, Responder};
+use futures::TryStreamExt;
 use mongodb::{bson::doc, Collection};
 use serde::Deserialize;
-use futures::TryStreamExt;
 
 // Register a new team - this is an admin operation, as access
 // is currently restricted/controlled [ADMIN]. Note that Teams
@@ -23,18 +24,19 @@ use futures::TryStreamExt;
 async fn register_team_handler(
     body: web::Json<RegisterTeamSchema>,
     data: web::Data<AppState>,
-    _: jwt::JwtAdminMiddleware 
+    _: jwt::JwtAdminMiddleware,
 ) -> impl Responder {
-
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);  
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let user_collection: Collection<User> =
+        get_cerebro_db_collection(&data, AdminCollection::Users);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if team exists already using its team name OR
-    // its database field (must be unique) arguably the 
+    // its database field (must be unique) arguably the
     // database field is more important as duplicates
     // of MongoDB databases would not be possible
     let team_exists = match team_collection
-        .find_one(doc! { 
+        .find_one(doc! {
             "$or": [
                 {"name": &body.team_name },
                 {"databases.database": &body.database_mongo_name }
@@ -44,9 +46,11 @@ async fn register_team_handler(
     {
         Ok(None) => false,
         Ok(Some(_)) => true,
-        Err(err) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": format!("Failed to register team: {}", err.to_string())}),  // not informative 
-        )
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "error","message": format!("Failed to register team: {}", err.to_string())}), // not informative
+            );
+        }
     };
     if team_exists {
         return HttpResponse::Conflict().json(
@@ -61,9 +65,11 @@ async fn register_team_handler(
     {
         Ok(None) => false,
         Ok(Some(_)) => true,
-        Err(err) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": format!("Failed to register team: {}", err.to_string())}),  // not informative 
-        )
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "error","message": format!("Failed to register team: {}", err.to_string())}), // not informative
+            );
+        }
     };
     if !user_exists {
         return HttpResponse::Conflict().json(
@@ -71,7 +77,7 @@ async fn register_team_handler(
         );
     }
 
-    // Create the new team from schema and insert, verify that the 
+    // Create the new team from schema and insert, verify that the
     let team_registration = body.into_inner();
 
     let new_team = Team::from(&team_registration);
@@ -82,10 +88,7 @@ async fn register_team_handler(
         },
         Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": format!("Failed to register team: {}", err.to_string())}))
     }
-
 }
-
-
 
 // Register a new database for a team
 #[post("/teams/database")]
@@ -93,17 +96,17 @@ async fn register_team_database_handler(
     body: web::Json<RegisterDatabaseSchema>,
     data: web::Data<AppState>,
     auth_query: web::Query<TeamAccessQuery>,
-    auth_guard: jwt::JwtDataMiddleware 
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> impl Responder {
-
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Get team
     let user_team = match team_collection
         .find_one(
-            doc! { 
+            doc! {
                 "$and": [
-                    { 
+                    {
                         "$or": [
                             { "name": &auth_query.team },
                             { "id": &auth_query.team }
@@ -125,7 +128,7 @@ async fn register_team_database_handler(
     };
 
     if user_team.database_name_exists(&body.database_name) {
-        return HttpResponse::Conflict().json(serde_json::json!({"status": "error", "message": "database name already exists for this team", "data": serde_json::json!({"team_db": []})}))
+        return HttpResponse::Conflict().json(serde_json::json!({"status": "error", "message": "database name already exists for this team", "data": serde_json::json!({"team_db": []})}));
     }
 
     let new_db = TeamDatabase::from_database_schema(&body.into_inner());
@@ -137,18 +140,17 @@ async fn register_team_database_handler(
         },
         Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": "failed to register database",  "data": serde_json::json!({"team_db": &new_db})}))
     }
-
 }
 
 #[delete("/teams-database")]
 async fn delete_team_database_handler(
     data: web::Data<AppState>,
     auth_query: web::Query<TeamDatabaseAccessQuery>,
-    auth_guard: jwt::JwtDataMiddleware
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> impl Responder {
-
     let auth_query = auth_query.into_inner();
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Find team with user membership and database
     let user_team = match team_collection
@@ -227,29 +229,29 @@ async fn delete_team_database_handler(
 async fn register_team_database_project_handler(
     body: web::Json<RegisterProjectSchema>,
     data: web::Data<AppState>,
-    auth_query: web::Query<TeamDatabaseAccessQuery>,  // auth guard JWtDataMiddleware
-    auth_guard: jwt::JwtDataMiddleware 
+    auth_query: web::Query<TeamDatabaseAccessQuery>, // auth guard JWtDataMiddleware
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> impl Responder {
-
     // Add checks for project existence
 
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if team exists already using its team name OR
-    // its database name field OR using either of their 
+    // its database name field OR using either of their
     // unique identifiers
     let user_team = match team_collection
         .find_one(
-            doc! { 
+            doc! {
                 "$and": [
-                    { 
+                    {
                         "$or": [
                             { "name": &auth_query.team },
                             { "id": &auth_query.team }
                         ]
                     },
                     { "users": &auth_guard.user.id },
-                    { 
+                    {
                         "$or": [
                             { "databases.name": &auth_query.db },
                             { "databases.id": &auth_query.db }
@@ -270,16 +272,16 @@ async fn register_team_database_project_handler(
     };
 
     if user_team.project_name_exists(&auth_query.db, &body.project_name) {
-        return HttpResponse::Conflict().json(serde_json::json!({"status": "error", "message": "Database name already exists for this team", "data": serde_json::json!({"team_db": []})}))
+        return HttpResponse::Conflict().json(serde_json::json!({"status": "error", "message": "Database name already exists for this team", "data": serde_json::json!({"team_db": []})}));
     }
 
     let database = match get_database_by_name(&user_team.databases, &auth_query.db) {
         Ok(db) => db,
-        Err(err) => return err
+        Err(err) => return err,
     };
 
     let new_project = ProjectCollection::from_project_schema(&body.into_inner());
-    
+
     // Build an update model that includes your array filters.
     let update_model = mongodb::options::UpdateOneModel::builder()
         .namespace(team_collection.namespace())
@@ -288,26 +290,22 @@ async fn register_team_database_project_handler(
         .array_filters(Some(vec![mongodb::bson::Bson::Document(doc! { "db.id": &database.id })]))
         .build();
 
-
     // Execute the bulk write with a single update model.
     match data.db.bulk_write(vec![update_model]).await {
-    Ok(_) => {
-        let json_response = serde_json::json!({
-            "status": "success",
-            "message": "Added project to team database",
-            "data": serde_json::json!({"team_project": new_project})
-        });
-        HttpResponse::Ok().json(json_response)
-    },
-    Err(err) => HttpResponse::InternalServerError().json(
-        serde_json::json!({
+        Ok(_) => {
+            let json_response = serde_json::json!({
+                "status": "success",
+                "message": "Added project to team database",
+                "data": serde_json::json!({"team_project": new_project})
+            });
+            HttpResponse::Ok().json(json_response)
+        }
+        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
             "status": "error",
             "message": format!("Failed to register project with team database: {}", err),
             "data": serde_json::json!({"team_project": new_project})
-        })
-    )
+        })),
     }
-
 }
 
 #[delete("/teams-project")]
@@ -316,9 +314,9 @@ async fn delete_team_database_project_handler(
     auth_query: web::Query<TeamProjectAccessQuery>,
     auth_guard: jwt::JwtDataMiddleware,
 ) -> impl Responder {
-
     let auth_query = auth_query.into_inner();
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Find team with user membership and database
     let user_team = match team_collection
@@ -382,15 +380,13 @@ async fn delete_team_database_project_handler(
     let update_model = mongodb::options::UpdateOneModel::builder()
         .namespace(team_collection.namespace())
         .filter(doc! { "id": &user_team.id })
-        .update(
-            doc! {
-                "$pull": {
-                    "databases.$[db].projects": { "id": &project.id }
-                }
+        .update(doc! {
+            "$pull": {
+                "databases.$[db].projects": { "id": &project.id }
             }
-        )
+        })
         .array_filters(Some(vec![mongodb::bson::Bson::Document(
-            doc! { "db.id": &database.id }
+            doc! { "db.id": &database.id },
         )]))
         .build();
 
@@ -407,69 +403,68 @@ async fn delete_team_database_project_handler(
             });
             HttpResponse::Ok().json(json_response)
         }
-        Err(err) => HttpResponse::InternalServerError().json(
-            serde_json::json!({
-                "status": "error",
-                "message": format!("Failed to delete project from team database: {}", err),
-                "data": serde_json::json!({})
-            })
-        ),
+        Err(err) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "status": "error",
+            "message": format!("Failed to delete project from team database: {}", err),
+            "data": serde_json::json!({})
+        })),
     }
 }
 
 #[derive(Deserialize)]
 struct TeamQuery {
     team_id: Option<TeamId>,
-    user_id: Option<TeamId>
+    user_id: Option<TeamId>,
 }
 
 // Get a specific team (by user or id) or all team data [ADMIN]
 #[get("/teams")]
-async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery>, _: jwt::JwtAdminMiddleware) -> impl Responder {
-    
+async fn get_team_handler(
+    data: web::Data<AppState>,
+    query: web::Query<TeamQuery>,
+    _: jwt::JwtAdminMiddleware,
+) -> impl Responder {
     let query = query.into_inner();
 
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
-    match (&query.team_id, &query.user_id)  {
-        (Some(team_id), None) => {
-            match team_collection.find_one(doc! { "id": team_id }).await 
-            {
-                Ok(None) => {
-                    return HttpResponse::NotFound().json(
-                        serde_json::json!({"status": "fail", "message": "Team does not exist"})
-                    )
-                },
-                Ok(Some(team)) => {
-                    let json_response = serde_json::json!({
-                        "status": "success",
-                        "message": "Found team",
-                        "data": serde_json::json!({"team": &team})
-                    });
-                    return HttpResponse::Ok().json(json_response)
-                }
-                Err(_) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": "Failed to execute team search"})
-                ),
+    match (&query.team_id, &query.user_id) {
+        (Some(team_id), None) => match team_collection.find_one(doc! { "id": team_id }).await {
+            Ok(None) => {
+                return HttpResponse::NotFound()
+                    .json(serde_json::json!({"status": "fail", "message": "Team does not exist"}))
             }
+            Ok(Some(team)) => {
+                let json_response = serde_json::json!({
+                    "status": "success",
+                    "message": "Found team",
+                    "data": serde_json::json!({"team": &team})
+                });
+                return HttpResponse::Ok().json(json_response);
+            }
+            Err(_) => return HttpResponse::InternalServerError().json(
+                serde_json::json!({"status": "error", "message": "Failed to execute team search"}),
+            ),
         },
         (None, Some(user_id)) => {
-            match team_collection.find(doc! { "users": user_id }).await 
-            {
+            match team_collection.find(doc! { "users": user_id }).await {
                 Ok(cursor) => {
-                    let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]);  // allow empty teams database
+                    let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]); // allow empty teams database
                     let json_response = serde_json::json!({
                         "status":  "success",
                         "message": "Listed all teams with requested user",
                         "data": serde_json::json!({"teams": teams })
                     });
-                    return HttpResponse::Ok().json(json_response)
-                },
-                Err(err) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": format_args!("{}", err)})
-                )
+                    return HttpResponse::Ok().json(json_response);
+                }
+                Err(err) => {
+                    return HttpResponse::InternalServerError().json(
+                        serde_json::json!({"status": "error", "message": format_args!("{}", err)}),
+                    )
+                }
             }
-        },
+        }
         (Some(team_id), Some(user_id)) => {
             match team_collection.find_one(doc! { "id": team_id, "users": user_id }).await 
             {
@@ -490,51 +485,55 @@ async fn get_team_handler(data: web::Data<AppState>, query: web::Query<TeamQuery
                     serde_json::json!({"status": "error", "message": "Failed to execute team search"})
                 ),
             }
-        },
+        }
         (None, None) => {
-            match team_collection.find(doc! {}).await 
-            {
+            match team_collection.find(doc! {}).await {
                 Ok(cursor) => {
-                    let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]);  // allow empty teams database
+                    let teams = cursor.try_collect().await.unwrap_or_else(|_| vec![]); // allow empty teams database
                     let json_response = serde_json::json!({
                         "status":  "success",
                         "message": "Listed all teams",
                         "data": serde_json::json!({"teams": teams })
                     });
-                    return HttpResponse::Ok().json(json_response)
-                },
-                Err(err) => return HttpResponse::InternalServerError().json(
-                    serde_json::json!({"status": "error", "message": format_args!("{}", err)})
-                )
+                    return HttpResponse::Ok().json(json_response);
+                }
+                Err(err) => {
+                    return HttpResponse::InternalServerError().json(
+                        serde_json::json!({"status": "error", "message": format_args!("{}", err)}),
+                    )
+                }
             }
-        }        
+        }
     }
 }
 
 // Delete a team from all members [ADMIN]
 #[delete("/teams/{id}")]
-async fn delete_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, _: jwt::JwtAdminMiddleware) -> impl Responder {
-
+async fn delete_team_handler(
+    data: web::Data<AppState>,
+    id: web::Path<TeamId>,
+    _: jwt::JwtAdminMiddleware,
+) -> impl Responder {
     let team_id = id.into_inner();
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if the team exists at all
-    let team = match team_collection
-        .find_one(doc! { "id": &team_id })
-        .await
-    {
+    let team = match team_collection.find_one(doc! { "id": &team_id }).await {
         Ok(None) => None,
         Ok(Some(team)) => Some(team),
-        Err(_) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": "Failed to search team"}),
-        )
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"status": "error","message": "Failed to search team"}))
+        }
     };
 
     let team = match team {
-        None =>  return HttpResponse::NotFound().json(
-            serde_json::json!({"status": "error", "message": "Team does not exist"}),
-        ),
-        Some(team) => team
+        None => {
+            return HttpResponse::NotFound()
+                .json(serde_json::json!({"status": "error", "message": "Team does not exist"}))
+        }
+        Some(team) => team,
     };
 
     // Delete team from admin collection
@@ -546,55 +545,57 @@ async fn delete_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, _
                 if let Err(err) = mongo_db.drop().await {
                     return HttpResponse::InternalServerError().json(
                         serde_json::json!({"status": "error", "message": format!("Failed to drop team database: {}", err.to_string())})
-                    )
+                    );
                 }
             }
             let json_response = serde_json::json!({"status": "success", "message": "Deleted team", "data": serde_json::json!({"id": &team_id})});
-            return HttpResponse::Ok().json(json_response)
+            return HttpResponse::Ok().json(json_response);
         }
-        Err(err) => return HttpResponse::InternalServerError().json(serde_json::json!({"status": "error", "message": err.to_string()}))
+        Err(err) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"status": "error", "message": err.to_string()}))
+        }
     }
-        
-
 }
-
 
 // Update a team by identifier [ADMIN]
 #[patch("/teams/{id}")]
-async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, body: web::Json<UpdateTeamSchema>, _: jwt::JwtAdminMiddleware) -> impl Responder {
-
+async fn update_team_handler(
+    data: web::Data<AppState>,
+    id: web::Path<TeamId>,
+    body: web::Json<UpdateTeamSchema>,
+    _: jwt::JwtAdminMiddleware,
+) -> impl Responder {
     let team_id = id.into_inner();
 
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if the team exists
-    let exists = match team_collection
-        .find_one(doc! { "id": &team_id })
-        .await
-    {
+    let exists = match team_collection.find_one(doc! { "id": &team_id }).await {
         Ok(None) => false,
         Ok(Some(_)) => true,
-        Err(_) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": "Failed to search team"}),
-        )
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"status": "error","message": "Failed to search team"}))
+        }
     };
     if !exists {
-        return HttpResponse::NotFound().json(
-            serde_json::json!({"status": "error", "message": "Team does not exist"}),
-        );
+        return HttpResponse::NotFound()
+            .json(serde_json::json!({"status": "error", "message": "Team does not exist"}));
     }
 
     // Check if the proposed team name already exists if it is provided
     if let Some(team_name) = &body.team_name {
-        let name_already_exists = match team_collection
-            .find_one(doc! { "name": &team_name })
-            .await
+        let name_already_exists = match team_collection.find_one(doc! { "name": &team_name }).await
         {
             Ok(None) => false,
             Ok(Some(_)) => true,
-            Err(_) => return HttpResponse::InternalServerError().json(
-                serde_json::json!({"status": "error","message": "Failed to search team"}),
-            )
+            Err(_) => {
+                return HttpResponse::InternalServerError().json(
+                    serde_json::json!({"status": "error","message": "Failed to search team"}),
+                )
+            }
         };
         if name_already_exists {
             return HttpResponse::NotFound().json(
@@ -605,18 +606,18 @@ async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, b
 
     let update = match &body.team_name {
         Some(team_name) => {
-            doc! { 
+            doc! {
                 "$set": {
                     "name": team_name,
                     "description": &body.team_description
-                }        
+                }
             }
-        },
+        }
         None => {
-            doc! { 
+            doc! {
                 "$set": {
                     "description": &body.team_description
-                }        
+                }
             }
         }
     };
@@ -635,26 +636,31 @@ async fn update_team_handler(data: web::Data<AppState>, id: web::Path<TeamId>, b
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all ="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum TeamUserOperation {
     Add,
-    Remove
+    Remove,
 }
 
 #[derive(Debug, Deserialize)]
 struct TeamUserQuery {
     team_id: TeamId,
     user_id: UserId,
-    update: TeamUserOperation
+    update: TeamUserOperation,
 }
 
 #[patch("/teams")]
-async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<TeamUserQuery>,  _: jwt::JwtAdminMiddleware) -> impl Responder {
-
+async fn update_team_user_handler(
+    data: web::Data<AppState>,
+    query: web::Query<TeamUserQuery>,
+    _: jwt::JwtAdminMiddleware,
+) -> impl Responder {
     let query = query.into_inner();
 
-    let user_collection: Collection<User> = get_cerebro_db_collection(&data, AdminCollection::Users);  
-    let team_collection: Collection<Team> = get_cerebro_db_collection(&data, AdminCollection::Teams);
+    let user_collection: Collection<User> =
+        get_cerebro_db_collection(&data, AdminCollection::Users);
+    let team_collection: Collection<Team> =
+        get_cerebro_db_collection(&data, AdminCollection::Teams);
 
     // Check if the user exists
     let user_exists = match user_collection
@@ -663,14 +669,14 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
     {
         Ok(None) => false,
         Ok(Some(_)) => true,
-        Err(_) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error", "message": "Failed to search user"}),
-        )
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"status": "error", "message": "Failed to search user"}))
+        }
     };
     if !user_exists {
-        return HttpResponse::NotFound().json(
-            serde_json::json!({"status": "error", "message": "User does not exist"}),
-        );
+        return HttpResponse::NotFound()
+            .json(serde_json::json!({"status": "error", "message": "User does not exist"}));
     }
 
     // Check if the team exists
@@ -678,45 +684,45 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
         .find_one(doc! { "id": &query.team_id })
         .await
     {
-        Ok(None) => return HttpResponse::NotFound().json(
-            serde_json::json!({"status": "error", "message": "Team does not exist"}),
-        ),
+        Ok(None) => {
+            return HttpResponse::NotFound()
+                .json(serde_json::json!({"status": "error", "message": "Team does not exist"}))
+        }
         Ok(Some(team)) => team,
-        Err(_) => return HttpResponse::InternalServerError().json(
-            serde_json::json!({"status": "error","message": "Failed to search team"}),
-        )
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"status": "error","message": "Failed to search team"}))
+        }
     };
-    
 
     match query.update {
         TeamUserOperation::Add => {
-            if team.users.contains(&query.user_id){
+            if team.users.contains(&query.user_id) {
                 return HttpResponse::Conflict().json(
                     serde_json::json!({"status": "error", "message": "User is already a member of the team"}),
-                )
+                );
             }
             match team_collection.update_one(
                 doc! { "id": &query.team_id },
                 doc! { "$push": { "users": &query.user_id } }
             ).await {
-                Ok(_) => { 
+                Ok(_) => {
                     let json_response = serde_json::json!({
                         "status": "success", "message": "User added to team", "data": serde_json::json!({
                         "team_id": &query.team_id, "user_id": &query.user_id
                     })});
                     HttpResponse::Ok().json(json_response)
-                 }, 
+                },
                 Err(err) => return HttpResponse::InternalServerError().json(
                     serde_json::json!({"status": "error", "message": format!("Failed to register team: {}", err.to_string())})
                 )
             }
-            
-        }, 
+        }
         TeamUserOperation::Remove => {
-            if !team.users.contains(&query.user_id){
+            if !team.users.contains(&query.user_id) {
                 return HttpResponse::Conflict().json(
                     serde_json::json!({"status": "error", "message": "User is not a member of the team"}),
-                )
+                );
             }
             match team_collection.update_one(
                 doc! { "id": &query.team_id },
@@ -737,9 +743,14 @@ async fn update_team_user_handler(data: web::Data<AppState>, query: web::Query<T
     }
 }
 
-
-fn get_database_by_name(databases: &Vec<TeamDatabase>, db: &str) -> Result<TeamDatabase, HttpResponse>   {
-    let matches: Vec<&TeamDatabase> = databases.into_iter().filter(|x| x.name == db || x.id == db ).collect();
+fn get_database_by_name(
+    databases: &Vec<TeamDatabase>,
+    db: &str,
+) -> Result<TeamDatabase, HttpResponse> {
+    let matches: Vec<&TeamDatabase> = databases
+        .into_iter()
+        .filter(|x| x.name == db || x.id == db)
+        .collect();
 
     if matches.len() > 0 {
         Ok(matches[0].to_owned())
@@ -751,12 +762,12 @@ fn get_database_by_name(databases: &Vec<TeamDatabase>, db: &str) -> Result<TeamD
 // Handler configuration
 pub fn team_config(cfg: &mut web::ServiceConfig) {
     cfg.service(register_team_handler)
-    .service(delete_team_handler)
-    .service(update_team_handler)
-    .service(get_team_handler)
-    .service(register_team_database_handler)
-    .service(register_team_database_project_handler)
-    .service(update_team_user_handler)
-    .service(delete_team_database_handler)
-    .service(delete_team_database_project_handler);
+        .service(delete_team_handler)
+        .service(update_team_handler)
+        .service(get_team_handler)
+        .service(register_team_database_handler)
+        .service(register_team_database_project_handler)
+        .service(update_team_user_handler)
+        .service(delete_team_database_handler)
+        .service(delete_team_database_project_handler);
 }

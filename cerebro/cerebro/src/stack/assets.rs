@@ -19,4 +19,3 @@ pub struct TraefikTemplates;
 #[folder = "../../templates/stack/cerebro/"]
 #[prefix = "cerebro/"]
 pub struct CerebroTemplates;
-

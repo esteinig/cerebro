@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-
 /*
 ========================
 Custom error definitions
@@ -8,12 +7,11 @@ Custom error definitions
 */
 #[derive(Error, Debug)]
 pub enum ToolError {
-
     /// Indicates failure input/output file
     #[error("failed to read file")]
     FileIO(#[from] std::io::Error),
-    /// Indicates failure to specify a matchign number of input and 
-    /// output file paths used in methods with parallel file processing 
+    /// Indicates failure to specify a matchign number of input and
+    /// output file paths used in methods with parallel file processing
     #[error("number of input and output files does not match")]
     InputOutputFileMismatch,
     /// Indicates failure to parse file with Needletail
@@ -46,5 +44,5 @@ pub enum ToolError {
     PasswordNotHashed,
     /// Indicates a failure to find the tax lineage for the provided taxid from the taxonomy
     #[error("could not find taxonomic name for taxid {1}")]
-    TaxNameNotAvailable(#[source] taxonomy::Error, String)
+    TaxNameNotAvailable(#[source] taxonomy::Error, String),
 }

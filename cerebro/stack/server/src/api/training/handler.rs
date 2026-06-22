@@ -1,20 +1,50 @@
-use cerebro_model::api::{teams::model::TeamAdminCollection, training::{model::{TrainingPrefetchRecord, TrainingResult, TrainingSessionRecord}, response::{TrainingPrefetchData, TrainingResponse, TrainingSessionData}, schema::{CreateTrainingPrefetch, CreateTrainingSession, PatchTrainingRecord, QueryTrainingData, QueryTrainingPrefetch, TrainingPrefetchOverview}}};
+use cerebro_model::api::{
+    teams::model::TeamAdminCollection,
+    training::{
+        model::{TrainingPrefetchRecord, TrainingResult, TrainingSessionRecord},
+        response::{TrainingPrefetchData, TrainingResponse, TrainingSessionData},
+        schema::{
+            CreateTrainingPrefetch, CreateTrainingSession, PatchTrainingRecord, QueryTrainingData,
+            QueryTrainingPrefetch, TrainingPrefetchOverview,
+        },
+    },
+};
 
 use cerebro_report::{LibraryReportCompiler, ReportType, TrainingCompletionReport};
 use chrono::{SecondsFormat, Utc};
 use futures::stream::{StreamExt, TryStreamExt};
 
-use mongodb::{bson::{doc, from_document, to_bson, Bson}, options::{FindOneOptions, FindOptions}, Collection};
 use actix_web::{delete, get, patch, post, web, HttpResponse};
+use mongodb::{
+    bson::{doc, from_document, to_bson, Bson},
+    options::{FindOneOptions, FindOptions},
+    Collection,
+};
 use serde::Deserialize;
 
-use crate::api::{auth::jwt::{self, TeamAccessQuery}, server::AppState, training::gridfs::{delete_from_gridfs, download_prefetch_from_gridfs, find_unique_gridfs_id_by_filename, upload_prefetch_to_gridfs}, utils::get_teams_db_collection};
+use crate::api::{
+    auth::jwt::{self, TeamAccessQuery},
+    server::AppState,
+    training::gridfs::{
+        delete_from_gridfs, download_prefetch_from_gridfs, find_unique_gridfs_id_by_filename,
+        upload_prefetch_to_gridfs,
+    },
+    utils::get_teams_db_collection,
+};
 
 #[post("/training/prefetch")]
-async fn insert_training_data_handler(data: web::Data<AppState>, body: web::Json<CreateTrainingPrefetch>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
-    
+async fn insert_training_data_handler(
+    data: web::Data<AppState>,
+    body: web::Json<CreateTrainingPrefetch>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingData,
+    );
+
     // Check for collection and identifier existing already in training database
     if let Ok(Some(_)) = training_collection
         .find_one(doc! {
@@ -23,43 +53,56 @@ async fn insert_training_data_handler(data: web::Data<AppState>, body: web::Json
         })
         .await
     {
-        return HttpResponse::Conflict()
-            .json(TrainingResponse::<()>::error("A prefetch data entry with this collection and name already exists"));
+        return HttpResponse::Conflict().json(TrainingResponse::<()>::error(
+            "A prefetch data entry with this collection and name already exists",
+        ));
     }
 
-    let bucket = data.db.database(&auth_guard.team.admin.database).gridfs_bucket(None);
+    let bucket = data
+        .db
+        .database(&auth_guard.team.admin.database)
+        .gridfs_bucket(None);
 
     // Upload the prefetch data to GridFS
-    let gridfs_id = match upload_prefetch_to_gridfs(
-        &bucket, 
-        &body.prefetch, 
-        &body.id
-    ).await {
+    let gridfs_id = match upload_prefetch_to_gridfs(&bucket, &body.prefetch, &body.id).await {
         Ok(gridfs_id) => gridfs_id,
-        Err(err) => return HttpResponse::InternalServerError()
-        .json(TrainingResponse::<()>::error(&format!("GridFS upload Failed: {}", err.to_string())))
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("GridFS upload Failed: {}", err.to_string()),
+            ))
+        }
     };
 
     let model = TrainingPrefetchRecord::from_request(&body.into_inner());
 
-    match training_collection
-        .insert_one(model)
-        .await {
-            Ok(_) => HttpResponse::Ok().json(TrainingResponse::<()>::created("created training record")),
-            Err(err) => {
-                // Try to delete the gridfs file if insert fails
-                let _ = delete_from_gridfs(&bucket, gridfs_id).await;
-                HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Insert Failed: {}", err.to_string())))
-            }
+    match training_collection.insert_one(model).await {
+        Ok(_) => {
+            HttpResponse::Ok().json(TrainingResponse::<()>::created("created training record"))
         }
+        Err(err) => {
+            // Try to delete the gridfs file if insert fails
+            let _ = delete_from_gridfs(&bucket, gridfs_id).await;
+            HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!(
+                "Insert Failed: {}",
+                err.to_string()
+            )))
+        }
+    }
 }
 
-
 #[get("/training/prefetch")]
-async fn retrieve_training_data_handler(data: web::Data<AppState>, filter: web::Query<QueryTrainingPrefetch>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
-    
+async fn retrieve_training_data_handler(
+    data: web::Data<AppState>,
+    filter: web::Query<QueryTrainingPrefetch>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingData,
+    );
+
     let mut query = doc! {};
     if let Some(c) = &filter.collection {
         query.insert("collection", c.clone());
@@ -74,46 +117,63 @@ async fn retrieve_training_data_handler(data: web::Data<AppState>, filter: web::
     let mut cursor = match training_collection.find(query).await {
         Ok(cursor) => cursor,
         Err(e) => {
-            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Query Failed: {}", e)));
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Query Failed: {}", e),
+            ));
         }
     };
 
-
-    let bucket = data.db.database(&auth_guard.team.admin.database).gridfs_bucket(None);
+    let bucket = data
+        .db
+        .database(&auth_guard.team.admin.database)
+        .gridfs_bucket(None);
     let mut response_data: Vec<TrainingPrefetchData> = Vec::new();
 
-
     while let Some(doc) = cursor.try_next().await.unwrap_or(None) {
-
         let prefetch = match download_prefetch_from_gridfs(&bucket, &doc.id).await {
             Ok(data) => data,
             Err(err) => {
-                return HttpResponse::InternalServerError().json(
-                    TrainingResponse::<()>::error(&format!("Failed to read GridFS data {}: {}", doc.id, err.to_string()))
-                );
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Failed to read GridFS data {}: {}", doc.id, err.to_string()),
+                ));
             }
         };
 
         response_data.push(TrainingPrefetchData::from_query(doc, prefetch))
-
     }
 
     if response_data.is_empty() {
-        HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("No matching training prefetch data"))
+        HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+            "No matching training prefetch data",
+        ))
     } else {
         HttpResponse::Ok().json(TrainingResponse::ok(response_data))
     }
-
 }
 
-
 #[get("/training/prefetch/{session_id}")]
-async fn retrieve_training_session_data_handler(data: web::Data<AppState>, session_id: web::Path<String>, filter: web::Query<QueryTrainingData>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
-    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
-    
-    let bucket = data.db.database(&auth_guard.team.admin.database).gridfs_bucket(None);
+async fn retrieve_training_session_data_handler(
+    data: web::Data<AppState>,
+    session_id: web::Path<String>,
+    filter: web::Query<QueryTrainingData>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
+    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingData,
+    );
+
+    let bucket = data
+        .db
+        .database(&auth_guard.team.admin.database)
+        .gridfs_bucket(None);
 
     // Find the training session
     let session = match training_session_collection
@@ -125,15 +185,24 @@ async fn retrieve_training_session_data_handler(data: web::Data<AppState>, sessi
         Ok(Some(session)) => {
             // User guard so that training session are only returned for the correct user
             if session.user_id != auth_guard.user.id {
-                return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist for this user"))
+                return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                    "A training session with this identifier does not exist for this user",
+                ));
             } else {
                 session
             }
-        },
-        Ok(None) => return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist")),
-        Err(err) => return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err.to_string())))
+        }
+        Ok(None) => {
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "A training session with this identifier does not exist",
+            ))
+        }
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to search for training session: {}", err.to_string()),
+            ))
+        }
     };
-
 
     // Convert index and bounds-check
     let idx = match usize::try_from(filter.record) {
@@ -147,46 +216,63 @@ async fn retrieve_training_session_data_handler(data: web::Data<AppState>, sessi
     let rec = match session.records.get(idx) {
         Some(r) => r,
         None => {
-            return HttpResponse::NotFound()
-                .json(TrainingResponse::<()>::not_found("Record index out of range for this session"));
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "Record index out of range for this session",
+            ));
         }
     };
-    
 
     // Fetch the prefetch record by data_id
-    let prefetch_record = match training_collection.find_one(doc! { "id": &rec.data_id }).await {
+    let prefetch_record = match training_collection
+        .find_one(doc! { "id": &rec.data_id })
+        .await
+    {
         Ok(Some(prefetch)) => prefetch,
         Ok(None) => {
             return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
                 "No training data found for the requested record",
             ))
         }
-        Err(err) => return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
-            &format!("Failed to fetch training data: {}", err),
-        ))
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to fetch training data: {}", err),
+            ))
+        }
     };
-
 
     let prefetch = match download_prefetch_from_gridfs(&bucket, &prefetch_record.id).await {
         Ok(data) => data,
         Err(err) => {
-            return HttpResponse::InternalServerError().json(
-                TrainingResponse::<()>::error(&format!("Failed to read GridFS data {}: {}", prefetch_record.id, err.to_string()))
-            );
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!(
+                    "Failed to read GridFS data {}: {}",
+                    prefetch_record.id,
+                    err.to_string()
+                ),
+            ));
         }
     };
     let data = TrainingPrefetchData::from_query(prefetch_record, prefetch);
 
     HttpResponse::Ok().json(TrainingResponse::ok((rec, data)))
-
 }
 
-
 #[get("/training/overview")]
-async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
-    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
+async fn retrieve_training_overview_handler(
+    data: web::Data<AppState>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
+    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingData,
+    );
 
     // Pipeline: group, project, sort
     let pipeline = vec![
@@ -211,15 +297,14 @@ async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Q
     let mut cursor = match training_collection.aggregate(pipeline).await {
         Ok(c) => c,
         Err(e) => {
-            return HttpResponse::InternalServerError().json(
-                TrainingResponse::<()>::error(&format!("Aggregation failed: {}", e)),
-            )
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Aggregation failed: {}", e),
+            ))
         }
     };
 
-    
     let mut results: Vec<TrainingPrefetchOverview> = Vec::new();
-    
+
     let find_opts = FindOneOptions::builder()
         .sort(doc! { "completed": -1 }) // assumes date sortable string
         .build();
@@ -227,13 +312,13 @@ async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Q
     while let Some(doc) = match cursor.try_next().await {
         Ok(d) => d,
         Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(TrainingResponse::<()>::error(&format!("Cursor error: {}", e)))
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Cursor error: {}", e),
+            ))
         }
     } {
         match from_document::<TrainingPrefetchOverview>(doc) {
             Ok(mut item) => {
-
                 // last completed session for this user in this collection
                 let filter = doc! {
                     "user_id": &auth_guard.user.id,
@@ -241,7 +326,11 @@ async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Q
                     "completed": { "$ne": Bson::Null },
                 };
 
-                match training_session_collection.find_one(filter).with_options(find_opts.clone()).await {
+                match training_session_collection
+                    .find_one(filter)
+                    .with_options(find_opts.clone())
+                    .await
+                {
                     Ok(maybe_session) => {
                         item.session_id = maybe_session.map(|s| s.id);
                         results.push(item);
@@ -254,122 +343,172 @@ async fn retrieve_training_overview_handler(data: web::Data<AppState>, _: web::Q
                 }
             }
             Err(e) => {
-                return HttpResponse::InternalServerError()
-                    .json(TrainingResponse::<()>::error(&format!("Decode error: {}", e)))
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Decode error: {}", e),
+                ))
             }
         }
     }
 
     if results.is_empty() {
-        HttpResponse::NotFound()
-            .json(TrainingResponse::<()>::not_found("No training prefetch data"))
+        HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+            "No training prefetch data",
+        ))
     } else {
         HttpResponse::Ok().json(TrainingResponse::ok(results))
     }
-
 }
-
 
 type PrefetchDataId = String;
 
 #[delete("/training/prefetch/{id}")]
-async fn delete_training_data_handler(data: web::Data<AppState>, id: web::Path<PrefetchDataId>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
+async fn delete_training_data_handler(
+    data: web::Data<AppState>,
+    id: web::Path<PrefetchDataId>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingData,
+    );
 
     // Get the document for the GridFS identifier
     let doc = match training_collection
         .find_one(doc! { "id": &id.into_inner() })
         .await
-    {   
+    {
         Ok(Some(doc)) => doc,
-        _ => return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A prefetch with this identifier does not exist"))
+        _ => {
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "A prefetch with this identifier does not exist",
+            ))
+        }
     };
 
     // Delete metadata
     if let Err(e) = training_collection.delete_one(doc! { "id": &doc.id }).await {
-        return HttpResponse::InternalServerError()
-            .json(TrainingResponse::<()>::error(&format!("Delete Failed: {}", e)));
+        return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!(
+            "Delete Failed: {}",
+            e
+        )));
     }
 
     // Delete from GridFS
-    let bucket = data.db.database(&auth_guard.team.admin.database).gridfs_bucket(None);
+    let bucket = data
+        .db
+        .database(&auth_guard.team.admin.database)
+        .gridfs_bucket(None);
 
     let gridfs_id = match find_unique_gridfs_id_by_filename(&bucket, &doc.id).await {
         Ok(id) => id,
-        Err(err) => return HttpResponse::InternalServerError().json(
-            TrainingResponse::<()>::error(&format!("Failed to find unique GridFS identifier {}: {}", doc.id, err.to_string()))
-        )
-    };
-
-    if let Err(err) = delete_from_gridfs(&bucket, gridfs_id).await {
-        return HttpResponse::InternalServerError().json(
-            TrainingResponse::<()>::error(&format!("Failed to delete prefetch data from GridFS {}: {}", doc.id, err.to_string()))
-        )
-    }
-
-    HttpResponse::Ok().json(TrainingResponse::<()>::ok(()))
-    
-}
-
-
-#[post("/training/session")]
-async fn register_training_session_handler(data: web::Data<AppState>, body: web::Json<CreateTrainingSession>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
-    let training_data_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingData);
-    
-    // Check for collection data in database and retrieve records (without prefetch data)
-    let query = doc! { "collection": &body.collection };
-    
-    let mut cursor = match training_data_collection.find(query).await {
-        Ok(cursor) => cursor,
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Query Failed: {}", e)));
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!(
+                    "Failed to find unique GridFS identifier {}: {}",
+                    doc.id,
+                    err.to_string()
+                ),
+            ))
         }
     };
 
-    let bucket = data.db.database(&auth_guard.team.admin.database).gridfs_bucket(None);
+    if let Err(err) = delete_from_gridfs(&bucket, gridfs_id).await {
+        return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!(
+            "Failed to delete prefetch data from GridFS {}: {}",
+            doc.id,
+            err.to_string()
+        )));
+    }
 
+    HttpResponse::Ok().json(TrainingResponse::<()>::ok(()))
+}
+
+#[post("/training/session")]
+async fn register_training_session_handler(
+    data: web::Data<AppState>,
+    body: web::Json<CreateTrainingSession>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_session_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
+    let training_data_collection: Collection<TrainingPrefetchRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingData,
+    );
+
+    // Check for collection data in database and retrieve records (without prefetch data)
+    let query = doc! { "collection": &body.collection };
+
+    let mut cursor = match training_data_collection.find(query).await {
+        Ok(cursor) => cursor,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Query Failed: {}", e),
+            ));
+        }
+    };
+
+    let bucket = data
+        .db
+        .database(&auth_guard.team.admin.database)
+        .gridfs_bucket(None);
 
     let mut records: Vec<TrainingPrefetchData> = Vec::new();
     while let Some(doc) = cursor.try_next().await.unwrap_or(None) {
-
         let prefetch = match download_prefetch_from_gridfs(&bucket, &doc.id).await {
             Ok(data) => data,
             Err(err) => {
-                return HttpResponse::InternalServerError().json(
-                    TrainingResponse::<()>::error(&format!("Failed to read GridFS data {}: {}", doc.id, err.to_string()))
-                );
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Failed to read GridFS data {}: {}", doc.id, err.to_string()),
+                ));
             }
         };
 
         records.push(TrainingPrefetchData::from_query(doc, prefetch))
-
     }
 
-    
     if records.is_empty() {
-        return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("No matching training prefetch data for this collection"))
+        return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+            "No matching training prefetch data for this collection",
+        ));
     }
 
     // Creates the training session record by adding the TrainingRecords for this collection and inserts it into the database
-    let model = TrainingSessionRecord::from_request(&body, records, &auth_guard.user.id, &auth_guard.user.name);
+    let model = TrainingSessionRecord::from_request(
+        &body,
+        records,
+        &auth_guard.user.id,
+        &auth_guard.user.name,
+    );
 
-    match training_session_collection
-        .insert_one(&model)
-        .await {
-            Ok(_) => HttpResponse::Ok().json(TrainingResponse::<String>::ok(model.id)), // session id is returned
-            Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to create training session: {}", err.to_string())))
-        }
+    match training_session_collection.insert_one(&model).await {
+        Ok(_) => HttpResponse::Ok().json(TrainingResponse::<String>::ok(model.id)), // session id is returned
+        Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+            &format!("Failed to create training session: {}", err.to_string()),
+        )),
+    }
 }
 
-
 #[get("/training/session/{session_id}")]
-async fn retrieve_training_session_handler(data: web::Data<AppState>, session_id: web::Path<String>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_records_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
-    
+async fn retrieve_training_session_handler(
+    data: web::Data<AppState>,
+    session_id: web::Path<String>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_records_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
+
     // Find the training session
     match training_records_collection
         .find_one(doc! {
@@ -380,17 +519,23 @@ async fn retrieve_training_session_handler(data: web::Data<AppState>, session_id
         Ok(Some(session)) => {
             // User guard so that training session are only returned for the correct user
             if session.user_id != auth_guard.user.id {
-                HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist for this user"))
+                HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                    "A training session with this identifier does not exist for this user",
+                ))
             } else {
-                HttpResponse::Ok().json(TrainingResponse::<TrainingSessionData>::ok(TrainingSessionData::from_query(session, true)))
+                HttpResponse::Ok().json(TrainingResponse::<TrainingSessionData>::ok(
+                    TrainingSessionData::from_query(session, true),
+                ))
             }
-        },
-        Ok(None) => HttpResponse::NotFound().json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist")),
-        Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err.to_string())))
+        }
+        Ok(None) => HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+            "A training session with this identifier does not exist",
+        )),
+        Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+            &format!("Failed to search for training session: {}", err.to_string()),
+        )),
     }
 }
-
-
 
 #[get("/training/sessions")]
 async fn list_training_sessions_handler(
@@ -398,9 +543,11 @@ async fn list_training_sessions_handler(
     _: web::Query<TeamAccessQuery>,
     auth_guard: jwt::JwtDataMiddleware,
 ) -> HttpResponse {
-
-    let training_records_collection: Collection<TrainingSessionRecord> =
-        get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+    let training_records_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
 
     match training_records_collection.find(doc! {}).await {
         Ok(mut cursor) => {
@@ -416,25 +563,37 @@ async fn list_training_sessions_handler(
             }
             HttpResponse::Ok().json(TrainingResponse::ok(out))
         }
-        Err(err) => HttpResponse::InternalServerError()
-            .json(TrainingResponse::<()>::error(&format!("Failed to list training sessions: {}", err))),
+        Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+            &format!("Failed to list training sessions: {}", err),
+        )),
     }
 }
 
 #[delete("/training/session/{session_id}")]
-async fn delete_training_session_handler(data: web::Data<AppState>, session_id: web::Path<String>, _: web::Query<TeamAccessQuery>, auth_guard: jwt::JwtDataMiddleware) -> HttpResponse {
-    
-    let training_records_collection: Collection<TrainingSessionRecord> =
-        get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+async fn delete_training_session_handler(
+    data: web::Data<AppState>,
+    session_id: web::Path<String>,
+    _: web::Query<TeamAccessQuery>,
+    auth_guard: jwt::JwtDataMiddleware,
+) -> HttpResponse {
+    let training_records_collection: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
 
     // Delete metadata
-    if let Err(e) = training_records_collection.delete_one(doc! { "id": session_id.into_inner() }).await {
-        return HttpResponse::InternalServerError()
-            .json(TrainingResponse::<()>::error(&format!("Delete training session failed: {}", e)));
+    if let Err(e) = training_records_collection
+        .delete_one(doc! { "id": session_id.into_inner() })
+        .await
+    {
+        return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!(
+            "Delete training session failed: {}",
+            e
+        )));
     }
 
     HttpResponse::Ok().json(TrainingResponse::<()>::ok(()))
-    
 }
 
 #[patch("/training/session")]
@@ -444,20 +603,27 @@ async fn update_training_record_handler(
     auth_guard: jwt::JwtDataMiddleware,
     body: web::Json<PatchTrainingRecord>,
 ) -> HttpResponse {
-
-    let training_records_collections: Collection<TrainingSessionRecord> =
-        get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
 
     // Retrieve session and enforce user guard
-    let session = match training_records_collections.find_one(doc! { "id": &body.session_id }).await {
+    let session = match training_records_collections
+        .find_one(doc! { "id": &body.session_id })
+        .await
+    {
         Ok(Some(s)) => s,
         Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist"))
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "A training session with this identifier does not exist",
+            ))
         }
         Err(err) => {
-            return HttpResponse::InternalServerError()
-                .json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err)))
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to search for training session: {}", err),
+            ))
         }
     };
 
@@ -471,21 +637,21 @@ async fn update_training_record_handler(
     let mut set_doc = match to_bson(&body.result) {
         Ok(bson_val) => doc! { "records.$.result": bson_val },
         Err(err) => {
-            return HttpResponse::InternalServerError().json(
-                TrainingResponse::<()>::error(&format!("Failed to encode result: {}", err)),
-            )
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to encode result: {}", err),
+            ))
         }
     };
-    
+
     match &body.candidates {
         Some(cands) => match to_bson(cands) {
             Ok(bson_val) => {
                 set_doc.insert("records.$.candidates", bson_val);
             }
             Err(err) => {
-                return HttpResponse::InternalServerError().json(
-                    TrainingResponse::<()>::error(&format!("Failed to encode candidates: {}", err)),
-                )
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Failed to encode candidates: {}", err),
+                ))
             }
         },
         None => {
@@ -501,38 +667,52 @@ async fn update_training_record_handler(
     };
     let update = doc! { "$set": set_doc };
 
-    match training_records_collections.update_one(filter, update).await {
+    match training_records_collections
+        .update_one(filter, update)
+        .await
+    {
         Ok(res) if res.matched_count == 0 => HttpResponse::NotFound().json(
             TrainingResponse::<()>::not_found("No matching record id in this session"),
         ),
-        Ok(_) => HttpResponse::Ok().json(TrainingResponse::<String>::ok(String::from("Record updated"))),
-        Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to update record: {}", err))),
+        Ok(_) => HttpResponse::Ok().json(TrainingResponse::<String>::ok(String::from(
+            "Record updated",
+        ))),
+        Err(err) => HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+            &format!("Failed to update record: {}", err),
+        )),
     }
 }
-
 
 #[patch("/training/session/{session_id}")]
 async fn complete_training_session_handler(
     data: web::Data<AppState>,
     session_id: web::Path<String>,
     _: web::Query<TeamAccessQuery>,
-    auth_guard: jwt::JwtDataMiddleware
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> HttpResponse {
-
-    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
 
     let session_id = session_id.into_inner();
 
     // Retrieve session and enforce user guard
-    let session = match training_records_collections.find_one(doc! { "id": &session_id }).await {
+    let session = match training_records_collections
+        .find_one(doc! { "id": &session_id })
+        .await
+    {
         Ok(Some(s)) => s,
         Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist"))
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "A training session with this identifier does not exist",
+            ))
         }
         Err(err) => {
-            return HttpResponse::InternalServerError()
-                .json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err)))
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to search for training session: {}", err),
+            ))
         }
     };
 
@@ -547,14 +727,12 @@ async fn complete_training_session_handler(
 
     // Only update the training session and results if the training has not been completed yet
     if let None = session.completed {
-
-
-       let training_result_bson = match to_bson(&training_result) {
+        let training_result_bson = match to_bson(&training_result) {
             Ok(bson_val) => bson_val,
             Err(err) => {
-                return HttpResponse::InternalServerError().json(
-                    TrainingResponse::<()>::error(&format!("Failed to encode training result: {}", err)),
-                )
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Failed to encode training result: {}", err),
+                ))
             }
         };
 
@@ -562,50 +740,67 @@ async fn complete_training_session_handler(
             "id": &session_id
         };
 
-        let update = doc! { 
-            "$set": doc! { 
-                "completed": Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true), 
-                "result": training_result_bson 
-            } 
+        let update = doc! {
+            "$set": doc! {
+                "completed": Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+                "result": training_result_bson
+            }
         };
 
-
-        match training_records_collections.update_one(filter, update).await {
-            Ok(res) if res.matched_count == 0 => return HttpResponse::NotFound().json(
-                TrainingResponse::<()>::not_found("No matching record identifier in this session"),
-            ),
-            Err(err) => return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(&format!("Failed to update record: {}", err))),
-            Ok(_) => return HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(training_result))    
+        match training_records_collections
+            .update_one(filter, update)
+            .await
+        {
+            Ok(res) if res.matched_count == 0 => {
+                return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                    "No matching record identifier in this session",
+                ))
+            }
+            Err(err) => {
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Failed to update record: {}", err),
+                ))
+            }
+            Ok(_) => {
+                return HttpResponse::Ok()
+                    .json(TrainingResponse::<TrainingResult>::ok(training_result))
+            }
         }
     } else {
         HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(training_result))
     }
-
 }
-
 
 #[get("/training/session/{session_id}/result")]
 async fn get_training_session_result_handler(
     data: web::Data<AppState>,
     session_id: web::Path<String>,
     _: web::Query<TeamAccessQuery>,
-    auth_guard: jwt::JwtDataMiddleware
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> HttpResponse {
-
-    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
 
     let session_id = session_id.into_inner();
 
     // Retrieve session and enforce user guard
-    let session = match training_records_collections.find_one(doc! { "id": &session_id }).await {
+    let session = match training_records_collections
+        .find_one(doc! { "id": &session_id })
+        .await
+    {
         Ok(Some(s)) => s,
         Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist"))
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "A training session with this identifier does not exist",
+            ))
         }
         Err(err) => {
-            return HttpResponse::InternalServerError()
-                .json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err)))
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to search for training session: {}", err),
+            ))
         }
     };
 
@@ -617,32 +812,38 @@ async fn get_training_session_result_handler(
 
     // Compute result and return response
     HttpResponse::Ok().json(TrainingResponse::<TrainingResult>::ok(session.evaluate()))
-
 }
-
 
 #[get("/training/session/{session_id}/certificate")]
 async fn get_training_session_certificate_handler(
     data: web::Data<AppState>,
     session_id: web::Path<String>,
     _: web::Query<TeamAccessQuery>,
-    auth_guard: jwt::JwtDataMiddleware
+    auth_guard: jwt::JwtDataMiddleware,
 ) -> HttpResponse {
-
-    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(&data, auth_guard.team.clone(), TeamAdminCollection::TrainingSessions);
+    let training_records_collections: Collection<TrainingSessionRecord> = get_teams_db_collection(
+        &data,
+        auth_guard.team.clone(),
+        TeamAdminCollection::TrainingSessions,
+    );
 
     let session_id = session_id.into_inner();
 
     // Retrieve session and enforce user guard
-    let session = match training_records_collections.find_one(doc! { "id": &session_id }).await {
+    let session = match training_records_collections
+        .find_one(doc! { "id": &session_id })
+        .await
+    {
         Ok(Some(s)) => s,
         Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(TrainingResponse::<()>::not_found("A training session with this identifier does not exist"))
+            return HttpResponse::NotFound().json(TrainingResponse::<()>::not_found(
+                "A training session with this identifier does not exist",
+            ))
         }
         Err(err) => {
-            return HttpResponse::InternalServerError()
-                .json(TrainingResponse::<()>::error(&format!("Failed to search for training session: {}", err)))
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to search for training session: {}", err),
+            ))
         }
     };
 
@@ -653,19 +854,23 @@ async fn get_training_session_certificate_handler(
     }
 
     let date_completed = match session.completed {
-        None => return HttpResponse::Conflict().json(TrainingResponse::<()>::error(
-            "The training session has not been completed",
-        )),
-        Some(date) => date
+        None => {
+            return HttpResponse::Conflict().json(TrainingResponse::<()>::error(
+                "The training session has not been completed",
+            ))
+        }
+        Some(date) => date,
     };
 
-    let mut report_compiler = match LibraryReportCompiler::new(
-        String::from("/"), ReportType::TrainingCompletion
-    ) {
-        Ok(compiler) => compiler,
-        Err(err) => return HttpResponse::InternalServerError()
-            .json(TrainingResponse::<()>::error(&format!("Failed to initiate report compiler: {}", err)))
-    };
+    let mut report_compiler =
+        match LibraryReportCompiler::new(String::from("/"), ReportType::TrainingCompletion) {
+            Ok(compiler) => compiler,
+            Err(err) => {
+                return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                    &format!("Failed to initiate report compiler: {}", err),
+                ))
+            }
+        };
 
     report_compiler.set_logo_from_bytes(LibraryReportCompiler::training_logo());
     report_compiler.set_logo_width("60mm".to_string());
@@ -673,44 +878,49 @@ async fn get_training_session_certificate_handler(
     let report_config = TrainingCompletionReport {
         recipient: session.user_name,
         course: "Cerebro Training: Pathogen Identification".to_string(),
-        date: date_completed.split("T").next().unwrap_or(&date_completed).to_string(),
+        date: date_completed
+            .split("T")
+            .next()
+            .unwrap_or(&date_completed)
+            .to_string(),
         dataset: session.collection.clone(),
         sensitivity: session.result.as_ref().map(|r| r.sensitivity),
         specificity: session.result.as_ref().map(|r| r.specificity),
     };
 
-    let report_template = match report_compiler.report(&report_config)
-    {
+    let report_template = match report_compiler.report(&report_config) {
         Ok(text) => text,
-        Err(err) => return HttpResponse::InternalServerError()
-            .json(TrainingResponse::<()>::error(&format!("Failed to compile report template: {}", err)))
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to compile report template: {}", err),
+            ))
+        }
     };
 
-    let pdf_data = match report_compiler.pdf_data(&report_template, String::from("/report")) 
-    {
+    let pdf_data = match report_compiler.pdf_data(&report_template, String::from("/report")) {
         Ok(data) => data,
-        Err(err) => return HttpResponse::InternalServerError()
-            .json(TrainingResponse::<()>::error(&format!("Failed to compile report PDF: {}", err)))
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(TrainingResponse::<()>::error(
+                &format!("Failed to compile report PDF: {}", err),
+            ))
+        }
     };
 
     HttpResponse::Ok().json(TrainingResponse::<Vec<u8>>::ok(pdf_data))
-
 }
 
 pub fn training_config(cfg: &mut web::ServiceConfig) {
-    
     cfg.service(insert_training_data_handler)
-       .service(retrieve_training_data_handler) 
-       .service(delete_training_data_handler)
-       .service(retrieve_training_overview_handler)
-       .service(register_training_session_handler)
-       .service(retrieve_training_session_handler)
-       .service(complete_training_session_handler)
-       .service(retrieve_training_session_data_handler)
-       .service(get_training_session_result_handler)
-       .service(get_training_session_certificate_handler)
-       .service(update_training_record_handler)
-       .service(list_training_sessions_handler)
-       .service(delete_training_session_handler);
-
+        .service(retrieve_training_data_handler)
+        .service(delete_training_data_handler)
+        .service(retrieve_training_overview_handler)
+        .service(register_training_session_handler)
+        .service(retrieve_training_session_handler)
+        .service(complete_training_session_handler)
+        .service(retrieve_training_session_data_handler)
+        .service(get_training_session_result_handler)
+        .service(get_training_session_certificate_handler)
+        .service(update_training_record_handler)
+        .service(list_training_sessions_handler)
+        .service(delete_training_session_handler);
 }

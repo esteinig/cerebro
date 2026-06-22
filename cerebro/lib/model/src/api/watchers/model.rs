@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::api::files::model::FileType;
 
@@ -9,7 +9,7 @@ pub enum WatcherFormat {
     Fastq,
     FastqPe,
     Iseq,
-    Nextseq
+    Nextseq,
 }
 impl WatcherFormat {
     pub fn default_glob(&self) -> String {
@@ -17,15 +17,15 @@ impl WatcherFormat {
             Self::Fastq => String::from("*.fastq.gz"),
             Self::FastqPe => String::from("*_{R1,R2}.fastq.gz"),
             Self::Iseq => String::from("*_{L001_R1_001,L001_R2_001}.fastq.gz"),
-            Self::Nextseq => String::from("*_{R1_001,R2_001}.fastq.gz")
+            Self::Nextseq => String::from("*_{R1_001,R2_001}.fastq.gz"),
         }
     }
     pub fn file_type(&self) -> FileType {
         match self {
             Self::Fastq => FileType::ReadSingle,
             Self::FastqPe => FileType::ReadPaired,
-            Self::Iseq =>  FileType::ReadPaired,
-            Self::Nextseq => FileType::ReadPaired
+            Self::Iseq => FileType::ReadPaired,
+            Self::Nextseq => FileType::ReadPaired,
         }
     }
 }
@@ -36,7 +36,7 @@ impl std::fmt::Display for WatcherFormat {
             Self::Fastq => write!(f, "fastq"),
             Self::FastqPe => write!(f, "fastq-pe"),
             Self::Iseq => write!(f, "iseq"),
-            Self::Nextseq => write!(f, "nextseq")
+            Self::Nextseq => write!(f, "nextseq"),
         }
     }
 }
@@ -60,8 +60,7 @@ impl ProductionWatcher {
             location: schema.location.clone(),
             format: schema.format.clone(),
             glob: schema.glob.clone(),
-            last_ping: schema.last_ping.clone()
+            last_ping: schema.last_ping.clone(),
         }
     }
 }
-

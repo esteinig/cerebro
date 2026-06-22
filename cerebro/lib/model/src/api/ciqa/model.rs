@@ -5,10 +5,10 @@ pub struct CiqaDataset {
     pub description: String,
     pub version: String,
     pub qa_thresholds: CiqaThresholds,
-    pub dataset_prefix: String
+    pub dataset_prefix: String,
 }
 
 pub struct CiqaThresholds {
     pub sensitivity: f64,
-    pub specificty: f64
+    pub specificty: f64,
 }

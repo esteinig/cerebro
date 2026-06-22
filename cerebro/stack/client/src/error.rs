@@ -1,10 +1,9 @@
-
+use cerebro_model::api::cerebro::model::ModelError;
 use cerebro_pipeline::error::WorkflowError;
 use plotters::prelude::DrawingAreaErrorKind;
 use reqwest::StatusCode;
 use statrs::distribution::StudentsTError;
 use thiserror::Error;
-use cerebro_model::api::cerebro::model::ModelError;
 
 /*
 ========================
@@ -72,7 +71,9 @@ pub enum HttpClientError {
 
     #[error("failed to match quality control data identifier ({0}) with pathogen detection data identifier ({0})")]
     PathogenIdentifiersNotMatched(String, String),
-    #[error("failed to match quality control data identifier ({0}) with panviral data identifier ({0})")]
+    #[error(
+        "failed to match quality control data identifier ({0}) with panviral data identifier ({0})"
+    )]
     PanviralIdentifiersNotMatched(String, String),
 
     #[error("you must provide a staged file (--stage-json) or global options for team, db and project authentication (cerebro-client --team --db --project)")]
@@ -81,10 +82,10 @@ pub enum HttpClientError {
     FailedRegressionBuild,
 
     #[error(transparent)]
-    PlottersError(#[from] DrawingAreaErrorKind<plotters_bitmap::BitMapBackendError>), 
+    PlottersError(#[from] DrawingAreaErrorKind<plotters_bitmap::BitMapBackendError>),
     #[error(transparent)]
     StudentsError(#[from] StudentsTError),
 
     #[error("response failed (status code: {0}) with error message: {1}")]
-    ResponseFailureWithMessage(StatusCode, String)
+    ResponseFailureWithMessage(StatusCode, String),
 }

@@ -1,9 +1,11 @@
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 use crate::api::watchers::model::ProductionWatcher;
 
-use super::retention::{ExpiryState, LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
+use super::retention::{
+    ExpiryState, LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier,
+};
 use super::schema::RegisterFileSchema;
 
 /*
@@ -26,7 +28,7 @@ pub enum FileType {
     /// A run provenance manifest (pipeline version, params, reference DBs, input
     /// hashes); a diagnostic chain-of-custody artefact.
     RunManifest,
-    Other
+    Other,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,7 +46,7 @@ pub enum FileTag {
     #[serde(rename = "ENV")]
     Env,
     #[serde(rename = "HOST")]
-    Host
+    Host,
 }
 
 pub type SeaweedFileId = String;
@@ -276,9 +278,8 @@ impl SeaweedFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeaweedReads {
     pub reads_1: SeaweedFile,
-    pub reads_2: Option<SeaweedFile>
+    pub reads_2: Option<SeaweedFile>,
 }
-
 
 /// Converts a size in bytes to megabytes (MB).
 ///
@@ -368,16 +369,21 @@ mod tests {
         f.expiry_state = ExpiryState::Quarantined;
         f.quarantined_at = Some(now - chrono::Duration::days(10));
         assert!(!f.is_purge_eligible(now, 30)); // within grace
-        assert!(f.is_purge_eligible(now, 7));   // grace elapsed
+        assert!(f.is_purge_eligible(now, 7)); // grace elapsed
 
         f.legal_hold = true;
-        assert!(!f.is_purge_eligible(now, 7));  // hold overrides
+        assert!(!f.is_purge_eligible(now, 7)); // hold overrides
     }
 
     #[test]
     fn report_out_without_warm_moves_to_cold() {
         use super::super::retention::RetentionPolicy;
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
+        let policy = RetentionPolicy {
+            diagnostic_days: 365 * 4,
+            intermediate_days: 365,
+            transient_days: 30,
+            warm_days: 90,
+        };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
 
         let mut f = sample_file(); // tier defaults to Hot, retention Diagnostic
@@ -385,7 +391,10 @@ mod tests {
 
         assert_eq!(f.reported_at, Some(reported_at));
         assert_eq!(f.tier, StorageTier::Cold);
-        assert_eq!(f.retain_until, Some(reported_at + chrono::Duration::days(365 * 4)));
+        assert_eq!(
+            f.retain_until,
+            Some(reported_at + chrono::Duration::days(365 * 4))
+        );
         assert_eq!(transition.target_tier, StorageTier::Cold);
         // legal hold still governs expiry independently
         assert!(!f.is_expired(reported_at));
@@ -394,16 +403,27 @@ mod tests {
     #[test]
     fn report_out_with_warm_moves_to_warm() {
         use super::super::retention::RetentionPolicy;
-        let policy = RetentionPolicy { diagnostic_days: 365 * 4, intermediate_days: 365, transient_days: 30, warm_days: 90 };
+        let policy = RetentionPolicy {
+            diagnostic_days: 365 * 4,
+            intermediate_days: 365,
+            transient_days: 30,
+            warm_days: 90,
+        };
         let reported_at = Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).unwrap();
 
         let mut f = sample_file();
         let transition = f.report_out(reported_at, &policy, true);
 
         assert_eq!(f.tier, StorageTier::Warm);
-        assert_eq!(transition.cold_move_at, Some(reported_at + chrono::Duration::days(90)));
+        assert_eq!(
+            transition.cold_move_at,
+            Some(reported_at + chrono::Duration::days(90))
+        );
         // retention unchanged by the warm placement
-        assert_eq!(f.retain_until, Some(reported_at + chrono::Duration::days(365 * 4)));
+        assert_eq!(
+            f.retain_until,
+            Some(reported_at + chrono::Duration::days(365 * 4))
+        );
     }
 
     #[test]

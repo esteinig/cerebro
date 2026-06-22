@@ -1,9 +1,9 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnqueueJobRequest {
     pub kind: String,
-    pub args: serde_json::Value,   // single object; server wraps as args[0]
+    pub args: serde_json::Value, // single object; server wraps as args[0]
     pub queue: Option<String>,
     pub retry: Option<i32>,
     pub reserve_for_seconds: Option<u64>,

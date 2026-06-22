@@ -1,11 +1,14 @@
-use std::io::Write;
-use std::ffi::OsStr;
-use std::path::Path;
-use env_logger::Builder;
 use env_logger::fmt::Color;
-use log::{LevelFilter, Level};
+use env_logger::Builder;
+use log::{Level, LevelFilter};
+use std::ffi::OsStr;
+use std::io::Write;
+use std::path::Path;
 
-pub const CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION", "Failed to get the crate version at compile time - this is not good!");
+pub const CRATE_VERSION: &'static str = env!(
+    "CARGO_PKG_VERSION",
+    "Failed to get the crate version at compile time - this is not good!"
+);
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
@@ -35,7 +38,6 @@ impl StringUtils for String {
     }
 }
 
-
 pub trait UuidUtils {
     fn shorten(&self, len: usize) -> String;
 }
@@ -47,7 +49,6 @@ impl UuidUtils for uuid::Uuid {
 }
 
 pub fn init_logger() {
-
     Builder::new()
         .format(|buf, record| {
             let timestamp = buf.timestamp();
@@ -59,16 +60,35 @@ pub fn init_logger() {
             let mut white_style = buf.style();
             white_style.set_color(Color::White).set_bold(false);
             let mut orange_style = buf.style();
-            orange_style.set_color(Color::Rgb(255, 102, 0)).set_bold(true);
+            orange_style
+                .set_color(Color::Rgb(255, 102, 0))
+                .set_bold(true);
             let mut apricot_style = buf.style();
-            apricot_style.set_color(Color::Rgb(255, 195, 0)).set_bold(true);
+            apricot_style
+                .set_color(Color::Rgb(255, 195, 0))
+                .set_bold(true);
 
-            let msg = match record.level(){
-                Level::Warn => (orange_style.value(record.level()), orange_style.value(record.args())),
-                Level::Info => (green_style.value(record.level()), white_style.value(record.args())),
-                Level::Debug => (apricot_style.value(record.level()), apricot_style.value(record.args())),
-                Level::Error => (red_style.value(record.level()), red_style.value(record.args())),
-                _ => (white_style.value(record.level()), white_style.value(record.args()))
+            let msg = match record.level() {
+                Level::Warn => (
+                    orange_style.value(record.level()),
+                    orange_style.value(record.args()),
+                ),
+                Level::Info => (
+                    green_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
+                Level::Debug => (
+                    apricot_style.value(record.level()),
+                    apricot_style.value(record.args()),
+                ),
+                Level::Error => (
+                    red_style.value(record.level()),
+                    red_style.value(record.args()),
+                ),
+                _ => (
+                    white_style.value(record.level()),
+                    white_style.value(record.args()),
+                ),
             };
 
             writeln!(

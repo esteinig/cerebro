@@ -68,7 +68,10 @@ impl FilesystemObjectStore {
     /// segments so a key can never escape the store root.
     fn path_for(&self, key: &str) -> PathBuf {
         let mut p = self.root.clone();
-        for seg in key.split('/').filter(|s| !s.is_empty() && *s != "." && *s != "..") {
+        for seg in key
+            .split('/')
+            .filter(|s| !s.is_empty() && *s != "." && *s != "..")
+        {
             p.push(seg);
         }
         p
@@ -99,7 +102,10 @@ impl ObjectStore for FilesystemObjectStore {
                 if path.is_dir() {
                     walk(&path, root, out)?;
                 } else if let Ok(rel) = path.strip_prefix(root) {
-                    out.push(rel.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"));
+                    out.push(
+                        rel.to_string_lossy()
+                            .replace(std::path::MAIN_SEPARATOR, "/"),
+                    );
                 }
             }
             Ok(())
@@ -168,8 +174,12 @@ pub fn parse_backup_refs(prefix: &str, keys: &[String]) -> Vec<BackupRef> {
     let stem = format!("{}/", prefix.trim_end_matches('/'));
     let mut refs = Vec::new();
     for k in keys {
-        let Some(rest) = k.strip_prefix(&stem) else { continue };
-        let Some(id) = rest.strip_suffix("/manifest.json") else { continue };
+        let Some(rest) = k.strip_prefix(&stem) else {
+            continue;
+        };
+        let Some(id) = rest.strip_suffix("/manifest.json") else {
+            continue;
+        };
         if let Ok(naive) = NaiveDateTime::parse_from_str(id, BACKUP_ID_FORMAT) {
             refs.push(BackupRef {
                 backup_id: id.to_string(),
@@ -210,9 +220,14 @@ mod tests {
     #[test]
     fn path_for_strips_traversal_and_empty_segments() {
         let store = FilesystemObjectStore::new("/var/backups");
-        assert_eq!(store.path_for("a//b/../c"), PathBuf::from("/var/backups/a/b/c"));
-        assert_eq!(store.path_for("catalogue/20260617T031500Z/manifest.json"),
-                   PathBuf::from("/var/backups/catalogue/20260617T031500Z/manifest.json"));
+        assert_eq!(
+            store.path_for("a//b/../c"),
+            PathBuf::from("/var/backups/a/b/c")
+        );
+        assert_eq!(
+            store.path_for("catalogue/20260617T031500Z/manifest.json"),
+            PathBuf::from("/var/backups/catalogue/20260617T031500Z/manifest.json")
+        );
     }
 
     #[test]
@@ -220,16 +235,24 @@ mod tests {
         let root = std::env::temp_dir().join(format!("cerebro-bk-{}", uuid::Uuid::new_v4()));
         let store = FilesystemObjectStore::new(&root);
         store.put("catalogue/a/manifest.json", b"{}").unwrap();
-        store.put("catalogue/a/catalogue.archive.gz", b"data").unwrap();
+        store
+            .put("catalogue/a/catalogue.archive.gz", b"data")
+            .unwrap();
         store.put("other/x", b"z").unwrap();
 
-        assert_eq!(store.get("catalogue/a/catalogue.archive.gz").unwrap(), b"data");
+        assert_eq!(
+            store.get("catalogue/a/catalogue.archive.gz").unwrap(),
+            b"data"
+        );
         let mut listed = store.list("catalogue/").unwrap();
         listed.sort();
-        assert_eq!(listed, vec![
-            "catalogue/a/catalogue.archive.gz".to_string(),
-            "catalogue/a/manifest.json".to_string(),
-        ]);
+        assert_eq!(
+            listed,
+            vec![
+                "catalogue/a/catalogue.archive.gz".to_string(),
+                "catalogue/a/manifest.json".to_string(),
+            ]
+        );
         store.delete("catalogue/a/manifest.json").unwrap();
         store.delete("catalogue/a/manifest.json").unwrap(); // idempotent
         assert!(store.list("catalogue/a/manifest.json").unwrap().is_empty());
@@ -264,7 +287,12 @@ mod tests {
             anyhow::bail!("get not used in this test")
         }
         fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
-            Ok(self.keys.iter().filter(|k| k.starts_with(prefix)).cloned().collect())
+            Ok(self
+                .keys
+                .iter()
+                .filter(|k| k.starts_with(prefix))
+                .cloned()
+                .collect())
         }
         fn delete(&self, _k: &str) -> anyhow::Result<()> {
             Ok(())
@@ -274,7 +302,9 @@ mod tests {
 
     #[test]
     fn default_exists_requires_exact_match_not_prefix() {
-        let store = MockStore { keys: vec!["archive/team/a".into(), "archive/team/ab".into()] };
+        let store = MockStore {
+            keys: vec!["archive/team/a".into(), "archive/team/ab".into()],
+        };
         assert!(store.exists("archive/team/a").unwrap()); // exact
         assert!(store.exists("archive/team/ab").unwrap()); // exact
         assert!(!store.exists("archive/team/abc").unwrap()); // absent
@@ -354,11 +384,18 @@ impl S3ObjectStore {
         secret_key: &str,
         prefix: &str,
     ) -> anyhow::Result<Self> {
-        let region = s3::Region::Custom { region: region.to_string(), endpoint: endpoint.to_string() };
-        let creds = s3::creds::Credentials::new(Some(access_key), Some(secret_key), None, None, None)?;
+        let region = s3::Region::Custom {
+            region: region.to_string(),
+            endpoint: endpoint.to_string(),
+        };
+        let creds =
+            s3::creds::Credentials::new(Some(access_key), Some(secret_key), None, None, None)?;
         // Path-style addressing works with MinIO/SeaweedFS-S3 and AWS alike.
         let bucket = s3::bucket::Bucket::new(bucket, region, creds)?.with_path_style();
-        Ok(Self { bucket, prefix: prefix.trim_end_matches('/').to_string() })
+        Ok(Self {
+            bucket,
+            prefix: prefix.trim_end_matches('/').to_string(),
+        })
     }
 
     fn key(&self, k: &str) -> String {

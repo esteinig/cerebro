@@ -13,9 +13,9 @@
 //!
 //! Every runner records a `started` then a terminal outcome on the worker metrics.
 
+pub mod archive_reclaim;
 pub mod catalogue_backup;
 pub mod ping;
-pub mod archive_reclaim;
 pub mod reconcile;
 pub mod restore_drive;
 pub mod restore_scan;
@@ -24,16 +24,16 @@ pub mod tier_move;
 pub mod verify;
 pub mod verify_repair;
 
+pub use archive_reclaim::ArchiveReclaim;
 pub use catalogue_backup::CatalogueBackup;
 pub use ping::Ping;
-pub use archive_reclaim::ArchiveReclaim;
 pub use reconcile::{ReconcileReclaim, ReconcileScan};
-pub use verify_repair::VerifyRepair;
 pub use restore_drive::RestoreDrive;
 pub use restore_scan::RestoreScan;
 pub use retention_sweep::{PurgeReclaim, RetentionSweep};
 pub use tier_move::{TierMove, TierMoveScan};
 pub use verify::{VerifyFile, VerifyScan};
+pub use verify_repair::VerifyRepair;
 
 use faktory::Job;
 use serde::Deserialize;
@@ -42,10 +42,8 @@ use crate::error::WorkerError;
 
 /// Pull the first JSON object from `job.args()` and deserialize into `T`.
 pub fn parse_args<T: for<'de> Deserialize<'de>>(job: &Job) -> Result<T, WorkerError> {
-    let first = job
-        .args()
-        .first()
-        .ok_or_else(|| WorkerError::InvalidArgs("missing job args (expected a single JSON object)".into()))?;
-    serde_json::from_value::<T>(first.clone())
-        .map_err(|e| WorkerError::InvalidArgs(e.to_string()))
+    let first = job.args().first().ok_or_else(|| {
+        WorkerError::InvalidArgs("missing job args (expected a single JSON object)".into())
+    })?;
+    serde_json::from_value::<T>(first.clone()).map_err(|e| WorkerError::InvalidArgs(e.to_string()))
 }

@@ -1,17 +1,26 @@
-use std::{collections::HashMap, path::PathBuf};
-use cerebro_model::api::{files::model::{FileType, SeaweedFile}, stage::model::{FileId, StagedSample}};
-use chrono::Utc;
 use anyhow::Result;
+use cerebro_model::api::{
+    files::model::{FileType, SeaweedFile},
+    stage::model::{FileId, StagedSample},
+};
+use chrono::Utc;
 use reqwest::StatusCode;
+use std::{collections::HashMap, path::PathBuf};
 
 use cerebro_client::client::CerebroClient;
-use cerebro_model::api::watchers::model::ProductionWatcher;
+use cerebro_model::api::files::retention::{
+    LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier,
+};
 use cerebro_model::api::files::schema::RegisterFileSchema;
-use cerebro_model::api::files::retention::{LifecycleTransition, RestoreState, RetentionClass, RetentionPolicy, StorageTier};
+use cerebro_model::api::watchers::model::ProductionWatcher;
 
-use crate::config::{FsConfig, FsAccessMode};
+use crate::config::{FsAccessMode, FsConfig};
 use crate::filer::{FilerClient, FilerObject};
-use crate::{error::FileSystemError, hash::{fast_file_hash, hash_reader}, weed::{weed_download, weed_upload}};
+use crate::{
+    error::FileSystemError,
+    hash::{fast_file_hash, hash_reader},
+    weed::{weed_download, weed_upload},
+};
 
 #[derive(Clone, Debug)]
 pub struct FileSystemClient {
@@ -222,15 +231,13 @@ impl FileSystemClient {
     pub fn ping_status(&self) -> Result<(), FileSystemError> {
         let url = format!("{}/cluster/healthz", self.get_url());
 
-        let response = reqwest::blocking::Client::new()
-            .get(&url)
-            .send()?;
+        let response = reqwest::blocking::Client::new().get(&url).send()?;
 
         match response.status() {
             StatusCode::OK => {
                 log::info!("Cerebro FS status: ok");
                 Ok(())
-            },
+            }
             StatusCode::SERVICE_UNAVAILABLE => Err(FileSystemError::UnhealthyCluster),
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
         }
@@ -246,15 +253,13 @@ impl FileSystemClient {
     pub fn delete_file(&self, fid: &str) -> Result<(), FileSystemError> {
         let url = format!("{}/{}", self.get_url(), fid);
 
-        let response = reqwest::blocking::Client::new()
-            .delete(&url)
-            .send()?;
+        let response = reqwest::blocking::Client::new().delete(&url).send()?;
 
         match response.status() {
             StatusCode::OK | StatusCode::ACCEPTED => {
                 log::info!("File data deleted from Cerebro FS ({fid})");
                 Ok(())
-            },
+            }
             StatusCode::SERVICE_UNAVAILABLE => Err(FileSystemError::UnhealthyCluster),
             status => Err(FileSystemError::UnexpectedResponseStatus(status)),
         }
@@ -310,7 +315,10 @@ impl FileSystemClient {
         let tmp = std::env::temp_dir().join(format!(
             "cerebro-repair-{}-{}",
             std::process::id(),
-            path.rsplit('/').next().unwrap_or("object").replace(['/', '\\'], "_")
+            path.rsplit('/')
+                .next()
+                .unwrap_or("object")
+                .replace(['/', '\\'], "_")
         ));
         {
             let mut f = std::fs::File::create(&tmp)?;
@@ -318,7 +326,10 @@ impl FileSystemClient {
             f.flush()?;
         }
 
-        let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+        let filer = FilerClient::new(
+            &self.config.filer_base(),
+            self.config.danger_invalid_certificate,
+        )?;
         let result = filer.upload(&tmp, path);
         let _ = std::fs::remove_file(&tmp);
         result?;
@@ -335,9 +346,7 @@ impl FileSystemClient {
     pub fn read_object(&self, fid: &str) -> Result<Vec<u8>, FileSystemError> {
         let url = format!("{}/{}", self.get_url(), fid);
 
-        let response = reqwest::blocking::Client::new()
-            .get(&url)
-            .send()?;
+        let response = reqwest::blocking::Client::new().get(&url).send()?;
 
         match response.status() {
             StatusCode::OK => Ok(response.bytes()?.to_vec()),
@@ -355,9 +364,7 @@ impl FileSystemClient {
     pub fn object_exists(&self, fid: &str) -> Result<bool, FileSystemError> {
         let url = format!("{}/{}", self.get_url(), fid);
 
-        let response = reqwest::blocking::Client::new()
-            .head(&url)
-            .send()?;
+        let response = reqwest::blocking::Client::new().head(&url).send()?;
 
         match response.status() {
             StatusCode::NOT_FOUND => Ok(false),
@@ -378,8 +385,15 @@ impl FileSystemClient {
     /// (H2). Filer-mode only — walks the filer tree and returns one entry per
     /// object. The consistency-reconcile scan compares these against the catalogue
     /// `path` set to find orphans (stored objects with no catalogue entry).
-    pub fn enumerate_objects(&self, base: &str, budget: usize) -> Result<Vec<FilerObject>, FileSystemError> {
-        let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+    pub fn enumerate_objects(
+        &self,
+        base: &str,
+        budget: usize,
+    ) -> Result<Vec<FilerObject>, FileSystemError> {
+        let filer = FilerClient::new(
+            &self.config.filer_base(),
+            self.config.danger_invalid_certificate,
+        )?;
         Ok(filer.list_objects(base, budget)?)
     }
 
@@ -389,7 +403,10 @@ impl FileSystemClient {
     /// delete ([`Self::delete_file`]).
     pub fn delete_store_object(&self, key: &str) -> Result<(), FileSystemError> {
         if is_filer_path(key) {
-            let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+            let filer = FilerClient::new(
+                &self.config.filer_base(),
+                self.config.danger_invalid_certificate,
+            )?;
             filer.delete(key, false)?;
             Ok(())
         } else {
@@ -403,7 +420,10 @@ impl FileSystemClient {
     /// archival reclaim uses this to confirm a local copy exists before deleting it.
     pub fn store_object_present(&self, key: &str) -> Result<bool, FileSystemError> {
         if is_filer_path(key) {
-            let filer = FilerClient::new(&self.config.filer_base(), self.config.danger_invalid_certificate)?;
+            let filer = FilerClient::new(
+                &self.config.filer_base(),
+                self.config.danger_invalid_certificate,
+            )?;
             Ok(filer.exists(key)?)
         } else {
             self.object_exists(key)
@@ -417,9 +437,8 @@ impl FileSystemClient {
         file_ids: &Vec<String>,
         run_id: Option<String>,
         sample_id: Option<String>,
-        all: bool
+        all: bool,
     ) -> Result<(), FileSystemError> {
-
         if all {
             let confirmation = dialoguer::Confirm::new()
                 .with_prompt("Do you want to delete ALL files for your team?")
@@ -427,21 +446,27 @@ impl FileSystemClient {
                 .unwrap();
 
             if !confirmation {
-                return Ok(())
+                return Ok(());
             } else {
                 let confirmation = dialoguer::Confirm::new()
-                    .with_prompt("Really?? It is the nuclear option meant for development and testing!")
+                    .with_prompt(
+                        "Really?? It is the nuclear option meant for development and testing!",
+                    )
                     .interact()
                     .unwrap();
 
                 if !confirmation {
-                    return Ok(())
+                    return Ok(());
                 }
             }
         }
 
         if file_ids.is_empty() {
-            let deleted_fids = self.api_client.delete_files(run_id, sample_id, if all { Some(all) } else { None })?;
+            let deleted_fids = self.api_client.delete_files(
+                run_id,
+                sample_id,
+                if all { Some(all) } else { None },
+            )?;
             for fid in deleted_fids {
                 self.delete_file(&fid)?
             }
@@ -461,7 +486,6 @@ impl FileSystemClient {
         outdir: &PathBuf,
         pipeline: Option<PathBuf>,
     ) -> Result<(), FileSystemError> {
-
         let staged_sample = StagedSample::from_json(&json)?;
 
         for file in &staged_sample.files {
@@ -469,13 +493,11 @@ impl FileSystemClient {
                 &file.fid,
                 outdir,
                 Some(self.config.master_url.clone()),
-                Some(self.config.master_port.clone())
+                Some(self.config.master_port.clone()),
             )?
         }
 
-        staged_sample.to_json(&outdir.join(
-            format!("{}.json", staged_sample.sample_id)
-        ))?;
+        staged_sample.to_json(&outdir.join(format!("{}.json", staged_sample.sample_id)))?;
 
         if let Some(file) = pipeline {
             let mut writer = csv::WriterBuilder::new()
@@ -522,7 +544,6 @@ impl FileSystemClient {
         outdir: &PathBuf,
         verify: bool,
     ) -> Result<DownloadReport, FileSystemError> {
-
         if !outdir.exists() {
             std::fs::create_dir_all(outdir)?;
         }
@@ -539,14 +560,19 @@ impl FileSystemClient {
                     written.push(path);
                 }
             }
-            return Ok(DownloadReport { written, restore_pending: Vec::new() });
+            return Ok(DownloadReport {
+                written,
+                restore_pending: Vec::new(),
+            });
         }
 
         // Run/sample download via the Cerebro API
         let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
 
         log::info!("Listing files for run '{run_id}' from Cerebro API");
-        let files = self.api_client.list_files(Some(run_id), None, 0, 100_000, false)?;
+        let files = self
+            .api_client
+            .list_files(Some(run_id), None, 0, 100_000, false)?;
 
         let files: Vec<SeaweedFile> = match &sample_id {
             Some(sid) => files
@@ -586,7 +612,10 @@ impl FileSystemClient {
             written.push(path);
         }
 
-        Ok(DownloadReport { written, restore_pending })
+        Ok(DownloadReport {
+            written,
+            restore_pending,
+        })
     }
 
     /// Report which files in a run/sample require an archival restore, and
@@ -597,8 +626,8 @@ impl FileSystemClient {
     /// files it returns [`RestoreState::NotArchived`].
     ///
     /// The actual S3 Glacier `RestoreObject`  execution is an operational step
-    /// (or a future `s3` cargo feature). This method tells the caller precisely 
-    /// what must be restored and lets [`download_files`](Self::download_files) 
+    /// (or a future `s3` cargo feature). This method tells the caller precisely
+    /// what must be restored and lets [`download_files`](Self::download_files)
     /// avoid blocking on Glacier objects in the meantime.
     pub fn restore_files(
         &self,
@@ -607,7 +636,9 @@ impl FileSystemClient {
     ) -> Result<Vec<RestoreOutcome>, FileSystemError> {
         let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
 
-        let files = self.api_client.list_files(Some(run_id), None, 0, 100_000, false)?;
+        let files = self
+            .api_client
+            .list_files(Some(run_id), None, 0, 100_000, false)?;
         let files: Vec<SeaweedFile> = match &sample_id {
             Some(sid) => files
                 .into_iter()
@@ -661,7 +692,9 @@ impl FileSystemClient {
     ) -> Result<LifecycleReport, FileSystemError> {
         let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
 
-        let files = self.api_client.list_files(Some(run_id), None, 0, 100_000, false)?;
+        let files = self
+            .api_client
+            .list_files(Some(run_id), None, 0, 100_000, false)?;
         let files: Vec<SeaweedFile> = match &sample_id {
             Some(sid) => files
                 .into_iter()
@@ -676,7 +709,11 @@ impl FileSystemClient {
                 id: file.id.clone(),
                 identifier: file.effective_identifier().to_string(),
                 name: file.name.clone(),
-                transition: policy.report_out_transition(file.retention, reported_at, warm_available),
+                transition: policy.report_out_transition(
+                    file.retention,
+                    reported_at,
+                    warm_available,
+                ),
             })
             .collect();
 
@@ -750,7 +787,11 @@ impl FileSystemClient {
     /// streaming (S3-5 #6). Returns `Ok(true)` on a match, `Ok(false)` on a
     /// mismatch (a real integrity failure the caller surfaces as a metric, not a
     /// retryable error), and `Err` only on transport/IO problems.
-    pub fn verify_object(&self, identifier: &str, expected_hash: &str) -> Result<bool, FileSystemError> {
+    pub fn verify_object(
+        &self,
+        identifier: &str,
+        expected_hash: &str,
+    ) -> Result<bool, FileSystemError> {
         let actual = self.hash_object(identifier)?;
         Ok(actual == expected_hash)
     }
@@ -832,11 +873,9 @@ impl FileSystemClient {
         description: Option<String>,
         file_type: Option<FileType>,
         upload_config: UploadConfig,
-        watcher: Option<ProductionWatcher>
+        watcher: Option<ProductionWatcher>,
     ) -> Result<(), FileSystemError> {
-
         for file in files {
-
             if !file.exists() {
                 return Err(FileSystemError::FileDoesNotExist(file.to_owned()));
             }
@@ -844,7 +883,10 @@ impl FileSystemClient {
             log::info!("Generating file hash with BLAKE3: {}", file.display());
             let file_hash = fast_file_hash(&file)?;
 
-            log::info!("Uploading file to SeaweedFS storage ({} access)", self.config.access);
+            log::info!(
+                "Uploading file to SeaweedFS storage ({} access)",
+                self.config.access
+            );
             let stored = self.store_object(
                 file,
                 run_id.as_deref(),
@@ -881,9 +923,7 @@ impl FileSystemClient {
             };
 
             log::info!("Registering file with Cerebro API");
-            self.api_client.register_file(
-                file_schema
-            )?;
+            self.api_client.register_file(file_schema)?;
         }
 
         Ok(())
@@ -896,10 +936,8 @@ impl FileSystemClient {
         upload_config: UploadConfig,
         watcher: ProductionWatcher,
     ) -> Result<Vec<FileId>, FileSystemError> {
-
         let mut file_identifiers = Vec::new();
         for (sample_id, files) in files {
-
             for file in files {
                 if !file.exists() {
                     return Err(FileSystemError::FileDoesNotExist(file.to_owned()));
@@ -908,7 +946,10 @@ impl FileSystemClient {
                 log::info!("Generating file hash with BLAKE3: {}", file.display());
                 let file_hash = fast_file_hash(&file)?;
 
-                log::info!("Uploading file to SeaweedFS storage ({} access)", self.config.access);
+                log::info!(
+                    "Uploading file to SeaweedFS storage ({} access)",
+                    self.config.access
+                );
                 let stored = self.store_object(
                     file,
                     Some(run_id.as_str()),
@@ -948,13 +989,10 @@ impl FileSystemClient {
                 log::debug!("{:#?}", file_schema);
 
                 log::info!("Registering file with Cerebro API");
-                self.api_client.register_file(
-                    file_schema
-                )?;
+                self.api_client.register_file(file_schema)?;
 
                 file_identifiers.push(file_id);
             }
-
         }
 
         Ok(file_identifiers)
@@ -963,9 +1001,11 @@ impl FileSystemClient {
 
 #[cfg(test)]
 mod tests {
-    use cerebro_model::api::files::retention::{ExpiryState, RestoreState, RetentionClass, StorageTier};
+    use cerebro_model::api::files::retention::{
+        ExpiryState, RestoreState, RetentionClass, StorageTier,
+    };
 
-use super::{build_remote_path, is_filer_path, sanitize_segment};
+    use super::{build_remote_path, is_filer_path, sanitize_segment};
 
     #[test]
     fn weed_fid_is_not_a_filer_path() {
@@ -1002,7 +1042,10 @@ use super::{build_remote_path, is_filer_path, sanitize_segment};
         assert_eq!(sanitize_segment("a/b"), "a_b");
     }
 
-    fn file_with(identifier: &str, archived: bool) -> cerebro_model::api::files::model::SeaweedFile {
+    fn file_with(
+        identifier: &str,
+        archived: bool,
+    ) -> cerebro_model::api::files::model::SeaweedFile {
         cerebro_model::api::files::model::SeaweedFile {
             id: "id".into(),
             date: "2025-01-01".into(),
@@ -1033,7 +1076,7 @@ use super::{build_remote_path, is_filer_path, sanitize_segment};
             restore_available_at: None,
             restore_expires_at: None,
             pending_since: None,
-            verified_at: None
+            verified_at: None,
         }
     }
 

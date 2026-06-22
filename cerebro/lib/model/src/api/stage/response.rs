@@ -6,42 +6,44 @@ use super::model::StagedSample;
 pub struct RegisterStagedSampleResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<String>>
+    pub data: Option<Vec<String>>,
 }
 impl RegisterStagedSampleResponse {
     pub fn success(ids: Vec<String>) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("Sample staged successfully"),
-            data: Some(ids)
+            data: Some(ids),
         }
     }
     pub fn conflict(ids: Vec<String>) -> Self {
         Self {
             status: String::from("fail"),
-            message: String::from("Staged sample with unique identifier already exists in database"),
-            data: Some(ids)
+            message: String::from(
+                "Staged sample with unique identifier already exists in database",
+            ),
+            data: Some(ids),
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database operation: {}", error_message),
-            data: None
+            data: None,
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("No staged samples entries found in database"),
-            data: None
+            data: None,
         }
     }
     pub fn tower_not_found(tower_id: String) -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("No registered tower found in database"),
-            data: Some(Vec::from([tower_id]))
+            data: Some(Vec::from([tower_id])),
         }
     }
 }
@@ -50,28 +52,28 @@ impl RegisterStagedSampleResponse {
 pub struct ListStagedSamplesResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<Vec<StagedSample>>
+    pub data: Option<Vec<StagedSample>>,
 }
 impl ListStagedSamplesResponse {
     pub fn success(samples: Vec<StagedSample>) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("Staged sample entries found in database"),
-            data: Some(samples)
+            data: Some(samples),
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("No staged samples entries found in database"),
-            data: None
+            data: None,
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }
@@ -80,35 +82,35 @@ impl ListStagedSamplesResponse {
 pub struct DeleteStagedSampleResponse {
     pub status: String,
     pub message: String,
-    pub data: Option<StagedSample>
+    pub data: Option<StagedSample>,
 }
 impl DeleteStagedSampleResponse {
     pub fn success(sample: StagedSample) -> Self {
         Self {
             status: String::from("success"),
             message: String::from("Staged sample entries deleted from database"),
-            data: Some(sample)
+            data: Some(sample),
         }
     }
     pub fn all_deleted() -> Self {
         Self {
             status: String::from("success"),
             message: String::from("All staged sample entries deleted from database"),
-            data: None
+            data: None,
         }
     }
     pub fn not_found() -> Self {
         Self {
             status: String::from("fail"),
             message: String::from("No staged sample entries found in database"),
-            data: None
+            data: None,
         }
     }
     pub fn server_error(error_message: String) -> Self {
         Self {
             status: String::from("error"),
             message: format!("Error in database query: {}", error_message),
-            data: None
+            data: None,
         }
     }
 }

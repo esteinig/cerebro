@@ -90,7 +90,11 @@ fn env_or_file(key: &str) -> Option<String> {
     match std::fs::read_to_string(&path) {
         Ok(s) => {
             let s = s.trim().to_string();
-            if s.is_empty() { None } else { Some(s) }
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
         }
         Err(e) => {
             tracing::warn!(%path, "failed to read secret file for {key}: {e}");
@@ -104,7 +108,10 @@ fn env_or(key: &str, default: &str) -> String {
 }
 
 fn env_bool(key: &str) -> bool {
-    matches!(env_opt(key).as_deref(), Some("true") | Some("1") | Some("yes"))
+    matches!(
+        env_opt(key).as_deref(),
+        Some("true") | Some("1") | Some("yes")
+    )
 }
 
 impl WorkerConfig {
@@ -141,7 +148,11 @@ impl WorkerConfig {
             fs_filer_url: env_or("CEREBRO_FS_FILER_URL", "http://localhost:8888"),
             fs_access: access,
 
-            queues: if queues.is_empty() { vec!["default".to_string()] } else { queues },
+            queues: if queues.is_empty() {
+                vec!["default".to_string()]
+            } else {
+                queues
+            },
             metrics_addr: env_or("CEREBRO_WORKER_METRICS_ADDR", "0.0.0.0:9464"),
             verify_on_move: env_bool("CEREBRO_WORKER_VERIFY_ON_MOVE"),
             restore_simulate_seconds: env_opt("CEREBRO_RESTORE_SIMULATE_SECONDS")
@@ -252,10 +263,16 @@ impl ArchiveSettings {
     /// extra prefix.
     pub fn open_store(&self) -> anyhow::Result<Box<dyn crate::backup::ObjectStore>> {
         match &self.backend {
-            ArchiveBackend::Filesystem { root } => {
-                Ok(Box::new(crate::backup::FilesystemObjectStore::new(root.clone())))
-            }
-            ArchiveBackend::S3 { endpoint, region, bucket, access_key, secret_key } => {
+            ArchiveBackend::Filesystem { root } => Ok(Box::new(
+                crate::backup::FilesystemObjectStore::new(root.clone()),
+            )),
+            ArchiveBackend::S3 {
+                endpoint,
+                region,
+                bucket,
+                access_key,
+                secret_key,
+            } => {
                 #[cfg(feature = "s3")]
                 {
                     let store = crate::backup::S3ObjectStore::new(

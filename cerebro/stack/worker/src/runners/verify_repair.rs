@@ -45,7 +45,11 @@ pub struct VerifyRepair {
 
 impl VerifyRepair {
     pub fn new(ctx: Arc<WorkerContext>, metrics: Metrics, report_sink: Option<PathBuf>) -> Self {
-        Self { ctx, metrics, report_sink }
+        Self {
+            ctx,
+            metrics,
+            report_sink,
+        }
     }
 
     async fn run_inner(&self, _job: Job) -> anyhow::Result<()> {
@@ -63,15 +67,20 @@ impl VerifyRepair {
             .ctx
             .run_blocking(move || {
                 let store = FilesystemObjectStore::new(root);
-                let mut keys = store.list("reconcile/").map_err(|e| WorkerError::Other(e.to_string()))?;
+                let mut keys = store
+                    .list("reconcile/")
+                    .map_err(|e| WorkerError::Other(e.to_string()))?;
                 keys.sort();
                 let latest = match keys.last() {
                     Some(k) => k.clone(),
                     None => return Ok::<Option<(String, ReconcileReport)>, WorkerError>(None),
                 };
-                let bytes = store.get(&latest).map_err(|e| WorkerError::Other(e.to_string()))?;
-                let report: ReconcileReport = serde_json::from_slice(&bytes)
-                    .map_err(|e| WorkerError::Other(format!("parse reconcile report {latest}: {e}")))?;
+                let bytes = store
+                    .get(&latest)
+                    .map_err(|e| WorkerError::Other(e.to_string()))?;
+                let report: ReconcileReport = serde_json::from_slice(&bytes).map_err(|e| {
+                    WorkerError::Other(format!("parse reconcile report {latest}: {e}"))
+                })?;
                 Ok(Some((latest, report)))
             })
             .await?;
@@ -147,7 +156,10 @@ impl VerifyRepair {
         let api = api.clone();
         let id = id.to_string();
         self.ctx
-            .run_blocking(move || api.get_file(&id).map_err(|e| WorkerError::Api(e.to_string())))
+            .run_blocking(move || {
+                api.get_file(&id)
+                    .map_err(|e| WorkerError::Api(e.to_string()))
+            })
             .await
     }
 
@@ -155,7 +167,10 @@ impl VerifyRepair {
         let fs = fs.clone();
         let fid = fid.to_string();
         self.ctx
-            .run_blocking(move || fs.object_exists(&fid).map_err(|e| WorkerError::Other(e.to_string())))
+            .run_blocking(move || {
+                fs.object_exists(&fid)
+                    .map_err(|e| WorkerError::Other(e.to_string()))
+            })
             .await
     }
 }

@@ -92,12 +92,24 @@ pub struct TelemetryEvent {
 impl TelemetryEvent {
     /// An event with no secondary dimension.
     pub fn new(op: TelemetryOp, outcome: TelemetryOutcome) -> Self {
-        Self { op, outcome, detail: None }
+        Self {
+            op,
+            outcome,
+            detail: None,
+        }
     }
 
     /// An event with a bounded `detail` dimension.
-    pub fn with_detail(op: TelemetryOp, outcome: TelemetryOutcome, detail: impl Into<String>) -> Self {
-        Self { op, outcome, detail: Some(detail.into()) }
+    pub fn with_detail(
+        op: TelemetryOp,
+        outcome: TelemetryOutcome,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            op,
+            outcome,
+            detail: Some(detail.into()),
+        }
     }
 
     /// Convenience: a `Success` event.
@@ -137,7 +149,8 @@ mod tests {
 
     #[test]
     fn constructors_set_fields() {
-        let e = TelemetryEvent::with_detail(TelemetryOp::TierMove, TelemetryOutcome::Success, "warm");
+        let e =
+            TelemetryEvent::with_detail(TelemetryOp::TierMove, TelemetryOutcome::Success, "warm");
         assert_eq!(e.op_str(), "tier_move");
         assert_eq!(e.outcome_str(), "success");
         assert_eq!(e.detail.as_deref(), Some("warm"));

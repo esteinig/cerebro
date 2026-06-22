@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
-#[cfg(any(feature = "cli", feature = "lib"))]
-use uuid::Uuid;
-#[cfg(any(feature = "cli", feature = "lib"))]
-use std::path::Path;
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
+#[cfg(any(feature = "cli", feature = "lib"))]
+use std::path::Path;
+#[cfg(any(feature = "cli", feature = "lib"))]
+use uuid::Uuid;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
@@ -14,33 +14,30 @@ use wasm_bindgen::JsValue;
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum ReportType {
     PathogenDetection,
-    TrainingCompletion
+    TrainingCompletion,
 }
-
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum ReportFormat {
     Pdf,
     Svg,
-    Typst
+    Typst,
 }
-
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum TemplateFormat {
     Json,
-    Toml
+    Toml,
 }
-
 
 #[cfg(target_arch = "wasm32")]
 impl ReportType {
     pub fn to_string(&self) -> String {
         match self {
             ReportType::PathogenDetection => String::from("PathogenDetection"),
-            ReportType::TrainingCompletion => String::from("TrainingCompletion")
+            ReportType::TrainingCompletion => String::from("TrainingCompletion"),
         }
     }
 }
@@ -49,7 +46,9 @@ impl ReportType {
 
 pub trait ReportConfig {
     #[cfg(target_arch = "wasm32")]
-    fn from_js(config: JsValue) -> Result<Self, JsValue> where Self: Sized;
+    fn from_js(config: JsValue) -> Result<Self, JsValue>
+    where
+        Self: Sized;
 
     fn build_context(&self, context: &mut Context, logo_width: Option<String>);
 }
@@ -80,9 +79,8 @@ pub struct PatientResult {
     pub orthogonal_tests: String,
     pub clinical_notes: String,
     pub contact_name: String,
-    pub contact_email: String
+    pub contact_email: String,
 }
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReportAuthorisation {
@@ -96,7 +94,7 @@ impl Default for ReportAuthorisation {
         Self {
             laboratory: String::new(),
             identifier: String::new(),
-            signatures: vec![AuthorisationSignature::default()]
+            signatures: vec![AuthorisationSignature::default()],
         }
     }
     #[cfg(any(feature = "cli", feature = "lib"))]
@@ -104,7 +102,7 @@ impl Default for ReportAuthorisation {
         Self {
             laboratory: String::new(),
             identifier: Uuid::new_v4().to_string(),
-            signatures: vec![AuthorisationSignature::default()]
+            signatures: vec![AuthorisationSignature::default()],
         }
     }
 }
@@ -113,18 +111,16 @@ impl Default for ReportAuthorisation {
 pub struct AuthorisationSignature {
     pub name: String,
     pub position: String,
-    pub institution: String
+    pub institution: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReportHeader {
-    pub logo_enabled: bool
+    pub logo_enabled: bool,
 }
 impl Default for ReportHeader {
     fn default() -> Self {
-        Self {
-            logo_enabled: true
-        }
+        Self { logo_enabled: true }
     }
 }
 
@@ -137,17 +133,15 @@ pub struct ReportFooter {
 pub struct ReportLegal {
     pub disclosure: String,
     pub liability: String,
-    pub disclaimer: String
+    pub disclaimer: String,
 }
-
-
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct AppendixLaboratory {
     pub enabled: bool,
     pub description: String,
     pub comments: String,
-    pub header: LaboratoryHeader
+    pub header: LaboratoryHeader,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -193,12 +187,10 @@ pub struct BioinformaticsHeader {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub struct BioinformaticsLibraries {
-}
+pub struct BioinformaticsLibraries {}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub struct BioinformaticsEvidence {
-}
+pub struct BioinformaticsEvidence {}
 
 // Reports
 
@@ -211,7 +203,7 @@ pub struct PathogenDetectionReport {
     pub patient_header: PatientHeader,
     pub patient_result: PatientResult,
     pub appendix_laboratory: AppendixLaboratory,
-    pub appendix_bioinformatics: AppendixBioinformatics
+    pub appendix_bioinformatics: AppendixBioinformatics,
 }
 
 impl Default for PathogenDetectionReport {
@@ -224,18 +216,17 @@ impl Default for PathogenDetectionReport {
             patient_header: PatientHeader::default(),
             patient_result: PatientResult::default(),
             appendix_laboratory: AppendixLaboratory::default(),
-            appendix_bioinformatics: AppendixBioinformatics::default()
+            appendix_bioinformatics: AppendixBioinformatics::default(),
         }
     }
 }
-
 
 #[cfg(any(feature = "cli", feature = "lib"))]
 impl TrainingCompletionReport {
     pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
         let json_str = serde_json::to_string_pretty(self)
             .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
-        
+
         std::fs::write(path, json_str)
             .map_err(|e| anyhow::anyhow!("failed to write JSON to file: {}", e))
     }
@@ -266,17 +257,13 @@ impl TrainingCompletionReport {
     }
 }
 
-
 impl ReportConfig for PathogenDetectionReport {
-
     #[cfg(target_arch = "wasm32")]
     fn from_js(config: JsValue) -> Result<Self, JsValue> {
-        Ok(serde_wasm_bindgen::from_value(config).map_err(|e| {
-            JsValue::from(format!("Failed to deserialize config: {}", e))
-        })?)
+        Ok(serde_wasm_bindgen::from_value(config)
+            .map_err(|e| JsValue::from(format!("Failed to deserialize config: {}", e)))?)
     }
     fn build_context(&self, context: &mut Context, logo_width: Option<String>) {
-        
         context.insert("report_header_logo_enabled", &self.header.logo_enabled);
 
         if let Some(logo_width) = logo_width {
@@ -286,80 +273,249 @@ impl ReportConfig for PathogenDetectionReport {
         }
 
         context.insert("report_footer_patient_id", &self.patient_header.patient_urn);
-        context.insert("report_footer_date_collected", &self.patient_header.date_collected);
-        context.insert("report_footer_date_reported", &self.patient_header.reporting_date);
-        context.insert("report_footer_reporting_location", &self.footer.reporting_location);
+        context.insert(
+            "report_footer_date_collected",
+            &self.patient_header.date_collected,
+        );
+        context.insert(
+            "report_footer_date_reported",
+            &self.patient_header.reporting_date,
+        );
+        context.insert(
+            "report_footer_reporting_location",
+            &self.footer.reporting_location,
+        );
 
-        context.insert("patient_header_patient_name", &self.patient_header.patient_name);
-        context.insert("patient_header_patient_dob", &self.patient_header.patient_dob);
-        context.insert("patient_header_patient_urn", &self.patient_header.patient_urn);
-        context.insert("patient_header_requested_doctor", &self.patient_header.requested_doctor);
-        context.insert("patient_header_hospital_site", &self.patient_header.hospital_site);
-        context.insert("patient_header_laboratory_number", &self.patient_header.laboratory_number);
-        context.insert("patient_header_specimen_id", &self.patient_header.specimen_id);
-        context.insert("patient_header_date_collected", &self.patient_header.date_collected);
-        context.insert("patient_header_date_received", &self.patient_header.date_received);
-        context.insert("patient_header_specimen_type", &self.patient_header.specimen_type);
-        context.insert("patient_header_reporting_laboratory", &self.patient_header.reporting_laboratory);
-        context.insert("patient_header_reporting_date", &self.patient_header.reporting_date);
+        context.insert(
+            "patient_header_patient_name",
+            &self.patient_header.patient_name,
+        );
+        context.insert(
+            "patient_header_patient_dob",
+            &self.patient_header.patient_dob,
+        );
+        context.insert(
+            "patient_header_patient_urn",
+            &self.patient_header.patient_urn,
+        );
+        context.insert(
+            "patient_header_requested_doctor",
+            &self.patient_header.requested_doctor,
+        );
+        context.insert(
+            "patient_header_hospital_site",
+            &self.patient_header.hospital_site,
+        );
+        context.insert(
+            "patient_header_laboratory_number",
+            &self.patient_header.laboratory_number,
+        );
+        context.insert(
+            "patient_header_specimen_id",
+            &self.patient_header.specimen_id,
+        );
+        context.insert(
+            "patient_header_date_collected",
+            &self.patient_header.date_collected,
+        );
+        context.insert(
+            "patient_header_date_received",
+            &self.patient_header.date_received,
+        );
+        context.insert(
+            "patient_header_specimen_type",
+            &self.patient_header.specimen_type,
+        );
+        context.insert(
+            "patient_header_reporting_laboratory",
+            &self.patient_header.reporting_laboratory,
+        );
+        context.insert(
+            "patient_header_reporting_date",
+            &self.patient_header.reporting_date,
+        );
 
-        context.insert("patient_result_pathogen_detected", &self.patient_result.pathogen_detected);
-        context.insert("patient_result_pathogen_reported", &self.patient_result.pathogen_reported);
-        context.insert("patient_result_review_date", &self.patient_result.review_date);
+        context.insert(
+            "patient_result_pathogen_detected",
+            &self.patient_result.pathogen_detected,
+        );
+        context.insert(
+            "patient_result_pathogen_reported",
+            &self.patient_result.pathogen_reported,
+        );
+        context.insert(
+            "patient_result_review_date",
+            &self.patient_result.review_date,
+        );
         context.insert("patient_result_comments", &self.patient_result.comments);
-        context.insert("patient_result_orthogonal_tests", &self.patient_result.orthogonal_tests);
-        context.insert("patient_result_clinical_notes", &self.patient_result.clinical_notes);
+        context.insert(
+            "patient_result_orthogonal_tests",
+            &self.patient_result.orthogonal_tests,
+        );
+        context.insert(
+            "patient_result_clinical_notes",
+            &self.patient_result.clinical_notes,
+        );
         context.insert("patient_result_actions", &self.patient_result.actions);
-        context.insert("patient_result_contact_name", &self.patient_result.contact_name);
-        context.insert("patient_result_contact_email", &self.patient_result.contact_email);
+        context.insert(
+            "patient_result_contact_name",
+            &self.patient_result.contact_name,
+        );
+        context.insert(
+            "patient_result_contact_email",
+            &self.patient_result.contact_email,
+        );
 
         context.insert("report_legal_disclaimer", &self.legal.disclaimer);
         context.insert("report_legal_disclosure", &self.legal.disclosure);
         context.insert("report_legal_liability", &self.legal.liability);
 
-        context.insert("report_authorisation_signatures", &self.authorisation.signatures);
-        context.insert("report_authorisation_laboratory", &self.authorisation.laboratory);
-        context.insert("report_authorisation_identifier", &self.authorisation.identifier);
+        context.insert(
+            "report_authorisation_signatures",
+            &self.authorisation.signatures,
+        );
+        context.insert(
+            "report_authorisation_laboratory",
+            &self.authorisation.laboratory,
+        );
+        context.insert(
+            "report_authorisation_identifier",
+            &self.authorisation.identifier,
+        );
 
-        context.insert("appendix_laboratory_enabled", &self.appendix_laboratory.enabled);
-        context.insert("appendix_laboratory_description", &self.appendix_laboratory.description);
-        context.insert("appendix_laboratory_comments", &self.appendix_laboratory.comments);
+        context.insert(
+            "appendix_laboratory_enabled",
+            &self.appendix_laboratory.enabled,
+        );
+        context.insert(
+            "appendix_laboratory_description",
+            &self.appendix_laboratory.description,
+        );
+        context.insert(
+            "appendix_laboratory_comments",
+            &self.appendix_laboratory.comments,
+        );
 
-        context.insert("appendix_laboratory_header_protocol", &self.appendix_laboratory.header.protocol);
-        context.insert("appendix_laboratory_header_sample_id", &self.appendix_laboratory.header.sample_id);
-        context.insert("appendix_laboratory_header_version", &self.appendix_laboratory.header.version);
-        context.insert("appendix_laboratory_header_run_id", &self.appendix_laboratory.header.run_id);
-        context.insert("appendix_laboratory_header_extraction", &self.appendix_laboratory.header.extraction);
-        context.insert("appendix_laboratory_header_extraction_control", &self.appendix_laboratory.header.extraction_control);
-        context.insert("appendix_laboratory_header_rna_depletion", &self.appendix_laboratory.header.rna_depletion);
-        context.insert("appendix_laboratory_header_library_control", &self.appendix_laboratory.header.library_control);
-        context.insert("appendix_laboratory_header_adapter", &self.appendix_laboratory.header.adapter);
-        context.insert("appendix_laboratory_header_sequencing_control", &self.appendix_laboratory.header.sequencing_control);
-        context.insert("appendix_laboratory_header_library", &self.appendix_laboratory.header.library);
-        context.insert("appendix_laboratory_header_negative_control", &self.appendix_laboratory.header.negative_control);
-        context.insert("appendix_laboratory_header_sequencer", &self.appendix_laboratory.header.sequencer);
-        context.insert("appendix_laboratory_header_positive_control", &self.appendix_laboratory.header.positive_control);
+        context.insert(
+            "appendix_laboratory_header_protocol",
+            &self.appendix_laboratory.header.protocol,
+        );
+        context.insert(
+            "appendix_laboratory_header_sample_id",
+            &self.appendix_laboratory.header.sample_id,
+        );
+        context.insert(
+            "appendix_laboratory_header_version",
+            &self.appendix_laboratory.header.version,
+        );
+        context.insert(
+            "appendix_laboratory_header_run_id",
+            &self.appendix_laboratory.header.run_id,
+        );
+        context.insert(
+            "appendix_laboratory_header_extraction",
+            &self.appendix_laboratory.header.extraction,
+        );
+        context.insert(
+            "appendix_laboratory_header_extraction_control",
+            &self.appendix_laboratory.header.extraction_control,
+        );
+        context.insert(
+            "appendix_laboratory_header_rna_depletion",
+            &self.appendix_laboratory.header.rna_depletion,
+        );
+        context.insert(
+            "appendix_laboratory_header_library_control",
+            &self.appendix_laboratory.header.library_control,
+        );
+        context.insert(
+            "appendix_laboratory_header_adapter",
+            &self.appendix_laboratory.header.adapter,
+        );
+        context.insert(
+            "appendix_laboratory_header_sequencing_control",
+            &self.appendix_laboratory.header.sequencing_control,
+        );
+        context.insert(
+            "appendix_laboratory_header_library",
+            &self.appendix_laboratory.header.library,
+        );
+        context.insert(
+            "appendix_laboratory_header_negative_control",
+            &self.appendix_laboratory.header.negative_control,
+        );
+        context.insert(
+            "appendix_laboratory_header_sequencer",
+            &self.appendix_laboratory.header.sequencer,
+        );
+        context.insert(
+            "appendix_laboratory_header_positive_control",
+            &self.appendix_laboratory.header.positive_control,
+        );
 
-        context.insert("appendix_bioinformatics_enabled", &self.appendix_bioinformatics.enabled);
-        context.insert("appendix_bioinformatics_description", &self.appendix_bioinformatics.description);
-        context.insert("appendix_bioinformatics_comments", &self.appendix_bioinformatics.comments);
-        context.insert("appendix_bioinformatics_libraries", &self.appendix_bioinformatics.libraries);
-        context.insert("appendix_bioinformatics_evidence", &self.appendix_bioinformatics.evidence);
+        context.insert(
+            "appendix_bioinformatics_enabled",
+            &self.appendix_bioinformatics.enabled,
+        );
+        context.insert(
+            "appendix_bioinformatics_description",
+            &self.appendix_bioinformatics.description,
+        );
+        context.insert(
+            "appendix_bioinformatics_comments",
+            &self.appendix_bioinformatics.comments,
+        );
+        context.insert(
+            "appendix_bioinformatics_libraries",
+            &self.appendix_bioinformatics.libraries,
+        );
+        context.insert(
+            "appendix_bioinformatics_evidence",
+            &self.appendix_bioinformatics.evidence,
+        );
 
-        context.insert("appendix_bioinformatics_header_pipeline", &self.appendix_bioinformatics.header.pipeline);
-        context.insert("appendix_bioinformatics_header_version", &self.appendix_bioinformatics.header.version);
-        context.insert("appendix_bioinformatics_header_pipeline_id", &self.appendix_bioinformatics.header.pipeline_id);
-        context.insert("appendix_bioinformatics_header_configuration", &self.appendix_bioinformatics.header.configuration);
-        context.insert("appendix_bioinformatics_header_started", &self.appendix_bioinformatics.header.started);
-        context.insert("appendix_bioinformatics_header_completed", &self.appendix_bioinformatics.header.completed);
-        context.insert("appendix_bioinformatics_header_sample_id", &self.appendix_bioinformatics.header.sample_id);
-        context.insert("appendix_bioinformatics_header_libraries", &self.appendix_bioinformatics.header.libraries);
-        context.insert("appendix_bioinformatics_header_databases", &self.appendix_bioinformatics.header.databases);
-        context.insert("appendix_bioinformatics_header_taxonomy", &self.appendix_bioinformatics.header.taxonomy);
-
+        context.insert(
+            "appendix_bioinformatics_header_pipeline",
+            &self.appendix_bioinformatics.header.pipeline,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_version",
+            &self.appendix_bioinformatics.header.version,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_pipeline_id",
+            &self.appendix_bioinformatics.header.pipeline_id,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_configuration",
+            &self.appendix_bioinformatics.header.configuration,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_started",
+            &self.appendix_bioinformatics.header.started,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_completed",
+            &self.appendix_bioinformatics.header.completed,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_sample_id",
+            &self.appendix_bioinformatics.header.sample_id,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_libraries",
+            &self.appendix_bioinformatics.header.libraries,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_databases",
+            &self.appendix_bioinformatics.header.databases,
+        );
+        context.insert(
+            "appendix_bioinformatics_header_taxonomy",
+            &self.appendix_bioinformatics.header.taxonomy,
+        );
     }
 }
-
 
 // Certificate
 
@@ -386,17 +542,13 @@ impl Default for TrainingCompletionReport {
     }
 }
 
-
 impl ReportConfig for TrainingCompletionReport {
-
     #[cfg(target_arch = "wasm32")]
     fn from_js(config: JsValue) -> Result<Self, JsValue> {
-        Ok(serde_wasm_bindgen::from_value(config).map_err(|e| {
-            JsValue::from(format!("Failed to deserialize config: {}", e))
-        })?)
+        Ok(serde_wasm_bindgen::from_value(config)
+            .map_err(|e| JsValue::from(format!("Failed to deserialize config: {}", e)))?)
     }
     fn build_context(&self, context: &mut Context, logo_width: Option<String>) {
-        
         if let Some(logo_width) = logo_width {
             context.insert("logo_width", &logo_width);
         } else {
@@ -405,12 +557,12 @@ impl ReportConfig for TrainingCompletionReport {
 
         let sensitivity = match self.sensitivity {
             Some(v) => format!("{v:.1}%"),
-            None => format!("N/A")
+            None => format!("N/A"),
         };
 
         let specificity = match self.specificity {
             Some(v) => format!("{v:.1}%"),
-            None => format!("N/A")
+            None => format!("N/A"),
         };
 
         context.insert("recipient", &self.recipient);
@@ -419,17 +571,15 @@ impl ReportConfig for TrainingCompletionReport {
         context.insert("dataset", &self.dataset);
         context.insert("sensitivity", &sensitivity);
         context.insert("specificity", &specificity);
-
     }
 }
-
 
 #[cfg(any(feature = "cli", feature = "lib"))]
 impl PathogenDetectionReport {
     pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
         let json_str = serde_json::to_string_pretty(self)
             .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
-        
+
         std::fs::write(path, json_str)
             .map_err(|e| anyhow::anyhow!("failed to write JSON to file: {}", e))
     }
@@ -460,13 +610,10 @@ impl PathogenDetectionReport {
     }
 }
 
-
 impl ReportType {
-
     #[cfg(target_arch = "wasm32")]
     // Parse the result type from a string provided through interface (WASM)
     pub fn from_str(report_type: &str) -> Result<Self, JsValue> {
-
         // Parse the report type
         match report_type {
             "PathogenDetection" => Ok(ReportType::PathogenDetection),
@@ -489,7 +636,6 @@ impl ReportType {
     }
 }
 
-
 /// Struct to manage templates
 pub struct TemplateManager {
     tera: Tera,
@@ -498,7 +644,6 @@ pub struct TemplateManager {
 impl TemplateManager {
     /// Initialize the manager with all available templates
     pub fn new() -> Self {
-
         let mut tera = Tera::default();
 
         // Add templates
@@ -522,11 +667,11 @@ impl TemplateManager {
         &self,
         report_type: &ReportType,
         report_config: &dyn ReportConfig,
-        logo_width: Option<String>
+        logo_width: Option<String>,
     ) -> Result<String, tera::Error> {
         self.tera.render(
-            report_type.template_name(), 
-            &report_type.context(report_config, logo_width)
+            report_type.template_name(),
+            &report_type.context(report_config, logo_width),
         )
     }
 }

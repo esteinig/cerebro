@@ -69,7 +69,12 @@ impl VerifyReport {
     pub fn failed_count(&self) -> usize {
         self.outcomes
             .iter()
-            .filter(|o| matches!(o.status, VerifyStatus::Mismatch { .. } | VerifyStatus::Missing))
+            .filter(|o| {
+                matches!(
+                    o.status,
+                    VerifyStatus::Mismatch { .. } | VerifyStatus::Missing
+                )
+            })
             .count()
     }
     /// True when no file failed verification.
@@ -165,7 +170,9 @@ impl FileSystemClient {
     ) -> Result<VerifyReport, FileSystemError> {
         let run_id = run_id.ok_or(FileSystemError::InvalidDownloadQuery)?;
 
-        let files = self.api_client.list_files(Some(run_id), None, 0, 100_000, false)?;
+        let files = self
+            .api_client
+            .list_files(Some(run_id), None, 0, 100_000, false)?;
         let files: Vec<SeaweedFile> = match &sample_id {
             Some(sid) => files
                 .into_iter()
@@ -228,11 +235,17 @@ impl FileSystemClient {
         {
             return Ok(VerifyStatus::Missing);
         }
-        let local = if target.exists() { target.clone() } else { tmp.join(&file.name) };
+        let local = if target.exists() {
+            target.clone()
+        } else {
+            tmp.join(&file.name)
+        };
 
         match verify_file(&local, &file.hash) {
             Ok(()) => Ok(VerifyStatus::Verified),
-            Err(FileSystemError::IntegrityMismatch { expected, actual, .. }) => {
+            Err(FileSystemError::IntegrityMismatch {
+                expected, actual, ..
+            }) => {
                 if !repair {
                     return Ok(VerifyStatus::Mismatch { expected, actual });
                 }
@@ -240,7 +253,10 @@ impl FileSystemClient {
                 let locations = self.lookup_locations(&file.fid).unwrap_or_default();
                 for location in &locations {
                     let _ = std::fs::remove_file(&local);
-                    if self.download_from_volume(location, &file.fid, &local).is_err() {
+                    if self
+                        .download_from_volume(location, &file.fid, &local)
+                        .is_err()
+                    {
                         continue;
                     }
                     if let Ok(actual) = fast_file_hash(&local) {
@@ -281,10 +297,33 @@ mod tests {
     fn report_counts_and_ok() {
         let report = VerifyReport {
             outcomes: vec![
-                VerifyOutcome { identifier: "a".into(), name: "a".into(), replicas: Some(2), status: VerifyStatus::Verified },
-                VerifyOutcome { identifier: "b".into(), name: "b".into(), replicas: Some(2), status: VerifyStatus::Repaired },
-                VerifyOutcome { identifier: "c".into(), name: "c".into(), replicas: Some(1), status: VerifyStatus::Mismatch { expected: "x".into(), actual: "y".into() } },
-                VerifyOutcome { identifier: "d".into(), name: "d".into(), replicas: None, status: VerifyStatus::Skipped("archived".into()) },
+                VerifyOutcome {
+                    identifier: "a".into(),
+                    name: "a".into(),
+                    replicas: Some(2),
+                    status: VerifyStatus::Verified,
+                },
+                VerifyOutcome {
+                    identifier: "b".into(),
+                    name: "b".into(),
+                    replicas: Some(2),
+                    status: VerifyStatus::Repaired,
+                },
+                VerifyOutcome {
+                    identifier: "c".into(),
+                    name: "c".into(),
+                    replicas: Some(1),
+                    status: VerifyStatus::Mismatch {
+                        expected: "x".into(),
+                        actual: "y".into(),
+                    },
+                },
+                VerifyOutcome {
+                    identifier: "d".into(),
+                    name: "d".into(),
+                    replicas: None,
+                    status: VerifyStatus::Skipped("archived".into()),
+                },
             ],
         };
         assert_eq!(report.ok_count(), 2);

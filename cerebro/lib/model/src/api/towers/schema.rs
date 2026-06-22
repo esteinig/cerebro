@@ -1,6 +1,10 @@
-use std::{fs::File, path::PathBuf, io::{Write, Read}};
-use serde::{Serialize, Deserialize};
 use crate::api::cerebro::model::ModelError;
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 use super::model::Pipeline;
 
@@ -19,12 +23,15 @@ pub struct RegisterTowerSchema {
 }
 impl RegisterTowerSchema {
     pub fn new(name: &str, location: &str, pipelines: Option<Vec<Pipeline>>) -> Self {
-        
         let date = chrono::Utc::now().to_string();
 
         let pipelines = match pipelines {
             Some(pipelines) => pipelines,
-            None => Vec::from([Pipeline::PanviralEnrichment, Pipeline::PathogenDetection, Pipeline::CultureIdentification])
+            None => Vec::from([
+                Pipeline::PanviralEnrichment,
+                Pipeline::PathogenDetection,
+                Pipeline::CultureIdentification,
+            ]),
         };
 
         Self {
@@ -34,7 +41,7 @@ impl RegisterTowerSchema {
             location: location.to_string(),
             last_ping: date,
             pipelines,
-            stage: uuid::Uuid::new_v4().to_string()
+            stage: uuid::Uuid::new_v4().to_string(),
         }
     }
     pub fn from_json(path: &PathBuf) -> Result<Self, ModelError> {
@@ -45,7 +52,8 @@ impl RegisterTowerSchema {
         Ok(schema)
     }
     pub fn to_json(&self, path: &PathBuf) -> Result<(), ModelError> {
-        let json_data = serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
+        let json_data =
+            serde_json::to_string_pretty(&self).map_err(ModelError::JsonSerialization)?;
         let mut file = File::create(path)?;
         file.write_all(json_data.as_bytes())?;
 

@@ -1,13 +1,17 @@
-use std::collections::HashMap;
-use statrs::distribution::{Binomial, ChiSquared, Discrete, ContinuousCDF};
 use crate::plate::{DiagnosticOutcome, DiagnosticReview};
+use statrs::distribution::{Binomial, ChiSquared, ContinuousCDF, Discrete};
+use std::collections::HashMap;
 
 #[derive(Debug, clap::ValueEnum, Clone, Copy)]
-pub enum AdjMethod { Bonferroni, Holm, BenjaminiHochberg }
+pub enum AdjMethod {
+    Bonferroni,
+    Holm,
+    BenjaminiHochberg,
+}
 
 #[derive(Debug, Clone)]
 pub struct McNemarBatchRow {
-    pub id: String,           // filename or ablation ID
+    pub id: String, // filename or ablation ID
     pub result: McNemarResult,
     pub p_raw: f64,
     pub p_adj: f64,
@@ -19,10 +23,18 @@ pub fn mcnemar_batch_adjust(
     method: AdjMethod,
 ) -> Vec<McNemarBatchRow> {
     // raw p-values
-    let mut rows: Vec<McNemarBatchRow> = labeled_reviews.into_iter().map(|(id, revs)| {
-        let r = mcnemar_from_reviews(baseline_reviews, &revs);
-        McNemarBatchRow { id, p_raw: r.p_value, p_adj: r.p_value, result: r }
-    }).collect();
+    let mut rows: Vec<McNemarBatchRow> = labeled_reviews
+        .into_iter()
+        .map(|(id, revs)| {
+            let r = mcnemar_from_reviews(baseline_reviews, &revs);
+            McNemarBatchRow {
+                id,
+                p_raw: r.p_value,
+                p_adj: r.p_value,
+                result: r,
+            }
+        })
+        .collect();
 
     // adjust
     let pvals: Vec<f64> = rows.iter().map(|r| r.p_raw).collect();
@@ -31,7 +43,9 @@ pub fn mcnemar_batch_adjust(
         AdjMethod::Holm => adjust_holm(&pvals),
         AdjMethod::BenjaminiHochberg => adjust_bh(&pvals),
     };
-    for (row, p) in rows.iter_mut().zip(padj) { row.p_adj = p.min(1.0); }
+    for (row, p) in rows.iter_mut().zip(padj) {
+        row.p_adj = p.min(1.0);
+    }
     rows
 }
 
@@ -72,7 +86,9 @@ fn adjust_bh(p: &[f64]) -> Vec<f64> {
     }
     // map back
     let mut out = vec![0.0; m];
-    for (rank, &i) in idx.iter().enumerate() { out[i] = adj_sorted[rank]; }
+    for (rank, &i) in idx.iter().enumerate() {
+        out[i] = adj_sorted[rank];
+    }
     out
 }
 
@@ -89,7 +105,6 @@ impl HasSampleOutcome for DiagnosticReview {
         &self.outcome
     }
 }
-
 
 pub fn mcnemar_from_reviews<T: HasSampleOutcome, U: HasSampleOutcome>(
     reviews_a: &[T],
@@ -209,7 +224,7 @@ mod tests {
 
     struct DiagnosticReviewTest {
         sample_id: String,
-        outcome: DiagnosticOutcome
+        outcome: DiagnosticOutcome,
     }
 
     impl HasSampleOutcome for DiagnosticReviewTest {
@@ -226,7 +241,7 @@ mod tests {
         let reviews_a = vec![
             DiagnosticReviewTest {
                 sample_id: "s1".into(),
-                outcome: DiagnosticOutcome::TruePositive,  // correct
+                outcome: DiagnosticOutcome::TruePositive, // correct
             },
             DiagnosticReviewTest {
                 sample_id: "s2".into(),
@@ -234,18 +249,18 @@ mod tests {
             },
             DiagnosticReviewTest {
                 sample_id: "s3".into(),
-                outcome: DiagnosticOutcome::TrueNegative,  // correct
+                outcome: DiagnosticOutcome::TrueNegative, // correct
             },
             DiagnosticReviewTest {
                 sample_id: "s4".into(),
-                outcome: DiagnosticOutcome::TruePositive,  // correct
+                outcome: DiagnosticOutcome::TruePositive, // correct
             },
         ];
 
         let reviews_b = vec![
             DiagnosticReviewTest {
                 sample_id: "s1".into(),
-                outcome: DiagnosticOutcome::TruePositive,  // correct
+                outcome: DiagnosticOutcome::TruePositive, // correct
             },
             DiagnosticReviewTest {
                 sample_id: "s2".into(),
@@ -257,7 +272,7 @@ mod tests {
             },
             DiagnosticReviewTest {
                 sample_id: "s4".into(),
-                outcome: DiagnosticOutcome::TruePositive,  // correct
+                outcome: DiagnosticOutcome::TruePositive, // correct
             },
         ];
 
@@ -274,22 +289,22 @@ mod tests {
         let reviews_a = vec![
             DiagnosticReviewTest {
                 sample_id: "x1".into(),
-                outcome: DiagnosticOutcome::TruePositive,  // correct
+                outcome: DiagnosticOutcome::TruePositive, // correct
             },
             DiagnosticReviewTest {
                 sample_id: "x2".into(),
-                outcome: DiagnosticOutcome::TrueNegative,  // correct
+                outcome: DiagnosticOutcome::TrueNegative, // correct
             },
         ];
 
         let reviews_b = vec![
             DiagnosticReviewTest {
                 sample_id: "x1".into(),
-                outcome: DiagnosticOutcome::TruePositive,  // correct
+                outcome: DiagnosticOutcome::TruePositive, // correct
             },
             DiagnosticReviewTest {
                 sample_id: "x2".into(),
-                outcome: DiagnosticOutcome::TrueNegative,  // correct
+                outcome: DiagnosticOutcome::TrueNegative, // correct
             },
         ];
 
@@ -301,28 +316,27 @@ mod tests {
         assert_eq!(result.test_type, "No discordant pairs");
     }
 
-
     #[test]
     fn test_mcnemar_from_reviews_all_agree_incorrect() {
         let reviews_a = vec![
             DiagnosticReviewTest {
                 sample_id: "x1".into(),
-                outcome: DiagnosticOutcome::FalsePositive,  // incorrect
+                outcome: DiagnosticOutcome::FalsePositive, // incorrect
             },
             DiagnosticReviewTest {
                 sample_id: "x2".into(),
-                outcome: DiagnosticOutcome::FalseNegative,   // incorrect
+                outcome: DiagnosticOutcome::FalseNegative, // incorrect
             },
         ];
 
         let reviews_b = vec![
             DiagnosticReviewTest {
                 sample_id: "x1".into(),
-                outcome: DiagnosticOutcome::FalseNegative,  // incorrect
+                outcome: DiagnosticOutcome::FalseNegative, // incorrect
             },
             DiagnosticReviewTest {
                 sample_id: "x2".into(),
-                outcome: DiagnosticOutcome::FalsePositive,   // incorrect
+                outcome: DiagnosticOutcome::FalsePositive, // incorrect
             },
         ];
 
@@ -399,7 +413,7 @@ mod tests {
         assert_eq!(result.total_discordant, 9);
         assert!(result.p_value >= 0.0 && result.p_value <= 1.0);
     }
-    
+
     #[test]
     fn test_mcnemar_realistic_chi_squared_case() {
         let mut reviews_a = vec![];

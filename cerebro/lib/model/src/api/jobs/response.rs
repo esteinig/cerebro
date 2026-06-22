@@ -1,8 +1,8 @@
+use super::model::ScheduleJob;
+use bson::serde_helpers::chrono_datetime_as_bson_datetime;
+use bson::serde_helpers::chrono_datetime_as_bson_datetime_optional;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use bson::serde_helpers::chrono_datetime_as_bson_datetime_optional;
-use bson::serde_helpers::chrono_datetime_as_bson_datetime;
-use super::model::ScheduleJob;
 
 #[derive(Serialize, Deserialize)]
 pub struct EnqueueJobResponse {
@@ -160,7 +160,6 @@ impl SimpleScheduleActionResponse {
         }
     }
 }
-
 
 // Lightweight public summary
 #[derive(Serialize, Deserialize, Clone)]

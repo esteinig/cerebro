@@ -8,11 +8,11 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{is_file_empty, read_tsv, read_tsv_skip};
-use crate::error::WorkflowError;
-use crate::utils::{get_file_by_name, get_file_component, FileComponent};
 use super::mag::{BlastTaxidMethod, MetagenomeAssemblyFiles, MetagenomeAssemblyOutput};
 use super::quality::{QualityControlFiles, QualityControlOutput};
+use crate::error::WorkflowError;
+use crate::utils::{get_file_by_name, get_file_component, FileComponent};
+use crate::utils::{is_file_empty, read_tsv, read_tsv_skip};
 
 #[derive(Debug, Clone)]
 pub struct PathogenProfileFiles {
@@ -28,7 +28,6 @@ pub struct PathogenProfileFiles {
 }
 impl PathogenProfileFiles {
     pub fn from(path: &PathBuf, id: &str) -> Result<Self, WorkflowError> {
-
         Ok(Self {
             vircov: get_file_by_name(&path, &id, ".vircov.tsv")?,
             kraken2: get_file_by_name(&path, &id, ".kraken2.reads.report")?,
@@ -40,7 +39,6 @@ impl PathogenProfileFiles {
             ganon_abundance: get_file_by_name(&path, &id, ".ganon.abundance.report")?,
             sylph: get_file_by_name(&path, &id, ".sylph.abundance.report")?,
         })
-
     }
 }
 
@@ -48,15 +46,20 @@ impl PathogenProfileFiles {
 pub struct PathogenFiles {
     pub qc: QualityControlFiles,
     pub profile: PathogenProfileFiles,
-    pub mag: MetagenomeAssemblyFiles
+    pub mag: MetagenomeAssemblyFiles,
 }
 impl PathogenFiles {
     pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: &str) -> Result<Self, WorkflowError> {
-        
-        Ok(Self{
-            qc: QualityControlFiles::from(match path_qc { Some(ref p) => p, None => path}, id)?,
+        Ok(Self {
+            qc: QualityControlFiles::from(
+                match path_qc {
+                    Some(ref p) => p,
+                    None => path,
+                },
+                id,
+            )?,
             profile: PathogenProfileFiles::from(path, id)?,
-            mag: MetagenomeAssemblyFiles::from(&path, &id)?
+            mag: MetagenomeAssemblyFiles::from(&path, &id)?,
         })
     }
 }
@@ -75,44 +78,43 @@ pub struct PathogenOutput {
 }
 impl PathogenOutput {
     pub fn from_files(id: &str, files: &PathogenProfileFiles) -> Result<Self, WorkflowError> {
-
         Ok(Self {
             id: id.to_string(),
-            vircov: match files.vircov { 
-                Some(ref path) => Some(VircovSummary::from_tsv(path, true)?), 
-                None => None
+            vircov: match files.vircov {
+                Some(ref path) => Some(VircovSummary::from_tsv(path, true)?),
+                None => None,
             },
             kraken2: match files.kraken2 {
-                Some(ref path) => Some(KrakenReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(KrakenReport::from_report(path, &id)?),
+                None => None,
             },
             bracken: match files.bracken {
-                Some(ref path) => Some(BrackenReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(BrackenReport::from_report(path, &id)?),
+                None => None,
             },
             metabuli: match files.metabuli {
-                Some(ref path) => Some(MetabuliReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(MetabuliReport::from_report(path, &id)?),
+                None => None,
             },
             kmcp_reads: match files.kmcp_reads {
-                Some(ref path) => Some(KmcpReadsReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(KmcpReadsReport::from_report(path, &id)?),
+                None => None,
             },
             kmcp_abundance: match files.kmcp_abundance {
-                Some(ref path) => Some(KmcpAbundanceReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(KmcpAbundanceReport::from_report(path, &id)?),
+                None => None,
             },
             sylph: match files.sylph {
-                Some(ref path) => Some(SylphReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(SylphReport::from_report(path, &id)?),
+                None => None,
             },
             ganon_reads: match files.ganon_reads {
-                Some(ref path) => Some(GanonReadsReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(GanonReadsReport::from_report(path, &id)?),
+                None => None,
             },
             ganon_abundance: match files.ganon_abundance {
-                Some(ref path) => Some(GanonAbundanceReport::from_report(path, &id)?), 
-                None => None
+                Some(ref path) => Some(GanonAbundanceReport::from_report(path, &id)?),
+                None => None,
             },
         })
     }
@@ -122,39 +124,45 @@ pub struct PathogenDetectionOutput {
     pub id: String,
     pub qc: QualityControlOutput,
     pub profile: PathogenOutput,
-    pub assembly: MetagenomeAssemblyOutput
+    pub assembly: MetagenomeAssemblyOutput,
 }
 impl PathogenDetectionOutput {
-
-    pub fn from(path: &PathBuf, path_qc: Option<PathBuf>, id: Option<String>, taxonomy: Option<PathBuf>, blast_taxid: BlastTaxidMethod, fail_ok: bool) -> Result<Self, WorkflowError> {
-
+    pub fn from(
+        path: &PathBuf,
+        path_qc: Option<PathBuf>,
+        id: Option<String>,
+        taxonomy: Option<PathBuf>,
+        blast_taxid: BlastTaxidMethod,
+        fail_ok: bool,
+    ) -> Result<Self, WorkflowError> {
         let taxonomy = match taxonomy {
             Some(path) => Some(ncbi::load(&path)?),
-            None => {
-                match blast_taxid {
-                    BlastTaxidMethod::LCA => return Err(WorkflowError::TaxonomyNotProvided),
-                    BlastTaxidMethod::HighestBitscore => None
-                }
-                
-            }
+            None => match blast_taxid {
+                BlastTaxidMethod::LCA => return Err(WorkflowError::TaxonomyNotProvided),
+                BlastTaxidMethod::HighestBitscore => None,
+            },
         };
 
         let id = match id {
             Some(id) => id,
-            None => get_file_component(&path, FileComponent::FileName)?
+            None => get_file_component(&path, FileComponent::FileName)?,
         };
 
         let files = PathogenFiles::from(&path, path_qc, &id)?;
-        
-        Ok(Self{
+
+        Ok(Self {
             id: id.to_string(),
             qc: QualityControlOutput::from_files(&id, &files.qc, fail_ok)?,
             profile: PathogenOutput::from_files(&id, &files.profile)?,
-            assembly: MetagenomeAssemblyOutput::from_files(&id, &files.mag, taxonomy.as_ref(), blast_taxid)?
+            assembly: MetagenomeAssemblyOutput::from_files(
+                &id,
+                &files.mag,
+                taxonomy.as_ref(),
+                blast_taxid,
+            )?,
         })
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct KrakenReportRecord {
@@ -163,7 +171,7 @@ pub struct KrakenReportRecord {
     pub reads_direct: u64,
     pub tax_level: String,
     pub taxid: String,
-    pub taxname: String
+    pub taxname: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -173,7 +181,7 @@ pub struct MetabuliReportRecord {
     pub reads_direct: u64,
     pub tax_level: String,
     pub taxid: String,
-    pub taxname: String
+    pub taxname: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -191,9 +199,8 @@ pub struct BrackenReportRecord {
     #[serde(rename(deserialize = "new_est_reads"))]
     pub reads: u64,
     #[serde(rename(deserialize = "fraction_total_reads"))]
-    pub fraction: f64
+    pub fraction: f64,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct KmcpAbundanceReportRecord {
@@ -204,7 +211,6 @@ pub struct KmcpAbundanceReportRecord {
     pub abundance: f64,
 }
 
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct KmcpReadsReportRecord {
     pub taxid: String,
@@ -212,7 +218,6 @@ pub struct KmcpReadsReportRecord {
     pub taxname: String,
     pub reads: u64,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct GanonReportRecord {
@@ -224,28 +229,32 @@ pub struct GanonReportRecord {
     pub shared: u64,
     pub children: u64,
     pub cumulative: u64,
-    pub cumulative_percent: f64
+    pub cumulative_percent: f64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SylphReportRecord {
     pub clade_name: String,
     pub relative_abundance: f64,
-    pub sequence_abundance: f64
+    pub sequence_abundance: f64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct KrakenReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<KrakenReportRecord>
+    pub records: Vec<KrakenReportRecord>,
 }
 impl KrakenReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)? }     
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, false)?
+            },
         })
     }
 }
@@ -254,14 +263,18 @@ impl KrakenReport {
 pub struct MetabuliReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<MetabuliReportRecord>
+    pub records: Vec<MetabuliReportRecord>,
 }
 impl MetabuliReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv_skip(path, false, false, '#')? }    
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv_skip(path, false, false, '#')?
+            },
         })
     }
 }
@@ -270,14 +283,18 @@ impl MetabuliReport {
 pub struct BrackenReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<BrackenReportRecord>
+    pub records: Vec<BrackenReportRecord>,
 }
 impl BrackenReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? }    
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, true)?
+            },
         })
     }
 }
@@ -286,14 +303,18 @@ impl BrackenReport {
 pub struct KmcpAbundanceReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<KmcpAbundanceReportRecord>
+    pub records: Vec<KmcpAbundanceReportRecord>,
 }
 impl KmcpAbundanceReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)? }   
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, false)?
+            },
         })
     }
 }
@@ -302,17 +323,21 @@ impl KmcpAbundanceReport {
 pub struct KmcpReadsReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<KmcpReadsReportRecord>
+    pub records: Vec<KmcpReadsReportRecord>,
 }
 impl KmcpReadsReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? }  
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, true)?
+            },
         })
     }
-    
+
     pub fn get_taxid_report(&self) -> Result<KmcpReadsReport, WorkflowError> {
         let mut grouped_records: HashMap<String, KmcpReadsReportRecord> = HashMap::new();
 
@@ -338,53 +363,62 @@ impl KmcpReadsReport {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct GanonReadsReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<GanonReportRecord>
+    pub records: Vec<GanonReportRecord>,
 }
 impl GanonReadsReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, false)?  }  
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, false)?
+            },
         })
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct GanonAbundanceReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<GanonReportRecord>
+    pub records: Vec<GanonReportRecord>,
 }
 impl GanonAbundanceReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else {  read_tsv(path, false, false)? }  
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, false)?
+            },
         })
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct SylphReport {
     pub id: String,
     pub path: PathBuf,
-    pub records: Vec<SylphReportRecord>
+    pub records: Vec<SylphReportRecord>,
 }
 impl SylphReport {
     pub fn from_report(path: &Path, id: &str) -> Result<Self, WorkflowError> {
-        Ok(Self { 
-            id: id.to_string(), 
-            path: path.to_path_buf(), 
-            records: if is_file_empty(&path)? { Vec::new() } else { read_tsv(path, false, true)? } 
+        Ok(Self {
+            id: id.to_string(),
+            path: path.to_path_buf(),
+            records: if is_file_empty(&path)? {
+                Vec::new()
+            } else {
+                read_tsv(path, false, true)?
+            },
         })
     }
 }

@@ -1,14 +1,14 @@
-use serde::{Serialize, Deserialize};
 use super::schema::RegisterTowerSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::ValueEnum)]
 pub enum Pipeline {
-    #[serde(rename="pathogen-detection")]
+    #[serde(rename = "pathogen-detection")]
     PathogenDetection,
-    #[serde(rename="panviral-enrichment")]
+    #[serde(rename = "panviral-enrichment")]
     PanviralEnrichment,
-    #[serde(rename="culture-identification")]
-    CultureIdentification
+    #[serde(rename = "culture-identification")]
+    CultureIdentification,
 }
 impl std::fmt::Display for Pipeline {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,7 +16,6 @@ impl std::fmt::Display for Pipeline {
             Self::PathogenDetection => write!(f, "pathogen-detection"),
             Self::PanviralEnrichment => write!(f, "panviral-enrichment"),
             Self::CultureIdentification => write!(f, "culture-identification"),
-
         }
     }
 }
@@ -29,7 +28,7 @@ pub struct ProductionTower {
     pub location: String,
     pub last_ping: String,
     pub pipelines: Vec<Pipeline>,
-    pub stage: String
+    pub stage: String,
 }
 impl ProductionTower {
     pub fn from_schema(schema: &RegisterTowerSchema) -> Self {
@@ -40,8 +39,7 @@ impl ProductionTower {
             location: schema.location.clone(),
             last_ping: schema.last_ping.clone(),
             pipelines: schema.pipelines.clone(),
-            stage: schema.stage.clone()
+            stage: schema.stage.clone(),
         }
     }
 }
-
