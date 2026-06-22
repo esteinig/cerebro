@@ -86,7 +86,7 @@ fn main() -> anyhow::Result<(), StackConfigError> {
                         args.fs_secondary.clone(),
                     )?;
 
-                    // S2-7: emit the deployment's retention policy for the
+                    // Emit the deployment's retention policy for the
                     // server / fs / tower services to load via env_file.
                     let retention_env =
                         cerebro::stack::deploy::write_retention_env(&args.outdir, args)?;

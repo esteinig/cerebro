@@ -1,6 +1,6 @@
-//! Lifecycle schedule seeding (S3-4).
+//! Lifecycle schedule seeding.
 //!
-//! Inserts the default periodic [`ScheduleJob`]s that drive the Stage 3 producers —
+//! Inserts the default periodic [`ScheduleJob`]s that drive the maintenance producers —
 //! the tier-move scan, retention sweep, purge/reclaim and integrity verify — so a
 //! deployment runs the lifecycle on a cadence out of the box, rather than waiting
 //! for an operator to hand-create schedules.
@@ -97,7 +97,7 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 3600,
             retry: 3,
         },
-        // Restore recovery (S3-5 #2): a slow hourly safety net that re-drives any
+        // Restore recovery: a slow hourly safety net that re-drives any
         // archived file stranded mid-restore. Prompt starts come from the
         // restore-request API path; this only backstops dropped poll chains.
         SeedSpec {
@@ -110,7 +110,7 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 600,
             retry: 3,
         },
-        // Catalogue backup (S4-2): daily mongodump of the control plane to the
+        // Catalogue backup: daily mongodump of the control plane to the
         // backup object store. No-op unless the worker has backup settings
         // (CEREBRO_BACKUP_MONGO_URI + CEREBRO_BACKUP_STORE_PATH), so seeding the
         // schedule is safe even before a backup target is configured. Given a
@@ -126,9 +126,9 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 6 * 3600,
             retry: 2,
         },
-        // Consistency reconcile (S4-3): a weekly, report-first sweep that probes
+        // Consistency reconcile: a weekly, report-first sweep that probes
         // each catalogue entry's backing object and reports dangling references.
-        // It never mutates state (S4-5 repairs); orphan reclaim is a separate,
+        // It never mutates state (repaired separately); orphan reclaim is a separate,
         // operator-gated `reconcile_reclaim` job and is deliberately NOT seeded.
         // Generous reservation — it HEAD-probes the whole estate.
         SeedSpec {
@@ -141,7 +141,7 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 6 * 3600,
             retry: 2,
         },
-        // Verify-repair (S4-5): a weekly pass that consumes the latest reconcile
+        // Verify-repair: a weekly pass that consumes the latest reconcile
         // report, confirms each dangling reference against live state (filtering
         // transients and files archived since the scan), and escalates confirmed
         // data loss. Staggered well after reconcile_scan so it reads a fresh report.
@@ -156,7 +156,7 @@ pub async fn seed_lifecycle_schedules(
             reserve_for_secs: 3 * 3600,
             retry: 2,
         },
-        // Archival local-copy reclaim (S4-6 H3): a weekly pass that deletes the
+        // Archival local-copy reclaim: a weekly pass that deletes the
         // redundant local copy of archived files past the grace window, gated on the
         // cold copy being confirmed present. Active only when a cold store is
         // configured; otherwise a no-op. Bounded per run.

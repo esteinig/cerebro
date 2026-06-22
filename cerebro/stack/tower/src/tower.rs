@@ -171,7 +171,7 @@ impl CerebroTower {
         })
     }
 
-    /// Cerebro FS client used to stage inputs and (Stage 2) capture and upload
+    /// Cerebro FS client used to stage inputs and capture and upload
     /// pipeline output artefacts before the execution directory is cleaned up.
     pub fn fs_client(&self) -> &FileSystemClient {
         &self.fs_client

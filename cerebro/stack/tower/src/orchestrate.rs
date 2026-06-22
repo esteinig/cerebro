@@ -1,10 +1,10 @@
-//! Run finalisation orchestration (S2-5).
+//! Run finalisation orchestration.
 //!
 //! When a pipeline run completes, its outputs must be captured into cerebro-fs —
 //! and a provenance manifest sealed and stored — **before** the Nextflow
 //! execution directory is cleaned up, so nothing is lost to scratch reclamation.
 //! This module performs that capture using the tower's [`FileSystemClient`] hook
-//! (FS-5), reusing the S2-2 capture and S2-3 manifest building.
+//! (FS-5), reusing the capture and manifest building.
 //!
 //! Capture targets are chosen per layout: if the execution directory contains a
 //! per-sample subdirectory (named exactly the sample id), each sample's outputs
@@ -70,7 +70,7 @@ fn provenance_dirs(dir: &Path) -> Vec<PathBuf> {
     dirs
 }
 
-/// Load and assemble pipeline-emitted run provenance (S2-12, intermission-3).
+/// Load and assemble pipeline-emitted run provenance.
 ///
 /// Base metadata comes from `provenance.json` (pipeline name/version/params).
 /// `tool_versions` are assembled from `tool_versions.tsv` (`name<TAB>version`) and

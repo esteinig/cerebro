@@ -1008,7 +1008,7 @@ impl CerebroClient {
         Ok(())
     }
 
-    /// Archive/relocate a file via the dedicated repoint endpoint (S4-4, D3).
+    /// Archive/relocate a file via the dedicated repoint endpoint.
     ///
     /// Atomically repoints `tier`, `archived`, `fid`, and `archive_key`, applied
     /// only if the file's current tier matches `expected_tier` (compare-and-set).
@@ -1057,7 +1057,7 @@ impl CerebroClient {
         self.update_file_lifecycle(id, &schema)
     }
 
-    /// Commit a verified tier move (S2-10): set `tier = target` (stamping
+    /// Commit a verified tier move: set `tier = target` (stamping
     /// `tier_moved_at` and clearing the claim), applied only if the current tier
     /// still equals `expected`. Call only after verifying the destination hash
     /// matches the stored hash; delete the source bytes afterwards.
@@ -1075,7 +1075,7 @@ impl CerebroClient {
         self.update_file_lifecycle(id, &schema)
     }
 
-    /// Stamp a successful integrity verification (S3-5 #3): set `verified_at = now`
+    /// Stamp a successful integrity verification: set `verified_at = now`
     /// so the verify scan can order by least-recently-verified and sweep the whole
     /// estate over time. Only called after the stored bytes hash matches.
     pub fn mark_verified(&self, id: &str) -> Result<(), HttpClientError> {
@@ -1086,7 +1086,7 @@ impl CerebroClient {
         self.update_file_lifecycle(id, &schema)
     }
 
-    /// Roll back a stranded tier-move claim (S3-5 #4): clear both `pending_tier`
+    /// Roll back a stranded tier-move claim: clear both `pending_tier`
     /// and `pending_since`. Used by the mover on failure and by the scan when it
     /// chooses to abort (rather than re-drive) a stale claim.
     pub fn clear_tier_move_claim(&self, id: &str) -> Result<(), HttpClientError> {
@@ -1170,8 +1170,7 @@ impl CerebroClient {
         Ok((data.fids, data.dry_run))
     }
 
-    /// Drive a restore state-machine transition (`POST /files/{id}/restore`,
-    /// S2-11). The server validates `target` against the current state and stamps
+    /// Drive a restore state-machine transition (`POST /files/{id}/restore`). The server validates `target` against the current state and stamps
     /// the relevant timestamps; returns the resulting state. A `409` means the
     /// transition was invalid or already superseded.
     pub fn transition_restore(

@@ -384,7 +384,7 @@ impl UpdateLifecycleResponse {
         }
     }
     /// The `expected_tier` compare-and-set precondition did not match the file's
-    /// current tier (S2-10) — the update was not applied. A mover treats this as
+    /// current tier — the update was not applied. A mover treats this as
     /// an idempotent no-op (the move was already handled).
     pub fn precondition_failed(id: &str) -> Self {
         Self {
@@ -427,7 +427,7 @@ impl DeleteFileResponse {
         }
     }
     /// Deletion refused because the file is under legal hold or still within its
-    /// retention period (S2-9). Clear the hold / retention via the lifecycle
+    /// retention period. Clear the hold / retention via the lifecycle
     /// endpoint first (an audited admin action).
     pub fn protected(reason: &str) -> Self {
         Self {

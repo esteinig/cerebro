@@ -448,8 +448,7 @@ pub struct MongoDbConfig {
     pub cerebro_admin_password: String,
     #[serde(skip_deserializing)]
     pub cerebro_admin_password_hashed: String,
-    // Service Bot account + service Team for the Faktory lifecycle worker (S3-5
-    // #5). Identity fields carry sensible defaults so an existing stack.toml that
+    // Service Bot account + service Team for the Faktory lifecycle worker. Identity fields carry sensible defaults so an existing stack.toml that
     // predates this change still deploys; the password is the prompted secret.
     #[serde(default = "default_service_bot_name")]
     pub service_bot_name: String,
@@ -465,7 +464,7 @@ pub struct MongoDbConfig {
     pub service_db_name: String,
     #[serde(default = "default_service_project_name")]
     pub service_project_name: String,
-    // Backup service-user for catalogue backups (S4-2/H1). Auto-provisioned by
+    // Backup service-user for catalogue backups. Auto-provisioned by
     // mongo-init with MongoDB's built-in `backup` role (mongodump-of-everything,
     // read-only). The password defaults empty and is generated at configure time,
     // so an existing stack.toml that predates this still deploys.
@@ -951,7 +950,7 @@ pub(crate) fn build_volume_args(
 pub enum FsDeploymentModel {
     /// Model A — single high-performance server.
     SingleServer,
-    /// Model A-R — single host, replicated (S4-1). Model A plus a second tiered
+    /// Model A-R — single host, replicated. Model A plus a second tiered
     /// volume server on separate disks (replication `001`), so the loss of one
     /// server's disks does not lose data. Single-host: protects against disk
     /// failure, not host failure (see the multi-host topology notes).
@@ -1015,7 +1014,7 @@ impl S3RemoteConfig {
     }
 }
 
-/// Single-host replica volume server (S4-1).
+/// Single-host replica volume server.
 ///
 /// A second tiered volume server placed in the **same** data centre and rack as
 /// the primary but on **separate disks**. With SeaweedFS replication `001` (one
@@ -1077,7 +1076,7 @@ pub struct FileSystemConfig {
     /// builders set it to match the topology they produce.
     #[serde(default)]
     pub model: FsDeploymentModel,
-    /// Single-host replica volume server (S4-1). `Some` only for the
+    /// Single-host replica volume server. `Some` only for the
     /// single-server-replicated model; renders a second tiered volume server on
     /// separate disks and lifts replication to `001`.
     #[serde(default)]
@@ -1123,7 +1122,7 @@ impl FileSystemConfig {
     /// `hot_path` and `cold_path` are host directories bind-mounted into the
     /// volume server. No cross-server replication is configured (`000`) since a
     /// single server holds one copy; durability comes from the underlying
-    /// storage and from backup (Stage 4).
+    /// storage and from backup.
     pub fn default_single_server(hot_path: &PathBuf, cold_path: &PathBuf, fs_only: bool) -> Self {
         let hot = DiskTier::hot(hot_path);
         let cold = DiskTier::cold(cold_path);
@@ -1152,7 +1151,7 @@ impl FileSystemConfig {
         }
     }
     /// Model A-R: single-server topology (hot SSD + cold HDD) plus a **replica**
-    /// tiered volume server on separate disks (S4-1).
+    /// tiered volume server on separate disks.
     ///
     /// Both volume servers sit in the same data centre and rack, so SeaweedFS
     /// replication `001` (one replica on a different server in the same rack)
@@ -1279,7 +1278,7 @@ impl FileSystemConfig {
     ///
     /// The Model A / Model B builders render a single tiered volume server
     /// (`primary` only); the legacy localhost layout renders two (`primary` +
-    /// `secondary`); the single-server-replicated model (S4-1) renders the
+    /// `secondary`); the single-server-replicated model renders the
     /// `primary` plus a `replica`. A replication code that demands more copies
     /// than there are servers cannot be satisfied, and SeaweedFS would reject
     /// writes.
@@ -1307,7 +1306,7 @@ impl FileSystemConfig {
         Some(sum + 1)
     }
 
-    /// Validate the replication code against the rendered topology (S2-13).
+    /// Validate the replication code against the rendered topology.
     ///
     /// * **Refuses** (hard error) when the code is malformed, or demands more
     ///   copies than the topology has volume servers — SeaweedFS would reject
@@ -1316,7 +1315,7 @@ impl FileSystemConfig {
     ///   single copy). This is the accepted interim posture for the single-node
     ///   models: there is no in-cluster redundancy, so durability rests on the
     ///   underlying storage, the Model B S3 cold tier (when configured), and
-    ///   Stage 4 backup. Raising replication requires a multi-node topology.
+    ///   the catalogue backup. Raising replication requires a multi-node topology.
     ///
     /// Returns `Ok(None)` when the code is satisfiable and provides redundancy.
     pub fn validate_durability(&self) -> Result<Option<String>, StackConfigError> {
@@ -1336,7 +1335,7 @@ impl FileSystemConfig {
         if self.replication == "000" {
             return Ok(Some(format!(
                 "replication '000' (single copy) — no in-cluster redundancy. Durability rests on the \
-                 underlying storage{}, and Stage 4 backup. Raise replication with a multi-node topology \
+                 underlying storage{}, and the catalogue backup. Raise replication with a multi-node topology \
                  to add redundancy.",
                 if self.remote.is_some() { ", the S3 cold tier" } else { "" }
             )));
@@ -1754,7 +1753,7 @@ impl StackConfig {
             interactive,
         )?;
 
-        // Service Bot password for the Faktory lifecycle worker (S3-5 #5): the one
+        // Service Bot password for the Faktory lifecycle worker: the one
         // new prompted secret. Identity fields (bot name/email, team/db/project
         // names) fall back to sensible defaults unless overridden via CLI args.
         let service_bot_password = Self::get_or_prompt_hidden(
@@ -1862,7 +1861,7 @@ impl StackConfig {
         let warm =
             absolute_path(&warm_src).map_err(StackConfigError::FileSystemPathsNotResolved)?;
 
-        // Replica disks for the single-server-replicated model (S4-1). Default to
+        // Replica disks for the single-server-replicated model. Default to
         // dedicated subdirectories under the FS output dir; for real durability the
         // operator points these at physically separate disks via
         // --fs-replica-hot/--fs-replica-cold. Ignored by the non-replicated models.
@@ -2214,7 +2213,7 @@ impl StackConfig {
                 }
             }
 
-            // S2-13 durability gate: refuse a replication code the rendered
+            // Durability gate: refuse a replication code the rendered
             // topology cannot satisfy (writes would fail); warn on the single-copy
             // interim posture so the operator acknowledges the durability stance.
             match self.fs.validate_durability()? {
@@ -2317,7 +2316,7 @@ impl StackConfig {
             hash_password(&self.mongodb.cerebro_admin_password)
                 .map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
-        // Service Bot password (S3-5 #5). If empty (e.g. a non-interactive or
+        // Service Bot password. If empty (e.g. a non-interactive or
         // pre-existing config), generate a strong random one so the seeded Bot is
         // never left with a weak/empty credential. The mongo-init script only runs
         // on first database initialisation, so this is the credential the worker
@@ -2337,7 +2336,7 @@ impl StackConfig {
             hash_password(&self.mongodb.service_bot_password)
                 .map_err(|_| StackConfigError::CerebroDatabasePasswordNotHashed)?;
 
-        // Backup service-user password (S4-2/H1). Generated alphanumeric (URI-safe,
+        // Backup service-user password. Generated alphanumeric (URI-safe,
         // so no percent-encoding is needed when it is embedded in the backup
         // connection string) if not supplied. mongo-init creates the user with the
         // built-in `backup` role on first initialisation; this is the credential
@@ -2634,7 +2633,7 @@ impl StackConfig {
             .map_err(|err| StackConfigError::TemplateNotRendered(err))?;
         write_rendered_template(render.as_bytes(), &dir_tree.mongodb.join("database.env"))?;
 
-        // Worker Bot password as a standalone Docker secret (S3-5 #5). Kept out of
+        // Worker Bot password as a standalone Docker secret. Kept out of
         // the rendered compose `environment:` so the plaintext is never exposed via
         // `docker inspect`; the worker reads it from CEREBRO_API_BOT_PASSWORD_FILE.
         // The file holds only the password (trimmed), matching the token-file
@@ -2644,7 +2643,7 @@ impl StackConfig {
             &dir_tree.mongodb.join("worker_bot.secret"),
         )?;
 
-        // Backup connection URI as a standalone Docker secret (S4-2/H1). Built from
+        // Backup connection URI as a standalone Docker secret. Built from
         // the auto-provisioned backup user (mongo-init creates it with the built-in
         // `backup` role), so the catalogue-backup mongodump authenticates without
         // any manual user setup. The generated password is alphanumeric, so it is
@@ -2685,7 +2684,7 @@ fn absolute_path(path: &Path) -> std::io::Result<PathBuf> {
 }
 
 /// Write a `retention.env` file capturing the deployment's retention policy
-/// (S2-7), for the server / fs / tower services to load via `env_file`.
+///, for the server / fs / tower services to load via `env_file`.
 ///
 /// Values come from the `--retention-*-days` / `--quarantine-grace-days` flags,
 /// falling back to the platform defaults (diagnostic 1460 = 4 years, intermediate
@@ -2704,7 +2703,7 @@ pub fn write_retention_env(
     let warm_available = args.fs_warm.is_some();
 
     let contents = format!(
-        "# Cerebro retention policy (S2-7) - generated by `cerebro stack deploy`.\n\
+        "# Cerebro retention policy - generated by `cerebro stack deploy`.\n\
          # Load into the server / fs / tower services via `env_file`.\n\
          CEREBRO_RETENTION_DIAGNOSTIC_DAYS={diagnostic}\n\
          CEREBRO_RETENTION_INTERMEDIATE_DAYS={intermediate}\n\

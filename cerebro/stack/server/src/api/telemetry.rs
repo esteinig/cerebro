@@ -1,4 +1,4 @@
-//! Prometheus metrics for file-lifecycle telemetry (S2-14).
+//! Prometheus metrics for file-lifecycle telemetry.
 //!
 //! [`Metrics`] owns a [`prometheus::Registry`] and the lifecycle counters. It is
 //! created **once** at server start and shared across worker threads (the

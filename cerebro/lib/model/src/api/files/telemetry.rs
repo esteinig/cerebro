@@ -1,8 +1,8 @@
-//! Structured telemetry taxonomy for file-lifecycle operations (S2-14).
+//! Structured telemetry taxonomy for file-lifecycle operations.
 //!
 //! This is **pure data**: it carries no metrics backend. The server maps a
 //! [`TelemetryEvent`] onto Prometheus counters (`cerebro-server`'s `telemetry`
-//! module), and Stage 3 lifecycle workers can emit the same taxonomy so that
+//! module), and lifecycle workers can emit the same taxonomy so that
 //! operational signals are consistent across the API and the background movers.
 //!
 //! Label dimensions are deliberately **low-cardinality** ([`TelemetryOp`],

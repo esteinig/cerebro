@@ -38,7 +38,7 @@ pub struct AppState {
     pub auth_onetime: RedisClient,
     pub scheduler: Option<Scheduler>,
     pub env: cerebro_model::api::config::Config,
-    /// Operational telemetry registry (S2-14). Shared across workers.
+    /// Operational telemetry registry. Shared across workers.
     pub metrics: crate::api::telemetry::Metrics,
 }
 
@@ -119,12 +119,12 @@ pub async fn main() -> std::io::Result<()> {
                 }
             };
 
-            // Faktory job scheduler (Stage 3): the periodic *producer* of lifecycle
+            // Faktory job scheduler: the periodic *producer* of lifecycle
             // jobs. It runs in-process as a background task and only *enqueues* to
             // Faktory — it never runs jobs (that is the cerebro-worker process). A
             // leased lock (SchedulerLock) guarantees exactly one API replica
             // enqueues, so it is safe to run on every replica. Opt-in via env so
-            // existing deployments are unaffected until Stage 3 schedules are seeded.
+            // existing deployments are unaffected until the schedules are seeded.
             if matches!(
                 std::env::var("CEREBRO_SCHEDULER_ENABLED").ok().as_deref(),
                 Some("true") | Some("1")
@@ -142,7 +142,7 @@ pub async fn main() -> std::io::Result<()> {
                 log::info!("Faktory job scheduler enabled; spawning periodic producer");
                 faktory_scheduler.spawn();
 
-                // S3-4: ensure the default lifecycle schedules exist (idempotent,
+                // Ensure the default lifecycle schedules exist (idempotent,
                 // insert-if-absent). Gated separately so operators can manage
                 // schedules by hand if they prefer.
                 if matches!(
@@ -202,7 +202,7 @@ pub async fn main() -> std::io::Result<()> {
                 }
             };
 
-            // S2-14: build the telemetry registry once and share it across
+            // Build the telemetry registry once and share it across
             // workers (registry + counters are Arc-backed, so clone shares state).
             let metrics = crate::api::telemetry::Metrics::new();
 
@@ -231,7 +231,7 @@ pub async fn main() -> std::io::Result<()> {
                         metrics: metrics.clone(),
                     }))
                     .configure(app_config)
-                    // Operational telemetry endpoint (S2-14): GET /metrics
+                    // Operational telemetry endpoint: GET /metrics
                     .configure(crate::api::telemetry::telemetry_config)
                     // Email authentication configuration for global activation
                     .configure(|cfg| auth_config(cfg, &config))

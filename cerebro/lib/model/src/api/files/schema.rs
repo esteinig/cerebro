@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::model::{FileTag, FileType};
 use super::retention::{RestoreState, RetentionClass, StorageTier};
 
-/// Dedicated archive/relocate request (S4-4, D3).
+/// Dedicated archive/relocate request.
 ///
 /// Repoints a file between local and remote (archival) storage in one
 /// compare-and-set operation, kept separate from [`UpdateFileLifecycleSchema`] so
@@ -84,7 +84,7 @@ pub struct UpdateFileTagsSchema {
     pub tags: Vec<FileTag>,
 }
 
-/// Partial update of a file's lifecycle fields (S2-1).
+/// Partial update of a file's lifecycle fields.
 ///
 /// Every field is optional: one left unset (`None`/`false`) is **unchanged**.
 /// This backs the `PATCH /files/{id}/lifecycle` endpoint and lets the report-out
@@ -118,7 +118,7 @@ pub struct UpdateFileLifecycleSchema {
     /// Update the observed replica count.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replicas: Option<u32>,
-    /// Claim an in-flight tier move to this target (S2-10). Set during the move;
+    /// Claim an in-flight tier move to this target. Set during the move;
     /// cleared automatically when `tier` is committed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_tier: Option<StorageTier>,
@@ -126,19 +126,19 @@ pub struct UpdateFileLifecycleSchema {
     /// `pending_tier`.
     #[serde(default)]
     pub clear_pending_tier: bool,
-    /// Compare-and-set precondition (S2-10): the update applies only if the file's
+    /// Compare-and-set precondition: the update applies only if the file's
     /// current `tier` equals this. Makes mover updates idempotent under
     /// at-least-once delivery. Not itself a mutation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_tier: Option<StorageTier>,
-    /// Stamp the claim time for an in-flight tier move (S3-5 #4). The mover sets
+    /// Stamp the claim time for an in-flight tier move. The mover sets
     /// this alongside `pending_tier` so a crashed move can be aged out by the scan.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_since: Option<DateTime<Utc>>,
     /// Clear `pending_since` (paired with `clear_pending_tier` on commit/rollback).
     #[serde(default)]
     pub clear_pending_since: bool,
-    /// Stamp a successful integrity verification (S3-5 #3). The verify runner sets
+    /// Stamp a successful integrity verification. The verify runner sets
     /// this so the scan can order by least-recently-verified for full coverage.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_at: Option<DateTime<Utc>>,
@@ -202,7 +202,7 @@ mod tests {
 ///
 /// Backs the server-authoritative `POST /files/report-out`: the server applies
 /// its configured retention policy to every matching file, anchoring retention at
-/// `reported_at` and moving the data off the hot tier (S2-4 / FS-7/FS-9).
+/// `reported_at` and moving the data off the hot tier (FS-7/FS-9).
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ReportOutSchema {
     pub run_id: String,
@@ -213,7 +213,7 @@ pub struct ReportOutSchema {
     pub reported_at: Option<DateTime<Utc>>,
 }
 
-/// Trigger a non-destructive expiry sweep (S2-7): quarantine files whose
+/// Trigger a non-destructive expiry sweep: quarantine files whose
 /// retention has lapsed (and which are not under legal hold), optionally scoped
 /// to a run/sample. `dry_run` previews the eligible set without changing state.
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -226,7 +226,7 @@ pub struct ExpireSchema {
     pub dry_run: bool,
 }
 
-/// Trigger a gated hard purge (S2-7): permanently remove quarantined files that
+/// Trigger a gated hard purge: permanently remove quarantined files that
 /// have cleared the quarantine grace window (and are not under legal hold).
 /// `dry_run` previews the eligible set without deleting anything.
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -239,7 +239,7 @@ pub struct PurgeSchema {
     pub dry_run: bool,
 }
 
-/// Drive a restore state-machine transition (S2-11).
+/// Drive a restore state-machine transition.
 ///
 /// The restore worker advances `target` (e.g. `Requested` → `InProgress` →
 /// `Restored`); the server validates the transition and stamps the relevant

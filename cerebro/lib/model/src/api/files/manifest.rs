@@ -1,4 +1,4 @@
-//! Run provenance manifest (S2-3).
+//! Run provenance manifest.
 //!
 //! A [`RunManifest`] is the reproducibility / chain-of-custody record for a
 //! pipeline run: which pipeline (name + version) produced which outputs, under

@@ -4,8 +4,8 @@
 //! *how long* it must be kept ([`RetentionClass`] resolved through a
 //! [`RetentionPolicy`]). They are the data-model foundation that the deployment
 //! models (ingle-server hot/cold, HPC + S3 cold) and the lifecycle
-//! workers (Stage 3) act on, and that the audit/chain-of-custody layer
-//! (Stage 2 · S2-6) records against.
+//! workers act on, and that the audit/chain-of-custody layer
+//! records against.
 //!
 //! # Retention is configurable, not hardcoded
 //!
@@ -338,7 +338,7 @@ impl RetentionPolicy {
     ///
     /// Whether "cold" is local HDD (Model A) or S3 Glacier (Model B, where the
     /// file also becomes `archived`) is resolved at execution time by the
-    /// deployment-aware lifecycle worker (Stage 3). Retention (`retain_until`) is
+    /// deployment-aware lifecycle worker. Retention (`retain_until`) is
     /// independent of placement and is unchanged by the later warm→cold move.
     pub fn report_out_transition(
         &self,
@@ -416,7 +416,7 @@ impl Default for RestoreState {
 }
 
 impl RestoreState {
-    /// Whether a direct transition from `self` to `next` is valid (S2-11).
+    /// Whether a direct transition from `self` to `next` is valid.
     ///
     /// The restore worker drives: `NotArchived → Requested → InProgress →
     /// Restored`, with `→ Failed` from the in-flight states (retryable back to

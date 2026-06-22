@@ -91,8 +91,8 @@ pub struct SeaweedFile {
     #[serde(default)]
     pub archived: bool,
     /// Remote object key where the archived bytes live, set when the file is
-    /// archived to the cold object store (S4-4) and cleared when it is restored to
-    /// local. The dedicated relocate endpoint is the only writer (D3), so an
+    /// archived to the cold object store and cleared when it is restored to
+    /// local. The dedicated relocate endpoint is the only writer, so an
     /// archived file always carries the key needed to fetch it back.
     #[serde(default)]
     pub archive_key: Option<String>,
@@ -103,19 +103,19 @@ pub struct SeaweedFile {
     /// Archival restore state for cold (Glacier) objects (Model B): tracks an
     /// in-flight or completed restore so retrieval can be gated correctly.
     /// Defaulted ([`RestoreState::NotArchived`]) for documents registered before
-    /// S2-1; set at upload time only for archival objects, otherwise via the
+    /// Set at upload time only for archival objects, otherwise via the
     /// lifecycle update endpoint.
     #[serde(default)]
     pub restore_state: RestoreState,
     /// Soft-delete expiry state. [`ExpiryState::Active`] until a retention sweep
-    /// quarantines the file (S2-7). Defaulted for documents registered before S2-7.
+    /// quarantines the file. Defaulted for documents registered before this field was added.
     #[serde(default)]
     pub expiry_state: ExpiryState,
     /// When the file was quarantined by expiry (`None` while active). Anchors the
     /// quarantine grace window before an eligible hard purge.
     #[serde(default)]
     pub quarantined_at: Option<DateTime<Utc>>,
-    /// In-flight tier move target claimed by a mover (S2-10). `Some` while a
+    /// In-flight tier move target claimed by a mover. `Some` while a
     /// physical move is in progress; cleared when the move commits, so the DB
     /// never reports a final `tier` whose bytes aren't verified at destination.
     #[serde(default)]
@@ -123,7 +123,7 @@ pub struct SeaweedFile {
     /// When the file's `tier` was last committed by a verified move.
     #[serde(default)]
     pub tier_moved_at: Option<DateTime<Utc>>,
-    /// When the current `pending_tier` claim was made by a mover (S3-5 #4).
+    /// When the current `pending_tier` claim was made by a mover.
     ///
     /// Stamped at claim time and cleared when the move commits or rolls back.
     /// Because [`tier_moved_at`](Self::tier_moved_at) is only written on a
@@ -135,7 +135,7 @@ pub struct SeaweedFile {
     #[serde(default)]
     pub pending_since: Option<DateTime<Utc>>,
     /// When this file's stored bytes were last successfully verified against the
-    /// catalogue BLAKE3 hash (S3-5 #3).
+    /// catalogue BLAKE3 hash.
     ///
     /// `None` means never verified. The verify scan orders by this field ascending
     /// (nulls first) so a bounded per-run budget sweeps the *oldest-verified* files
@@ -144,7 +144,7 @@ pub struct SeaweedFile {
     /// failure leaves it unchanged so the file stays at the front of the queue.
     #[serde(default)]
     pub verified_at: Option<DateTime<Utc>>,
-    /// When an archival restore was requested (S2-11).
+    /// When an archival restore was requested.
     #[serde(default)]
     pub restore_requested_at: Option<DateTime<Utc>>,
     /// When a restore completed and the object became retrievable.

@@ -223,7 +223,7 @@ async fn delete_files(
         }
     }
 
-    // Protect held / still-retained files from bulk deletion (S2-9): only delete
+    // Protect held / still-retained files from bulk deletion: only delete
     // files that are not under legal hold and whose retention has lapsed (or was
     // never set). Protected files are left in place rather than failing the call.
     let now = Utc::now();
@@ -298,7 +298,7 @@ async fn delete_file(
 
     let id = id.into_inner();
 
-    // Enforce legal hold / active retention before deleting (S2-9).
+    // Enforce legal hold / active retention before deleting.
     match files_collection.find_one(doc! { "id": &id }).await {
         Ok(Some(file)) => {
             if let Some(reason) = protection_reason(&file, Utc::now()) {
@@ -409,14 +409,14 @@ async fn update_file_lifecycle(
         } else if let Some(pending_tier) = &schema.pending_tier {
             set.insert("pending_tier", to_bson(pending_tier).unwrap());
         }
-        // Claim timestamp (S3-5 #4): stamped with the claim, cleared on abort.
+        // Claim timestamp: stamped with the claim, cleared on abort.
         if schema.clear_pending_since {
             set.insert("pending_since", Bson::Null);
         } else if let Some(pending_since) = &schema.pending_since {
             set.insert("pending_since", to_bson(pending_since).unwrap());
         }
     }
-    // Verification timestamp (S3-5 #3): stamped by a successful verify.
+    // Verification timestamp: stamped by a successful verify.
     if let Some(verified_at) = &schema.verified_at {
         set.insert("verified_at", to_bson(verified_at).unwrap());
     }
@@ -475,7 +475,7 @@ async fn update_file_lifecycle(
     }
     let detail = changes.join(", ");
 
-    // S2-14 telemetry: capture op + bounded tier detail before `action`/`detail`
+    // Telemetry: capture op + bounded tier detail before `action`/`detail`
     // are moved into the audit append below.
     let tel_op = telemetry_op_for(&action);
     let tel_detail = schema
@@ -583,7 +583,7 @@ async fn get_file(
 /// (`CEREBRO_FS_WARM_AVAILABLE`) to every matching file, persisting the
 /// re-anchored `retain_until`, the `reported_at` anchor, and the new tier
 /// (warm when available, else cold). The physical hot→warm→cold(S3) move is the
-/// Stage 3 worker's job; this records the decision.
+/// worker's job; this records the decision.
 #[post("/files/report-out")]
 async fn report_out_files(
     data: web::Data<AppState>,
@@ -692,7 +692,7 @@ fn actor_of(auth_guard: &jwt::JwtDataMiddleware) -> AuditActor {
     }
 }
 
-/// Map an [`AuditAction`] to a telemetry op (S2-14). `None` for actions we don't
+/// Map an [`AuditAction`] to a telemetry op. `None` for actions we don't
 /// surface as lifecycle-movement metrics (legal-hold / tag edits).
 fn telemetry_op_for(action: &AuditAction) -> Option<TelemetryOp> {
     match action {
@@ -710,12 +710,12 @@ fn telemetry_op_for(action: &AuditAction) -> Option<TelemetryOp> {
 ///
 /// Reads the current chain tip (highest sequence), links the new event to it,
 /// seals it (BLAKE3 over `prev_hash` + body) and inserts it. Best-effort: a
-/// failure is logged but does not fail the triggering operation (see the S2-6
+/// failure is logged but does not fail the triggering operation (see the
 /// notes on fail-open vs fail-closed auditing).
 #[allow(clippy::too_many_arguments)]
 /// Reason a file must not be deleted/purged, or `None` when deletion is allowed.
 ///
-/// Enforces the two compliance invariants server-side (S2-9): a file under legal
+/// Enforces the two compliance invariants server-side: a file under legal
 /// hold, or still within its retention period, is protected. Clearing the hold or
 /// retention via the lifecycle endpoint (an audited admin action) is the
 /// sanctioned way to release it.
@@ -931,7 +931,7 @@ async fn get_audit(
     HttpResponse::Ok().json(AuditTrailResponse::success(events, verified))
 }
 
-/// Non-destructive expiry sweep: quarantine files past retention (S2-7).
+/// Non-destructive expiry sweep: quarantine files past retention.
 ///
 /// Selects files whose `retain_until` has lapsed, that are **not** under legal
 /// hold, and that are still active, optionally scoped to a run/sample. Each is
@@ -1017,7 +1017,7 @@ async fn expire_files(
 }
 
 /// Gated hard purge: permanently remove quarantined files past the grace window
-/// (S2-7).
+///.
 ///
 /// Selects files in `ExpiryState::Quarantined`, **not** under legal hold, whose
 /// `quarantined_at` is older than the configured grace window
@@ -1101,7 +1101,7 @@ async fn purge_files(
     HttpResponse::Ok().json(PurgeResponse::success(fids, schema.dry_run))
 }
 
-/// Drive a restore state-machine transition (S2-11).
+/// Drive a restore state-machine transition.
 ///
 /// Validates the requested `target` against the current `restore_state` via the
 /// model's transition guard, applies it with a compare-and-set on the observed
@@ -1194,7 +1194,7 @@ async fn restore_transition(
                 );
             }
             // Kick off the restore worker promptly when a restore is (re)requested
-            // (S3-5 #2). Best-effort: the hourly `restore_scan` re-drives anything
+            //. Best-effort: the hourly `restore_scan` re-drives anything
             // that slips, so a transient Faktory hiccup here is not fatal.
             if target == RestoreState::Requested {
                 match faktory::Client::connect().await {
@@ -1231,7 +1231,7 @@ async fn restore_transition(
     }
 }
 
-/// Dedicated archive/relocate endpoint (S4-4, D3).
+/// Dedicated archive/relocate endpoint.
 ///
 /// Repoints a file between local and remote (archival) storage in one
 /// compare-and-set: it sets `tier`, `archived`, optionally a new `fid`, and the

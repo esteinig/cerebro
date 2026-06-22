@@ -1,4 +1,4 @@
-//! Tamper-evident audit trail / chain-of-custody (S2-6).
+//! Tamper-evident audit trail / chain-of-custody.
 //!
 //! Every lifecycle-affecting action on an artefact (upload, report-out, tier
 //! move, restore, expiry, legal-hold change, tag change, delete) appends an
@@ -20,7 +20,7 @@ use uuid::Uuid;
 pub const AUDIT_GENESIS_HASH: &str =
     "0000000000000000000000000000000000000000000000000000000000000000";
 
-/// Failure appending an event to the audit chain (S2-8).
+/// Failure appending an event to the audit chain.
 ///
 /// Surfaced to the triggering operation when auditing is fail-closed (the
 /// default); swallowed and logged when `CEREBRO_AUDIT_FAIL_OPEN` is set.

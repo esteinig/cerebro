@@ -108,13 +108,13 @@ pub struct StackDeployArgs {
     #[clap(long)]
     pub fs_cold: Option<PathBuf>,
     /// Replica hot tier (SSD) directory for the single-server-replicated model
-    /// (S4-1). Use a physically SEPARATE disk from --fs-hot so a single-disk
+    ///. Use a physically SEPARATE disk from --fs-hot so a single-disk
     /// failure cannot lose both copies; falls back to <outdir>/cerebro_fs/
     /// fs_replica_hot when omitted.
     #[clap(long)]
     pub fs_replica_hot: Option<PathBuf>,
     /// Replica cold tier (HDD) directory for the single-server-replicated model
-    /// (S4-1). Use a physically SEPARATE disk from --fs-cold; falls back to
+    ///. Use a physically SEPARATE disk from --fs-cold; falls back to
     /// <outdir>/cerebro_fs/fs_replica_cold when omitted.
     #[clap(long)]
     pub fs_replica_cold: Option<PathBuf>,
@@ -154,7 +154,7 @@ pub struct StackDeployArgs {
     /// Cerebro admin full name for admin profile
     #[clap(long)]
     pub cerebro_admin_name: Option<String>,
-    /// Service Bot password for the Faktory lifecycle worker (S3-5 #5). Prompted
+    /// Service Bot password for the Faktory lifecycle worker. Prompted
     /// if omitted in interactive mode; a strong random one is generated otherwise.
     #[clap(long)]
     pub service_bot_password: Option<String>,
