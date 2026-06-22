@@ -1,4 +1,4 @@
-//! `verify_repair` (S4-5): consume the latest S4-3 reconcile report and act on its
+//! `verify_repair`: consume the latest reconcile report and act on its
 //! dangling references.
 //!
 //! Reconcile detects, report-first; this pass **confirms and escalates**. For each

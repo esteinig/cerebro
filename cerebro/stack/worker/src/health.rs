@@ -1,4 +1,4 @@
-//! Worker health & metrics HTTP server (S3-1).
+//! Worker health & metrics HTTP server.
 //!
 //! A tiny actix-web server, spawned alongside the Faktory consumer, exposing:
 //! * `GET /health`  — liveness/readiness probe (always `200 ok` once running),

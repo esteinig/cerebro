@@ -1,11 +1,11 @@
-//! Worker-side telemetry (S3-1).
+//! Worker-side telemetry.
 //!
 //! Two metric families, exposed at the worker's own `/metrics`:
 //!
 //! * `cerebro_worker_jobs_total{kind, outcome}` — every job the worker runs, by
 //!   kind and terminal outcome. This is the worker's own health signal.
 //! * `cerebro_file_lifecycle_ops_total{op, outcome, detail}` — the **same** family
-//!   the server exposes (S2-14), for lifecycle effects the worker performs that do
+//!   the server exposes, for lifecycle effects the worker performs that do
 //!   **not** flow through an API endpoint (e.g. a `verify` pass/fail, bytes
 //!   reclaimed). API-mediated effects are already counted server-side, so they are
 //!   not double-counted here.

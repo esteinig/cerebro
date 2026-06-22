@@ -1,10 +1,10 @@
-//! Archival engine (S4-4): copy a file's bytes to the cold object store so the
+//! Archival engine: copy a file's bytes to the cold object store so the
 //! cold tier is *real* rather than just a catalogue label.
 //!
 //! Backend-agnostic — it works against any [`ObjectStore`]: a mounted cold disk
 //! or NFS via [`crate::backup::FilesystemObjectStore`] (the compile-safe default),
 //! or S3 / Glacier via the feature-gated S3 backend. After the bytes are copied,
-//! the caller repoints the catalogue through the dedicated relocate endpoint (D3),
+//! the caller repoints the catalogue through the dedicated relocate endpoint,
 //! which flips `archived = true` and records the `archive_key`.
 
 use cerebro_fs::client::FileSystemClient;
@@ -68,7 +68,7 @@ pub fn archive_object(
     })
 }
 
-/// Outcome of restoring one object from the cold store (S4-5).
+/// Outcome of restoring one object from the cold store.
 #[derive(Debug, Clone)]
 pub struct RestoreOutcome {
     /// `Some(fid)` when a fresh weed object was written (fid-addressed file — the
@@ -79,8 +79,8 @@ pub struct RestoreOutcome {
     pub hash_verified: bool,
 }
 
-/// Restore an archived object from `store` back into SeaweedFS (S4-5; in-place for
-/// path-addressed files in S4-6 H4).
+/// Restore an archived object from `store` back into SeaweedFS, in place for
+/// path-addressed files.
 ///
 /// Fetches the bytes at `archive_key`, verifies them against `expected_hash` (the
 /// catalogue BLAKE3) when supplied — so a corrupt cold copy can never silently

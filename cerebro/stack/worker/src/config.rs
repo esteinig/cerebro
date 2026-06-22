@@ -1,4 +1,4 @@
-//! Worker configuration, read from the environment (S3-1).
+//! Worker configuration, read from the environment.
 //!
 //! The worker is a standalone process; everything it needs to reach the Cerebro
 //! API, Cerebro FS and Faktory comes from `CEREBRO_*` / `FAKTORY_URL` env vars so
@@ -14,7 +14,7 @@ pub struct WorkerConfig {
     pub api_url: Option<String>,
     pub api_token: Option<String>,
     pub api_token_file: Option<std::path::PathBuf>,
-    /// Service Bot login email (S3-5 #5). When set with `bot_password`, the worker
+    /// Service Bot login email. When set with `bot_password`, the worker
     /// logs in as this Bot at startup (and periodically re-logs in) to obtain a
     /// long-lived, role-scoped token, instead of relying on a static token.
     pub bot_email: Option<String>,
@@ -40,25 +40,25 @@ pub struct WorkerConfig {
     /// `host:port` for the worker's health/metrics HTTP server.
     pub metrics_addr: String,
     /// Run the deep integrity gate (download + BLAKE3) before committing a tier
-    /// move (S3-2a). Heavy for large artefacts; off by default — deep verification
-    /// is the scheduled verify worker's job (S3-3a). Per-job override via the
+    /// move. Heavy for large artefacts; off by default — deep verification
+    /// is the scheduled verify worker's job. Per-job override via the
     /// `tier_move` arg `verify: true`.
     pub verify_on_move: bool,
-    /// Dev/test simulation for the restore executor (S3-3b): when set, an archival
+    /// Dev/test simulation for the restore executor: when set, an archival
     /// restore is treated as ready this many seconds after it was requested,
     /// letting the state machine be exercised end-to-end without a real S3 Glacier
     /// integration. Unset in production (where the real provider drives readiness).
     pub restore_simulate_seconds: Option<i64>,
-    /// Catalogue backup settings (S4-2). `Some` only when both a backup MongoDB
+    /// Catalogue backup settings. `Some` only when both a backup MongoDB
     /// URI and a store path are configured; otherwise the `catalogue_backup`
     /// runner reports "not configured" and does nothing.
     pub backup: Option<BackupSettings>,
-    /// Cold archival object-store settings (S4-4). `Some` enables real archival of
+    /// Cold archival object-store settings. `Some` enables real archival of
     /// files moved to the Cold tier; `None` keeps the prior label-only behaviour.
     pub archive: Option<ArchiveSettings>,
 }
 
-/// Settings for the scheduled catalogue/audit backup (S4-2).
+/// Settings for the scheduled catalogue/audit backup.
 #[derive(Debug, Clone)]
 pub struct BackupSettings {
     /// Read-only MongoDB connection string `mongodump` runs against.
@@ -66,7 +66,7 @@ pub struct BackupSettings {
     /// Database to dump (the Cerebro catalogue DB).
     pub mongo_db: String,
     /// Filesystem object-store root (a mounted backup volume / NFS). The S3
-    /// backend (S4-4) will add a URL form behind the same store trait.
+    /// backend will add a URL form behind the same store trait.
     pub store_root: std::path::PathBuf,
     /// Key prefix under the store for catalogue backups.
     pub prefix: String,
@@ -176,7 +176,7 @@ impl WorkerConfig {
 }
 
 impl BackupSettings {
-    /// Read backup settings from the environment (S4-2). Returns `None` — backup
+    /// Read backup settings from the environment. Returns `None` — backup
     /// disabled — unless both a backup MongoDB URI and a store path are provided,
     /// so the feature is strictly opt-in.
     pub fn from_env() -> Option<Self> {
@@ -197,7 +197,7 @@ impl BackupSettings {
     }
 }
 
-/// Cold archival object-store settings (S4-4).
+/// Cold archival object-store settings.
 #[derive(Debug, Clone)]
 pub struct ArchiveSettings {
     /// Key prefix under the cold store for archived objects.
@@ -205,7 +205,7 @@ pub struct ArchiveSettings {
     /// Selected cold-store backend.
     pub backend: ArchiveBackend,
     /// Grace period (days) after archival before the redundant local copy is
-    /// reclaimed (H3, D4). Anchored on `tier_moved_at`. From
+    /// reclaimed. Anchored on `tier_moved_at`. From
     /// `CEREBRO_ARCHIVE_LOCAL_GRACE_DAYS` (default 7).
     pub local_grace_days: i64,
 }
@@ -227,7 +227,7 @@ pub enum ArchiveBackend {
 }
 
 impl ArchiveSettings {
-    /// Read archival settings from the environment (S4-4). Returns `None` —
+    /// Read archival settings from the environment. Returns `None` —
     /// label-only tiering, the prior behaviour — unless a backend is configured.
     /// An S3 endpoint selects the S3 backend; otherwise a store path selects the
     /// filesystem backend (a mounted cold disk / NFS).

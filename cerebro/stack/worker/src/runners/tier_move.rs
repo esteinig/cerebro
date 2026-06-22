@@ -1,4 +1,4 @@
-//! `tier_move` + `tier_move_scan` runners (S3-2a).
+//! `tier_move` + `tier_move_scan` runners.
 //!
 //! # Tier is a logical placement label
 //!
@@ -7,11 +7,11 @@
 //! so there is no per-file byte repoint. The mover's job is therefore the **safe,
 //! integrity-gated, two-phase transition** of that label, not byte shuffling.
 //!
-//! While tiering is **logical-only** (S3-5 #1), changing `tier` records intent and
+//! While tiering is **logical-only**, changing `tier` records intent and
 //! drives retention/restore bookkeeping but does not relocate bytes — every
 //! non-archived object stays directly retrievable regardless of tier. Real physical
 //! tiering (moving cold data to S3/Glacier, with the `archived` flag and a fid
-//! repoint) is **deferred to Stage 4** and is what flips `archived = true` to make
+//! repoint) is what flips `archived = true` to make
 //! the restore subsystem live. See the package README for the rationale.
 //!
 //! ## `tier_move` (per file)
@@ -83,7 +83,7 @@ struct TierMoveArgs {
 pub struct TierMove {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
-    /// Cold-store archival settings (S4-4). When `Some`, a successful move to the
+    /// Cold-store archival settings. When `Some`, a successful move to the
     /// Cold tier physically archives the object and repoints the catalogue.
     archive: Option<ArchiveSettings>,
 }
@@ -102,7 +102,7 @@ impl TierMove {
     }
 
     /// Physically archive a Cold-committed object to the cold store and repoint the
-    /// catalogue (S4-4, D3). Non-fatal on failure: the file stays Cold-committed and
+    /// catalogue. Non-fatal on failure: the file stays Cold-committed and
     /// directly retrievable, and the next move re-attempts the archival.
     async fn archive_to_cold(
         &self,
@@ -132,7 +132,7 @@ impl TierMove {
             })
             .await?;
 
-        // Repoint the catalogue via the dedicated relocate endpoint (D3): mark
+        // Repoint the catalogue via the dedicated relocate endpoint: mark
         // archived and record the key. Tier stays Cold (CAS guards on it).
         let id = file.id.clone();
         let api = api.clone();
@@ -201,7 +201,7 @@ impl TierMove {
 
         // 3. Integrity gate (optional, heavy): prove the bytes are retrievable and
         //    intact before committing the new label. Off by default — deep
-        //    verification is the scheduled verify worker's job (S3-3a).
+        //    verification is the scheduled verify worker's job.
         if args.verify || self.ctx.config.verify_on_move {
             if let Err(e) = self.verify_retrievable(&file).await {
                 tracing::warn!(%id, "integrity gate failed; rolling back claim: {e}");
@@ -245,7 +245,7 @@ impl TierMove {
             tier_label(target),
         ));
 
-        // 5. Physical archival (S4-4): a move to Cold with a cold store configured
+        // 5. Physical archival: a move to Cold with a cold store configured
         //    copies the bytes to the object store and repoints the catalogue
         //    (archived = true). Non-fatal — the tier is already committed, so an
         //    archival failure just leaves the file Cold-but-not-archived for the
@@ -286,9 +286,9 @@ impl TierMove {
     }
 
     /// Deep integrity gate: stream the file's stored bytes through BLAKE3 and
-    /// compare to the catalogue hash (`FileSystemClient::verify_object`, S3-5 #6) —
+    /// compare to the catalogue hash (`FileSystemClient::verify_object`) —
     /// no temp-disk copy. Heavy for large artefacts only in transfer, not disk;
-    /// off by default (the scheduled verify worker, S3-3a, owns routine checks).
+    /// off by default (the scheduled verify worker owns routine checks).
     async fn verify_retrievable(&self, file: &SeaweedFile) -> Result<(), WorkerError> {
         let fs = self.ctx.fs()?.clone();
         let identifier = file.effective_identifier().to_string();

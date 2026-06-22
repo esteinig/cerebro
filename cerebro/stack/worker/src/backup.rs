@@ -1,13 +1,13 @@
-//! Catalogue backup engine (S4-2).
+//! Catalogue backup engine.
 //!
 //! The control plane — MongoDB holding the file catalogue, lifecycle state,
 //! provenance, and the tamper-evident audit chain — is irreplaceable. Lose it and
 //! every stored object is orphaned and the audit history is gone. This module
 //! provides the pieces the `catalogue_backup` runner composes:
 //!
-//! * [`ObjectStore`] — a swappable backup destination (D1). The default is
+//! * [`ObjectStore`] — a swappable backup destination. The default is
 //!   [`FilesystemObjectStore`] (a mounted backup volume / NFS); an S3-compatible
-//!   backend lands in S4-4 behind this same trait.
+//!   backend sits behind this same trait.
 //! * [`BackupManifest`] — a verifiable record of each backup (checksum, sizes,
 //!   and whether the audit chain verified intact at backup time).
 //! * [`select_for_deletion`] — retention selection (keep-last-N with an age
@@ -26,11 +26,11 @@ pub const MANIFEST_FORMAT_VERSION: u32 = 1;
 /// separators that are awkward in object keys).
 pub const BACKUP_ID_FORMAT: &str = "%Y%m%dT%H%M%SZ";
 
-/// A pluggable backup destination (D1).
+/// A pluggable backup destination.
 ///
 /// Keys are forward-slash-joined paths under the store's root/prefix. The backup
 /// engine is written entirely against this trait, so the target is swappable
-/// (filesystem now; AWS S3 / MinIO / SeaweedFS-S3 in S4-4) without touching the
+/// (filesystem now; AWS S3 / MinIO / SeaweedFS-S3) without touching the
 /// backup or retention logic.
 pub trait ObjectStore: Send + Sync {
     /// Store `bytes` at `key`, overwriting any existing object.
@@ -41,7 +41,7 @@ pub trait ObjectStore: Send + Sync {
     fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>>;
     /// Delete the object at `key`. Succeeds (no-op) if the key is already absent.
     fn delete(&self, key: &str) -> anyhow::Result<()>;
-    /// Whether an object exists at `key` (H3). The archival reclaim uses this as a
+    /// Whether an object exists at `key`. The archival reclaim uses this as a
     /// safety gate: a local copy is deleted only once the cold copy is confirmed
     /// present. The default lists the key and checks for an exact match, so any
     /// backend works without extra code; backends with a cheaper probe override it.
@@ -191,7 +191,7 @@ pub fn parse_backup_refs(prefix: &str, keys: &[String]) -> Vec<BackupRef> {
 }
 
 /// Select which existing backups to delete under a keep-last-N policy with an age
-/// floor (S4-2 / D5).
+/// floor.
 ///
 /// The `keep_last` most-recent backups are always retained. Older ones are
 /// eligible for deletion, but only once they are at least `min_age` old — so a
@@ -358,7 +358,7 @@ mod tests {
     }
 }
 
-/// S3-compatible object-store backend (S4-4, D1) — AWS S3 / MinIO / SeaweedFS-S3 /
+/// S3-compatible object-store backend — AWS S3 / MinIO / SeaweedFS-S3 /
 /// Glacier. Feature-gated behind `s3` so the default build pulls in no S3 SDK and
 /// the cold tier defaults to [`FilesystemObjectStore`].
 ///

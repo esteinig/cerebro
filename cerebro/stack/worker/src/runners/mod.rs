@@ -1,15 +1,15 @@
-//! Job runners (Stage 3).
+//! Job runners.
 //!
 //! Each Faktory job `kind` maps to a [`faktory::JobRunner`]. The full lifecycle
 //! taxonomy is now implemented:
-//! * [`ping::Ping`] — liveness smoke test (S3-1);
-//! * [`tier_move`] — `tier_move` + `tier_move_scan` (S3-2a);
-//! * [`retention_sweep`] — `retention_sweep` + `purge_reclaim` (S3-2b);
-//! * [`restore_drive`] — archival restore state machine (S3-3b);
-//! * [`restore_scan`] — re-drive stranded in-flight restores (S3-5 #2);
-//! * [`verify`] — `verify_file` + `verify_scan` integrity checks (S3-3a);
-//! * [`catalogue_backup`] — scheduled MongoDB control-plane backup (S4-2);
-//! * [`reconcile`] — catalogue/object-store consistency reconcile (S4-3).
+//! * [`ping::Ping`] — liveness smoke test;
+//! * [`tier_move`] — `tier_move` + `tier_move_scan`;
+//! * [`retention_sweep`] — `retention_sweep` + `purge_reclaim`;
+//! * [`restore_drive`] — archival restore state machine;
+//! * [`restore_scan`] — re-drive stranded in-flight restores;
+//! * [`verify`] — `verify_file` + `verify_scan` integrity checks;
+//! * [`catalogue_backup`] — scheduled MongoDB control-plane backup;
+//! * [`reconcile`] — catalogue/object-store consistency reconcile.
 //!
 //! Every runner records a `started` then a terminal outcome on the worker metrics.
 

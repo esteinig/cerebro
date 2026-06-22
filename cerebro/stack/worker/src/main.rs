@@ -1,14 +1,14 @@
-//! cerebro-worker — Faktory consumer for the Cerebro lifecycle (Stage 3).
+//! cerebro-worker — Faktory consumer for the Cerebro lifecycle.
 //!
 //! A standalone, independently-scaled process that pulls jobs from Faktory and
 //! executes them. It is the **consumer** half of the producer/consumer split: the
 //! API server and its `Scheduler` *enqueue* jobs (on demand or periodically); this
 //! process *runs* them. Workers are never spawned inside API request handlers.
 //!
-//! S3-1 established the foundation — shared context (API + FS clients), worker
+//! The foundation is the shared context (API + FS clients), worker
 //! telemetry + health endpoints, and the job taxonomy. The lifecycle runners are
-//! now all real: tier mover (S3-2a), retention sweep + purge/reclaim (S3-2b),
-//! restore executor (S3-3b), and integrity verify (S3-3a).
+//! now all real: tier mover, retention sweep + purge/reclaim,
+//! restore executor, and integrity verify.
 
 mod archive;
 mod backup;
@@ -64,7 +64,7 @@ async fn main() -> std::io::Result<()> {
             .map_err(error::io_err)?
     };
 
-    // Authenticate as the service Bot (S3-5 #5). If bot credentials are configured
+    // Authenticate as the service Bot. If bot credentials are configured
     // this logs in and rebuilds the clients with a long-lived, role-scoped token; a
     // failure is logged but non-fatal (lifecycle runners will error until auth
     // succeeds — e.g. on a later periodic re-login or restart).

@@ -1,4 +1,4 @@
-//! `verify_file` + `verify_scan` runners (S3-3a, hardened in S3-5 #3/#6).
+//! `verify_file` + `verify_scan` runners.
 //!
 //! Scheduled integrity verification. Mirrors the mover's producer/worker split: a
 //! cheap periodic **scan** selects files and fans out per-file **verify** jobs, each
@@ -7,7 +7,7 @@
 //! ## `verify_file` (per file)
 //!
 //! Streams the object's bytes through BLAKE3 and compares to the stored hash
-//! (`FileSystemClient::verify_object`, S3-5 #6) — **no temp-disk copy**, constant
+//! (`FileSystemClient::verify_object`) — **no temp-disk copy**, constant
 //! memory, suitable for multi-gigabyte read sets. Outcomes:
 //! * **match** — stamp `verified_at = now` (so the scan can rotate coverage) and
 //!   record `op="verify", outcome="success"`.
@@ -17,7 +17,7 @@
 //! * **transport/IO error** — the check didn't complete; return `Err` so Faktory
 //!   retries.
 //! Archived objects are skipped (verifying them would require a restore). While
-//! tiering is logical-only (S3-5 #1) every non-archived file is directly
+//! tiering is logical-only every non-archived file is directly
 //! retrievable regardless of tier, so cold logical files are still verified.
 //!
 //! ## `verify_scan` (periodic producer)
@@ -29,7 +29,7 @@
 //! up the *least-recently-verified* files, sweeping the whole estate over time
 //! instead of re-checking the head of the list every run.
 //!
-//! ## Repair (S4-6 H4)
+//! ## Repair
 //!
 //! When a verify mismatch hits a file that has a cold backup (`archive_key`, now
 //! retained across restores), `verify_file` repairs it: it re-pulls the bytes from
@@ -68,7 +68,7 @@ fn default_min_reverify_secs() -> i64 {
 
 /// An archived object is not directly retrievable — verifying it would force a
 /// restore, so the scan skips it and `verify_file` no-ops on it. With logical-only
-/// tiering (S3-5 #1) the storage tier does not affect retrievability; only the real
+/// tiering the storage tier does not affect retrievability; only the real
 /// `archived` flag does.
 fn directly_retrievable(file: &SeaweedFile) -> bool {
     retrievable(file.archived)
@@ -79,7 +79,7 @@ fn retrievable(archived: bool) -> bool {
     !archived
 }
 
-/// Whether a verify mismatch can be repaired from cold (H4): a cold store is
+/// Whether a verify mismatch can be repaired from cold: a cold store is
 /// configured AND the file has a retained cold backup (`archive_key`). Pure, so the
 /// gate is unit-testable without a worker or store.
 fn is_repairable(archive_configured: bool, archive_key: Option<&str>) -> bool {
@@ -112,7 +112,7 @@ struct VerifyFileArgs {
 pub struct VerifyFile {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
-    /// Cold store config (S4-6 H4). When set, a verify mismatch on a file that has
+    /// Cold store config. When set, a verify mismatch on a file that has
     /// a cold backup (`archive_key`) is repaired from cold instead of only alerting.
     archive: Option<ArchiveSettings>,
 }
@@ -130,7 +130,7 @@ impl VerifyFile {
         }
     }
 
-    /// Attempt to repair a corrupt file from its cold backup (S4-6 H4).
+    /// Attempt to repair a corrupt file from its cold backup.
     ///
     /// Re-fetches the bytes from cold, verifies them against the catalogue hash
     /// (so a corrupt cold copy can never overwrite the live entry), writes them
@@ -272,7 +272,7 @@ impl VerifyFile {
                 Ok(JobOutcome::Succeeded)
             }
             Ok(false) => {
-                // Integrity failure. Before alerting, try to repair from cold (H4):
+                // Integrity failure. Before alerting, try to repair from cold:
                 // if the file has a cold backup, re-pull the verified-good bytes and
                 // repoint. Only a real failure (no backup, or repair errored) is
                 // surfaced on the lifecycle metric (alert target).

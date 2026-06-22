@@ -1,4 +1,4 @@
-//! Shared worker context (S3-1).
+//! Shared worker context.
 //!
 //! Built **once** at start-up and shared (`Arc`) across every job runner. Holds the
 //! resolved [`WorkerConfig`] and the Cerebro API + FS clients.
@@ -16,7 +16,7 @@ use cerebro_fs::client::FileSystemClient;
 use crate::config::WorkerConfig;
 use crate::error::WorkerError;
 
-/// The authenticated client pair, rebuilt atomically on (re-)login (S3-5 #3).
+/// The authenticated client pair, rebuilt atomically on (re-)login.
 struct Clients {
     api: CerebroClient,
     fs: FileSystemClient,
@@ -94,7 +94,7 @@ impl WorkerContext {
             .ok_or(WorkerError::ClientNotConfigured("FS"))
     }
 
-    /// Perform the initial service-Bot login (S3-5 #5). Equivalent to
+    /// Perform the initial service-Bot login. Equivalent to
     /// [`relogin`](Self::relogin); a no-op when bot credentials aren't configured
     /// (the worker then runs in static-token or unauthenticated mode).
     pub async fn login(self: &Arc<Self>) -> Result<(), WorkerError> {
@@ -144,7 +144,7 @@ impl WorkerContext {
     }
 
     /// Run a blocking client/storage call on the blocking thread pool, off the
-    /// async executor. This is the S3-1 concurrency decision made concrete: the
+    /// async executor. This is the concurrency decision made concrete: the
     /// Faktory protocol stays async, but lifecycle work is blocking and offloaded
     /// here, so the executor is never parked on I/O/CPU/subprocess work.
     ///
@@ -184,7 +184,7 @@ impl WorkerContext {
 
     /// Enqueue a Faktory job, optionally scheduled for a future time (`at`) and with
     /// an explicit `retry` count. This is the mechanism behind **poll-by-re-enqueue**
-    /// (S3-3b restore): instead of parking a worker on a multi-hour archival thaw,
+    /// (restore): instead of parking a worker on a multi-hour archival thaw,
     /// the job checks status and, if not ready, re-enqueues *itself* at
     /// `now + poll_interval`. Poll jobs set `retry = 0` so Faktory's own retry never
     /// races the explicit poll chain.

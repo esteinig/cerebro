@@ -1,8 +1,8 @@
-//! `restore_drive` runner (S3-3b).
+//! `restore_drive` runner.
 //!
 //! Drives the archival-restore state machine for a single file toward `Restored`,
 //! polling the provider **by re-enqueueing itself with a delay** rather than parking
-//! a worker on a multi-hour archival thaw (the S3-1 blocking-work decision applied
+//! a worker on a multi-hour archival thaw (the blocking-work decision applied
 //! to long waits).
 //!
 //! ## State machine (server-enforced)
@@ -114,7 +114,7 @@ fn progress_from(
 pub struct RestoreDrive {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
-    /// Cold-store settings (S4-5). When `Some`, a ready restore re-materialises the
+    /// Cold-store settings. When `Some`, a ready restore re-materialises the
     /// object's bytes from the cold store before the file is declared retrievable.
     archive: Option<ArchiveSettings>,
 }
@@ -133,7 +133,7 @@ impl RestoreDrive {
     }
 
     /// Re-materialise an archived object from the cold store back into SeaweedFS and
-    /// repoint the catalogue (S4-5). Fetches + hash-verifies the cold bytes, writes
+    /// repoint the catalogue. Fetches + hash-verifies the cold bytes, writes
     /// a new local object, then relocates the file to a retrievable tier with
     /// `archived = false` and the new fid. Errors propagate so the caller marks the
     /// restore failed rather than declaring a non-retrievable object restored.
@@ -178,7 +178,7 @@ impl RestoreDrive {
         // Repoint to the new local copy and land at Warm. CAS guards on the file's
         // current (Cold) tier. `fid` is updated only when a fresh weed object was
         // written; a path-addressed file was overwritten in place. The cold backup
-        // pointer (`archive_key`) is RETAINED (H4) so the restored file keeps a
+        // pointer (`archive_key`) is RETAINED so the restored file keeps a
         // durable cold copy that verify-repair can re-pull on a future mismatch.
         let id = file.id.clone();
         let expected_tier = file.tier;
@@ -237,7 +237,7 @@ impl RestoreDrive {
             RestoreState::InProgress => match self.restore_progress(&file) {
                 RestoreProgress::Ready => {
                     // Re-materialise the bytes from cold before declaring the object
-                    // retrievable (S4-5). With no cold store configured this is a
+                    // retrievable. With no cold store configured this is a
                     // no-op (the simulation seam drives dev/test).
                     if let Some(archive) = &self.archive {
                         if let Err(e) = self.rematerialize(&api, &file, archive).await {

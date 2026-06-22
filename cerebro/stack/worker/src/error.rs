@@ -1,4 +1,4 @@
-//! Worker error taxonomy (S3-1).
+//! Worker error taxonomy.
 //!
 //! [`WorkerError`] is the internal error type for job runners and context setup.
 //! Faktory's `JobRunner` requires `Error: Into<Box<dyn Error>>`/`std::io::Error`,
@@ -17,8 +17,8 @@ pub enum WorkerError {
     ClientNotConfigured(&'static str),
 
     /// The worker reached a job kind whose behaviour is delivered in a later
-    /// package (S3-2 / S3-3). Carried so stub runners are explicit, not silent.
-    #[error("job kind '{0}' is not yet implemented (delivered in a later Stage 3 package)")]
+    /// package. Carried so stub runners are explicit, not silent.
+    #[error("job kind '{0}' is not yet implemented")]
     NotImplemented(&'static str),
 
     /// Malformed job arguments.

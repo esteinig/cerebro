@@ -1,7 +1,7 @@
-//! `restore_scan` runner (S3-5 #2).
+//! `restore_scan` runner.
 //!
 //! Recovery producer for the archival-restore subsystem. `restore_drive` advances a
-//! single file toward `Restored` by re-enqueueing itself on a delay (S3-3b); if that
+//! single file toward `Restored` by re-enqueueing itself on a delay; if that
 //! poll chain is ever dropped — a worker crash, a Faktory restart, a job reaped from
 //! the morgue — an archived file can be left stranded in `Requested`/`InProgress`
 //! with nothing driving it. This scan is the safety net: it periodically finds those
@@ -13,7 +13,7 @@
 //! (hourly by default; see `seed.rs`) — prompt starts come from the restore-request
 //! API path enqueuing `restore_drive` directly, while this scan only backstops drops.
 //!
-//! Only **archived** files are considered: while tiering is logical-only (S3-5 #1)
+//! Only **archived** files are considered: while tiering is logical-only
 //! nothing sets `archived = true`, so in production this scan is dormant but fully
 //! exercisable via simulation. It never restarts terminal `Failed`/`Expired` files
 //! (those require an explicit `restart = true`), so a permanently failing restore is

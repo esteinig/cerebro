@@ -1,4 +1,4 @@
-//! `retention_sweep` + `purge_reclaim` runners (S3-2b).
+//! `retention_sweep` + `purge_reclaim` runners.
 //!
 //! The non-destructive → destructive halves of the retention lifecycle. Both are
 //! **bulk** operations (the server endpoints act on every eligible file in one

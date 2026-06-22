@@ -1,7 +1,7 @@
-//! `archive_reclaim` (S4-6 H3): reclaim the redundant local copy of an archived
-//! file once it is safe to do so (D4).
+//! `archive_reclaim`: reclaim the redundant local copy of an archived
+//! file once it is safe to do so.
 //!
-//! After S4-4 archives a file, the authoritative copy lives in the cold object
+//! After a file is archived, the authoritative copy lives in the cold object
 //! store but a local SeaweedFS copy is kept. This runner deletes that local copy —
 //! reclaiming hot/warm space — only when **all** of the following hold:
 //!
@@ -12,7 +12,7 @@
 //! * a local copy actually still exists.
 //!
 //! After deletion the file stays `archived`, so reconcile skips it and retrieval
-//! goes through the restore path (S4-5). The stale fid is harmless and is replaced
+//! goes through the restore path. The stale fid is harmless and is replaced
 //! on the next restore. This pass mutates only by deleting confirmed-redundant
 //! local bytes; it never touches the catalogue.
 
@@ -34,7 +34,7 @@ const DEFAULT_BUDGET: u32 = 2_000;
 const DEFAULT_MAX_DELETE: usize = 200;
 const PAGE_LIMIT: u32 = 500;
 
-/// Whether a file is eligible for local-copy reclaim (H3): it is archived, has a
+/// Whether a file is eligible for local-copy reclaim: it is archived, has a
 /// cold key, and its archival (anchored on `tier_moved_at`) is older than the grace
 /// window. Pure, so it can be unit-tested without a worker or store. The
 /// cold-copy-present and local-copy-present checks are done separately by the runner

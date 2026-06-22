@@ -1,4 +1,4 @@
-//! `catalogue_backup` (S4-2): back up the MongoDB control plane to the backup
+//! `catalogue_backup`: back up the MongoDB control plane to the backup
 //! object store, with a verifiable manifest and retention.
 //!
 //! Pipeline:

@@ -1,4 +1,4 @@
-//! `ping` — a real liveness job (S3-1).
+//! `ping` — a real liveness job.
 //!
 //! Cheap, dependency-free job that proves the producer → Faktory → consumer path
 //! end-to-end. Enqueue it (e.g. via the server's `POST /jobs/enqueue` with

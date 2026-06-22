@@ -1,13 +1,13 @@
-//! Consistency reconcile engine (S4-3).
+//! Consistency reconcile engine.
 //!
 //! Detects divergence between the catalogue (MongoDB, the authoritative record of
 //! what *should* exist) and the object store (SeaweedFS, what *does* exist):
 //!
 //! * **Dangling references** — a catalogue entry whose backing object is missing.
-//!   This is latent data loss; the scan reports it (and S4-5 repairs from a
+//!   This is latent data loss; the scan reports it (and the repair pass restores from a
 //!   replica/backup). Safe to detect automatically.
 //! * **Orphan objects** — a stored object with no catalogue entry. Wasted space,
-//!   and deleting one is destructive, so reclaim is operator-gated (D6).
+//!   and deleting one is destructive, so reclaim is operator-gated.
 //!
 //! Both directions are pure set differences with a **grace window** so the scan
 //! never acts on a just-written object whose counterpart is moments behind. The
@@ -59,7 +59,7 @@ pub struct OrphanRef {
     pub key: String,
 }
 
-/// The result of a reconcile pass — the report-first output (D6).
+/// The result of a reconcile pass — the report-first output.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReconcileReport {
     pub generated_at: DateTime<Utc>,

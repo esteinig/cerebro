@@ -1,8 +1,8 @@
-//! `reconcile_scan` + `reconcile_reclaim` (S4-3).
+//! `reconcile_scan` + `reconcile_reclaim`.
 //!
-//! * `reconcile_scan` — **report-first** (D6). Enumerates the catalogue, probes
+//! * `reconcile_scan` — **report-first**. Enumerates the catalogue, probes
 //!   each non-archived entry's object presence, and reports dangling references
-//!   (catalogue entries whose object is missing). It never mutates state; S4-5
+//!   (catalogue entries whose object is missing). It never mutates state; the repair pass
 //!   repairs from the report. Safe to run on a schedule.
 //! * `reconcile_reclaim` — **operator-gated** and destructive. Deletes an explicit
 //!   list of orphan objects, only when enqueued with `confirm=true`. Not seeded;
@@ -30,7 +30,7 @@ use crate::telemetry::{JobOutcome, Metrics};
 const DEFAULT_BUDGET: u32 = 5_000;
 const DEFAULT_GRACE_DAYS: i64 = 1;
 const PAGE_LIMIT: u32 = 500;
-/// Upper bound on objects walked in one store enumeration (H2). A truncated walk
+/// Upper bound on objects walked in one store enumeration. A truncated walk
 /// still yields only true orphans (each is checked against the full catalogue), so
 /// this just caps the work per run.
 const STORE_ENUM_BUDGET: usize = 100_000;
@@ -62,7 +62,7 @@ fn parse_catalogue_date(s: &str) -> Option<DateTime<Utc>> {
 pub struct ReconcileScan {
     ctx: Arc<WorkerContext>,
     metrics: Metrics,
-    /// Object-store root for persisting reports (reuses the S4-2 backup store when
+    /// Object-store root for persisting reports (reuses the backup store when
     /// configured). `None` => reports are logged only.
     report_sink: Option<PathBuf>,
 }
@@ -163,7 +163,7 @@ impl ReconcileScan {
         let probed_count = refs.iter().filter(|r| !r.archived).count();
         let dangling = find_dangling(&refs, &present, grace, now);
 
-        // Report-first: detect + record, never mutate here (S4-5 repairs).
+        // Report-first: detect + record, never mutate here (repaired separately).
         for d in &dangling {
             tracing::warn!(
                 file_id = %d.file_id, fid = %d.fid, tier = %d.tier,
@@ -171,7 +171,7 @@ impl ReconcileScan {
             );
         }
 
-        // Orphan detection (H2): only when the store can be enumerated (filer mode)
+        // Orphan detection: only when the store can be enumerated (filer mode)
         // AND the catalogue path set is complete — a truncated catalogue would
         // manufacture false orphans. A truncated *store* walk is fine: it only
         // misses some orphans, never invents them (every found key is checked
@@ -278,7 +278,7 @@ impl JobRunner for ReconcileScan {
 
 #[derive(Debug, Deserialize)]
 struct ReclaimArgs {
-    /// Must be `true` — the destructive action is operator-gated (D6).
+    /// Must be `true` — the destructive action is operator-gated.
     #[serde(default)]
     confirm: bool,
     /// Explicit orphan object keys (fids) to delete. Supplied by the operator from
