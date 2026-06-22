@@ -170,7 +170,7 @@ impl FilerClient {
     }
 
     /// Stream `remote_path` from the filer and return its BLAKE3 digest, without
-    /// writing it to disk (S3-5 #6).
+    /// writing it to disk.
     ///
     /// The response body implements [`Read`](std::io::Read), so it is piped
     /// directly into a `blake3::Hasher` in constant memory — suitable for the
@@ -223,7 +223,7 @@ impl FilerClient {
         }
     }
 
-    /// Whether an object exists at `remote_path` (H3): a cheap `HEAD`. `200` =>
+    /// Whether an object exists at `remote_path`: a cheap `HEAD`. `200` =>
     /// present, `404` => absent. Used by the archival reclaim to confirm a local
     /// filer copy is present before deleting it.
     pub fn exists(&self, remote_path: &str) -> Result<bool, FilerError> {
@@ -236,7 +236,7 @@ impl FilerClient {
         }
     }
 
-    /// Recursively list **file** object paths under `base` (H2), bounded by
+    /// Recursively list **file** object paths under `base`, bounded by
     /// `max_objects`.
     ///
     /// Walks the filer directory tree depth-first, paginating each directory, and
@@ -325,7 +325,7 @@ impl FilerClient {
 /// Per-directory page size for filer listings.
 const LIST_PAGE_LIMIT: u32 = 1000;
 
-/// A file object discovered by a filer listing (H2). In filer mode the **path** is
+/// A file object discovered by a filer listing. In filer mode the **path** is
 /// the object's stable identifier (compared against the catalogue's `path`).
 #[derive(Debug, Clone)]
 pub struct FilerObject {
@@ -401,7 +401,7 @@ mod tests {
         assert_eq!(c.object_url(""), "http://localhost:8888/");
     }
 
-    // --- Filer listing parser (H2) ---
+    // --- Filer listing parser ---
 
     #[test]
     fn entry_directory_bit_detected() {

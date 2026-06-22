@@ -1,4 +1,4 @@
-//! Run manifest sealing, assembly and capture (S2-3).
+//! Run manifest sealing, assembly and capture.
 //!
 //! Builds a [`RunManifest`] from the artefacts already registered for a run,
 //! **seals** it with a BLAKE3 content hash over its canonical body (self-verifying

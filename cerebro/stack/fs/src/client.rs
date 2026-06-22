@@ -134,7 +134,7 @@ pub struct LifecycleEntry {
 ///
 ///  computes the plan (the re-anchored `retain_until` and the move to the
 /// cold tier per file). Persisting it and performing the physical hot→cold /
-/// Glacier move is the deployment-aware lifecycle worker's job (Stage 3).
+/// Glacier move is the deployment-aware lifecycle worker's job.
 #[derive(Debug, Clone)]
 pub struct LifecycleReport {
     pub entries: Vec<LifecycleEntry>,
@@ -266,7 +266,7 @@ impl FileSystemClient {
     }
 
     /// Re-materialise in-memory `bytes` as a new SeaweedFS object, returning its
-    /// new fid (S4-5). Used by the restore path to bring an archived object back
+    /// new fid. Used by the restore path to bring an archived object back
     /// from the cold store. The bytes are written to a temporary file and uploaded
     /// through the same `weed upload` path as normal ingest, so the restored object
     /// lands replicated like any other; the temporary file is always removed.
@@ -302,7 +302,7 @@ impl FileSystemClient {
         Ok(result?.fid)
     }
 
-    /// Overwrite the filer object at `path` with `bytes`, in place (S4-6 H4).
+    /// Overwrite the filer object at `path` with `bytes`, in place.
     ///
     /// Used when re-materialising a path-addressed file from cold: the restored
     /// bytes are written back to the *same* filer path, so the file's
@@ -375,14 +375,14 @@ impl FileSystemClient {
     }
 
     /// Whether object enumeration is available — i.e. the client is in filer mode
-    /// (H2). Only the filer can list what the store holds; the weed/volume path
+    ///. Only the filer can list what the store holds; the weed/volume path
     /// cannot, so orphan detection is gated on this.
     pub fn enumeration_supported(&self) -> bool {
         matches!(self.config.access, FsAccessMode::Filer)
     }
 
     /// Enumerate the object store's file paths under `base`, bounded by `budget`
-    /// (H2). Filer-mode only — walks the filer tree and returns one entry per
+    ///. Filer-mode only — walks the filer tree and returns one entry per
     /// object. The consistency-reconcile scan compares these against the catalogue
     /// `path` set to find orphans (stored objects with no catalogue entry).
     pub fn enumerate_objects(
@@ -397,7 +397,7 @@ impl FileSystemClient {
         Ok(filer.list_objects(base, budget)?)
     }
 
-    /// Delete a store object addressed either by **filer path** or by **fid** (H2).
+    /// Delete a store object addressed either by **filer path** or by **fid**.
     /// Reconcile orphans in filer mode are path-addressed, so reclaim routes by
     /// [`is_filer_path`]: a path goes to the filer delete, an fid to the volume
     /// delete ([`Self::delete_file`]).
@@ -415,7 +415,7 @@ impl FileSystemClient {
     }
 
     /// Whether a store object is present, addressed by **filer path** or **fid**
-    /// (H3). Routes like [`Self::delete_store_object`]: a path is probed via the
+    ///. Routes like [`Self::delete_store_object`]: a path is probed via the
     /// filer `HEAD`, an fid via the volume `HEAD` ([`Self::object_exists`]). The
     /// archival reclaim uses this to confirm a local copy exists before deleting it.
     pub fn store_object_present(&self, key: &str) -> Result<bool, FileSystemError> {
@@ -679,8 +679,7 @@ impl FileSystemClient {
     /// `retain_until`. When `warm_available` is set (three-tier Model B), files
     /// move to the warm tier with a scheduled warm→cold (S3) move
     /// ([`LifecycleTransition::cold_move_at`](cerebro_model::api::files::retention::LifecycleTransition));
-    /// otherwise they move straight to cold. This is a plan/preview: the Stage 3
-    /// lifecycle worker applies it, passing `warm_available = config.warm.is_some()`
+    /// otherwise they move straight to cold. This is a plan/preview: the lifecycle worker applies it, passing `warm_available = config.warm.is_some()`
     /// for the deployment.
     pub fn plan_report_out(
         &self,
@@ -756,7 +755,7 @@ impl FileSystemClient {
     }
 
     /// Stream an object's stored bytes and return their BLAKE3 digest, without
-    /// staging the object on local disk (S3-5 #6).
+    /// staging the object on local disk.
     ///
     /// Routing mirrors [`download_identifier`](Self::download_identifier): a
     /// filer path is fetched via the [`FilerClient`]; a SeaweedFS fid is fetched
@@ -784,7 +783,7 @@ impl FileSystemClient {
     }
 
     /// Verify an object's stored bytes against an expected BLAKE3 hash by
-    /// streaming (S3-5 #6). Returns `Ok(true)` on a match, `Ok(false)` on a
+    /// streaming. Returns `Ok(true)` on a match, `Ok(false)` on a
     /// mismatch (a real integrity failure the caller surfaces as a metric, not a
     /// retryable error), and `Err` only on transport/IO problems.
     pub fn verify_object(

@@ -47,7 +47,7 @@ pub fn fast_file_hash(path: &PathBuf) -> Result<String, FileSystemError> {
 /// Computes a BLAKE3 hash by streaming an arbitrary reader, without persisting
 /// it to disk.
 ///
-/// This is the basis for object integrity verification (S3-5 #6): an HTTP
+/// This is the basis for object integrity verification: an HTTP
 /// response body (filer or volume GET) implements [`Read`], so the bytes are
 /// hashed in flight, in constant memory, and discarded — no temp file, no
 /// second pass. Returns the lowercase hex digest, matching [`fast_file_hash`].

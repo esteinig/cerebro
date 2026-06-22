@@ -301,10 +301,10 @@ fn main() -> Result<()> {
                     }
                     api_client.update_file_lifecycle(&entry.id, &schema)?;
                 }
-                log::info!("Report-out lifecycle persisted (physical tier moves are applied by the Stage 3 worker)");
+                log::info!("Report-out lifecycle persisted (physical tier moves are applied by the worker)");
             } else {
                 log::info!(
-                    "Planned report-out for {} file(s) (preview; re-run with --persist to write, tier moves are applied by the Stage 3 worker)",
+                    "Planned report-out for {} file(s) (preview; re-run with --persist to write, tier moves are applied by the worker)",
                     report.entries.len()
                 );
             }

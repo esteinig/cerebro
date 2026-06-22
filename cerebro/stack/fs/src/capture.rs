@@ -1,4 +1,4 @@
-//! Pipeline output capture for Cerebro FS (S2-2).
+//! Pipeline output capture for Cerebro FS.
 //!
 //! After a pipeline run completes, its diagnostic artefacts must be captured back
 //! into cerebro-fs — hashed, typed, and stamped with a tier and retention class —
@@ -9,7 +9,7 @@
 //! Capture is sequential within a node and continues past individual failures
 //! (recording them), so one bad file never loses the rest of a run. Running
 //! capture **execution-node-parallel** across the cluster is the orchestration
-//! layer's job (S2-5), not in-process concurrency here.
+//! layer's job, not in-process concurrency here.
 //!
 //! The default ruleset ([`CaptureRule::default_ruleset`]) is a sensible starting
 //! point keyed off common output conventions; **tune it to your pipeline's actual
