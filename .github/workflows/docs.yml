@@ -5,9 +5,7 @@ name: docs
 # site only from the canonical branch.
 #
 # The canonical branch is chosen by the repository variable DOCS_PUBLISH_BRANCH
-# (Settings -> Secrets and variables -> Actions -> Variables). Set it to
-# `feat/production` now, then `dev`, then `main` as you merge up — no workflow edits
-# required. GitHub Pages source must be set to "GitHub Actions".
+# (Settings -> Secrets and variables -> Actions -> Variables)
 
 on:
   push:
