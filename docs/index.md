@@ -27,11 +27,10 @@ a diagnostic service.
 
 ## Getting started
 
-!!! note
-    The full Docker application stack is **not** required for the core metagenomic
-    pipelines and report generation. The Nextflow pipelines can be run on their own and
-    the Cerebro CLI used for processing pipeline outputs and generating clinical
-    reports.
+> **Note** — the full Docker application stack is **not** required for the core
+> metagenomic pipelines and report generation. The Nextflow pipelines can be run on
+> their own and the Cerebro CLI used for processing pipeline outputs and generating
+> clinical reports.
 
 **Minimum requirements**
 
@@ -72,10 +71,9 @@ operations runbooks, and [production-readiness governance](cerebro-fs/production
 
 ## Status
 
-!!! warning "Under active development for production release"
-    Cerebro is under active development. Subsystem documentation states, where relevant,
-    the boundary between what is validated and what a given deployment must confirm in
-    its own environment.
+> **⚠️ Under active development for production release.** Cerebro is under active
+> development. Subsystem documentation states, where relevant, the boundary between
+> what is validated and what a given deployment must confirm in its own environment.
 
 This documentation accompanies the viral-enrichment branch of the pipeline used in
 Moso et al., *Non-SARS-CoV-2 respiratory viral detection and whole genome sequencing

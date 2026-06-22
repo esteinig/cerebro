@@ -1,0 +1,28 @@
+[book]
+title = "Cerebro"
+description = "Cerebro — metagenomic diagnostics platform documentation"
+authors = ["Eike Steinig"]
+language = "en"
+# Use the existing docs/ tree as the book source (SUMMARY.md lives in docs/).
+src = "docs"
+
+[output.html]
+# Minimal, professional: light by default with an optional dark theme via the
+# built-in theme picker (light / rust / coal / navy / ayu).
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/esteinig/cerebro"
+git-repository-icon = "fa-github"
+# When served from a GitHub Pages *project* site the book lives under a subpath;
+# set this to your Pages base URL so assets and links resolve. Adjust per deployment.
+site-url = "/cerebro/"
+# To enable an "edit this page" link, add (mdBook version-dependent {path} base):
+# edit-url-template = "https://github.com/esteinig/cerebro/edit/feat/production/docs/{path}"
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.search]
+enable = true
+limit-results = 20
