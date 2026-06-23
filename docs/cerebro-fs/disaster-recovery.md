@@ -24,7 +24,7 @@ document; it orchestrates the machinery described in detail in:
 
 | Symptom | Likely class | Go to |
 |---|---|---|
-| A volume/disk failed; API still serves; some reads slow | One object copy lost | [DR-1](#dr-1--one-object-copy-lost-vol--disk-failure) |
+| A volume/disk failed; API still serves; some reads slow | One object copy lost | [DR-1](#dr-1--one-object-copy-lost-volume--disk-failure) |
 | Catalogue queries fail / return wrong data; Mongo down or corrupt | Catalogue loss | [DR-2](#dr-2--catalogue-mongodb-loss-or-corruption) |
 | Uploads/downloads by path fail; filer errors; listings empty | Filer metadata loss | [DR-3](#dr-3--filer-metadata-loss) |
 | `verify` reports `INTEGRITY FAILURE`; a file's bytes don't match its hash | Object corruption | [DR-4](#dr-4--object-integrity-failure-bit-rot) |
@@ -280,9 +280,12 @@ whether repair already happened:
 - **Has a cold backup:** force a re-verify to trigger repair, or wait for the weekly
   scan. Trigger now:
   ```bash
-  # enqueue a targeted verify (admin API) — repairs from cold on mismatch
-  curl -sS -X POST https://<host>/jobs/enqueue \
-    -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  # enqueue a targeted verify — repairs from cold on mismatch (CLI; poll with job-status)
+  cerebro-client jobs launch-job --kind verify_file \
+    --args '{"file_id":"<FILE_ID>"}' --queue maintenance
+  # raw API equivalent
+  curl -sS -X POST "$CEREBRO_API_URL/jobs/enqueue" \
+    -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
     -d '{"kind":"verify_file","args":{"file_id":"<FILE_ID>"},"queue":"maintenance"}'
   ```
 - **No cold backup, but the object is replicated:** the healthy replica copy is the
@@ -496,48 +499,134 @@ The cheapest recovery is the one you never need. Confirm periodically:
 > All on-demand jobs go through the admin-only `POST /jobs/enqueue` endpoint and are
 > executed by `cerebro-worker`. Poll completion at `GET /jobs/enqueue/{id}`. The
 > worker must be running for jobs to execute (re-start it after a §3 pause).
+>
+> The operator path is the `cerebro-client` CLI (it wraps these endpoints); the raw
+> `curl` form is kept for scripting. Set an admin token up first:
+>
+> ```bash
+> export CEREBRO_API_URL="https://api.<your-domain>"
+> export CEREBRO_API_TOKEN="$(cerebro-client login --email admin@cerebro --password '****')"
+> ```
+> Enqueue with `cerebro-client jobs launch-job --kind <k> --args '<json>' --queue maintenance`
+> and poll with `cerebro-client jobs job-status --id <id>`. See the
+> [maintenance guide](maintenance.md#running-a-job-on-demand) and the
+> [operations walkthrough](walkthrough.md) for the full tour.
 
 ### Trigger a catalogue backup
 ```bash
-curl -sS -X POST https://<host>/jobs/enqueue \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+# CLI (operator path) — prints the job id; poll it with job-status.
+cerebro-client jobs launch-job --kind catalogue_backup --args '{}' --queue maintenance
+
+# raw API equivalent
+curl -sS -X POST "$CEREBRO_API_URL/jobs/enqueue" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
   -d '{"kind":"catalogue_backup","args":{},"queue":"maintenance"}'
 ```
 
 ### Inspect & verify a backup
 A backup is two keys under `{prefix}/{backup_id}/`: `catalogue.archive.gz` and
-`manifest.json`. Before restoring, **verify**:
-1. Read `manifest.json`; note `archive_blake3`, `audit_chain_verified`, `created_at`.
-2. Compute the archive's BLAKE3 and confirm it equals `archive_blake3`.
-3. Require `audit_chain_verified == true`. If `false`/`null`, the chain was not intact
-   at backup time — prefer an earlier good backup.
+`manifest.json`. Before restoring, **verify** the checksum and the chain flag:
+
+```bash
+STORE="$CEREBRO_BACKUP_STORE_PATH"; PREFIX="${CEREBRO_BACKUP_PREFIX:-catalogue}"
+ls -1 "$STORE/$PREFIX"/*/manifest.json                     # list backups
+BID=$(ls -1 "$STORE/$PREFIX" | sort | tail -n1)            # newest id
+jq '{archive_blake3, audit_chain_verified, created_at}' "$STORE/$PREFIX/$BID/manifest.json"
+test "$(b3sum --no-names "$STORE/$PREFIX/$BID/catalogue.archive.gz")" \
+   = "$(jq -r .archive_blake3 "$STORE/$PREFIX/$BID/manifest.json")" \
+   && echo "checksum OK" || echo "CHECKSUM MISMATCH — do not restore this backup"
+```
+
+Require `audit_chain_verified == true`. If it is `false`/`null`, the chain was not
+intact at backup time — prefer an earlier good backup.
+
+### Verify the live audit chain
+After any catalogue restore (and on a schedule), confirm the live chain verifies. The
+audit endpoint is team-scoped and returns the chain status in `data.verified`:
+
+```bash
+curl -sS "$CEREBRO_API_URL/audit?team=<TEAM>" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" | jq '.data.verified'   # must be true
+```
+
+If the live chain and a backup's `audit_chain_verified` disagree, stop and investigate
+— this is the guard against a restore silently laundering a broken chain.
+
+### Find a file id / list files
+The verify and restore actions take a file id (and team). List the catalogue to find
+them (team-scoped; `limit=0` returns all):
+
+```bash
+curl -sS "$CEREBRO_API_URL/files?team=<TEAM>&page=0&limit=0" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" \
+  | jq -r '.data[] | [.id, .name, .tier, .archived, .restore_state] | @tsv'
+```
 
 ### Restore the catalogue
-See [DR-2](#dr-2--catalogue-mongodb-loss-or-corruption). Mirror of the dump:
-`mongorestore --gzip --archive=<file> --uri=<uri>` (add `--drop` only against a target
-you mean to overwrite).
+The operator path is `restore-catalogue.sh`, which **verifies the archive's BLAKE3
+against the manifest and prints the audit-chain state before touching MongoDB** — use
+it rather than a bare `mongorestore`:
+
+```bash
+# Validate the latest backup is loadable, without writing anything.
+restore-catalogue.sh --uri "mongodb://admin:***@cerebro-database:27017/?authSource=admin" \
+  --backup latest --dry-run
+# Restore a specific backup (asks for typed confirmation; --drop for a clean restore).
+restore-catalogue.sh --uri "mongodb://admin:***@cerebro-database:27017/?authSource=admin" \
+  --backup 20260617T031500Z --drop
+```
+
+The underlying command it runs is `mongorestore --gzip --archive=<file> --uri=<uri>`
+(add `--drop` only against a target you mean to overwrite). Requires `jq`, `b3sum`, and
+`mongorestore` on the host. After loading, re-verify the live audit chain (below).
 
 ### Restore an archived file
-Archived files are brought back by the restore state machine; request a restore (the
-`restore_drive` worker re-materialises the bytes from cold, hash-verifies them, writes
-them back to the file's effective location, and keeps the cold backup). Confirm
-retrievability + hash afterwards.
+Archived files are brought back by the restore state machine. **Request** the restore
+by transitioning the file to `Requested`; the hourly `restore_scan` advances it and
+`restore_drive` re-materialises the bytes from cold, hash-verifies them, writes them
+back to the file's effective location, and keeps the cold backup. The restore endpoint
+is team-scoped (`?team=`), so pass the owning team:
+
+```bash
+# Request the restore (FILE_ID + TEAM from the catalogue listing / reconcile report).
+curl -sS -X POST "$CEREBRO_API_URL/files/<FILE_ID>/restore?team=<TEAM>" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"target":"Requested"}'
+
+# Optional: push the pass now instead of waiting for the hourly scan.
+cerebro-client jobs launch-job --kind restore_scan --args '{}' --queue maintenance
+```
+
+Then confirm: list the file and check `restore_state` is `Restored` (the serialized
+value, with `archived` back to `false`), download it, and verify its BLAKE3 equals the
+catalogue hash (see [DR-4 Verify](#dr-4--object-integrity-failure-bit-rot)).
 
 ### Run a reconcile scan (read-only)
 ```bash
-curl -sS -X POST https://<host>/jobs/enqueue \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+# CLI (operator path). Raise the budget to cover a large catalogue + enable orphan detection.
+cerebro-client jobs launch-job --kind reconcile_scan \
+  --args '{"budget":100000,"grace_days":1}' --queue maintenance
+
+# raw API equivalent
+curl -sS -X POST "$CEREBRO_API_URL/jobs/enqueue" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
   -d '{"kind":"reconcile_scan","args":{},"queue":"maintenance"}'
 ```
 The report is written to the backup store under `reconcile/`. Orphan detection runs
-only in filer mode and only when the catalogue is complete within budget.
+only in filer mode and only when the catalogue is complete within budget. Reading the
+report is shown in [consistency-reconcile.md](consistency-reconcile.md#reconcile_scan-scheduled-safe).
 
 ### Reclaim orphans (gated)
 **Destructive, operator-gated.** Requires `confirm: true` and the *explicit* keys to
 delete — reclaim never enumerates-and-deletes on its own:
 ```bash
-curl -sS -X POST https://<host>/jobs/enqueue \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+# CLI (operator path).
+cerebro-client jobs launch-job --kind reconcile_reclaim \
+  --args '{"confirm":true,"keys":["<key1>","<key2>"],"max_delete":100}' --queue maintenance
+
+# raw API equivalent
+curl -sS -X POST "$CEREBRO_API_URL/jobs/enqueue" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
   -d '{"kind":"reconcile_reclaim","args":{"confirm":true,"keys":["<key1>","<key2>"]},"queue":"maintenance"}'
 ```
 Path keys route to the filer delete, fids to the volume delete, automatically.

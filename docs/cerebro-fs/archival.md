@@ -92,6 +92,27 @@ bytes and restore re-verifies the BLAKE3 on the way back, so the residual risk i
 cold object that exists but is corrupt; operators wanting maximum safety can run a
 verify pass before enabling reclaim, or raise the grace window.
 
+## Triggering archival and reclaim on demand
+
+Archival normally happens as a side-effect of the scheduled `tier_move_scan`, but both
+steps can be driven by hand (admin token — see
+[administration → operator CLI setup](administration.md#operator-cli-setup-authentication)):
+
+```bash
+# Archive one file now: move its bytes to Cold (copies to the cold store + repoints).
+cerebro-client jobs launch-job --kind tier_move \
+  --args '{"file_id":"<FILE_ID>","target":"Cold"}' --queue maintenance
+
+# Reclaim the redundant local copies of archived files past their grace window.
+# Bounded by budget/max_delete; only deletes where the cold copy is confirmed present.
+cerebro-client jobs launch-job --kind archive_reclaim \
+  --args '{"budget":1000,"max_delete":100}' --queue maintenance
+```
+
+`archive_reclaim` accepts an optional `"grace_days"` override; with nothing set it uses
+`CEREBRO_ARCHIVE_LOCAL_GRACE_DAYS` (default 7). To bring an archived file back, see
+[restore an archived file](disaster-recovery.md#restore-an-archived-file).
+
 ## What's tested here vs in your environment
 
 Unit tests cover the pure pieces: `archive_key_for` (namespacing, sanitisation,

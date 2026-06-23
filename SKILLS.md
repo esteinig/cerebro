@@ -331,6 +331,13 @@ recover it.**
 - **Operations layer** — the runbooks an operator lives in:
   - an *administration* guide (deploy, configure, secrets, a consolidated
     configuration reference, prerequisites);
+  - an *operations walkthrough* — a task-by-task how-to that steps through the most
+    important commands and the routine administrative/maintenance tasks end to end.
+    It is both a worked example and the operational guide: each task states its
+    what/why, the actual command(s), and how the operator confirms it worked. It ties
+    the per-topic runbooks together into the path an operator actually follows
+    (stand up → connect → operate → recover), and is the fastest on-ramp for someone
+    who has never run the system;
   - a *maintenance* guide (the scheduled-job catalogue with cadences, and how to run
     operations on demand);
   - per-subsystem *topic runbooks* (one per major capability);
@@ -361,20 +368,40 @@ The recovery runbook pattern that worked, reusable for any operational procedure
 
 - **Operate.** Document routine operation and every on-demand action with the actual
   command or endpoint, the arguments, and the expected result — including the
-  operator-gated destructive actions and exactly how they are confirmed.
+  operator-gated destructive actions and exactly how they are confirmed. Docs that
+  describe *what* a capability does without showing *how* to invoke it are not done:
+  annotate every operational step with a short, runnable execution example.
+- **Execution examples — the conventions.** Make them copy-pasteable and grounded in
+  the real interface:
+  - **CLI-first where operators interact.** If there is an operator-facing CLI for the
+    action, lead with it; show the raw API call (`curl`) alongside as the scripting
+    path. Reach for `curl` as the primary only where there is no CLI surface and the
+    request body is simple — a deep or fiddly POST object belongs behind the CLI or a
+    script, not pasted into a runbook.
+  - **Ground them in the code, not in memory.** Command names, subcommands, flags,
+    job kinds, endpoint paths, and argument shapes must match the actual CLI/handlers.
+    Verify against the source rather than asserting from recall; a wrong flag in a
+    runbook is a production trap.
+  - **Show the shape of success.** Include the expected output or the one-line result
+    the operator should see (a returned id, `audit_chain_verified: true`, a metric
+    going to zero), so "did it work?" is answerable from the page.
+  - **Honour the safety posture in the example itself.** Destructive commands carry
+    their gate inline (explicit confirmation, an explicit target list, a grace note),
+    so the example can never be copied into an unsafe shortcut.
 - **Verify.** Give the reader a way to confirm health at every level: a quick
   smoke-check after deploy or after applying changes; the integrity/consistency checks
   that prove data is intact; the metrics and signals to watch; and the validation
-  guide for building and running the tests. "How do I know it's working?" always has a
-  documented answer.
+  guide for building and running the tests. Pair every operational action with its
+  verification step. "How do I know it's working?" always has a documented answer.
 
 ### Done when
 
 A feature's documentation is complete when a competent operator who has never seen the
 code can, from `docs/` alone: understand what it does, stand it up and configure it,
-run its routine and on-demand operations, confirm it is healthy, and recover it from
-each failure in the scenario index — and when those recovery procedures have been
-drilled at least once.
+run its routine and on-demand operations **by copy-pasting the documented commands**
+(following the operations walkthrough end to end), confirm each one worked, confirm the
+system is healthy, and recover it from each failure in the scenario index — and when
+those recovery procedures have been drilled at least once.
 
 ---
 
@@ -388,9 +415,10 @@ drilled at least once.
    refactors kept separate; one verified patch each; the tested-vs-validated boundary
    stated.
 4. **Document as a system.** Provide the full documentation set into the shared
-   `docs/` tree — overview, architecture, administration, maintenance, topic runbooks,
-   and a recovery runbook with drills (see §6) — and keep stage scaffolding out of
-   shipped artifacts.
+   `docs/` tree — overview, architecture, administration, an operations walkthrough,
+   maintenance, topic runbooks, and a recovery runbook with drills (see §6) — with
+   every operational step carrying a runnable, code-grounded execution example and its
+   verification step, and keep stage scaffolding out of shipped artifacts.
 5. **Assess.** Close with an honest, critical production-readiness assessment as
    tracked, prioritized gaps.
 6. **Summarise.** Write a concise PR summary referencing the docs and code.
@@ -419,6 +447,8 @@ drilled at least once.
 - Unbounded sweeps or full dumps that don't scale with the estate.
 - Leaking development-stage scaffolding (S/H/Stage/decision numbers) into shipped
   docstrings, comments, or operational docs.
+- Documenting *what* an operation does but not *how* to run it — prose descriptions of
+  commands instead of runnable, code-grounded examples with a verification step.
 - Large, multi-concern commits that can't be reviewed or reverted cleanly.
 - Breaking the serialized shape of a domain record without a compatibility path.
 

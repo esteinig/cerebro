@@ -56,11 +56,29 @@ volume is a latent single copy. Watch for it:
   metrics (`:9325` primary, `:9328` replica) expose volume counts and disk usage.
   Alert when the replica server's volume count diverges from the primary's, or when
   either server is unreachable.
-- **`weed shell`** against the master gives the authoritative view:
-  - `volume.list` — shows each volume's replica placement and whether it is
-    under-replicated.
-  - `volume.fix.replication` — re-replicates under-replicated volumes onto a
-    server that can satisfy the code (used once a failed disk/server is replaced).
+
+  ```bash
+  # Scrape the master's volume/disk metrics (from a host that can reach the metrics port).
+  curl -sS http://cerebro-fs-master:9324/metrics | grep -E 'SeaweedFS_master_volume|_disk_'
+  ```
+
+- **`weed shell`** against the master gives the authoritative view. The `weed` binary
+  lives in the master container, so run the shell through it and pipe commands in on
+  stdin:
+
+  ```bash
+  # List every volume with its replica placement (flags under-replicated volumes).
+  docker compose exec cerebro-fs-master weed shell <<'EOF'
+  volume.list
+  EOF
+
+  # Re-replicate under-replicated volumes onto a server that can satisfy the code
+  # (run once a failed disk/server has been replaced).
+  docker compose exec cerebro-fs-master weed shell <<'EOF'
+  volume.fix.replication
+  EOF
+  ```
+
 - A volume that shows fewer replicas than the code requires, or a volume server
   that has been down past your alert window, is the signal to investigate and, once
   hardware is restored, run `volume.fix.replication`. SeaweedFS re-replicates

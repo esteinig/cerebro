@@ -8,6 +8,7 @@
     - [Overview](cerebro-fs/overview.md)
     - [Architecture](cerebro-fs/architecture.md)
     - [Administration](cerebro-fs/administration.md)
+    - [Operations walkthrough](cerebro-fs/walkthrough.md)
     - [Maintenance](cerebro-fs/maintenance.md)
     - [Storage & replication](cerebro-fs/fs-replication.md)
     - [Catalogue backup](cerebro-fs/catalogue-backup.md)

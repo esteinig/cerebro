@@ -95,6 +95,34 @@ maintenance automation:
    restore it and confirm the restored bytes match the catalogue hash. This exercises
    archival, the retained backup pointer, and restore together.
 
+The commands for each step (admin token set per
+[administration → operator CLI setup](administration.md#operator-cli-setup-authentication)):
+
+```bash
+# 1. Health.
+docker compose ps
+curl -sS http://<worker-host>:9464/health
+docker compose exec cerebro-fs-master weed shell <<'EOF'
+volume.list
+EOF
+
+# 2. Round-trip + integrity (FILE_ID from the catalogue listing).
+id=$(cerebro-client jobs launch-job --kind verify_file --args '{"file_id":"<FILE_ID>"}' --queue maintenance)
+cerebro-client jobs job-status --id "$id"      # then check logs for "integrity verified"
+
+# 3. Backup + verify.
+id=$(cerebro-client jobs launch-job --kind catalogue_backup --args '{}' --queue maintenance)
+cerebro-client jobs job-status --id "$id"      # verify the manifest as in catalogue-backup.md
+
+# 4. Reconcile.
+cerebro-client jobs launch-job --kind reconcile_scan --args '{"budget":100000}' --queue maintenance
+
+# 5. Archival round-trip — request a restore, then hash-check (see disaster-recovery.md §8).
+curl -sS -X POST "$CEREBRO_API_URL/files/<FILE_ID>/restore?team=<TEAM>" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"target":"Requested"}'
+```
+
 ## 6. Recovery drills
 
 The recovery paths are validated by rehearsal, not by unit tests. Run the drills in

@@ -33,6 +33,25 @@ A weekly worker job (`seed:reconcile_scan`, queue `maintenance`):
 It never mutates catalogue or object state. Tune per-run with job args
 `{ "budget": N, "grace_days": D }`.
 
+**Run it on demand and read the report** (admin token — see
+[administration → operator CLI setup](administration.md#operator-cli-setup-authentication)):
+
+```bash
+# Enqueue a scan (raise the budget to cover a large catalogue and enable orphan detection).
+id=$(cerebro-client jobs launch-job --kind reconcile_scan \
+  --args '{"budget":100000,"grace_days":1}' --queue maintenance)
+cerebro-client jobs job-status --id "$id"
+
+# Read the newest report from the backup store's reconcile/ prefix.
+RID=$(ls -1 "$CEREBRO_BACKUP_STORE_PATH/reconcile" | sort | tail -n1)
+jq '{store_enumerated, dangling: (.dangling|length), orphans: (.orphans|length)}' \
+   "$CEREBRO_BACKUP_STORE_PATH/reconcile/$RID"
+jq -r '.orphans[]?.key' "$CEREBRO_BACKUP_STORE_PATH/reconcile/$RID"   # candidate keys for reclaim
+```
+
+If `store_enumerated` is `false`, orphans were not computed (volume mode, or the
+catalogue exceeded the budget); raise the budget and re-run to enable it.
+
 ## `reconcile_reclaim` (operator-gated, destructive)
 
 Deleting an orphan is irreversible, so reclaim is a separate job that is **not**
@@ -45,6 +64,15 @@ seeded. An operator enqueues it after reviewing a report:
 It refuses unless `confirm` is `true`, deletes only the explicit `keys` (capped by
 `max_delete`), and logs each deletion. It acts on the operator's reviewed list, so
 the grace decision is made at report time; it does not re-enumerate.
+
+Run it with the **explicit keys** you confirmed from the report — never a wildcard:
+
+```bash
+cerebro-client jobs launch-job --kind reconcile_reclaim \
+  --args '{"confirm":true,"keys":["3,01abcd…","5,07ef12…"],"max_delete":100}' \
+  --queue maintenance
+# Path keys route to the filer delete, fids to the volume delete, automatically.
+```
 
 ## Orphan detection (live in filer mode)
 

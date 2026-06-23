@@ -66,8 +66,10 @@ operations documentation and governance (assurance and production-readiness).
 It manages sequencing data and derived files from ingestion through tiering, archival,
 and retention, while guaranteeing that every object remains intact, durable,
 recoverable, and auditable for as long as policy requires. See its
-[overview](cerebro-fs/overview.md), [architecture](cerebro-fs/architecture.md),
-operations runbooks, and [production-readiness governance](cerebro-fs/production-readiness.md).
+[overview](cerebro-fs/overview.md), [architecture](cerebro-fs/architecture.md), the
+[operations walkthrough](cerebro-fs/walkthrough.md) (a hands-on how-to with the actual
+commands), the operations runbooks, and
+[production-readiness governance](cerebro-fs/production-readiness.md).
 
 ## Status
 

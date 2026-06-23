@@ -9,6 +9,8 @@ the entry point; it orients you and points at the rest of the documentation set.
 - **New to cerebro-fs** → the [overview](overview.md), then the
   [architecture](architecture.md).
 - **Deploying / configuring** → the [administration guide](administration.md).
+- **Operating it hands-on** → the [operations walkthrough](walkthrough.md) — a
+  task-by-task how-to with the actual commands and a verify step for each.
 - **Running maintenance** → the [maintenance guide](maintenance.md).
 - **Operating / recovering a deployment** → the
   [disaster-recovery runbook](disaster-recovery.md) (triage → scenario → commands →
@@ -70,6 +72,7 @@ The spine that ties the docs together — a file moves through:
 | Doc | Covers |
 |---|---|
 | [`administration.md`](administration.md) | Deploying, configuring (configuration reference), secrets, durability prerequisites |
+| [`walkthrough.md`](walkthrough.md) | Task-by-task operator how-to: the actual CLI/API commands and a verify step for each |
 | [`maintenance.md`](maintenance.md) | The scheduled-job catalogue and on-demand operations |
 | [`fs-replication.md`](fs-replication.md) | SeaweedFS replication; multi-host durability |
 | [`catalogue-backup.md`](catalogue-backup.md) | Scheduled catalogue backups; manifest; backup user |

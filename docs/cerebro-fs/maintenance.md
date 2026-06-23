@@ -54,23 +54,74 @@ Enqueued by the scans above (or on demand):
 
 ## Running a job on demand
 
-Maintenance jobs can be triggered through the admin job endpoint (admin
-authentication required). Enqueue a job:
+Maintenance jobs are enqueued through the admin job API. The operator path is the
+`cerebro-client` CLI; the raw endpoint is shown alongside for scripting. Both require
+an **admin** token — set one up first (see
+[administration → operator CLI setup](administration.md#operator-cli-setup-authentication)):
 
 ```bash
-curl -sS -X POST https://<host>/jobs/enqueue \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"kind":"<job-kind>","args":{ ... },"queue":"maintenance"}'
+export CEREBRO_API_URL="https://api.<your-domain>"
+export CEREBRO_API_TOKEN="$(cerebro-client login --email admin@cerebro --password '****')"
 ```
 
-Poll completion at `GET /jobs/enqueue/{id}`. Common uses:
+**Enqueue (CLI).** `launch-job` prints the job id (a UUID) on success:
 
-- Force a backup now: `{"kind":"catalogue_backup","args":{}}`.
-- Re-verify (and repair) a specific file:
-  `{"kind":"verify_file","args":{"file_id":"<id>"}}`.
-- Get a current consistency picture: `{"kind":"reconcile_scan","args":{}}`.
-- Reclaim confirmed orphans (gated):
-  `{"kind":"reconcile_reclaim","args":{"confirm":true,"keys":["<key>"]}}`.
+```bash
+cerebro-client jobs launch-job \
+  --kind <job-kind> --args '<json-args>' --queue maintenance
+# → 3f9a1c54-…   (job id; poll it below)
+```
+
+**Enqueue (raw API).** The CLI wraps this exact call; the server runs the job on
+`cerebro-worker` and returns the id in `data`:
+
+```bash
+curl -sS -X POST "$CEREBRO_API_URL/jobs/enqueue" \
+  -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"kind":"<job-kind>","args":{ },"queue":"maintenance"}'
+# → {"status":"success","message":"Job enqueued","data":"3f9a1c54-…"}
+```
+
+**Poll completion.** Use the returned id (UUID or Faktory JID):
+
+```bash
+cerebro-client jobs job-status   --id 3f9a1c54-…   # completed=true status=succeeded result=…
+cerebro-client jobs job-complete --id 3f9a1c54-…   # yes | no
+# raw equivalent: GET $CEREBRO_API_URL/jobs/enqueue/3f9a1c54-…
+```
+
+### Common on-demand jobs
+
+| Intent | Command |
+|---|---|
+| Force a catalogue backup now | `cerebro-client jobs launch-job --kind catalogue_backup --args '{}' --queue maintenance` |
+| Re-verify (and repair) one file | `cerebro-client jobs launch-job --kind verify_file --args '{"file_id":"<id>"}' --queue maintenance` |
+| Current consistency picture | `cerebro-client jobs launch-job --kind reconcile_scan --args '{}' --queue maintenance` |
+| Reclaim confirmed orphans (**gated**) | `cerebro-client jobs launch-job --kind reconcile_reclaim --args '{"confirm":true,"keys":["<key>"],"max_delete":100}' --queue maintenance` |
+| Tier-move / archive one file | `cerebro-client jobs launch-job --kind tier_move --args '{"file_id":"<id>","target":"Cold"}' --queue maintenance` |
+| Reclaim local copies of archived files | `cerebro-client jobs launch-job --kind archive_reclaim --args '{}' --queue maintenance` |
+
+Job-kind argument shapes are documented with each capability: `catalogue_backup`
+([backup](catalogue-backup.md)), `verify_file`/`verify_repair`
+([verify & repair](verify-repair.md)), `reconcile_scan`/`reconcile_reclaim`
+([reconcile](consistency-reconcile.md)), `tier_move`/`archive_reclaim`
+([archival](archival.md)), restore ([disaster recovery](disaster-recovery.md#restore-an-archived-file)).
+
+### Scheduling and re-seeding
+
+The seeded schedule (above) is created automatically. To add or override a schedule
+on demand — e.g. a more frequent backup, or to re-seed after a fresh database — use
+`schedule-job` (one-shot when `--interval-seconds` is omitted, recurring otherwise)
+and inspect the schedule with `schedule-summary`:
+
+```bash
+# A recurring backup every 12h, first run at an explicit UTC time.
+cerebro-client jobs schedule-job \
+  --kind catalogue_backup --args '{}' --queue maintenance \
+  --run-at 2026-06-24T15:00:00Z --interval-seconds 43200
+
+cerebro-client jobs schedule-summary    # next/previous 10 scheduled runs
+```
 
 ## Where findings go
 
@@ -86,4 +137,13 @@ Poll completion at `GET /jobs/enqueue/{id}`. Common uses:
 The [disaster-recovery runbook](disaster-recovery.md#3-first-response--the-first-15-minutes)
 opens by pausing the destructive maintenance jobs (`reconcile_reclaim`,
 `archive_reclaim`, `tier_move`) so recovery never races deletion — the fastest safe
-way is to stop the worker. Re-enable it once the scenario's verification passes.
+way is to stop the worker:
+
+```bash
+docker compose stop cerebro-worker     # halts job execution; API + data keep serving
+# … recover …
+docker compose up -d cerebro-worker    # resume once the scenario's Verify step passes
+```
+
+Producers (the seeded scans) keep queuing jobs harmlessly while the worker is stopped;
+nothing executes until you restart it.

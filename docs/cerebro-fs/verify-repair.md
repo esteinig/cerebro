@@ -88,6 +88,28 @@ The gate is presence + hash: repair proceeds only if the cold bytes match the
 catalogue hash, so a cold copy that is itself corrupt fails closed (escalation),
 never a bad overwrite.
 
+## Running verify and repair on demand
+
+Both passes are scheduled, but you can force them (admin token — see
+[administration → operator CLI setup](administration.md#operator-cli-setup-authentication)):
+
+```bash
+# Re-hash one object against its catalogue hash; repairs from cold on mismatch.
+id=$(cerebro-client jobs launch-job --kind verify_file \
+  --args '{"file_id":"<FILE_ID>"}' --queue maintenance)
+cerebro-client jobs job-status --id "$id"
+
+# Re-check the latest reconcile report and escalate confirmed losses.
+cerebro-client jobs launch-job --kind verify_repair --args '{}' --queue maintenance
+```
+
+Read the outcome in the worker logs and metrics: a success logs `integrity verified`
+(or `integrity failure REPAIRED from cold backup`) and stamps `verified_at`; an
+unrepairable mismatch logs `INTEGRITY FAILURE …` and increments the verify-failure
+series of `cerebro_file_lifecycle_ops_total`. See
+[disaster recovery DR-4](disaster-recovery.md#dr-4--object-integrity-failure-bit-rot)
+for the decision tree on each outcome.
+
 ## What's tested here vs in your environment
 
 `cargo test` covers the engine's pure pieces (`archive_key_for`; the restore hash

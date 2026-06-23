@@ -27,6 +27,32 @@ scheduler (`seed:catalogue_backup`, queue `maintenance`). Each run:
 
 The job is heavy I/O and lives in the worker, never in an API request handler.
 
+## Triggering and verifying a backup on demand
+
+Besides the daily schedule, an operator can force a backup (admin token required —
+see [administration → operator CLI setup](administration.md#operator-cli-setup-authentication)):
+
+```bash
+# Enqueue a backup and wait for it.
+id=$(cerebro-client jobs launch-job --kind catalogue_backup --args '{}' --queue maintenance)
+cerebro-client jobs job-status --id "$id"     # completed=true status=succeeded …
+```
+
+Then confirm the new backup is well-formed — this is the same check a restore makes,
+so run it after any backup you intend to rely on:
+
+```bash
+STORE="$CEREBRO_BACKUP_STORE_PATH"; PREFIX="${CEREBRO_BACKUP_PREFIX:-catalogue}"
+BID=$(ls -1 "$STORE/$PREFIX" | sort | tail -n1)            # newest backup id
+jq '{archive_blake3, audit_chain_verified, created_at}' "$STORE/$PREFIX/$BID/manifest.json"
+# The archive's BLAKE3 must equal manifest.archive_blake3, and audit_chain_verified must be true:
+test "$(b3sum --no-names "$STORE/$PREFIX/$BID/catalogue.archive.gz")" \
+   = "$(jq -r .archive_blake3 "$STORE/$PREFIX/$BID/manifest.json")" && echo "checksum OK"
+```
+
+A backup whose checksum does not match, or whose `audit_chain_verified` is not `true`,
+is not a valid recovery point — prefer the previous good backup.
+
 ## Object store backends
 
 The backup engine is written against a small `ObjectStore` trait, so the target
