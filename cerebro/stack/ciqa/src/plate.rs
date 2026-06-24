@@ -8,6 +8,8 @@ use cerebro_model::api::cerebro::schema::{
     CerebroIdentifierSchema, MetaGpConfig, PrefetchData, PrevalenceContaminationConfig, SampleType,
     TestResult,
 };
+use cerebro_model::api::cerebro::model::Cerebro;
+use cerebro_model::api::cerebro::prefetch_local::{build_prefetch_local, libraries_for_sample};
 use cerebro_pipeline::modules::quality::{QcStatus, QualityControlSummary};
 use colored::{ColoredString, Colorize};
 use meta_gpt::gpt::{Diagnosis, DiagnosticResult, SampleContext};
@@ -1418,6 +1420,45 @@ impl ReferencePlate {
         );
 
         prefetch_data.prune();
+        prefetch_data.to_json(output)?;
+
+        Ok(prefetch_data)
+    }
+
+    /// Self-contained counterpart to [`ReferencePlate::prefetch`]: build a sample's tiered
+    /// [`PrefetchData`] from a run's output models, with no live stack. The contamination split
+    /// is supplied via `prevalence_contamination` (computed once over the run by
+    /// `cerebro_model::api::cerebro::prefetch_local::run_prevalence_contamination`).
+    ///
+    /// Parity: this delegates to the same `aggregate` / `apply_filters` / prevalence primitives
+    /// the server uses, so the result matches a `stack` prefetch for the same data. The optional,
+    /// stack-only contamination-history rescue is not applied here (it is a separate, opt-in
+    /// capability); `allow_no_evidence` is `false` to match the server default.
+    pub fn prefetch_local(
+        &self,
+        run_models: &[Cerebro],
+        output: &Path,
+        config: &MetaGpConfig,
+        prevalence_contamination: &HashMap<String, HashSet<String>>,
+    ) -> Result<PrefetchData, CiqaError> {
+        log::info!(
+            "Building self-contained (local) prefetch for sample '{}'",
+            config.sample
+        );
+
+        let libraries = libraries_for_sample(run_models, &config.sample);
+        if libraries.is_empty() {
+            log::warn!(
+                "No run models matched sample id '{}' (Cerebro.sample.id) for local prefetch",
+                config.sample
+            );
+        }
+
+        // `build_prefetch_local` aggregates per nucleic-acid tag, applies each tier's filter,
+        // splits contamination by the prevalence set, and prunes across tiers.
+        let prefetch_data =
+            build_prefetch_local(&libraries, prevalence_contamination, config, false);
+
         prefetch_data.to_json(output)?;
 
         Ok(prefetch_data)

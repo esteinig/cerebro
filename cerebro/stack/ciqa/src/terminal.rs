@@ -520,6 +520,16 @@ pub struct ReviewArgs {
     pub header_text: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, clap::ValueEnum)]
+#[clap(rename_all = "lowercase")]
+pub enum PrefetchSource {
+    /// Query the Cerebro API for tiered taxa and prevalence contamination (requires a stack).
+    Stack,
+    /// Build the prefetch self-contained from a run's output models, with no live stack.
+    /// Uses the same filtering/prevalence primitives as the stack, so the output is equivalent.
+    Local,
+}
+
 #[derive(Debug, Args, Clone)]
 pub struct PrefetchArgs {
     /// Reference plate file review (.json)
@@ -531,6 +541,14 @@ pub struct PrefetchArgs {
     /// Output directory for tiered filter data (.prefetch.json)
     #[clap(long, short = 'o')]
     pub outdir: PathBuf,
+    /// Where to source taxa from: `stack` (Cerebro API) or `local` (run output models).
+    #[clap(long, default_value = "stack")]
+    pub prefetch_source: PrefetchSource,
+    /// Run output model files (.json) used when `--prefetch-source local`. Prevalence
+    /// contamination is computed across these models (per nucleic-acid tag); each sample's
+    /// libraries are matched by `Cerebro.sample.id`.
+    #[clap(long, num_args(1..))]
+    pub run_models: Vec<PathBuf>,
     /// Subset of sample identifiers from plate to prefetch only
     #[clap(long, short = 's', num_args(1..))]
     pub samples: Option<Vec<String>>,

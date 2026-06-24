@@ -35,6 +35,7 @@ use mongodb::options::{UpdateManyModel, WriteModel};
 
 use cerebro_pipeline::modules::quality::ModelConfig;
 use cerebro_pipeline::taxa::filter::*;
+use cerebro_pipeline::taxa::prevalence::prevalence_contaminant_taxids;
 use cerebro_pipeline::taxa::taxon::{aggregate, collapse_taxa, Taxon};
 
 type CerebroIds = String;
@@ -786,61 +787,12 @@ pub fn apply_prevalence_contamination_filter(
     threshold: f64,            // Prevalence percentage threshold (e.g., 0.5 for 50%)
     taxid_subset: Vec<String>, // Only consider these Taxon.taxid values
 ) -> Vec<String> {
-    // Check for edge cases
-    if cerebros.is_empty() {
-        return Vec::new(); // No data to process
-    }
-
-    // Convert taxid_subset to a HashSet for efficient lookups
-    let taxid_subset_set: HashSet<String> = taxid_subset.into_iter().collect();
-
-    // Total number of Cerebro objects
-    let total_cerebro_count = cerebros.len() as f64;
-
-    // HashMap to count how many Cerebro objects have matching Taxon evidence
-    let mut taxon_prevalence: HashMap<String, usize> = HashMap::new();
-
-    // Iterate through each Cerebro object
-    for cerebro in cerebros {
-        // Collect Taxon IDs with matching evidence in this Cerebro object
-        let mut found_taxa: HashSet<String> = HashSet::new();
-
-        for taxon in cerebro.taxa {
-            // Check if the Taxon is in the subset
-            if !taxid_subset_set.is_empty() && !taxid_subset_set.contains(&taxon.taxid) {
-                continue; // Skip taxa not in the subset if any are defined in subset, otherwise use Taxon
-            }
-
-            // Check if the Taxon has any ProfileRecord evidence matching the criteria
-            let has_matching_evidence = taxon
-                .evidence
-                .profile
-                .iter()
-                .any(|record| record.rpm >= min_rpm);
-
-            if has_matching_evidence {
-                found_taxa.insert(taxon.taxid.clone());
-            }
-        }
-
-        // Increment prevalence count for each Taxon ID found in this Cerebro
-        for taxid in found_taxa {
-            *taxon_prevalence.entry(taxid).or_insert(0) += 1;
-        }
-    }
-
-    // Filter Taxon IDs based on the percentage threshold
-    taxon_prevalence
-        .into_iter()
-        .filter_map(|(taxid, count)| {
-            let prevalence = count as f64 / total_cerebro_count;
-            if prevalence >= threshold {
-                Some(taxid)
-            } else {
-                None
-            }
-        })
-        .collect()
+    // The prevalence logic now lives in cerebro-pipeline (taxa::prevalence) so the API server
+    // and the self-contained (local) prefetch builder identify contaminants identically. This
+    // is a thin, behaviour-preserving adapter: map each Cerebro document to its taxa and
+    // delegate. (The previous in-place implementation lived here; see git history.)
+    let per_sample_taxa: Vec<Vec<Taxon>> = cerebros.into_iter().map(|cerebro| cerebro.taxa).collect();
+    prevalence_contaminant_taxids(&per_sample_taxa, min_rpm, threshold, &taxid_subset)
 }
 
 // Prevalence contamination identification - TODO: stratify by sample type (already in ContaminationSchema)

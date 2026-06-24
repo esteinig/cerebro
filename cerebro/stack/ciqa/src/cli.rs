@@ -34,13 +34,14 @@ use cerebro_ciqa::{
     },
     stats::{mcnemar_batch_adjust, mcnemar_from_reviews},
     tables::summarize_predictions,
-    terminal::{App, Commands},
+    terminal::{App, Commands, PrefetchSource},
     utils::{init_logger, read_csv, read_tsv, write_tsv},
 };
 use cerebro_client::client::CerebroClient;
 use cerebro_model::api::{
     cerebro::{
         model::Cerebro,
+        prefetch_local::{load_run_models, run_prevalence_contamination},
         schema::{
             MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig,
             TieredFilterConfig,
@@ -469,10 +470,28 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 cli.project,
             )?;
 
-            log::info!("Checking status of Cerebro API at {}", &api_client.url);
-            api_client.ping_servers()?;
+            // `local` source is self-contained: no API ping, and taxa come from run models.
+            let local = args.prefetch_source == PrefetchSource::Local;
+
+            if !local {
+                log::info!("Checking status of Cerebro API at {}", &api_client.url);
+                api_client.ping_servers()?;
+            }
 
             create_dir_all(&args.outdir)?;
+
+            // Load the run's output models once (local mode only); used for both prevalence
+            // contamination and per-sample prefetch assembly.
+            let run_models: Vec<Cerebro> = if local {
+                if args.run_models.is_empty() {
+                    log::error!("--prefetch-source local requires --run-models <FILE>...");
+                    exit(1);
+                }
+                log::info!("Loading {} run model(s) for local prefetch", args.run_models.len());
+                load_run_models(&args.run_models)?
+            } else {
+                Vec::new()
+            };
 
             let plate = match (args.plate_review, args.plate_json) {
                 (Some(path), None) => ReferencePlate::from_review(
@@ -512,6 +531,9 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
             {
                 log::warn!("Prevalence contamination control deactivated.");
                 HashMap::new()
+            } else if local {
+                // Same per-tag prevalence computation as the stack endpoint, scoped to the run.
+                run_prevalence_contamination(&run_models, &contam_config)
             } else {
                 plate.prevalence_contamination(&api_client, &contam_config)?
             };
@@ -556,6 +578,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let negative_controls = plate.negative_controls.clone();
                     let prevalence_contamination = prevalence_contamination.clone();
                     let project_name = api_client.project.clone().unwrap_or("null".to_string());
+                    // Borrow the run models (local mode); cheap, shared read-only across threads.
+                    let run_models = &run_models;
 
                     let result: anyhow::Result<Option<(PerSampleSummary, Option<MissedDetectionRow>)>> = (|| {
                         if let Some(ref subset) = subset {
@@ -579,7 +603,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 None => tiered_filter_config,
                             };
 
-                            let negative_controls = if negative_controls.is_empty() {
+                            let negative_controls = if negative_controls.is_empty() && !local {
                                 log::info!("No negative controls for sample '{sample_id}' - attempting to fetch from project: {}", project_name);
                                 if let Some(negative_controls_fetched) = api_client.get_negative_controls(&sample_id)? {
                                     negative_controls_fetched
@@ -603,7 +627,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 contam_config.clone(),
                             );
 
-                            plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
+                            if local {
+                                plate.prefetch_local(run_models, &data_file, &config, &prevalence_contamination)?
+                            } else {
+                                plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
+                            }
                         } else {
                             let fh = std::fs::File::open(&data_file)?;
                             serde_json::from_reader(fh)?
