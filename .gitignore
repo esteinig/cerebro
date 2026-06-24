@@ -2,6 +2,9 @@
 testing/
 .nextflow/
 cerebro/stack/report-wasm/tests/
+!cerebro/stack/report-wasm/tests/render.rs
+!cerebro/stack/report-wasm/tests/fixtures/
+!cerebro/stack/report-wasm/tests/fixtures/*.json
 cerebro/stack/ciqa/templates/test*/
 cerebro/stack/ciqa/templates/adbdb5*.json
 cerebro/stack/ciqa/templates/bug_board.json

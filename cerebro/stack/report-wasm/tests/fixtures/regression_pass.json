@@ -1,0 +1,15 @@
+{
+  "logo": false,
+  "header": { "dataset": "QC Reference", "dataset_version": "2026.1", "baseline_id": "baseline-1",
+    "model": "qwen3-8b-q8-0", "quantization": "q8_0", "run_id": "RUN-PASS", "evaluated": "2026-06-24",
+    "config_hash": "blake3:pass" },
+  "verdict": { "regressed": false, "passed": true, "reasons": "Within tolerance; McNemar not significant." },
+  "statistics": { "current_sensitivity": 0.962, "current_specificity": 0.948, "current_ppv": 0.913, "current_npv": 0.979,
+    "baseline_sensitivity": 0.958, "baseline_specificity": 0.951, "baseline_ppv": 0.910, "baseline_npv": 0.977,
+    "delta_sensitivity": 0.004, "delta_specificity": -0.003, "threshold_sensitivity": 0.90, "threshold_specificity": 0.90 },
+  "mcnemar": { "p_value": 0.4807, "discordant": "b=3, c=5", "adjustment": "continuity-corrected", "panel_size": 120 },
+  "decisions": [
+    { "sample_id": "BIO-001", "reference": "positive", "predicted": "infectious", "decision": "TP" },
+    { "sample_id": "BIO-002", "reference": "negative", "predicted": "non-infectious", "decision": "TN" }
+  ]
+}

@@ -9,5 +9,6 @@ pub mod world;
 pub use compiler::LibraryReportCompiler;
 #[cfg(feature = "lib")]
 pub use report::{
-    PathogenDetectionReport, ReportConfig, ReportFormat, ReportType, TrainingCompletionReport,
+    MetaGptAssessment, PathogenDetectionReport, RegressionReport, ReportConfig, ReportFormat,
+    ReportType, TemplateFormat, TrainingCompletionReport,
 };

@@ -1,0 +1,34 @@
+# Stage 11 — Typst/WASM render validation.
+# The native job is the gate (renders the report templates to PDF + asserts content); the
+# wasm job is a non-blocking smoke build of the cdylib used in the browser.
+
+name: render
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  report-render:
+    name: typst render (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Fonts for Typst SystemWorld
+        run: sudo apt-get update && sudo apt-get install -y fonts-dejavu fonts-liberation
+      - name: Render tests (regression PASS/REGRESSED + appendix gate)
+        run: cargo test -p cerebro-report --features lib --test render -- --nocapture
+
+  report-wasm:
+    name: wasm-pack build (smoke)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # non-blocking until the wasm render harness lands (S11.4)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build the report cdylib for wasm32
+        run: wasm-pack build stack/report-wasm --target web --no-default-features
