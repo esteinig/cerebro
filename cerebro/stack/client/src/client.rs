@@ -49,6 +49,11 @@ use cerebro_model::api::training::response::TrainingPrefetchData;
 use cerebro_model::api::training::response::TrainingResponse;
 use cerebro_model::api::training::response::TrainingSessionData;
 use cerebro_model::api::training::schema::CreateTrainingPrefetch;
+use cerebro_model::api::ciqa::{
+    model::QualityControlBaseline,
+    response::CiqaResponse,
+    schema::{CreateCiqaBaseline, CreateCiqaRegression},
+};
 use cerebro_model::api::users::response::FilteredUser;
 use cerebro_model::api::watchers::model::ProductionWatcher;
 use cerebro_model::api::watchers::response::DeleteWatcherResponse;
@@ -157,6 +162,10 @@ pub enum Route {
     TrainingDelete,
     TrainingSessionList,
     TrainingSessionDelete,
+    CiqaDataset,
+    CiqaBaseline,
+    CiqaBaselineActive,
+    CiqaRegression,
 }
 
 impl Route {
@@ -217,6 +226,10 @@ impl Route {
             Route::TrainingDelete => "training/prefetch",
             Route::TrainingSessionList => "training/sessions",
             Route::TrainingSessionDelete => "training/session",
+            Route::CiqaDataset => "ciqa/dataset",
+            Route::CiqaBaseline => "ciqa/baseline",
+            Route::CiqaBaselineActive => "ciqa/baseline/active",
+            Route::CiqaRegression => "ciqa/regression",
         }
     }
 }
@@ -1944,6 +1957,53 @@ impl CerebroClient {
 
         Ok(())
     }
+    /// Resolve the active baseline for a dataset (the `--baseline active` path, Stage 12).
+    /// Returns `None` if no baseline is promoted.
+    pub fn get_active_ciqa_baseline(
+        &self,
+        dataset: &str,
+        version: Option<&str>,
+    ) -> Result<Option<QualityControlBaseline>, HttpClientError> {
+        self.log_team_warning();
+        let mut params: Vec<(&str, String)> = vec![("dataset", dataset.to_string())];
+        if let Some(v) = version {
+            params.push(("version", v.to_string()));
+        }
+        let url = self.build_request_url(self.routes.url(Route::CiqaBaselineActive), &params);
+        let response = self.send_request_with_team(self.client.get(url))?;
+        let parsed = self.handle_response::<CiqaResponse<QualityControlBaseline>>(
+            response,
+            None,
+            "Failed to resolve active baseline",
+        )?;
+        Ok(parsed.data)
+    }
+
+    /// Register a new immutable baseline (the server sets created/hash/promoted).
+    pub fn upload_ciqa_baseline(
+        &self,
+        baseline: &CreateCiqaBaseline,
+    ) -> Result<(), HttpClientError> {
+        self.log_team_warning();
+        let url = self.routes.url(Route::CiqaBaseline);
+        let response = self.send_request_with_team(self.client.post(url).json(baseline))?;
+        let _ = self.handle_response::<CiqaResponse<()>>(response, None, "Baseline upload failed")?;
+        Ok(())
+    }
+
+    /// Store a run's regression result against a baseline.
+    pub fn upload_ciqa_regression(
+        &self,
+        regression: &CreateCiqaRegression,
+    ) -> Result<(), HttpClientError> {
+        self.log_team_warning();
+        let url = self.routes.url(Route::CiqaRegression);
+        let response = self.send_request_with_team(self.client.post(url).json(regression))?;
+        let _ =
+            self.handle_response::<CiqaResponse<()>>(response, None, "Regression upload failed")?;
+        Ok(())
+    }
+
     pub fn upload_training_prefetch(
         &self,
         prefetch: &Vec<PathBuf>,

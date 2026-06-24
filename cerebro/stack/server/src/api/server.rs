@@ -14,6 +14,7 @@ use crate::api::scheduler::Scheduler;
 use crate::api::teams::handler::team_config;
 use crate::api::towers::handler::towers_config;
 use crate::api::training::handler::training_config;
+use crate::api::ciqa::handler::ciqa_config;
 use crate::api::users::handler::user_config;
 use crate::api::watchers::handler::watchers_config;
 use crate::terminal::{App as Cli, Commands};
@@ -245,6 +246,7 @@ pub async fn main() -> std::io::Result<()> {
                     .configure(stage_config)
                     // .configure(jobs_config)
                     .configure(training_config)
+                    .configure(ciqa_config)
                     // Application functionality configuration for global security
                     .configure(|cfg| cerebro_config(cfg, &config))
                     .wrap(Logger::default())

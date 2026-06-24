@@ -54,6 +54,22 @@ pub struct QualityControlDatasetRecord {
     #[serde(default)]
     pub exclude_lod: Option<bool>,
 }
+impl QualityControlDatasetRecord {
+    /// Build a dataset record from a request (the `PrefetchData` is stored separately in GridFS).
+    pub fn from_request(req: &crate::api::ciqa::schema::CreateCiqaDataset) -> Self {
+        Self {
+            id: req.id.clone(),
+            dataset: req.dataset.clone(),
+            description: req.description.clone(),
+            version: req.version.clone(),
+            sample_name: req.sample_name.clone(),
+            sample_type: req.sample_type.clone(),
+            reference_result: req.reference_result.clone(),
+            reference_candidates: req.reference_candidates.clone(),
+            exclude_lod: req.exclude_lod,
+        }
+    }
+}
 
 /// An immutable, versioned baseline: the frozen statistics a run is regressed against, plus the
 /// manifest that produced it and the thresholds to pass. Append-only; promotion is operator-gated.
@@ -78,6 +94,25 @@ pub struct QualityControlBaseline {
 }
 
 impl QualityControlBaseline {
+    /// Build a registered baseline from a request: server sets `created` (UTC RFC3339),
+    /// `content_hash` (blake3 over the frozen statistics+manifest), and `promoted=false`.
+    pub fn from_request(req: &crate::api::ciqa::schema::CreateCiqaBaseline) -> Self {
+        let created = chrono::Utc::now().to_rfc3339();
+        let hash_input = serde_json::to_vec(&(&req.model_manifest, &req.statistics, &req.thresholds))
+            .unwrap_or_default();
+        Self {
+            id: req.id.clone(),
+            dataset: req.dataset.clone(),
+            dataset_version: req.dataset_version.clone(),
+            model_manifest: req.model_manifest.clone(),
+            statistics: req.statistics.clone(),
+            thresholds: req.thresholds.clone(),
+            created,
+            created_by: req.created_by.clone(),
+            content_hash: crate::api::ciqa::schema::content_hash(&hash_input),
+            promoted: false,
+        }
+    }
     pub fn to_json<P: AsRef<std::path::Path>>(
         &self,
         path: P,

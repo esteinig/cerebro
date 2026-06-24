@@ -15,6 +15,9 @@ pub enum TeamAdminCollection {
     Towers,
     TrainingData,
     TrainingSessions,
+    CiqaDatasets,
+    CiqaBaselines,
+    CiqaRegression,
     AuditLogs,
 }
 impl TeamAdminCollection {
@@ -27,6 +30,9 @@ impl TeamAdminCollection {
             TeamAdminCollection::Towers => String::from("towers"),
             TeamAdminCollection::TrainingData => String::from("training_data"),
             TeamAdminCollection::TrainingSessions => String::from("training_sessions"),
+            TeamAdminCollection::CiqaDatasets => String::from("ciqa_datasets"),
+            TeamAdminCollection::CiqaBaselines => String::from("ciqa_baselines"),
+            TeamAdminCollection::CiqaRegression => String::from("ciqa_regression"),
             TeamAdminCollection::AuditLogs => String::from("audit_logs"),
         }
     }

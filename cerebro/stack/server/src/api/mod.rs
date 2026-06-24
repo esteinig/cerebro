@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod cerebro;
+pub mod ciqa;
 pub mod email;
 pub mod files;
 pub mod jobs;

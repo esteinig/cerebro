@@ -16,6 +16,67 @@ pub fn content_hash(bytes: &[u8]) -> String {
     blake3::hash(bytes).to_hex().to_string()
 }
 
+// ── CIQA API request / query schemas (Stage 12). Mirrors training::schema. ───────────────
+
+use crate::api::cerebro::schema::{PrefetchData, SampleType, TestResult};
+use crate::api::diagnostics::eval::DiagnosticStatistics;
+
+/// POST /ciqa/dataset — store one QC dataset sample: the `PrefetchData` goes to GridFS (by `id`),
+/// the reference truth + metadata become the record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCiqaDataset {
+    pub id: String,
+    pub dataset: String,
+    pub description: String,
+    pub version: String,
+    pub prefetch: PrefetchData,
+    #[serde(default)]
+    pub sample_name: Option<String>,
+    #[serde(default)]
+    pub sample_type: Option<SampleType>,
+    #[serde(default)]
+    pub reference_result: Option<TestResult>,
+    #[serde(default)]
+    pub reference_candidates: Option<Vec<String>>,
+    #[serde(default)]
+    pub exclude_lod: Option<bool>,
+}
+
+/// POST /ciqa/baseline — register an immutable baseline. The server sets `created`,
+/// `content_hash`, and `promoted=false`; promotion is a separate gated step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCiqaBaseline {
+    pub id: String,
+    pub dataset: String,
+    pub dataset_version: String,
+    pub model_manifest: MetaGptRunManifest,
+    pub statistics: DiagnosticStatistics,
+    pub thresholds: super::model::CiqaThresholds,
+    pub created_by: String,
+}
+
+/// POST /ciqa/regression — persist a run's regression outcome against a baseline.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCiqaRegression {
+    pub run_id: String,
+    pub baseline_id: String,
+    pub manifest: MetaGptRunManifest,
+    pub statistics: DiagnosticStatistics,
+    pub regressed: bool,
+    #[serde(default)]
+    pub created: Option<String>,
+}
+
+/// Query filter for dataset/baseline listings (team-scoped server-side).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryCiqa {
+    #[serde(default)]
+    pub dataset: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+}
+
+
 /// What produced a META-GPT run: model/config attribution + per-sample outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaGptRunManifest {
