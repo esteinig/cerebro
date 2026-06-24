@@ -148,7 +148,41 @@ curl -X POST -H "Authorization: Bearer $CEREBRO_API_TOKEN" \
 
 ---
 
-## 6. Nextflow — run the whole thing on a GPU host
+## 6. Datasets & baselines (stack API)
+
+The QC reference datasets, the versioned baselines a run is scored against, and per-run
+regression results live on the stack (Stage 12), team-scoped and audited. `--baseline active`
+and dataset-from-stack resolve through these endpoints.
+
+```bash
+# Register a QC dataset sample (PrefetchData stored in GridFS); list / fetch:
+curl -X POST -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H "Content-Type: application/json" \
+  --data @dataset_sample.json \
+  "$CEREBRO_API_URL/ciqa/dataset?team=$TEAM&db=$DB&project=$PROJECT"
+curl -H "Authorization: Bearer $CEREBRO_API_TOKEN" \
+  "$CEREBRO_API_URL/ciqa/dataset?dataset=qc-v1&team=$TEAM&db=$DB&project=$PROJECT"
+
+# Register a baseline, then promote it to active (audited; atomically demotes the previous active):
+curl -X POST -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H "Content-Type: application/json" \
+  --data @baseline.json "$CEREBRO_API_URL/ciqa/baseline?team=$TEAM&db=$DB&project=$PROJECT"
+curl -X PATCH -H "Authorization: Bearer $CEREBRO_API_TOKEN" \
+  "$CEREBRO_API_URL/ciqa/baseline/<id>/promote?team=$TEAM&db=$DB&project=$PROJECT"
+
+# Resolve the active baseline (what `cerebro-ciqa regression --baseline active` uses):
+curl -H "Authorization: Bearer $CEREBRO_API_TOKEN" \
+  "$CEREBRO_API_URL/ciqa/baseline/active?dataset=qc-v1&team=$TEAM&db=$DB&project=$PROJECT"
+
+# Store / fetch a run's regression result:
+curl -X POST -H "Authorization: Bearer $CEREBRO_API_TOKEN" -H "Content-Type: application/json" \
+  --data @regression.json "$CEREBRO_API_URL/ciqa/regression?team=$TEAM&db=$DB&project=$PROJECT"
+curl -H "Authorization: Bearer $CEREBRO_API_TOKEN" \
+  "$CEREBRO_API_URL/ciqa/regression/<run_id>?team=$TEAM&db=$DB&project=$PROJECT"
+```
+
+Every mutation is team-scoped, JWT-guarded, append-only audited, and integrity-hashed; a dataset
+version cannot be deleted while a baseline still references it.
+
+## 7. Nextflow — run the whole thing on a GPU host
 
 Gated by `params.pathogenDetection.metaGpt.enabled` (off by default). See
 [Nextflow GPU diagnosis & regression](nextflow-gpu.md) for the full runbook.
@@ -164,7 +198,7 @@ nextflow run main.nf -entry metagpt -profile dgx \
 
 ---
 
-## 7. How do I know it worked?
+## 8. How do I know it worked?
 
 | After… | Check |
 |---|---|

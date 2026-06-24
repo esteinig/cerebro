@@ -97,3 +97,13 @@ are **drilled, not unit-tested**, and the runbooks ([`regression-testing.md`](re
 [`nextflow-gpu.md`](nextflow-gpu.md)) are how a deployment confirms them. The remaining gaps,
 prioritised, are in [production-readiness](production-readiness.md) and the integration plan's full
 readiness register.
+
+## Report rendering (Typst/WASM)
+
+The regression report and the gated META-GPT appendix are validated by an integration test
+(`cerebro-report` `tests/render.rs`, CI job `render`): it renders the templates for PASS and
+REGRESSED fixtures to PDF and asserts the verdict/stats content, and checks that "Appendix C"
+appears only when a `meta_gpt` block is present (the back-compat guarantee, rendered). The native
+job is the gate; a non-blocking `wasm-pack` job smoke-builds the browser `cdylib`. The render
+needs the Typst toolchain + fonts, so it runs in CI rather than locally. See the
+[Typst/WASM render plan](../../11-STAGE-TYPST-WASM-RENDER-PLAN.md) for the full scope.
