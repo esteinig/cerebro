@@ -412,6 +412,101 @@
 
 ];
 
+// ── Appendix C — Generative Diagnostic Assessment (Stage 08 / S8) ───────────
+// Additive and gated by appendix_metagpt_enabled; with it off the report is byte-identical to
+// today. Reuses this template's own outlinebox + 4-col header idiom; the evidence table uses
+// table.header(...) so the column headers repeat across pages.
+
+#let appendix_metagpt_enabled = {{ appendix_metagpt_enabled }};
+#let metagpt_header_model       = "{{ metagpt_header_model }}";
+#let metagpt_header_quantization= "{{ metagpt_header_quantization }}";
+#let metagpt_header_parameters  = "{{ metagpt_header_parameters }}";
+#let metagpt_header_source      = "{{ metagpt_header_source }}";
+#let metagpt_header_clinical    = "{{ metagpt_header_clinical }}";
+#let metagpt_header_config_hash = "{{ metagpt_header_config_hash }}";
+#let metagpt_header_sample_id   = "{{ metagpt_header_sample_id }}";
+#let metagpt_header_assay       = "{{ metagpt_header_assay }}";
+#let metagpt_header_call_date   = "{{ metagpt_header_call_date }}";
+#let metagpt_header_post_filter = "{{ metagpt_header_post_filter }}";
+
+#let metagpt_call_class    = "{{ metagpt_call_class }}";   // "positive" | "negative" | "other"
+#let metagpt_call_pathogen = "{{ metagpt_call_pathogen }}";
+#let metagpt_call_statement= "{{ metagpt_call_statement }}";
+#let metagpt_call_review   = {{ metagpt_call_review }};    // bool
+
+// tiered evidence rows: (tier, taxon, taxid, rank, domain, rpm, reads, evidence, contam)
+#let metagpt_evidence = (
+  {% for row in metagpt_evidence %}("{{ row.tier }}","{{ row.taxon }}","{{ row.taxid }}","{{ row.rank }}","{{ row.domain }}","{{ row.rpm }}","{{ row.reads }}","{{ row.evidence }}",{{ row.contamination }}),{% endfor %}
+);
+
+#let appendix_metagpt_header = {
+  show table.cell.where(x: 0): set text(weight: 500)
+  show table.cell.where(x: 2): set text(weight: 500)
+  table(
+    columns: 4,
+    [Model], [#metagpt_header_model], [Sample ID], [#metagpt_header_sample_id],
+    [Parameters], [#metagpt_header_parameters], [Quantization], [#metagpt_header_quantization],
+    [Prefetch Source], [#metagpt_header_source], [Clinical Context], [#metagpt_header_clinical],
+    [Assay Context], [#metagpt_header_assay], [Post-filter], [#metagpt_header_post_filter],
+    [Config Hash], [#metagpt_header_config_hash], [Call Date], [#metagpt_header_call_date],
+  )
+}
+
+// Colour-coded indicator (S8-D5): positive (infectious), negative (non-infectious), other.
+#let appendix_metagpt_indicator = {
+  if metagpt_call_class == "positive" {
+    set text(size: 16pt, weight: "extrabold", fill: rgb(150, 0, 0))
+    smallcaps[INFECTIOUS — POSITIVE]
+  } else if metagpt_call_class == "negative" {
+    set text(size: 16pt, weight: "extrabold", fill: rgb(0, 110, 60))
+    smallcaps[NON-INFECTIOUS — NEGATIVE]
+  } else {
+    set text(size: 16pt, weight: "extrabold", fill: luma(90))
+    smallcaps[OTHER / INDETERMINATE]
+  }
+}
+
+#let appendix_metagpt_evidence_table = {
+  table(
+    columns: (auto, 1fr, auto, auto, auto, auto, auto, 1fr, auto),
+    table.header(
+      [Tier], [Taxon], [TaxID], [Rank], [Domain], [RPM], [Reads], [Evidence], [Contam.],
+    ),
+    ..for row in metagpt_evidence {
+      (
+        [#row.at(0)], [#row.at(1)], [#row.at(2)], [#row.at(3)], [#row.at(4)],
+        [#row.at(5)], [#row.at(6)], [#row.at(7)], [#if row.at(8) { [yes] } else { [—] }],
+      )
+    }
+  )
+}
+
+#let appendix_metagpt = [
+  = Appendix C: Generative Diagnostic Assessment
+
+  #appendix_metagpt_header
+  #v(16pt)
+
+  #align(center)[#appendix_metagpt_indicator]
+  #if metagpt_call_review [ #align(center)[#text(9pt, style: "italic")[flagged for review]] ]
+  #v(8pt)
+
+  #outlinebox(title: "Model Diagnosis")[
+    #if metagpt_call_pathogen != "" [ #text(weight: "bold")[Reported candidate: ] #metagpt_call_pathogen #v(6pt) ]
+    #metagpt_call_statement
+  ]
+
+  #v(8pt)
+  #text(9pt, style: "italic")[Generative assessment for information only — not for diagnostic use.]
+
+  #pagebreak()
+
+  == Prefetch Evidence (tiered taxa supplied to the model)
+
+  #appendix_metagpt_evidence_table
+
+];
+
 // PAGES
 
 #first_page
@@ -427,5 +522,8 @@
 }
 #if appendix_bioinformatics_enabled {
   [#appendix_bioinformatics]
+}
+#if appendix_metagpt_enabled {
+  [#appendix_metagpt]
 }
 

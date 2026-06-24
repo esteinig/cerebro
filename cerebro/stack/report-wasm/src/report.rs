@@ -15,6 +15,7 @@ use wasm_bindgen::JsValue;
 pub enum ReportType {
     PathogenDetection,
     TrainingCompletion,
+    Regression,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -38,6 +39,7 @@ impl ReportType {
         match self {
             ReportType::PathogenDetection => String::from("PathogenDetection"),
             ReportType::TrainingCompletion => String::from("TrainingCompletion"),
+            ReportType::Regression => String::from("Regression"),
         }
     }
 }
@@ -195,6 +197,72 @@ pub struct BioinformaticsEvidence {}
 // Reports
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum MetaGptClass {
+    Positive, // infectious / infectious-review
+    Negative, // non-infectious / non-infectious-review
+    Other,    // tumour / unknown
+}
+impl Default for MetaGptClass {
+    fn default() -> Self {
+        MetaGptClass::Other
+    }
+}
+impl MetaGptClass {
+    /// Lower-case token the template switches on for the colour-coded indicator (S8-D5).
+    pub fn as_token(&self) -> &'static str {
+        match self {
+            MetaGptClass::Positive => "positive",
+            MetaGptClass::Negative => "negative",
+            MetaGptClass::Other => "other",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MetaGptHeader {
+    pub model: String,
+    pub quantization: String,
+    pub parameters: String,
+    pub prefetch_source: String,
+    pub clinical: String,
+    pub config_hash: String,
+    pub sample_id: String,
+    pub assay: String,
+    pub call_date: String,
+    pub post_filter: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MetaGptCall {
+    #[serde(default)]
+    pub class: MetaGptClass,
+    pub pathogen: String,
+    pub statement: String,
+    pub review_flagged: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MetaGptEvidenceRow {
+    pub tier: String,
+    pub taxon: String,
+    pub taxid: String,
+    pub rank: String,
+    pub domain: String,
+    pub rpm: String,
+    pub reads: String,
+    pub evidence: String,
+    pub contamination: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct MetaGptAssessment {
+    pub enabled: bool,
+    pub header: MetaGptHeader,
+    pub call: MetaGptCall,
+    pub evidence: Vec<MetaGptEvidenceRow>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PathogenDetectionReport {
     pub header: ReportHeader,
     pub footer: ReportFooter,
@@ -204,6 +272,10 @@ pub struct PathogenDetectionReport {
     pub patient_result: PatientResult,
     pub appendix_laboratory: AppendixLaboratory,
     pub appendix_bioinformatics: AppendixBioinformatics,
+    /// Optional generative assessment appendix (Stage 08 / S8-D1). Defaulted so existing report
+    /// configs deserialize and render byte-identically when absent (S8-D6).
+    #[serde(default)]
+    pub meta_gpt: Option<MetaGptAssessment>,
 }
 
 impl Default for PathogenDetectionReport {
@@ -217,6 +289,7 @@ impl Default for PathogenDetectionReport {
             patient_result: PatientResult::default(),
             appendix_laboratory: AppendixLaboratory::default(),
             appendix_bioinformatics: AppendixBioinformatics::default(),
+            meta_gpt: None,
         }
     }
 }
@@ -514,6 +587,27 @@ impl ReportConfig for PathogenDetectionReport {
             "appendix_bioinformatics_header_taxonomy",
             &self.appendix_bioinformatics.header.taxonomy,
         );
+
+        // Appendix C — generative diagnostic assessment (Stage 08 / S8-D1). Defaulted so that a
+        // report without a `meta_gpt` block renders byte-identically to today (appendix disabled,
+        // empty header/call/evidence).
+        let gpt = self.meta_gpt.clone().unwrap_or_default();
+        context.insert("appendix_metagpt_enabled", &gpt.enabled);
+        context.insert("metagpt_header_model", &gpt.header.model);
+        context.insert("metagpt_header_quantization", &gpt.header.quantization);
+        context.insert("metagpt_header_parameters", &gpt.header.parameters);
+        context.insert("metagpt_header_source", &gpt.header.prefetch_source);
+        context.insert("metagpt_header_clinical", &gpt.header.clinical);
+        context.insert("metagpt_header_config_hash", &gpt.header.config_hash);
+        context.insert("metagpt_header_sample_id", &gpt.header.sample_id);
+        context.insert("metagpt_header_assay", &gpt.header.assay);
+        context.insert("metagpt_header_call_date", &gpt.header.call_date);
+        context.insert("metagpt_header_post_filter", &gpt.header.post_filter);
+        context.insert("metagpt_call_class", &gpt.call.class.as_token());
+        context.insert("metagpt_call_pathogen", &gpt.call.pathogen);
+        context.insert("metagpt_call_statement", &gpt.call.statement);
+        context.insert("metagpt_call_review", &gpt.call.review_flagged);
+        context.insert("metagpt_evidence", &gpt.evidence);
     }
 }
 
@@ -574,6 +668,171 @@ impl ReportConfig for TrainingCompletionReport {
     }
 }
 
+// ── Regression report (Stage 08 / S8-D3): a presentation view of the Stage-3
+//    RegressionReport — populated from a stored regression report and rendered
+//    by `regression_report.typ`. Mirrors how TrainingCompletion is wired. ──────
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct RegressionHeader {
+    pub dataset: String,
+    pub dataset_version: String,
+    pub baseline_id: String,
+    pub model: String,
+    pub quantization: String,
+    pub run_id: String,
+    pub evaluated: String,
+    pub config_hash: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct RegressionVerdict {
+    pub regressed: bool,
+    pub passed: bool,
+    pub reasons: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct RegressionStats {
+    pub current_sensitivity: Option<f64>,
+    pub current_specificity: Option<f64>,
+    pub current_ppv: Option<f64>,
+    pub current_npv: Option<f64>,
+    pub baseline_sensitivity: Option<f64>,
+    pub baseline_specificity: Option<f64>,
+    pub baseline_ppv: Option<f64>,
+    pub baseline_npv: Option<f64>,
+    pub delta_sensitivity: Option<f64>,
+    pub delta_specificity: Option<f64>,
+    pub threshold_sensitivity: Option<f64>,
+    pub threshold_specificity: Option<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct RegressionMcnemar {
+    pub p_value: Option<f64>,
+    pub discordant: String,
+    pub adjustment: String,
+    pub panel_size: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct RegressionDecisionRow {
+    pub sample_id: String,
+    pub reference: String,
+    pub predicted: String,
+    pub decision: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct RegressionReport {
+    #[serde(default)]
+    pub logo: bool,
+    pub header: RegressionHeader,
+    pub verdict: RegressionVerdict,
+    pub statistics: RegressionStats,
+    pub mcnemar: RegressionMcnemar,
+    pub decisions: Vec<RegressionDecisionRow>,
+}
+
+/// Statistics from the evaluator are fractions in [0,1]; the report renders percentages.
+fn fmt_pct(value: Option<f64>) -> String {
+    match value {
+        Some(v) => format!("{:.1}%", v * 100.0),
+        None => String::from("N/A"),
+    }
+}
+
+/// Signed percentage-point delta (current − baseline), already a fraction difference.
+fn fmt_delta_pp(value: Option<f64>) -> String {
+    match value {
+        Some(v) => format!("{:+.1} pp", v * 100.0),
+        None => String::from("N/A"),
+    }
+}
+
+fn fmt_p(value: Option<f64>) -> String {
+    match value {
+        Some(v) => format!("{:.4}", v),
+        None => String::from("N/A"),
+    }
+}
+
+impl ReportConfig for RegressionReport {
+    #[cfg(target_arch = "wasm32")]
+    fn from_js(config: JsValue) -> Result<Self, JsValue> {
+        Ok(serde_wasm_bindgen::from_value(config)
+            .map_err(|e| JsValue::from(format!("Failed to deserialize config: {}", e)))?)
+    }
+    fn build_context(&self, context: &mut Context, logo_width: Option<String>) {
+        context.insert("report_header_logo_enabled", &self.logo);
+        context.insert(
+            "report_header_logo_width",
+            &logo_width.unwrap_or_else(|| String::from("12%")),
+        );
+
+        // Header (4-col table)
+        context.insert("regression_header_dataset", &self.header.dataset);
+        context.insert(
+            "regression_header_dataset_version",
+            &self.header.dataset_version,
+        );
+        context.insert("regression_header_baseline_id", &self.header.baseline_id);
+        context.insert("regression_header_model", &self.header.model);
+        context.insert(
+            "regression_header_quantization",
+            &self.header.quantization,
+        );
+        context.insert("regression_header_run_id", &self.header.run_id);
+        context.insert("regression_header_evaluated", &self.header.evaluated);
+        context.insert("regression_header_config_hash", &self.header.config_hash);
+
+        // Verdict (colour-coded box)
+        context.insert("regression_verdict_regressed", &self.verdict.regressed);
+        context.insert("regression_verdict_passed", &self.verdict.passed);
+        context.insert("regression_verdict_reasons", &self.verdict.reasons);
+
+        // Statistics: current vs baseline (+ deltas, + threshold floor)
+        context.insert("stats_current_sensitivity", &fmt_pct(self.statistics.current_sensitivity));
+        context.insert("stats_current_specificity", &fmt_pct(self.statistics.current_specificity));
+        context.insert("stats_current_ppv", &fmt_pct(self.statistics.current_ppv));
+        context.insert("stats_current_npv", &fmt_pct(self.statistics.current_npv));
+        context.insert("stats_baseline_sensitivity", &fmt_pct(self.statistics.baseline_sensitivity));
+        context.insert("stats_baseline_specificity", &fmt_pct(self.statistics.baseline_specificity));
+        context.insert("stats_baseline_ppv", &fmt_pct(self.statistics.baseline_ppv));
+        context.insert("stats_baseline_npv", &fmt_pct(self.statistics.baseline_npv));
+        context.insert("stats_delta_sensitivity", &fmt_delta_pp(self.statistics.delta_sensitivity));
+        context.insert("stats_delta_specificity", &fmt_delta_pp(self.statistics.delta_specificity));
+        context.insert("stats_threshold_sensitivity", &fmt_pct(self.statistics.threshold_sensitivity));
+        context.insert("stats_threshold_specificity", &fmt_pct(self.statistics.threshold_specificity));
+
+        // McNemar
+        context.insert("mcnemar_p_value", &fmt_p(self.mcnemar.p_value));
+        context.insert("mcnemar_discordant", &self.mcnemar.discordant);
+        context.insert("mcnemar_adjustment", &self.mcnemar.adjustment);
+        context.insert("mcnemar_panel_size", &self.mcnemar.panel_size);
+
+        // Per-sample decisions (multi-page table via tera {% for %})
+        context.insert("regression_decisions", &self.decisions);
+    }
+}
+
+#[cfg(any(feature = "cli", feature = "lib"))]
+impl RegressionReport {
+    pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
+        let json_str = serde_json::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("failed to serialize to JSON: {}", e))?;
+        std::fs::write(path, json_str)
+            .map_err(|e| anyhow::anyhow!("failed to write JSON to file: {}", e))
+    }
+    pub fn from_json(config: &Path) -> Result<Self, anyhow::Error> {
+        let file_content = std::fs::read_to_string(config)
+            .map_err(|e| anyhow::anyhow!("failed to read file: {}", e))?;
+        let report: Self = serde_json::from_str(&file_content)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize JSON: {}", e))?;
+        Ok(report)
+    }
+}
+
 #[cfg(any(feature = "cli", feature = "lib"))]
 impl PathogenDetectionReport {
     pub fn to_json(&self, path: &Path) -> Result<(), anyhow::Error> {
@@ -618,6 +877,7 @@ impl ReportType {
         match report_type {
             "PathogenDetection" => Ok(ReportType::PathogenDetection),
             "TrainingCompletion" => Ok(ReportType::TrainingCompletion),
+            "Regression" => Ok(ReportType::Regression),
             _ => return Err(JsValue::from("invalid report type")),
         }
     }
@@ -626,6 +886,7 @@ impl ReportType {
         match self {
             ReportType::PathogenDetection => "pathogen_detection",
             ReportType::TrainingCompletion => "training_completion",
+            ReportType::Regression => "regression_report",
         }
     }
     // Configure a report templating context
@@ -659,6 +920,12 @@ impl TemplateManager {
         )
         .expect("failed to load training completion template");
 
+        tera.add_raw_template(
+            "regression_report",
+            include_str!("../templates/regression_report.typ"),
+        )
+        .expect("failed to load regression report template");
+
         Self { tera }
     }
 
@@ -673,5 +940,163 @@ impl TemplateManager {
             report_type.template_name(),
             &report_type.context(report_config, logo_width),
         )
+    }
+}
+
+#[cfg(all(test, any(feature = "cli", feature = "lib")))]
+mod regression_report_tests {
+    use super::*;
+
+    fn sample_report() -> RegressionReport {
+        RegressionReport {
+            logo: false,
+            header: RegressionHeader {
+                dataset: "QC".into(),
+                dataset_version: "2026.1".into(),
+                baseline_id: "baseline-1".into(),
+                model: "qwen3-8b-q8-0".into(),
+                quantization: "q8_0".into(),
+                run_id: "RUN-1".into(),
+                evaluated: "2026-06-24".into(),
+                config_hash: "blake3:abcd".into(),
+            },
+            verdict: RegressionVerdict {
+                regressed: false,
+                passed: true,
+                reasons: "within tolerance".into(),
+            },
+            statistics: RegressionStats {
+                current_sensitivity: Some(0.962),
+                current_specificity: Some(0.948),
+                current_ppv: Some(0.913),
+                current_npv: Some(0.979),
+                baseline_sensitivity: Some(0.958),
+                baseline_specificity: Some(0.951),
+                baseline_ppv: Some(0.910),
+                baseline_npv: Some(0.977),
+                delta_sensitivity: Some(0.004),
+                delta_specificity: Some(-0.003),
+                threshold_sensitivity: Some(0.90),
+                threshold_specificity: Some(0.90),
+            },
+            mcnemar: RegressionMcnemar {
+                p_value: Some(0.4807),
+                discordant: "b=3, c=5".into(),
+                adjustment: "continuity-corrected".into(),
+                panel_size: 120,
+            },
+            decisions: vec![RegressionDecisionRow {
+                sample_id: "BIO-001".into(),
+                reference: "positive".into(),
+                predicted: "infectious".into(),
+                decision: "TP".into(),
+            }],
+        }
+    }
+
+    #[test]
+    fn fmt_helpers_format_fractions_as_report_strings() {
+        assert_eq!(fmt_pct(Some(0.962)), "96.2%");
+        assert_eq!(fmt_pct(None), "N/A");
+        assert_eq!(fmt_delta_pp(Some(0.004)), "+0.4 pp");
+        assert_eq!(fmt_delta_pp(Some(-0.003)), "-0.3 pp");
+        assert_eq!(fmt_p(Some(0.4807)), "0.4807");
+        assert_eq!(fmt_p(None), "N/A");
+    }
+
+    #[test]
+    fn build_context_emits_every_template_variable() {
+        let report = sample_report();
+        let mut ctx = Context::new();
+        report.build_context(&mut ctx, None);
+
+        // Every variable the regression_report.typ template references must be present.
+        for key in [
+            "report_header_logo_enabled",
+            "report_header_logo_width",
+            "regression_header_dataset",
+            "regression_header_dataset_version",
+            "regression_header_baseline_id",
+            "regression_header_model",
+            "regression_header_quantization",
+            "regression_header_run_id",
+            "regression_header_evaluated",
+            "regression_header_config_hash",
+            "regression_verdict_regressed",
+            "regression_verdict_passed",
+            "regression_verdict_reasons",
+            "stats_current_sensitivity",
+            "stats_current_specificity",
+            "stats_current_ppv",
+            "stats_current_npv",
+            "stats_baseline_sensitivity",
+            "stats_baseline_specificity",
+            "stats_baseline_ppv",
+            "stats_baseline_npv",
+            "stats_delta_sensitivity",
+            "stats_delta_specificity",
+            "stats_threshold_sensitivity",
+            "stats_threshold_specificity",
+            "mcnemar_p_value",
+            "mcnemar_discordant",
+            "mcnemar_adjustment",
+            "mcnemar_panel_size",
+            "regression_decisions",
+        ] {
+            assert!(ctx.get(key).is_some(), "missing context variable: {key}");
+        }
+
+        // Spot-check a formatted value and the decisions list.
+        assert_eq!(
+            ctx.get("stats_current_sensitivity").unwrap().as_str().unwrap(),
+            "96.2%"
+        );
+        assert_eq!(
+            ctx.get("regression_decisions").unwrap().as_array().unwrap().len(),
+            1
+        );
+    }
+
+    #[test]
+    fn json_round_trips() {
+        let report = sample_report();
+        let json = serde_json::to_string(&report).unwrap();
+        let back: RegressionReport = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.header.model, "qwen3-8b-q8-0");
+        assert_eq!(back.decisions.len(), 1);
+        assert!(back.verdict.passed && !back.verdict.regressed);
+    }
+
+    #[test]
+    fn report_type_round_trips_name() {
+        assert_eq!(ReportType::Regression.template_name(), "regression_report");
+    }
+
+    #[test]
+    fn pathogen_report_metagpt_defaults_disabled_and_back_compatible() {
+        // A config without a meta_gpt block must deserialize (S8-D6) and render the appendix
+        // disabled with empty header/call/evidence (byte-identical to today).
+        let json = serde_json::to_string(&PathogenDetectionReport::default()).unwrap();
+        let parsed: PathogenDetectionReport = serde_json::from_str(&json).unwrap();
+        assert!(parsed.meta_gpt.is_none());
+
+        let mut ctx = Context::new();
+        parsed.build_context(&mut ctx, None);
+        assert_eq!(
+            ctx.get("appendix_metagpt_enabled").unwrap().as_bool().unwrap(),
+            false
+        );
+        assert_eq!(ctx.get("metagpt_call_class").unwrap().as_str().unwrap(), "other");
+        assert_eq!(
+            ctx.get("metagpt_evidence").unwrap().as_array().unwrap().len(),
+            0
+        );
+    }
+
+    #[test]
+    fn metagpt_class_tokens() {
+        assert_eq!(MetaGptClass::Positive.as_token(), "positive");
+        assert_eq!(MetaGptClass::Negative.as_token(), "negative");
+        assert_eq!(MetaGptClass::Other.as_token(), "other");
     }
 }
