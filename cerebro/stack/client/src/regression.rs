@@ -90,6 +90,51 @@ pub struct RpmAnalysisResult {
     pub outliers: Vec<Outlier>,
 }
 
+impl RpmAnalysisResult {
+    /// True if `sample_id` is among the detected high outliers — the shared `contam_history`
+    /// rescue rule (Task B, TB-D4) used identically by the stack path (`CerebroClient::get_taxa`)
+    /// and the self-contained local path (`taxon_rescued`).
+    pub fn has_sample_outlier(&self, sample_id: &str) -> bool {
+        self.outliers.iter().any(|o| o.sample_id == sample_id)
+    }
+}
+
+/// Decide whether a prevalence-flagged contaminant taxon should be **rescued** for `sample_id`,
+/// using a (run-local or hybrid) cross-sample `history` (Task B, TB-D1/TB-D4).
+///
+/// Mirrors the stack's per-taxon rescue exactly: filter each record's taxa to {`taxon_name`,
+/// "Homo sapiens"} (the server does this via its per-taxon `s__` history query), regress
+/// taxon-RPM vs host-RPM at 95% confidence detecting only high outliers, and rescue iff this
+/// sample is a high outlier. `RpmAnalyzer::from_taxon_history` already drops non-positive-RPM
+/// points before the log₁₀ transform, so the analyzer cannot panic on this path (TB.4); an
+/// analyzer error is treated conservatively as "do not rescue".
+pub fn taxon_rescued(
+    history: &[TaxonHistoryResult],
+    taxon_name: &str,
+    sample_id: &str,
+) -> bool {
+    let filtered: Vec<TaxonHistoryResult> = history
+        .iter()
+        .map(|record| {
+            let mut record = record.clone();
+            record
+                .taxa
+                .retain(|t| t.name == taxon_name || t.name == "Homo sapiens");
+            record
+        })
+        .collect();
+
+    let config = RpmConfigBuilder::new()
+        .confidence_level(0.95)
+        .only_high_outliers(true)
+        .build();
+
+    match RpmAnalyzer::from_taxon_history(config, filtered).run() {
+        Ok(result) => result.has_sample_outlier(sample_id),
+        Err(_) => false,
+    }
+}
+
 /// Analyzer struct that holds configuration and the data.
 pub struct RpmAnalyzer {
     config: RpmConfig,
@@ -476,5 +521,47 @@ impl RpmAnalyzer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn outlier(sample_id: &str) -> Outlier {
+        Outlier {
+            sample_id: sample_id.to_string(),
+            raw_host: 1.0,
+            raw_taxon: 1.0,
+            log_host: 0.0,
+            log_taxon: 0.0,
+            predicted: 0.0,
+            lower: 0.0,
+            upper: 0.0,
+        }
+    }
+
+    fn result_with(sample_ids: &[&str]) -> RpmAnalysisResult {
+        RpmAnalysisResult {
+            intercept: 0.0,
+            slope: 1.0,
+            relationship: "positive".to_string(),
+            residual_standard_error: 0.0,
+            outliers: sample_ids.iter().map(|s| outlier(s)).collect(),
+        }
+    }
+
+    #[test]
+    fn has_sample_outlier_matches_only_listed_samples() {
+        let result = result_with(&["sampleA", "sampleC"]);
+        assert!(result.has_sample_outlier("sampleA"));
+        assert!(result.has_sample_outlier("sampleC"));
+        assert!(!result.has_sample_outlier("sampleB"));
+    }
+
+    #[test]
+    fn has_sample_outlier_false_when_no_outliers() {
+        let result = result_with(&[]);
+        assert!(!result.has_sample_outlier("sampleA"));
     }
 }

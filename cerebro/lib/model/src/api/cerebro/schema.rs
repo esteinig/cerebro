@@ -195,12 +195,30 @@ impl ContaminationSchema {
     }
 }
 
+/// Source of the cross-sample taxon history used by the `contam_history` rescue (Task B).
+/// `off` reproduces today's plain `local` behaviour (no rescue). `run` is self-contained
+/// (history built from the run's own models — no live stack). `stack` / `run-plus-stack`
+/// enrich with the collection history and require a configured API.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, clap::ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum ContamHistorySource {
+    #[default]
+    Off,
+    Run,
+    Stack,
+    RunPlusStack,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrevalenceContaminationConfig {
     pub threshold: f64,
     pub min_rpm: f64,
     pub sample_type: Option<String>,
     pub outliers: PrevalenceOutliers,
+    /// `contam_history` rescue source (Task B). Defaults to `off` for backwards-compatible
+    /// deserialization of existing configs.
+    #[serde(default)]
+    pub history: ContamHistorySource,
 }
 impl Default for PrevalenceContaminationConfig {
     fn default() -> Self {
@@ -209,6 +227,7 @@ impl Default for PrevalenceContaminationConfig {
             min_rpm: 0.0,
             sample_type: None,
             outliers: PrevalenceOutliers::default(),
+            history: ContamHistorySource::Off,
         }
     }
 }
@@ -231,6 +250,7 @@ impl PrevalenceContaminationConfig {
             min_rpm: 0.0,
             sample_type: None,
             outliers: PrevalenceOutliers::disabled(),
+            history: ContamHistorySource::Off,
         }
     }
 }
@@ -556,6 +576,35 @@ impl PrefetchData {
     /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
     /// then remove from `target` any Taxon whose `lineage` also appears in the
     /// pruned `secondary` and 'primary' - including prevalence contamination
+    /// Apply the `contam_history` rescue (Task B): move taxa that pass `rescued` from each tier's
+    /// contamination vector back into that tier's signal vector, then prune. The `rescued`
+    /// predicate encapsulates the per-taxon regression decision (see
+    /// `cerebro_client::regression::taxon_rescued`), so this method is pure and the same for the
+    /// stack and self-contained local paths.
+    pub fn apply_contam_history_rescue<F>(&mut self, rescued: F)
+    where
+        F: Fn(&Taxon) -> bool,
+    {
+        fn rescue_tier<F: Fn(&Taxon) -> bool>(
+            signal: &mut Vec<Taxon>,
+            contam: &mut Vec<Taxon>,
+            rescued: &F,
+        ) {
+            let (keep, clear): (Vec<Taxon>, Vec<Taxon>) =
+                std::mem::take(contam).into_iter().partition(|t| rescued(t));
+            signal.extend(keep);
+            *contam = clear;
+        }
+        rescue_tier(&mut self.primary, &mut self.primary_contamination, &rescued);
+        rescue_tier(
+            &mut self.secondary,
+            &mut self.secondary_contamination,
+            &rescued,
+        );
+        rescue_tier(&mut self.target, &mut self.target_contamination, &rescued);
+        self.prune();
+    }
+
     pub fn prune(&mut self) {
         // collect all lineages present in primary
         let primary_lineages: HashSet<_> = self.primary.iter().map(|t| t.lineage.clone()).collect();

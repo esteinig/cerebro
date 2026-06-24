@@ -29,6 +29,7 @@ use cerebro_pipeline::taxa::prevalence::prevalence_contaminant_taxids;
 use cerebro_pipeline::taxa::taxon::{aggregate, Taxon};
 
 use crate::api::cerebro::model::{Cerebro, ModelError};
+use crate::api::cerebro::response::TaxonHistoryResult;
 use crate::api::cerebro::schema::{MetaGpConfig, PrefetchData, PrevalenceContaminationConfig};
 
 /// Nucleic-acid tags that define a sample's library groups. The stack identifies prevalence
@@ -187,6 +188,30 @@ pub fn load_run_models(paths: &[PathBuf]) -> Result<Vec<Cerebro>, ModelError> {
     paths.iter().map(Cerebro::from_json).collect()
 }
 
+/// Build a run-local taxon history (one `TaxonHistoryResult` per run model) — the same shape the
+/// server assembles from the collection, scoped to the run's samples (Task B, TB-D2).
+///
+/// `sample_id` is the **biological** sample id (`Cerebro.sample.id`), not the library file name,
+/// so the rescue's outlier match (`outlier.sample_id == config.sample`) lines up with the stack
+/// path (`schema.sample` in `CerebroClient::get_taxa`). Input/host reads come from the model's QC
+/// (`quality.reads`), which is exactly what `RpmAnalyzer::from_taxon_history` consumes.
+pub fn run_taxon_history(models: &[Cerebro]) -> Vec<TaxonHistoryResult> {
+    models
+        .iter()
+        .map(|m| TaxonHistoryResult {
+            id: m.id.clone(),
+            sample_id: m.sample.id.clone(),
+            sample_tags: m.sample.tags.clone(),
+            sample_type: m.sample.sample_type.clone(),
+            run_id: m.run.id.clone(),
+            run_date: m.run.date.clone(),
+            input_reads: m.quality.reads.input_reads,
+            host_reads: m.quality.reads.host_reads,
+            taxa: m.taxa.clone(),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,6 +275,48 @@ mod tests {
 
     fn taxids(taxa: &[Taxon]) -> HashSet<String> {
         taxa.iter().map(|t| t.taxid.clone()).collect()
+    }
+
+    #[test]
+    fn contam_history_rescue_moves_flagged_taxon_back_to_signal() {
+        // taxid "2" (name "taxon_2") is prevalence-flagged into contamination; "1" stays signal.
+        let libs = vec![library(
+            "sampleA__DNA",
+            "DNA",
+            vec![taxon("1", "d__A;s__one", 10.0), taxon("2", "d__A;s__two", 10.0)],
+        )];
+        let mut prevalence = HashMap::new();
+        prevalence.insert("DNA".to_string(), HashSet::from(["2".to_string()]));
+
+        let mut data = build_prefetch_local(&libs, &prevalence, &config_none(), true);
+        assert_eq!(taxids(&data.primary_contamination), HashSet::from(["2".to_string()]));
+
+        // Rescue exactly the flagged taxon by name: it must move back into the signal tier and
+        // leave contamination empty; the prune invariant (no cross-tier lineage dupes) holds.
+        data.apply_contam_history_rescue(|t| t.name == "taxon_2");
+
+        assert_eq!(
+            taxids(&data.primary),
+            HashSet::from(["1".to_string(), "2".to_string()])
+        );
+        assert!(data.primary_contamination.is_empty());
+    }
+
+    #[test]
+    fn contam_history_off_is_noop_when_nothing_rescued() {
+        let libs = vec![library(
+            "sampleA__DNA",
+            "DNA",
+            vec![taxon("1", "d__A;s__one", 10.0), taxon("2", "d__A;s__two", 10.0)],
+        )];
+        let mut prevalence = HashMap::new();
+        prevalence.insert("DNA".to_string(), HashSet::from(["2".to_string()]));
+
+        let mut data = build_prefetch_local(&libs, &prevalence, &config_none(), true);
+        let before = taxids(&data.primary_contamination);
+        data.apply_contam_history_rescue(|_| false); // off / no outliers => nothing rescued
+        assert_eq!(taxids(&data.primary_contamination), before);
+        assert_eq!(taxids(&data.primary), HashSet::from(["1".to_string()]));
     }
 
     #[test]

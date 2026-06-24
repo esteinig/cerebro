@@ -9,6 +9,7 @@ use crate::{
     plots::{GridWeight, LabelSize},
     stats::AdjMethod,
 };
+use cerebro_model::api::cerebro::schema::ContamHistorySource;
 use cerebro_model::api::cerebro::schema::SampleType;
 use clap::{Args, Parser, Subcommand};
 
@@ -572,6 +573,10 @@ pub struct PrefetchArgs {
     /// Prevalence contamination minimum RPM threshold for regression
     #[clap(long)]
     pub contamination_min_rpm: Option<f64>,
+    /// contam_history rescue source: rescue prevalence-flagged contaminants that are genuinely
+    /// elevated in the sample, using a cross-sample regression (Task B). `run` is self-contained.
+    #[clap(long, value_enum)]
+    pub contam_history: Option<ContamHistorySource>,
     /// Tiered filter config (.json) otherwise default
     #[clap(long)]
     pub tiered_filter: Option<PathBuf>,

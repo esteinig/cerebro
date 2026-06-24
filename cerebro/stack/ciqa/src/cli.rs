@@ -38,13 +38,15 @@ use cerebro_ciqa::{
     utils::{init_logger, read_csv, read_tsv, write_tsv},
 };
 use cerebro_client::client::CerebroClient;
+use cerebro_client::regression::taxon_rescued;
 use cerebro_model::api::{
     cerebro::{
         model::Cerebro,
-        prefetch_local::{load_run_models, run_prevalence_contamination},
+        prefetch_local::{load_run_models, run_prevalence_contamination, run_taxon_history},
+        response::TaxonHistoryResult,
         schema::{
-            MetaGpConfig, PostFilterConfig, PrefetchData, PrevalenceContaminationConfig,
-            TieredFilterConfig,
+            ContamHistorySource, MetaGpConfig, PostFilterConfig, PrefetchData,
+            PrevalenceContaminationConfig, TieredFilterConfig,
         },
     },
     files::model::FileType,
@@ -527,6 +529,37 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 contam_config.min_rpm = val;
             }
 
+            // Task B: the `contam_history` rescue source (CLI overrides any value in the config).
+            if let Some(history) = args.contam_history {
+                contam_config.history = history;
+            }
+
+            // Build the cross-sample taxon history once (shared read-only across the per-sample
+            // rescue). `run` is self-contained (history from the run's own models). `stack` /
+            // `run-plus-stack` enrichment needs a configured API history method and is applied only
+            // for its run-local portion here (the stack portion is a documented extension).
+            let run_history: Vec<TaxonHistoryResult> = if local {
+                match contam_config.history {
+                    ContamHistorySource::Off => Vec::new(),
+                    ContamHistorySource::Run | ContamHistorySource::RunPlusStack => {
+                        run_taxon_history(&run_models)
+                    }
+                    ContamHistorySource::Stack => {
+                        log::warn!(
+                            "contam-history=stack needs a live API in local mode; no rescue applied"
+                        );
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            };
+            if matches!(contam_config.history, ContamHistorySource::RunPlusStack) {
+                log::warn!(
+                    "contam-history=run-plus-stack: applying the run-local history only (stack enrichment requires a configured API)"
+                );
+            }
+
             let prevalence_contamination = if args.disable_filter || args.disable_prevalence_control
             {
                 log::warn!("Prevalence contamination control deactivated.");
@@ -580,6 +613,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     let project_name = api_client.project.clone().unwrap_or("null".to_string());
                     // Borrow the run models (local mode); cheap, shared read-only across threads.
                     let run_models = &run_models;
+                    // Borrow the run-local taxon history for the contam_history rescue (Task B).
+                    let run_history = &run_history;
 
                     let result: anyhow::Result<Option<(PerSampleSummary, Option<MissedDetectionRow>)>> = (|| {
                         if let Some(ref subset) = subset {
@@ -627,11 +662,24 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 contam_config.clone(),
                             );
 
-                            if local {
+                            let mut data = if local {
                                 plate.prefetch_local(run_models, &data_file, &config, &prevalence_contamination)?
                             } else {
                                 plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
+                            };
+
+                            // Task B: contam_history rescue. Move prevalence-flagged contaminants
+                            // that are genuinely elevated in THIS sample back into the signal tier,
+                            // then re-persist the rescued decisions. Off (empty history) => no-op,
+                            // i.e. today's plain `local` behaviour is unchanged.
+                            if local && !run_history.is_empty() {
+                                let sample = data.config.sample.clone();
+                                data.apply_contam_history_rescue(|t| {
+                                    taxon_rescued(run_history, &t.name, &sample)
+                                });
+                                data.to_json(&data_file)?;
                             }
+                            data
                         } else {
                             let fh = std::fs::File::open(&data_file)?;
                             serde_json::from_reader(fh)?

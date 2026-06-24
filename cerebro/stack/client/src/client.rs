@@ -2598,11 +2598,11 @@ impl CerebroClient {
                                     None,
                                 )?;
                                 if let Some(reg) = reg {
-                                    for outlier in reg.outliers {
-                                        if outlier.sample_id == schema.sample {
-                                            sample_control_taxa.push(contam_taxon.to_owned());
-                                            continue 'contam;
-                                        }
+                                    // Shared rescue rule (Task B, TB-D4): rescued iff this sample
+                                    // is a high outlier in the per-taxon regression.
+                                    if reg.has_sample_outlier(&schema.sample) {
+                                        sample_control_taxa.push(contam_taxon.to_owned());
+                                        continue 'contam;
                                     }
                                 }
                                 clear_contam_taxa.push(contam_taxon.clone())
