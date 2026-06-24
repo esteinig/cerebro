@@ -534,29 +534,25 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 contam_config.history = history;
             }
 
-            // Build the cross-sample taxon history once (shared read-only across the per-sample
-            // rescue). `run` is self-contained (history from the run's own models). `stack` /
-            // `run-plus-stack` enrichment needs a configured API history method and is applied only
-            // for its run-local portion here (the stack portion is a documented extension).
-            let run_history: Vec<TaxonHistoryResult> = if local {
-                match contam_config.history {
-                    ContamHistorySource::Off => Vec::new(),
-                    ContamHistorySource::Run | ContamHistorySource::RunPlusStack => {
-                        run_taxon_history(&run_models)
-                    }
-                    ContamHistorySource::Stack => {
-                        log::warn!(
-                            "contam-history=stack needs a live API in local mode; no rescue applied"
-                        );
-                        Vec::new()
-                    }
-                }
+            // contam_history rescue source (Task B / TB-D3). `run` builds the cross-sample history
+            // from the run's own models (self-contained). `stack` / `run-plus-stack` additionally
+            // consult the collection history through the API (per-taxon, the same query get_taxa
+            // uses); the stack lookups happen per-taxon inside the rescue, so all that is prepared
+            // here is the run-local history (shared read-only across the per-sample rescue).
+            let history_mode = contam_config.history;
+            let run_history: Vec<TaxonHistoryResult> = if local
+                && matches!(
+                    history_mode,
+                    ContamHistorySource::Run | ContamHistorySource::RunPlusStack
+                ) {
+                run_taxon_history(&run_models)
             } else {
                 Vec::new()
             };
-            if matches!(contam_config.history, ContamHistorySource::RunPlusStack) {
-                log::warn!(
-                    "contam-history=run-plus-stack: applying the run-local history only (stack enrichment requires a configured API)"
+            if local && matches!(history_mode, ContamHistorySource::Stack | ContamHistorySource::RunPlusStack) {
+                log::info!(
+                    "contam-history={:?}: stack enrichment requires API options (--url/--token/--team/--db/--project)",
+                    history_mode
                 );
             }
 
@@ -668,14 +664,37 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                                 plate.prefetch(&client, &data_file, &config, prevalence_contamination)?
                             };
 
-                            // Task B: contam_history rescue. Move prevalence-flagged contaminants
-                            // that are genuinely elevated in THIS sample back into the signal tier,
-                            // then re-persist the rescued decisions. Off (empty history) => no-op,
-                            // i.e. today's plain `local` behaviour is unchanged.
-                            if local && !run_history.is_empty() {
+                            // contam_history rescue (Task B + stack enrichment). Move
+                            // prevalence-flagged contaminants that are genuinely elevated in THIS
+                            // sample back into the signal tier, then re-persist. `run` uses the
+                            // self-contained run-local regression; `stack` / `run-plus-stack` also
+                            // consult the collection history through the API (per-taxon). Off => no-op.
+                            if local && history_mode != ContamHistorySource::Off {
                                 let sample = data.config.sample.clone();
                                 data.apply_contam_history_rescue(|t| {
-                                    taxon_rescued(run_history, &t.name, &sample)
+                                    // run-local regression (no stack needed)
+                                    if matches!(
+                                        history_mode,
+                                        ContamHistorySource::Run | ContamHistorySource::RunPlusStack
+                                    ) && taxon_rescued(run_history, &t.name, &sample)
+                                    {
+                                        return true;
+                                    }
+                                    // collection (stack) regression via the API — same rule (TB-D4)
+                                    if matches!(
+                                        history_mode,
+                                        ContamHistorySource::Stack | ContamHistorySource::RunPlusStack
+                                    ) {
+                                        match client.taxon_rescued_on_stack(&t.name, &sample) {
+                                            Ok(rescued) => return rescued,
+                                            Err(e) => log::warn!(
+                                                "contam-history stack lookup failed for '{}': {}",
+                                                t.name,
+                                                e
+                                            ),
+                                        }
+                                    }
+                                    false
                                 });
                                 data.to_json(&data_file)?;
                             }

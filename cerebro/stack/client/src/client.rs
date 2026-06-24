@@ -2394,6 +2394,27 @@ impl CerebroClient {
 
         Ok(pathogen_detection_table_response.data.records)
     }
+    /// contam_history rescue against the stack (Task B / TB-D3 `stack` and `run-plus-stack`):
+    /// true iff `sample_id` is a high outlier in the per-taxon regression the API computes — the
+    /// same query `get_taxa` uses, sharing the `has_sample_outlier` rule (TB-D4). A missing
+    /// regression (no history) is "not rescued"; transport/API errors propagate to the caller.
+    pub fn taxon_rescued_on_stack(
+        &self,
+        taxon_name: &str,
+        sample_id: &str,
+    ) -> Result<bool, HttpClientError> {
+        Ok(self
+            .get_taxon_history(
+                format!("s__{taxon_name}"),
+                "s__Homo sapiens".to_string(),
+                true,
+                false,
+                None,
+            )?
+            .map(|result| result.has_sample_outlier(sample_id))
+            .unwrap_or(false))
+    }
+
     pub fn get_taxon_history(
         &self,
         taxon_label: String,
