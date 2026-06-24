@@ -27,11 +27,29 @@ name = "cerebro_ciqa"
 
 [dependencies]
 
-cerebro-fs = { git = "https://github.com/esteinig/cerebro", package = "cerebro-fs", branch = "main" }
-cerebro-client = { git = "https://github.com/esteinig/cerebro", package = "cerebro-client", branch = "main" }
-cerebro-model = { git = "https://github.com/esteinig/cerebro", package = "cerebro-model", branch = "main" }
-cerebro-pipeline = { git = "https://github.com/esteinig/cerebro", package = "cerebro-pipeline", branch = "main" }
-meta-gpt = { git = "https://github.com/esteinig/meta-gpt", branch = "main", features = [], default-features = false }
+# Internal Cerebro crates are consumed as in-tree workspace members via path
+# dependencies, matching every other member (cf. cerebro/stack/server/Cargo.toml).
+# Previously these tracked `branch = "main"`, which made cerebro-ciqa build against a
+# moving upstream: non-reproducible, and prone to silent version skew against the rest
+# of the workspace. Path deps give atomic cross-crate changes and a single, lockable
+# dependency graph (`cargo build --workspace --locked`).
+cerebro-fs = { path = "../fs" }
+cerebro-client = { path = "../client" }
+cerebro-model = { path = "../../lib/model" }
+cerebro-pipeline = { path = "../pipeline" }
+
+# meta-gpt is an external crate and is intentionally NOT vendored or refactored here
+# (the PrefetchData -> run_local -> DiagnosticResult ingestion contract is held stable).
+# It is pinned by an explicit commit for build reproducibility instead of tracking a
+# branch. The `local` feature (below) enables on-device inference via `meta-gpt/local`,
+# which pulls CUDA and is built only on a GPU-capable runner (see the build-local CI job).
+#
+# To advance the pin deliberately:
+#   git ls-remote https://github.com/esteinig/meta-gpt <ref>   # resolve the commit
+#   # update `rev` below, then `cargo update -p meta-gpt --precise <rev>` and commit Cargo.lock
+# Pinned to esteinig/meta-gpt@main HEAD at integration time; re-pin deliberately
+# (to a reviewed commit) before a production release.
+meta-gpt = { git = "https://github.com/esteinig/meta-gpt", rev = "f97d55c19956c03f90a095fa8432ef4971aa9626", features = [], default-features = false }
 
 
 
@@ -67,5 +85,10 @@ glob = "0.3.3"
 regex = "1.12.2"
 
 [features]
+# Default build is CPU-only and feature-free: it compiles on the standard CI runners and
+# is what the workspace `cargo build`/`cargo check` exercises. The `local` feature enables
+# on-device META-GPT inference (`meta-gpt/local`), which pulls CUDA/cuDNN and is intended
+# for GPU hosts and the NVIDIA container (templates/stack/docker/Dockerfile.gpt.dgx); it is
+# built by the gated `build-local` CI job, not the default build.
 default = []
 local = ["meta-gpt/local"]

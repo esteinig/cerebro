@@ -1,0 +1,63 @@
+# continuous integration: validate that the whole workspace resolves, compiles, and passes
+# unit tests on every push and pull request.
+#
+# Added with Stage 01 (folding cerebro-ciqa into the workspace). The release build
+# (build.yml) only runs on dispatch/publish; this gives a fast, always-on signal that the
+# path-dependency integration is coherent — in particular that cerebro-ciqa builds in-tree
+# against the in-tree crates with a single locked dependency graph.
+#
+# This is the CPU-only, default-feature build. The GPU `--features local` build (which pulls
+# CUDA) is exercised separately by the gated `build-local` job in build.yml.
+
+name: ci
+
+on:
+  push:
+    branches: [ main, "feat/**" ]
+  pull_request:
+    branches: [ main, "feat/**" ]
+
+# Cancel superseded runs on the same ref to save runner time.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+
+  check:
+    name: workspace check + test (default features, CPU)
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # `--locked` fails if Cargo.lock is missing or out of date: it is the guarantee that
+      # the committed lockfile is the one that builds. Folding cerebro-ciqa in means the
+      # lockfile now covers it too.
+      - name: cargo check (workspace, locked)
+        run: cargo check --workspace --locked
+
+      # The pure decision logic (filtering, evaluation, comparison, (de)serialization) is
+      # covered here; I/O- and GPU-dependent paths are validated out-of-band (see the CIQA
+      # validation guide in docs/ciqa/validation.md).
+      - name: cargo test (workspace, locked)
+        run: cargo test --workspace --locked

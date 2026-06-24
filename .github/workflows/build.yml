@@ -52,3 +52,22 @@ jobs:
           files: |
             target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.tar.xz
             target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.sha256
+
+  # cerebro-ciqa GPU build (`--features local`, pulls CUDA/cuDNN via meta-gpt/local).
+  #
+  # Added with Stage 01. This validates the on-device inference build that ships in the
+  # NVIDIA container (templates/stack/docker/Dockerfile.gpt.dgx). It requires a CUDA-capable
+  # runner; until a self-hosted GPU runner is wired up it runs on the standard runner and is
+  # allowed to fail (`continue-on-error`) so it never blocks a release. Tracked as a
+  # production-readiness gap (P0.1 / CI): swap `runs-on` to a `[self-hosted, gpu]` label and
+  # drop `continue-on-error` once a GPU runner exists.
+  build-local:
+    name: cerebro-ciqa (--features local / CUDA)
+    runs-on: ubuntu-20.04        # TODO(readiness): replace with [self-hosted, gpu]
+    continue-on-error: true       # TODO(readiness): remove once a GPU runner is available
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build cerebro-ciqa with the local (GPU) feature
+        run: cargo build -p cerebro-ciqa --release --locked --features local
