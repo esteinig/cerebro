@@ -26,6 +26,8 @@ include { QualityControl; QualityControlNanopore } from './lib/production/qualit
 include { PathogenDetection } from './lib/production/pathogen';
 include { PanviralEnrichment } from './lib/production/panviral';
 
+include { MetaGptPrefetch; MetaGptDiagnose; MetaGptRegression } from './lib/processes/pathogen';
+
 
 include { getReads } from './lib/production/utils'; 
 include { getQualityControlDatabases } from './lib/production/utils'; 
@@ -170,6 +172,45 @@ workflow culture {
     /* Bacterial culture identification (hybrid-) assembly and taxonomic profiling */
 
     def cultureDB = getCultureIdentificationDatabases();
+
+}
+
+
+workflow metagpt {
+
+    /* Standalone META-GPT diagnosis (+ optional regression) over an existing run's Cerebro
+       models, without re-profiling (Stage 4 §S4.5). Reads model JSONs from
+       params.pathogenDetection.metaGpt.modelsDir and runs prefetch -> diagnose -> (regression).
+       Gated by params.pathogenDetection.metaGpt.enabled. */
+
+    def gpt = params.pathogenDetection.metaGpt
+
+    if (!gpt.enabled) {
+        error "metagpt entry requires --pathogenDetection.metaGpt.enabled true"
+    }
+
+    models = Channel.fromPath("${gpt.modelsDir}/*.json") | collect
+
+    MetaGptPrefetch(
+        models,
+        file(gpt.plate),
+        gpt.prefetchSource
+    )
+
+    MetaGptDiagnose(
+        MetaGptPrefetch.out.prefetch,
+        file(gpt.plate),
+        gpt.model,
+        file(gpt.modelDir)
+    )
+
+    if (gpt.regression.enabled) {
+        MetaGptRegression(
+            MetaGptDiagnose.out.manifest,
+            file(gpt.regression.baseline),
+            file(gpt.regression.dataset)
+        )
+    }
 
 }
 

@@ -10,6 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::cerebro::model::ModelError;
 
+/// Integrity hash of arbitrary content (blake3 hex), used for manifest/result hashes
+/// (SKILLS.md §4). Consistent with the model crate's existing blake3-based hashing.
+pub fn content_hash(bytes: &[u8]) -> String {
+    blake3::hash(bytes).to_hex().to_string()
+}
+
 /// What produced a META-GPT run: model/config attribution + per-sample outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaGptRunManifest {
@@ -57,6 +63,14 @@ impl MetaGptRunManifest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn content_hash_is_deterministic_and_distinct() {
+        let a = content_hash(b"hello");
+        assert_eq!(a, content_hash(b"hello"));
+        assert_ne!(a, content_hash(b"world"));
+        assert_eq!(a.len(), 64); // blake3 256-bit hex
+    }
 
     #[test]
     fn manifest_round_trips_with_defaults() {

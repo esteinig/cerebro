@@ -1103,6 +1103,66 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     }
                 }
             }
+
+            // Emit the run manifest (Stage 3 §S3.3) next to the *.model.json files, if requested.
+            // The diagnosis seam (agent.run_local -> result.to_json) above is unchanged; this only
+            // records attribution + integrity hashes so the regression step can consume the run.
+            if let Some(manifest_path) = &args.emit_manifest {
+                use cerebro_model::api::ciqa::schema::{
+                    content_hash, MetaGptRunManifest, MetaGptRunSample,
+                };
+
+                let mut run_samples = Vec::new();
+                for sample_id in plate.samples.iter() {
+                    let result_file = args.outdir.join(format!("{sample_id}.model.json"));
+                    if !result_file.exists() {
+                        continue; // sample skipped (no prefetch / no result)
+                    }
+                    let prefetch_file = args.prefetch.join(format!("{sample_id}.prefetch.json"));
+                    let bytes = std::fs::read(&result_file)?;
+                    run_samples.push(MetaGptRunSample {
+                        sample_id: sample_id.clone(),
+                        prefetch_path: prefetch_file.to_string_lossy().into_owned(),
+                        result_path: result_file.to_string_lossy().into_owned(),
+                        content_hash: content_hash(&bytes),
+                    });
+                }
+
+                // Attribution is explicit (carried, not parsed from directory names — D8).
+                let model_id = args
+                    .model_id
+                    .clone()
+                    .unwrap_or_else(|| format!("{:?}", args.model));
+                let config_hash = content_hash(
+                    format!(
+                        "model={};post_filter={};clinical={};sample_len={};temperature={}",
+                        model_id, args.post_filter, args.clinical_notes, args.sample_len, args.temperature
+                    )
+                    .as_bytes(),
+                );
+                let created = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs().to_string())
+                    .unwrap_or_default();
+
+                let manifest = MetaGptRunManifest {
+                    run_id: args.run_id.clone().unwrap_or_else(|| "RUN".to_string()),
+                    model_id,
+                    quantization: None,
+                    params: None,
+                    clinical: args.clinical_notes,
+                    replicate: args.replicate,
+                    config_hash,
+                    samples: run_samples,
+                    created: Some(created),
+                };
+                manifest.to_json(manifest_path)?;
+                log::info!(
+                    "Wrote run manifest ({} samples) to {}",
+                    manifest.samples.len(),
+                    manifest_path.display()
+                );
+            }
         }
 
         Commands::Mcnemar(args) => {

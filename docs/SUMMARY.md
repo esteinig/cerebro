@@ -18,3 +18,6 @@
     - [Disaster recovery](cerebro-fs/disaster-recovery.md)
     - [Validation](cerebro-fs/validation.md)
     - [Production readiness](cerebro-fs/production-readiness.md)
+
+- [ciqa](ciqa/nextflow-gpu.md)
+    - [Nextflow GPU diagnosis & regression](ciqa/nextflow-gpu.md)

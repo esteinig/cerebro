@@ -14,6 +14,7 @@ include { SemiBin2 as MegahitSemiBin2; SemiBin2 as MetaSpadesSemiBin2 } from "..
 include { BlastContigs as MegahitBlast; BlastContigs as MetaSpadesBlast } from "../processes/pathogen";
 include { BlastContigsBitscoreStream as MegahitBlastBitscoreStream; BlastContigsBitscoreStream as MetaSpadesBlastBitscoreStream } from "../processes/pathogen";
 include { CreateCerebroModel; UploadCerebroModel } from "../processes/pathogen";
+include { MetaGptPrefetch; MetaGptDiagnose; MetaGptRegression; UploadMetaGptResults } from "../processes/pathogen";
 
 include { PipelineConfig; ToolVersions; Checksums } from "./utils";
 include { getProductionConfig } from "./utils";
@@ -100,6 +101,42 @@ workflow PathogenDetection {
                 [productionConfig.apiUrl, productionConfig.apiToken],
                 [productionConfig.team, productionConfig.database, productionConfig.project]
             )
+
+            /* META-GPT local-GPU diagnosis (Stage 4) — gated, off by default (S4-D4).
+               Self-contained prefetch from the run's Cerebro models (no live stack needed),
+               diagnose on GPU, optional regression vs a baseline. Report-first. */
+
+            if (params.pathogenDetection.metaGpt.enabled) {
+
+                MetaGptPrefetch(
+                    CreateCerebroModel.out.results | collect,          // the run's Cerebro models
+                    file(params.pathogenDetection.metaGpt.plate),
+                    params.pathogenDetection.metaGpt.prefetchSource
+                )
+
+                MetaGptDiagnose(
+                    MetaGptPrefetch.out.prefetch,
+                    file(params.pathogenDetection.metaGpt.plate),
+                    params.pathogenDetection.metaGpt.model,
+                    file(params.pathogenDetection.metaGpt.modelDir)
+                )
+
+                if (params.pathogenDetection.metaGpt.regression.enabled) {
+                    MetaGptRegression(
+                        MetaGptDiagnose.out.manifest,
+                        file(params.pathogenDetection.metaGpt.regression.baseline),
+                        file(params.pathogenDetection.metaGpt.regression.dataset)
+                    )
+                }
+
+                if (params.pathogenDetection.metaGpt.upload) {
+                    UploadMetaGptResults(
+                        MetaGptDiagnose.out.results.mix(MetaGptDiagnose.out.manifest) | collect,
+                        [productionConfig.apiUrl, productionConfig.apiToken],
+                        [productionConfig.team, productionConfig.database, productionConfig.project]
+                    )
+                }
+            }
         }
 
 }

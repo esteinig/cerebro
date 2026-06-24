@@ -475,6 +475,18 @@ pub struct DiagnoseLocalArgs {
     /// Disable thinking in Qwen3
     #[clap(long)]
     pub disable_thinking: bool,
+    /// Emit a run manifest (MetaGptRunManifest JSON) for downstream regression (Stage 3)
+    #[clap(long)]
+    pub emit_manifest: Option<PathBuf>,
+    /// Run identifier recorded in the manifest (explicit attribution, not parsed from paths)
+    #[clap(long)]
+    pub run_id: Option<String>,
+    /// Model id recorded in the manifest (defaults to the generator model name)
+    #[clap(long)]
+    pub model_id: Option<String>,
+    /// Replicate number recorded in the manifest
+    #[clap(long)]
+    pub replicate: Option<u32>,
 }
 
 #[derive(Debug, Args)]

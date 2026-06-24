@@ -988,3 +988,120 @@ process UploadCerebroModel {
     cerebro-client --token $apiToken --url $apiUrl --team $team --db $database --project $project upload-models --models *.json
     """
 }
+
+/*
+========================================================
+META-GPT local-GPU diagnosis (Stage 4 — CIQA integration)
+========================================================
+Gated by params.pathogenDetection.metaGpt.enabled (default false). Seam is stable:
+self-contained prefetch (Stage 2) -> diagnose-local (agent.run_local) -> DiagnosticResult,
+plus a MetaGptRunManifest (Stage 3) for optional regression against a baseline.
+*/
+
+process MetaGptPrefetch {
+
+    tag { "metagpt-prefetch" }
+    label "cerebro"                     // CPU; reuses the cerebro image + cerebro-ciqa binary
+
+    publishDir "$params.outputDirectory/results/metagpt/prefetch", mode: "copy", pattern: "prefetch/*.prefetch.json"
+
+    input:
+    path(models)                        // collected run Cerebro models (CreateCerebroModel.out.results)
+    path(plate)                         // reference plate JSON (samples to prefetch)
+    val(prefetchSource)                 // "local" | "stack"
+
+    output:
+    path("prefetch/*.prefetch.json"), emit: prefetch
+
+    script:
+    def disablePrev = params.pathogenDetection.metaGpt.disablePrevalence ? "--disable-prevalence-control" : ""
+    """
+    cerebro-ciqa prefetch \\
+        --plate-json ${plate} \\
+        --prefetch-source ${prefetchSource} \\
+        --run-models ${models} \\
+        --outdir prefetch ${disablePrev}
+    """
+}
+
+process MetaGptDiagnose {
+
+    tag { "metagpt-diagnose" }
+    label "metaGpt"                     // GPU; the DGX NVIDIA CUDA image
+
+    publishDir "$params.outputDirectory/results/metagpt", mode: "copy", pattern: "diagnose/**"
+
+    input:
+    path(prefetch)                      // *.prefetch.json (staged in cwd)
+    path(plate)                         // reference plate JSON
+    val(model)                          // model id (e.g. qwen3-14b-q8-0)
+    path(modelDir)                      // weights dir (mounted, or populated by the download hook)
+
+    output:
+    path("diagnose/*.model.json"),       emit: results
+    path("diagnose/run.manifest.json"),  emit: manifest
+    path("diagnose/state_logs/**"),      emit: state, optional: true
+
+    script:
+    // Model download is a config hook: modelDir is the contract (mounted weights), or an
+    // operator-supplied fetchCommand populates it first. No downloader is baked in (D11).
+    def fetch      = (params.pathogenDetection.metaGpt.download && params.pathogenDetection.metaGpt.fetchCommand) ? "${params.pathogenDetection.metaGpt.fetchCommand} ;" : ""
+    def postFilter = params.pathogenDetection.metaGpt.postFilter   ? "--post-filter"    : ""
+    def clinical   = params.pathogenDetection.metaGpt.clinicalNotes ? "--clinical-notes" : ""
+    def runId      = params.pathogenDetection.metaGpt.runId        ? "--run-id ${params.pathogenDetection.metaGpt.runId}" : ""
+    def replicate  = params.pathogenDetection.metaGpt.replicate    ? "--replicate ${params.pathogenDetection.metaGpt.replicate}" : ""
+    """
+    ${fetch}
+    cerebro-ciqa diagnose-local \\
+        --prefetch . \\
+        --plate ${plate} \\
+        --outdir diagnose \\
+        --model ${model} \\
+        --model-id ${model} \\
+        --model-dir ${modelDir} \\
+        --num-gpu ${params.pathogenDetection.metaGpt.gpus} \\
+        ${postFilter} ${clinical} ${runId} ${replicate} \\
+        --emit-manifest diagnose/run.manifest.json
+    """
+}
+
+process MetaGptRegression {
+
+    tag { "metagpt-regression" }
+    label "cerebro"                     // CPU; pure regression vs a baseline (Stage 3), report-first
+
+    publishDir "$params.outputDirectory/results/metagpt", mode: "copy", pattern: "regression.report.json"
+
+    input:
+    path(manifest)                      // MetaGptRunManifest from MetaGptDiagnose
+    path(baseline)                      // QualityControlBaseline JSON
+    path(dataset)                       // QC dataset reference truth (JSON array)
+
+    output:
+    path("regression.report.json"), emit: report
+
+    script:
+    """
+    cerebro-ciqa regression \\
+        --manifest ${manifest} \\
+        --baseline ${baseline} \\
+        --dataset ${dataset} \\
+        --report regression.report.json
+    """
+}
+
+process UploadMetaGptResults {
+
+    tag { "metagpt-upload" }
+    label "cerebro"
+
+    input:
+    path(results)                       // *.model.json + run.manifest.json
+    tuple val(apiUrl), val(apiToken)
+    tuple val(team), val(database), val(project)
+
+    script:
+    """
+    cerebro-client --token \$CEREBRO_API_TOKEN --url $apiUrl --team $team --db $database --project $project upload-models --models *.json || true
+    """
+}
