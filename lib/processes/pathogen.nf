@@ -1089,19 +1089,3 @@ process MetaGptRegression {
         --report regression.report.json
     """
 }
-
-process UploadMetaGptResults {
-
-    tag { "metagpt-upload" }
-    label "cerebro"
-
-    input:
-    path(results)                       // *.model.json + run.manifest.json
-    tuple val(apiUrl), val(apiToken)
-    tuple val(team), val(database), val(project)
-
-    script:
-    """
-    cerebro-client --token \$CEREBRO_API_TOKEN --url $apiUrl --team $team --db $database --project $project upload-models --models *.json || true
-    """
-}

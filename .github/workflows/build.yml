@@ -63,7 +63,7 @@ jobs:
   # drop `continue-on-error` once a GPU runner exists.
   build-local:
     name: cerebro-ciqa (--features local / CUDA)
-    runs-on: ubuntu-20.04        # TODO(readiness): replace with [self-hosted, gpu]
+    runs-on: ubuntu-20.04         # TODO(readiness): replace with [self-hosted, gpu]
     continue-on-error: true       # TODO(readiness): remove once a GPU runner is available
     steps:
       - uses: actions/checkout@v3

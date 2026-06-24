@@ -286,7 +286,7 @@ services:
     {{#if fs.hot}}
     # Tiered volume server. Model A: hot (SSD) + cold (HDD). Model B: hot (SSD) +
     # warm (HDD, recovery/re-inspection); the cold tier is the S3 remote. Tiers
-    # are advertised via SeaweedFS -disk tags ({{{ fs.volume_disks }}}).
+    # are advertised via SeaweedFS-disk tags ({{{ fs.volume_disks }}}).
     command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8010 -metricsPort=9325 -dataCenter={{{ fs.primary.center }}} -rack={{{ fs.primary.rack }}} -dir={{{ fs.volume_dirs }}} -disk={{{ fs.volume_disks }}}'
     volumes:
       # Host-mounted tier directories
@@ -309,13 +309,14 @@ services:
       - cerebro-fs-master
 
   {{#if fs.replica}}
-  # Single-host replica volume server (S4-1): a second tiered volume server on
+  # Single-host replica volume server: a second tiered volume server on
   # SEPARATE disks, same data centre + rack as cerebro-fs-primary. With
   # replication `001` the master keeps a second copy of every volume here, so the
   # loss of one server's disks does not lose data. It reuses the primary's tier
   # layout ({{{ fs.volume_dirs }}} / {{{ fs.volume_disks }}}) on the replica's own
   # host disks.
-  # NOTE: single-host — this protects against DISK failure, not HOST failure. For
+  #
+  # NOTE: single-host - this protects against DISK failure, not HOST failure. For
   # host-failure durability run this service (and its disks) on a second machine;
   # see the multi-host topology notes in docs/fs-replication.md.
   cerebro-fs-replica:
@@ -329,7 +330,7 @@ services:
       - 9328
     command: 'weed volume -mserver="cerebro-fs-master:9333" -ip.bind=0.0.0.0 -port=8012 -metricsPort=9328 -dataCenter={{{ fs.replica.center }}} -rack={{{ fs.replica.rack }}} -dir={{{ fs.volume_dirs }}} -disk={{{ fs.volume_disks }}}'
     volumes:
-      # Replica tier disks — must be physically separate from the primary's.
+      # Replica tier disks - must be physically separate from the primary's.
       - {{{ fs.replica.hot.path }}}:{{{ fs.replica.hot.mount }}}
       {{#if fs.replica.cold}}
       - {{{ fs.replica.cold.path }}}:{{{ fs.replica.cold.mount }}}
@@ -364,7 +365,7 @@ services:
 
   {{#if fs.filer.enabled }}
   # Path-addressed SeaweedFS filer (MongoDB metadata store). Used by cerebro-fs
-  # when `--fs-access filer` is selected. Reads filer.toml mounted read-only.
+  # when `--fs-access filer` is selected. Reads filer.toml mounted read-only
   cerebro-fs-filer:
     restart: unless-stopped
     build:
@@ -395,15 +396,13 @@ services:
 
 
   {{#unless fs.fs_only}}
-  # === Stage 3: job system ===============================================
   # Producer/consumer split. cerebro-api (+ its Scheduler) ENQUEUE jobs to
   # Faktory; cerebro-worker CONSUMES and runs them. Workers are never run inside
   # API request handlers. Scale heavy-job throughput by running more worker
-  # replicas (each handles a bounded number of jobs) — see the blocking-work
-  # rationale in the S3-1 notes.
+  # replicas (each handles a bounded number of jobs).
 
   # Faktory job server: durable queue + web dashboard. OSS image; pin a version
-  # and move the password to a secret in production.
+  # and move the password to a secret in production. TODO!
   faktory:
     restart: unless-stopped
     image: contribsys/faktory:1.8.0
@@ -425,10 +424,10 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # Cerebro lifecycle worker (Stage 3): consumes Faktory jobs. In dev it reuses
-  # the server image (cargo-watch hot-reload); in production it builds the slim
-  # Dockerfile.worker. Uses the filer HTTP API (no `weed` binary needed in the
-  # slim image). Provide a service-account token via CEREBRO_WORKER_TOKEN.
+  # Cerebro lifecycle worker consumes Faktory jobs. In dev it reuses the server
+  # image (cargo-watch hot-reload); in production it builds the slim Dockerfile.worker.
+  # Uses the filer HTTP API (no `weed` binary needed in the slim image). Provide a service-account
+  # token via CEREBRO_WORKER_TOKEN.
   cerebro-worker:
     restart: unless-stopped
     build:
@@ -448,9 +447,9 @@ services:
       {{#if dev}}
       - {{{ outdir }}}/cerebro:/usr/src/cerebro
       {{/if}}
-      # Catalogue backup store (S4-2). Default local named volume; for an
-      # independent failure domain override this to a separate disk or an NFS /
-      # remote mount (see docs/catalogue-backup.md).
+      # Catalogue backup store. Default local named volume; for an
+      # independent failure domain override this to a separate disk or an NFS 
+      # or remote mount.
       - cerebro_backups:/backups
     expose:
       - 9464
@@ -459,10 +458,10 @@ services:
     environment:
       FAKTORY_URL: tcp://:devpass@faktory:7419
       CEREBRO_API_URL: http://cerebro-api:8080
-      # Service Bot authentication (S3-5 #5): the worker logs in as the Bot seeded
+      # Service Bot authentication: the worker logs in as the Bot seeded
       # by mongo-init and rebuilds its token periodically. The password is mounted
       # as a Docker secret (below) and read from CEREBRO_API_BOT_PASSWORD_FILE, so
-      # the plaintext is never exposed in the container environment / docker inspect.
+      # the plaintext is never exposed in the container environment
       # CEREBRO_API_TOKEN remains as a static-token fallback.
       CEREBRO_API_TOKEN: ${CEREBRO_WORKER_TOKEN:-}
       CEREBRO_API_TOKEN_FILE: /tmp/cerebro_worker_token.json
@@ -477,8 +476,8 @@ services:
       CEREBRO_FS_ACCESS: filer
       CEREBRO_WORKER_QUEUES: default,lifecycle,maintenance
       CEREBRO_WORKER_METRICS_ADDR: 0.0.0.0:9464
-      # Catalogue backup (S4-2). The backup Mongo URI secret below is now
-      # auto-provisioned by `cerebro stack deploy` (H1): mongo-init creates a
+      # Catalogue backup. The backup Mongo URI secret below is now
+      # auto-provisioned by `cerebro stack deploy`: mongo-init creates a
       # `cerebro_backup` user with the read-only `backup` role and deploy renders
       # the URI. Point CEREBRO_BACKUP_STORE_PATH at the mounted store.
       CEREBRO_BACKUP_MONGO_URI_FILE: /run/secrets/cerebro_backup_mongo_uri
@@ -517,7 +516,7 @@ volumes:
     driver: local
   cerebro_faktory:
     driver: local
-  # Catalogue backup store (S4-2). Default local named volume; override the
+  # Catalogue backup store. Default local named volume; override the
   # worker's /backups mount to a separate disk or NFS for real durability.
   cerebro_backups:
     driver: local
@@ -558,8 +557,8 @@ secrets:
     file: {{{ outdir }}}/mongodb/worker_bot.secret
   retention_config:
     file: {{{ outdir }}}/fs/retention.env
-  # MongoDB connection URI for catalogue backups (S4-2). Auto-provisioned by
-  # `cerebro stack deploy` (H1) from the `cerebro_backup` user that mongo-init
+  # MongoDB connection URI for catalogue backups Auto-provisioned by
+  # `cerebro stack deploy` from the `cerebro_backup` user that mongo-init
   # creates with the read-only `backup` role — no manual setup. To use an external
   # or differently-scoped backup user, overwrite this file after deploy.
   cerebro_backup_mongo_uri:

@@ -179,9 +179,9 @@ workflow culture {
 workflow metagpt {
 
     /* Standalone META-GPT diagnosis (+ optional regression) over an existing run's Cerebro
-       models, without re-profiling (Stage 4 §S4.5). Reads model JSONs from
-       params.pathogenDetection.metaGpt.modelsDir and runs prefetch -> diagnose -> (regression).
-       Gated by params.pathogenDetection.metaGpt.enabled. */
+       models, without re-profiling. Reads model JSONs from params.pathogenDetection.metaGpt.modelsDir 
+       and runs prefetch -> diagnose -> (regression).
+    */
 
     def gpt = params.pathogenDetection.metaGpt
 
