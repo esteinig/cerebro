@@ -831,6 +831,19 @@ impl RegressionReport {
             .map_err(|e| anyhow::anyhow!("failed to deserialize JSON: {}", e))?;
         Ok(report)
     }
+    pub fn to_toml(&self, path: &Path) -> Result<(), anyhow::Error> {
+        let toml_str = toml::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("failed to serialize to TOML: {}", e))?;
+        std::fs::write(path, toml_str)
+            .map_err(|e| anyhow::anyhow!("failed to write TOML to file: {}", e))
+    }
+    pub fn from_toml(config: &Path) -> Result<Self, anyhow::Error> {
+        let file_content = std::fs::read_to_string(config)
+            .map_err(|e| anyhow::anyhow!("failed to read file: {}", e))?;
+        let report: Self = toml::from_str(&file_content)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize TOML: {}", e))?;
+        Ok(report)
+    }
 }
 
 #[cfg(any(feature = "cli", feature = "lib"))]

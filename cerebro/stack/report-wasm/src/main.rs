@@ -12,7 +12,9 @@ use compiler::LibraryReportCompiler;
 #[cfg(feature = "cli")]
 use report::TemplateFormat;
 #[cfg(feature = "cli")]
-use report::{PathogenDetectionReport, ReportFormat, ReportType, TrainingCompletionReport};
+use report::{
+    PathogenDetectionReport, RegressionReport, ReportFormat, ReportType, TrainingCompletionReport,
+};
 #[cfg(feature = "cli")]
 use std::path::PathBuf;
 
@@ -135,6 +137,10 @@ fn main() -> anyhow::Result<()> {
                 TemplateFormat::Toml => {
                     TrainingCompletionReport::default().to_toml(&args.output)?
                 }
+            },
+            ReportType::Regression => match args.template {
+                TemplateFormat::Json => RegressionReport::default().to_json(&args.output)?,
+                TemplateFormat::Toml => RegressionReport::default().to_toml(&args.output)?,
             },
         },
     }

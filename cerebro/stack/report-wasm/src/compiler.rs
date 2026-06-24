@@ -2,8 +2,8 @@ use chrono::{Datelike, Timelike};
 
 #[cfg(any(feature = "cli", feature = "lib", target_arch = "wasm32"))]
 use crate::report::{
-    PathogenDetectionReport, ReportConfig, ReportType, TemplateFormat, TemplateManager,
-    TrainingCompletionReport,
+    PathogenDetectionReport, RegressionReport, ReportConfig, ReportType, TemplateFormat,
+    TemplateManager, TrainingCompletionReport,
 };
 #[cfg(any(feature = "cli", feature = "lib", target_arch = "wasm32"))]
 use crate::world::SystemWorld;
@@ -65,6 +65,10 @@ impl LibraryReportCompiler {
             ReportType::TrainingCompletion => match format {
                 TemplateFormat::Json => Box::new(TrainingCompletionReport::from_json(config)?),
                 TemplateFormat::Toml => Box::new(TrainingCompletionReport::from_toml(config)?),
+            },
+            ReportType::Regression => match format {
+                TemplateFormat::Json => Box::new(RegressionReport::from_json(config)?),
+                TemplateFormat::Toml => Box::new(RegressionReport::from_toml(config)?),
             },
         };
 
@@ -179,12 +183,16 @@ impl ReportCompiler {
     }
 
     pub fn report(&mut self, config: JsValue) -> Result<String, JsValue> {
-        let report = match self.report_type {
-            ReportType::PathogenDetection => PathogenDetectionReport::from_js(config)?,
-            ReportType::TrainingCompletion => TrainingCompletionReport::from_js(config)?,
+        // Box per-arm so the distinct report types unify to a single `Box<dyn ReportConfig>`
+        // (the same pattern as the native `report_from_path`), and pass the `logo_width`
+        // argument `render` requires (the wasm compiler carries no logo width, so `None`).
+        let report: Box<dyn ReportConfig> = match self.report_type {
+            ReportType::PathogenDetection => Box::new(PathogenDetectionReport::from_js(config)?),
+            ReportType::TrainingCompletion => Box::new(TrainingCompletionReport::from_js(config)?),
+            ReportType::Regression => Box::new(RegressionReport::from_js(config)?),
         };
         self.templates
-            .render(&self.report_type, &report)
+            .render(&self.report_type, report.as_ref(), None)
             .map_err(|e| JsValue::from(format!("failed to render report template: {}", e)))
     }
 
