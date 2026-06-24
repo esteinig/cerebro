@@ -32,7 +32,7 @@ use cerebro_ciqa::{
         positive_candidate_match, reference_names_from_config, MissedDetectionRow, OverallSummary,
         PerSampleSummary, PrefetchStatus,
     },
-    stats::{mcnemar_batch_adjust, mcnemar_from_reviews},
+    stats::{mcnemar_batch_adjust, mcnemar_from_reviews, mcnemar_test},
     tables::summarize_predictions,
     terminal::{App, Commands, PrefetchSource},
     utils::{init_logger, read_csv, read_tsv, write_tsv},
@@ -1159,6 +1159,105 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 );
             }
         }
+        Commands::Regression(args) => {
+            use cerebro_model::api::ciqa::model::{QualityControlBaseline, QualityControlDatasetRecord};
+            use cerebro_model::api::ciqa::schema::MetaGptRunManifest;
+            use cerebro_model::api::diagnostics::eval::evaluate;
+            use cerebro_model::api::diagnostics::metagpt::{evaluated_sample, DiagnosticResultDto};
+            use cerebro_model::api::diagnostics::regression::{discordant_counts, RegressionReport};
+
+            // Inputs: the run manifest (S3.3), the immutable baseline (S3.4), and the dataset
+            // reference truth. All file-based so regression runs offline in CI/Nextflow.
+            let manifest = MetaGptRunManifest::from_json(&args.manifest)?;
+            let baseline = QualityControlBaseline::from_json(&args.baseline)?;
+
+            let dataset: Vec<QualityControlDatasetRecord> =
+                serde_json::from_reader(File::open(&args.dataset)?)?;
+
+            // Reference truth keyed by sample id (dataset records carry it in `sample_name`).
+            let truth: HashMap<&str, &QualityControlDatasetRecord> = dataset
+                .iter()
+                .filter_map(|r| r.sample_name.as_deref().map(|name| (name, r)))
+                .collect();
+
+            // Join each manifest sample's META-GPT output to its reference truth (S3.2 mapping).
+            let mut samples = Vec::with_capacity(manifest.samples.len());
+            for sample in &manifest.samples {
+                let result = DiagnosticResultDto::from_json(&sample.result_path)?;
+                let (reference_result, reference_candidates, exclude_lod) =
+                    match truth.get(sample.sample_id.as_str()) {
+                        Some(t) => (
+                            t.reference_result.clone(),
+                            t.reference_candidates.clone(),
+                            t.exclude_lod,
+                        ),
+                        None => {
+                            log::warn!("No reference truth for sample '{}'", sample.sample_id);
+                            (None, None, None)
+                        }
+                    };
+                samples.push(evaluated_sample(
+                    &sample.sample_id,
+                    reference_result,
+                    reference_candidates,
+                    exclude_lod,
+                    &result,
+                ));
+            }
+
+            // Current stats (shared evaluator, S3.1), paired McNemar vs the baseline (stats.rs).
+            let current = evaluate(&samples);
+            let baseline_stats = baseline.statistics.clone();
+            let (b, c, total) = discordant_counts(&baseline_stats.rows, &current.rows);
+            let mcnemar = mcnemar_test(b, c, total);
+
+            let min_sensitivity = args.min_sensitivity.unwrap_or(baseline.thresholds.sensitivity);
+            let min_specificity = args.min_specificity.unwrap_or(baseline.thresholds.specificity);
+
+            let created = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs().to_string())
+                .unwrap_or_default();
+
+            let report = RegressionReport::assemble(
+                &manifest.run_id,
+                &baseline.id,
+                &baseline.dataset,
+                current,
+                baseline_stats,
+                (b, c, total),
+                mcnemar.p_value,
+                min_sensitivity,
+                min_specificity,
+                args.alpha,
+                &created,
+            );
+
+            // Report-first: persist, then signal the gate via exit code. Never mutates a baseline.
+            std::fs::write(&args.report, serde_json::to_string_pretty(&report)?)?;
+
+            if report.regressed {
+                log::error!(
+                    "REGRESSION: run '{}' vs baseline '{}' — sens {:.3} (Δ{:+.3}), spec {:.3} (Δ{:+.3}), McNemar p={:.4}",
+                    report.run_id,
+                    report.baseline_id,
+                    report.current.sensitivity,
+                    report.delta_sensitivity,
+                    report.current.specificity,
+                    report.delta_specificity,
+                    report.mcnemar_p_value,
+                );
+                exit(1);
+            } else {
+                log::info!(
+                    "PASS: run '{}' within baseline '{}' — sens {:.3}, spec {:.3}",
+                    report.run_id,
+                    report.baseline_id,
+                    report.current.sensitivity,
+                    report.current.specificity,
+                );
+            }
+        }
         Commands::DebugPathogen(args) => {
             #[derive(Serialize)]
             struct PathogenRecord {
@@ -1190,6 +1289,9 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                     .map(|s| s.to_string_lossy().into_owned())
                     .unwrap_or_default();
 
+                // Legacy attribution path: this directory-name parser is deprecated and retained
+                // only for historical runs (Stage 3, D8). Production/regression use the manifest.
+                #[allow(deprecated)]
                 let Some((params, quant, clinical, replicate)) = parse_dir_components(&dir_name)
                 else {
                     log::warn!(

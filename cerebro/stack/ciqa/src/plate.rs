@@ -29,6 +29,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Legacy directory-name parser for run attribution (params, quantization, clinical flag,
+/// replicate).
+///
+/// **Deprecated / quarantined.** Production and the regression path no longer recover run metadata
+/// by pattern-matching folder names — that metadata is now carried explicitly and correctly in
+/// `cerebro_model::api::ciqa::schema::MetaGptRunManifest` (Stage 3, Decision D8). This parser
+/// survives **only** to read historical directories (e.g. to synthesize a manifest for old runs so
+/// they remain comparable); it must not be called on any production or regression code path.
+#[deprecated(
+    note = "Run attribution comes from MetaGptRunManifest; this regex is a legacy reader only."
+)]
 pub fn parse_dir_components(dir_name: &str) -> Option<(String, String, String, u32)> {
     let name = dir_name.trim_end_matches('/');
     // 1=params (e.g. 14b)

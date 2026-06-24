@@ -2,6 +2,7 @@ pub mod auth;
 pub mod cerebro;
 pub mod ciqa;
 pub mod config;
+pub mod diagnostics;
 pub mod files;
 pub mod jobs;
 pub mod logs;

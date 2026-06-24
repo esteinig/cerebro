@@ -1,5 +1,6 @@
 use crate::api::{
     cerebro::schema::{SampleType, TestResult},
+    diagnostics::eval::{evaluate as evaluate_samples, EvaluatedSample},
     training::{
         response::TrainingPrefetchData,
         schema::{CreateTrainingPrefetch, CreateTrainingSession, TrainingRecord},
@@ -9,6 +10,11 @@ use chrono::{SecondsFormat, Utc};
 use rand::{rng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+// `Decision` and `normalize_candidate` are now defined once in the shared evaluator
+// (api::diagnostics::eval). Re-export them so existing `training::model::{Decision,
+// normalize_candidate}` references keep working.
+pub use crate::api::diagnostics::eval::{normalize_candidate, Decision};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingPrefetchRecord {
@@ -179,89 +185,35 @@ pub struct TrainingResultRecord {
     pub exclude_reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum Decision {
-    TP,
-    TN,
-    FP,
-    FN,
-    Excluded,
-}
-
-/// Normalize a candidate:
-/// - split on whitespace
-/// - for each token, drop everything from the first '_' to the end
-/// - rejoin with single spaces
-/// - prepend "s__"
-pub fn normalize_candidate(raw: &str) -> String {
-    let core = raw
-        .split_whitespace()
-        .map(|t| t.split_once('_').map(|(head, _)| head).unwrap_or(t))
-        .collect::<Vec<_>>()
-        .join(" ");
-    format!("s__{}", core)
-}
-
 impl TrainingSessionRecord {
     pub fn evaluate(&self) -> TrainingResult {
-        let mut tp = 0usize;
-        let mut tn = 0usize;
-        let mut fp = 0usize;
-        let mut fn_ = 0usize;
-        let mut rows: Vec<TrainingResultRecord> = Vec::with_capacity(self.records.len());
+        // Delegate the decision rule and the sens/spec maths to the single shared evaluator.
+        // Training records always carry a predicted `result` (so every sample goes through the
+        // Some(result) arms), and the candidate-overlap rule is the shared `classify` rule, so
+        // the decisions, counts, and statistics are identical to the previous in-place version.
+        // Only the repackaging into the training-facing `TrainingResult`/`TrainingResultRecord`
+        // (percentages, joined candidate strings) lives here.
+        let samples: Vec<EvaluatedSample> = self
+            .records
+            .iter()
+            .map(|r| EvaluatedSample {
+                sample_id: r.id.clone(),
+                reference_result: r.reference_result.clone(),
+                reference_candidates: r.reference_candidates.clone(),
+                predicted_result: Some(r.result.clone()),
+                predicted_candidates: r.candidates.clone(),
+                exclude_lod: r.exclude_lod,
+            })
+            .collect();
 
-        for r in &self.records {
-            let mut exclude_reason: Option<String> = None;
-            let mut matched_any_candidate: Option<bool> = None;
+        let stats = evaluate_samples(&samples);
 
-            let mut decision: Decision = match r.reference_result {
-                None => {
-                    exclude_reason = Some("missing reference_result".into());
-                    Decision::Excluded
-                }
-                Some(TestResult::Positive) => match r.result {
-                    TestResult::Positive => match (&r.candidates, &r.reference_candidates) {
-                        (Some(cands), Some(ref_cands)) => {
-                            let overlap = cands
-                                .iter()
-                                .any(|c| ref_cands.iter().any(|rc| *rc == normalize_candidate(c)));
-                            matched_any_candidate = Some(overlap);
-                            if overlap {
-                                Decision::TP
-                            } else {
-                                Decision::FP
-                            }
-                        }
-                        _ => {
-                            exclude_reason =
-                                Some("positive/positive with missing candidates".into());
-                            Decision::Excluded
-                        }
-                    },
-                    TestResult::Negative => Decision::FN,
-                },
-                Some(TestResult::Negative) => match r.result {
-                    TestResult::Positive => Decision::FP,
-                    TestResult::Negative => Decision::TN,
-                },
-            };
-
-            // Override if the LOD exclusion flag was set
-            if r.exclude_lod.is_some_and(|x| x) {
-                exclude_reason = Some("limit of detection".into());
-                decision = Decision::Excluded
-            }
-
-            match decision {
-                Decision::TP => tp += 1,
-                Decision::TN => tn += 1,
-                Decision::FP => fp += 1,
-                Decision::FN => fn_ += 1,
-                Decision::Excluded => {}
-            }
-
-            rows.push(TrainingResultRecord {
+        // `stats.rows` is 1:1 with `self.records` in the same order.
+        let data: Vec<TrainingResultRecord> = self
+            .records
+            .iter()
+            .zip(stats.rows.iter())
+            .map(|(r, row)| TrainingResultRecord {
                 record_id: r.id.clone(),
                 data_id: r.data_id.clone(),
                 sample_name: r.sample_name.clone(),
@@ -270,33 +222,23 @@ impl TrainingSessionRecord {
                 reference_result: r.reference_result.clone(),
                 candidates: r.candidates.as_ref().map(|c| c.join(";")),
                 reference_candidates: r.reference_candidates.as_ref().map(|c| c.join(";")),
-                matched_any_candidate,
-                decision,
-                exclude_reason,
-            });
-        }
-
-        let total = tp + tn + fp + fn_;
-        let sensitivity = if tp + fn_ > 0 {
-            (tp as f64 / (tp + fn_) as f64) * 100.
-        } else {
-            0.0
-        };
-        let specificity = if tn + fp > 0 {
-            (tn as f64 / (tn + fp) as f64) * 100.
-        } else {
-            0.0
-        };
+                matched_any_candidate: row.matched_candidate,
+                decision: row.decision,
+                exclude_reason: row.exclude_reason.clone(),
+            })
+            .collect();
 
         TrainingResult {
-            sensitivity,
-            specificity,
-            total,
-            true_positive: tp,
-            true_negative: tn,
-            false_positive: fp,
-            false_negative: fn_,
-            data: rows,
+            // Training presents sensitivity/specificity as percentages; the shared evaluator
+            // returns fractions, so scale by 100 to preserve the existing UI numbers.
+            sensitivity: stats.sensitivity * 100.,
+            specificity: stats.specificity * 100.,
+            total: stats.total,
+            true_positive: stats.tp,
+            true_negative: stats.tn,
+            false_positive: stats.fp,
+            false_negative: stats.fn_,
+            data,
         }
     }
 }

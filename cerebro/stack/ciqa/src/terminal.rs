@@ -107,6 +107,8 @@ pub enum Commands {
     DiagnoseLocal(DiagnoseLocalArgs),
     /// Debug the pathogen calls made in a set of diagnostic practitioner outputs
     DebugPathogen(DebugPathogenArgs),
+    /// Regress a META-GPT run's sensitivity/specificity against a versioned baseline (report-first)
+    Regression(RegressionArgs),
 }
 
 #[derive(Debug, Args)]
@@ -603,6 +605,31 @@ pub struct TuiArgs {}
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {}
+
+#[derive(Debug, Args, Clone)]
+pub struct RegressionArgs {
+    /// Run manifest (MetaGptRunManifest JSON) from the diagnose step
+    #[clap(long, short = 'm')]
+    pub manifest: PathBuf,
+    /// Baseline to test against (QualityControlBaseline JSON)
+    #[clap(long, short = 'b')]
+    pub baseline: PathBuf,
+    /// QC dataset reference truth (JSON array of QualityControlDatasetRecord)
+    #[clap(long, short = 'd')]
+    pub dataset: PathBuf,
+    /// Output regression report (RegressionReport JSON)
+    #[clap(long, short = 'o')]
+    pub report: PathBuf,
+    /// Minimum sensitivity floor (fraction); overrides the baseline thresholds if set
+    #[clap(long)]
+    pub min_sensitivity: Option<f64>,
+    /// Minimum specificity floor (fraction); overrides the baseline thresholds if set
+    #[clap(long)]
+    pub min_specificity: Option<f64>,
+    /// Significance level for the paired McNemar test
+    #[clap(long, default_value = "0.05")]
+    pub alpha: f64,
+}
 
 pub fn get_styles() -> clap::builder::Styles {
     clap::builder::Styles::styled()
