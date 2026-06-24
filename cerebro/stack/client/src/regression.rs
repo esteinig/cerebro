@@ -160,34 +160,43 @@ impl RpmAnalyzer {
         raw_taxon_rpm: Vec<f64>,
         sample_ids: Vec<String>,
     ) -> Self {
-        // Apply log10 transformation (values must be > 0).
-        let log_host_rpm = raw_host_rpm
-            .iter()
-            .map(|&x| {
-                if x <= 0.0 {
-                    panic!("host RPM must be positive for log₁₀ transform, got {}", x);
-                }
-                x.log10()
-            })
-            .collect();
+        // log₁₀ is only defined for positive values. Rather than panic (these constructors are
+        // public and sit on a clinical regression path — SKILLS.md: no panics on prod paths), drop
+        // any point whose host OR taxon RPM is non-positive. Points are paired (host[i], taxon[i],
+        // sample_ids[i]), so we filter by triple to keep the vectors index-aligned. `from_taxon_history`
+        // already pre-filters to positive points, so its behaviour is unchanged; only direct callers
+        // (e.g. `new`, or future callers) that would previously have crashed now skip cleanly.
+        let track_ids = sample_ids.len() == raw_host_rpm.len();
 
-        let log_taxon_rpm = raw_taxon_rpm
-            .iter()
-            .map(|&x| {
-                if x <= 0.0 {
-                    panic!("taxon RPM must be positive for log₁₀ transform, got {}", x);
-                }
-                x.log10()
-            })
-            .collect();
+        let mut kept_host_rpm = Vec::with_capacity(raw_host_rpm.len());
+        let mut kept_taxon_rpm = Vec::with_capacity(raw_taxon_rpm.len());
+        let mut kept_sample_ids = Vec::new();
+        let mut log_host_rpm = Vec::with_capacity(raw_host_rpm.len());
+        let mut log_taxon_rpm = Vec::with_capacity(raw_taxon_rpm.len());
+
+        for (i, (&host, &taxon)) in raw_host_rpm.iter().zip(raw_taxon_rpm.iter()).enumerate() {
+            if host <= 0.0 || taxon <= 0.0 {
+                log::warn!(
+                    "regression: skipping non-positive RPM point (host={host}, taxon={taxon}) outside the log₁₀ domain"
+                );
+                continue;
+            }
+            kept_host_rpm.push(host);
+            kept_taxon_rpm.push(taxon);
+            log_host_rpm.push(host.log10());
+            log_taxon_rpm.push(taxon.log10());
+            if track_ids {
+                kept_sample_ids.push(sample_ids[i].clone());
+            }
+        }
 
         Self {
             config,
-            raw_host_rpm,
-            raw_taxon_rpm,
+            raw_host_rpm: kept_host_rpm,
+            raw_taxon_rpm: kept_taxon_rpm,
             log_host_rpm,
             log_taxon_rpm,
-            sample_ids,
+            sample_ids: kept_sample_ids,
         }
     }
 
@@ -563,5 +572,40 @@ mod tests {
     fn has_sample_outlier_false_when_no_outliers() {
         let result = result_with(&[]);
         assert!(!result.has_sample_outlier("sampleA"));
+    }
+
+    #[test]
+    fn analyzer_drops_non_positive_points_without_panicking() {
+        // Mixed positive/non-positive points: the constructor must not panic and must keep only
+        // the positive points, index-aligned across host/taxon/sample_ids.
+        let cfg = RpmConfig::default();
+        let analyzer = RpmAnalyzer::new_with_sample_ids(
+            cfg,
+            vec![10.0, 0.0, 5.0, -1.0, 2.0],
+            vec![100.0, 50.0, 0.0, 7.0, 20.0],
+            vec![
+                "s1".into(),
+                "s2".into(),
+                "s3".into(),
+                "s4".into(),
+                "s5".into(),
+            ],
+        );
+        // Only s1 (10,100) and s5 (2,20) have BOTH coordinates positive.
+        assert_eq!(analyzer.raw_host_rpm, vec![10.0, 2.0]);
+        assert_eq!(analyzer.raw_taxon_rpm, vec![100.0, 20.0]);
+        assert_eq!(analyzer.sample_ids, vec!["s1".to_string(), "s5".to_string()]);
+        assert_eq!(analyzer.log_host_rpm.len(), 2);
+        assert_eq!(analyzer.log_taxon_rpm.len(), 2);
+        // log₁₀(10) == 1.0
+        assert!((analyzer.log_host_rpm[0] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analyzer_new_keeps_all_positive_points() {
+        let analyzer =
+            RpmAnalyzer::new(RpmConfig::default(), vec![10.0, 100.0], vec![1.0, 1000.0]);
+        assert_eq!(analyzer.raw_host_rpm.len(), 2);
+        assert!(analyzer.sample_ids.is_empty()); // new() supplies no ids
     }
 }
