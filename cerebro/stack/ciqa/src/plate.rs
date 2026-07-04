@@ -1874,6 +1874,120 @@ pub fn load_diagnostic_stats_from_files(
 
 
 
+/// Per-metric descriptive statistics across replicates for one category.
+#[derive(Debug, Clone)]
+pub struct MetricSummary {
+    /// Number of replicate values (consensus excluded)
+    pub n: usize,
+    /// Arithmetic mean
+    pub mean: f64,
+    /// Sample standard deviation (n-1 denominator; 0.0 when n < 2)
+    pub sd: f64,
+    /// Minimum observed value
+    pub min: f64,
+    /// Maximum observed value
+    pub max: f64,
+    /// 95% confidence interval [lower, upper] (t-distribution)
+    pub ci95: [f64; 2],
+}
+
+/// Compute mean, sample standard deviation (n-1), range (min/max) and the 95%
+/// t-distribution confidence interval for a set of values.
+///
+/// The mean and CI reuse [`compute_mean_and_ci`], so they are identical to the
+/// values drawn by [`plot_stripplot`] (which reads them from
+/// `DiagnosticSummary`).
+pub fn summarize_metric(values: &[f64]) -> MetricSummary {
+    let n = values.len();
+    let (mean, ci) = compute_mean_and_ci(values);
+
+    let sd = if n < 2 {
+        0.0
+    } else {
+        let variance = values.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / ((n - 1) as f64);
+        variance.sqrt()
+    };
+
+    let (min, max) = if n == 0 {
+        (0.0, 0.0)
+    } else {
+        values.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(mn, mx), &v| {
+            (mn.min(v), mx.max(v))
+        })
+    };
+
+    MetricSummary { n, mean, sd, min, max, ci95: [ci[0], ci[1]] }
+}
+
+/// Log mean, standard deviation, range and the 95% CI for the two metrics
+/// selected by `mode` (Sensitivity/Specificity or PPV/NPV), one line per metric
+/// per category.
+///
+/// Categories are resolved in the same order used by [`plot_stripplot`]: from
+/// `file_order` file stems when provided, otherwise the sorted category keys.
+/// The "consensus" replicate is excluded, matching
+/// [`DiagnosticSummary::from_stats`], so the reported statistics describe the
+/// replicate spread behind each plotted point.
+pub fn log_review_summary_stats(
+    data: &HashMap<String, DiagnosticData>,
+    mode: StatsMode,
+    file_order: &[PathBuf],
+) -> Result<(), CiqaError> {
+
+    // Resolve category ordering identically to plot_stripplot.
+    let categories: Vec<String> = if file_order.is_empty() {
+        let mut c: Vec<String> = data.keys().cloned().collect();
+        c.sort();
+        c
+    } else {
+        let mut c = Vec::with_capacity(file_order.len());
+        for f in file_order {
+            c.push(get_file_component(&f.to_path_buf(), FileComponent::FileStem)?);
+        }
+        c
+    };
+
+    let (m1_label, m2_label) = match mode {
+        StatsMode::SensSpec => ("Sensitivity", "Specificity"),
+        StatsMode::PpvNpv   => ("PPV", "NPV"),
+    };
+
+    for cat in &categories {
+        let Some(diag) = data.get(cat) else { continue };
+
+        // Exclude the consensus replicate, mirroring DiagnosticSummary::from_stats.
+        let m1: Vec<f64> = diag.stats.iter()
+            .filter(|s| s.name != "consensus")
+            .map(|s| match mode {
+                StatsMode::SensSpec => s.sensitivity,
+                StatsMode::PpvNpv   => s.ppv,
+            })
+            .collect();
+
+        let m2: Vec<f64> = diag.stats.iter()
+            .filter(|s| s.name != "consensus")
+            .map(|s| match mode {
+                StatsMode::SensSpec => s.specificity,
+                StatsMode::PpvNpv   => s.npv,
+            })
+            .collect();
+
+        let s1 = summarize_metric(&m1);
+        let s2 = summarize_metric(&m2);
+
+        log::info!(
+            "[{cat}] {m1_label}: mean {:.2}%  sd {:.2}%  range {:.2}%–{:.2}%  95% CI [{:.2}%, {:.2}%]  (n={})",
+            s1.mean, s1.sd, s1.min, s1.max, s1.ci95[0], s1.ci95[1], s1.n
+        );
+        log::info!(
+            "[{cat}] {m2_label}: mean {:.2}%  sd {:.2}%  range {:.2}%–{:.2}%  95% CI [{:.2}%, {:.2}%]  (n={})",
+            s2.mean, s2.sd, s2.min, s2.max, s2.ci95[0], s2.ci95[1], s2.n
+        );
+    }
+
+    Ok(())
+}
+
 /// Plot a horizontal strip-plot
 pub fn plot_stripplot<B: DrawingBackend>(
     backend: B,
