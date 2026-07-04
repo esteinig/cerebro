@@ -289,6 +289,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.title.as_deref(),
                 Some(args.header_text.as_str()),
                 args.consensus_column.as_deref(),
+                args.compute_consensus,
                 !args.vertical_labels,
             )?;
 

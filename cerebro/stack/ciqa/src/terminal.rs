@@ -455,6 +455,9 @@ pub struct PlotReviewMatrixArgs {
     /// Treat this TSV column as the consensus column: draw it separately (after a gap) with a vertical label and exclude it from per-reviewer statistics
     #[clap(long)]
     pub consensus_column: Option<String>,
+    /// Compute a consensus column internally by majority vote across reviewers (ties broken toward positive) and render it as the consensus column
+    #[clap(long, conflicts_with = "consensus_column")]
+    pub compute_consensus: bool,
     /// Draw reviewer column labels rotated (vertical) instead of horizontal
     #[clap(long)]
     pub vertical_labels: bool,

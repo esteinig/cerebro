@@ -1229,6 +1229,62 @@ pub fn log_review_matrix_summary_stats(
     Ok(())
 }
 
+/// Compute a consensus column for a review matrix by majority vote across
+/// reviewers, reproducing the aggregation used elsewhere in the pipeline
+/// ([`aggregate_reference_plates`]).
+///
+/// A matrix cell records a reviewer's call scored against the sample's
+/// reference truth, so both are recoverable: TP/FP are positive calls and
+/// TN/FN negative calls, while TP/FN mark a truth-positive sample and TN/FP a
+/// truth-negative one. For each sample we take the majority call with ties
+/// broken toward Positive (identical to the `positive_count >= negative_count`
+/// rule in `aggregate_reference_plates`) and re-score it against the sample's
+/// truth to yield the consensus outcome. Indeterminate/NotConsidered/Control/
+/// Unknown cells do not vote; a row with no scored cells yields Unknown.
+pub fn compute_matrix_consensus(columns: &[Vec<DiagnosticReview>]) -> Vec<DiagnosticReview> {
+    let nrows = columns.first().map(|c| c.len()).unwrap_or(0);
+    let mut consensus = Vec::with_capacity(nrows);
+
+    for r in 0..nrows {
+        let sample_id = columns[0][r].sample_id.clone();
+
+        let mut pos_call = 0usize;         // TP, FP
+        let mut neg_call = 0usize;         // TN, FN
+        let mut truth_pos_votes = 0usize;  // TP, FN
+        let mut truth_neg_votes = 0usize;  // TN, FP
+
+        for col in columns {
+            match col[r].outcome {
+                DiagnosticOutcome::TruePositive  => { pos_call += 1; truth_pos_votes += 1; }
+                DiagnosticOutcome::FalsePositive => { pos_call += 1; truth_neg_votes += 1; }
+                DiagnosticOutcome::TrueNegative  => { neg_call += 1; truth_neg_votes += 1; }
+                DiagnosticOutcome::FalseNegative => { neg_call += 1; truth_pos_votes += 1; }
+                _ => {}
+            }
+        }
+
+        let outcome = if pos_call + neg_call == 0 {
+            // No reviewer produced a scored call for this sample.
+            DiagnosticOutcome::Unknown
+        } else {
+            // Reference truth is fixed per sample; ties -> positive.
+            let truth_positive = truth_pos_votes >= truth_neg_votes;
+            // Majority call with positive tie-break (mirrors aggregate_reference_plates).
+            let call_positive = pos_call >= neg_call;
+            match (truth_positive, call_positive) {
+                (true,  true)  => DiagnosticOutcome::TruePositive,
+                (true,  false) => DiagnosticOutcome::FalseNegative,
+                (false, true)  => DiagnosticOutcome::FalsePositive,
+                (false, false) => DiagnosticOutcome::TrueNegative,
+            }
+        };
+
+        consensus.push(DiagnosticReview::from_outcome(sample_id, outcome));
+    }
+
+    consensus
+}
+
 pub fn plot_review_matrix_from_tsv(
     tsv: &Path,
     output: &Path,
@@ -1242,24 +1298,29 @@ pub fn plot_review_matrix_from_tsv(
     // vertically-labelled "Consensus" column (after a gap), and is excluded
     // from the per-reviewer statistics.
     consensus_column: Option<&str>,
+    // When true (and `consensus_column` is None), compute a consensus column
+    // internally by majority vote across reviewers via [`compute_matrix_consensus`].
+    compute_consensus: bool,
     // Draw reviewer column labels horizontally (true) or rotated 270° (false).
     horizontal_labels: bool,
 ) -> Result<(), CiqaError> {
 
     let (mut reviewer_names, mut columns) = load_review_matrix_tsv(tsv)?;
 
-    // Optionally split out a named consensus column.
-    let consensus: Option<Vec<DiagnosticReview>> = match consensus_column {
-        Some(name) => {
-            let target = name.trim().to_lowercase();
-            let pos = reviewer_names
-                .iter()
-                .position(|n| n.trim().to_lowercase() == target)
-                .ok_or_else(|| CiqaError::ConsensusColumnNotFound(name.to_string()))?;
-            reviewer_names.remove(pos);
-            Some(columns.remove(pos))
-        }
-        None => None,
+    // Optionally obtain a consensus column: either split a named column out of
+    // the reviewers, or compute one internally by majority vote.
+    let consensus: Option<Vec<DiagnosticReview>> = if let Some(name) = consensus_column {
+        let target = name.trim().to_lowercase();
+        let pos = reviewer_names
+            .iter()
+            .position(|n| n.trim().to_lowercase() == target)
+            .ok_or_else(|| CiqaError::ConsensusColumnNotFound(name.to_string()))?;
+        reviewer_names.remove(pos);
+        Some(columns.remove(pos))
+    } else if compute_consensus {
+        Some(compute_matrix_consensus(&columns))
+    } else {
+        None
     };
 
     // Log per-reviewer and across-reviewer sensitivity/specificity (consensus
