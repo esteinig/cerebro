@@ -1152,6 +1152,82 @@ pub fn load_review_matrix_tsv(
 /// [`plot_diagnostic_matrix`], preserving the reviewer column names from the
 /// header row. No consensus/reference columns and no summary statistics are
 /// drawn — every column is treated as an independent reviewer.
+/// Compute sensitivity and specificity (as percentages, 0–100) for a single
+/// column of outcome cells, e.g. one reviewer in a review matrix.
+///
+/// Uses the same convention as [`compute_statistics`]: Indeterminate,
+/// NotConsidered, Control and Unknown cells are excluded, then
+/// sensitivity = TP / (TP + FN) and specificity = TN / (TN + FP). Returns
+/// `(sensitivity, specificity, n_scored)` where `n_scored` is the number of
+/// TP/FP/TN/FN cells contributing to the metrics.
+pub fn matrix_column_sens_spec(reviews: &[DiagnosticReview]) -> (f64, f64, usize) {
+    let mut tp = 0usize;
+    let mut fp = 0usize;
+    let mut tn = 0usize;
+    let mut fn_ = 0usize;
+
+    for r in reviews {
+        match r.outcome {
+            DiagnosticOutcome::TruePositive  => tp += 1,
+            DiagnosticOutcome::FalsePositive => fp += 1,
+            DiagnosticOutcome::TrueNegative  => tn += 1,
+            DiagnosticOutcome::FalseNegative => fn_ += 1,
+            // Indeterminate / NotConsidered / Control / Unknown are not scored.
+            _ => {}
+        }
+    }
+
+    let sensitivity = if tp + fn_ > 0 { tp as f64 / (tp + fn_) as f64 * 100.0 } else { 0.0 };
+    let specificity = if tn + fp > 0 { tn as f64 / (tn + fp) as f64 * 100.0 } else { 0.0 };
+
+    (sensitivity, specificity, tp + fp + tn + fn_)
+}
+
+/// Log per-reviewer and across-reviewer sensitivity/specificity for a review
+/// matrix (samples × reviewers).
+///
+/// Because a review matrix holds raw outcomes rather than pre-computed metrics,
+/// each reviewer column is first reduced to a sensitivity and specificity via
+/// [`matrix_column_sens_spec`]; the reviewer is then the unit of replication
+/// (the matrix analogue of a replicate model run in `plot-review`). The
+/// per-reviewer values are summarised across reviewers with [`summarize_metric`],
+/// so the reported mean, SD, range and 95% CI are computed exactly as for
+/// `plot-review`.
+pub fn log_review_matrix_summary_stats(
+    reviewer_names: &[String],
+    columns: &[Vec<DiagnosticReview>],
+) -> Result<(), CiqaError> {
+
+    let mut sensitivities = Vec::with_capacity(columns.len());
+    let mut specificities = Vec::with_capacity(columns.len());
+
+    for (idx, col) in columns.iter().enumerate() {
+        let name = reviewer_names.get(idx).cloned().unwrap_or_else(|| format!("reviewer{}", idx + 1));
+        let (sens, spec, n_scored) = matrix_column_sens_spec(col);
+        sensitivities.push(sens);
+        specificities.push(spec);
+
+        log::info!(
+            "[{name}] Sensitivity {:.2}%  Specificity {:.2}%  (scored {}/{})",
+            sens, spec, n_scored, col.len()
+        );
+    }
+
+    let s_sens = summarize_metric(&sensitivities);
+    let s_spec = summarize_metric(&specificities);
+
+    log::info!(
+        "[across reviewers] Sensitivity: mean {:.2}%  sd {:.2}%  range {:.2}%–{:.2}%  95% CI [{:.2}%, {:.2}%]  (n={} reviewers)",
+        s_sens.mean, s_sens.sd, s_sens.min, s_sens.max, s_sens.ci95[0], s_sens.ci95[1], s_sens.n
+    );
+    log::info!(
+        "[across reviewers] Specificity: mean {:.2}%  sd {:.2}%  range {:.2}%–{:.2}%  95% CI [{:.2}%, {:.2}%]  (n={} reviewers)",
+        s_spec.mean, s_spec.sd, s_spec.min, s_spec.max, s_spec.ci95[0], s_spec.ci95[1], s_spec.n
+    );
+
+    Ok(())
+}
+
 pub fn plot_review_matrix_from_tsv(
     tsv: &Path,
     output: &Path,
@@ -1163,6 +1239,10 @@ pub fn plot_review_matrix_from_tsv(
 ) -> Result<(), CiqaError> {
 
     let (reviewer_names, columns) = load_review_matrix_tsv(tsv)?;
+
+    // Log per-reviewer and across-reviewer sensitivity/specificity, mirroring
+    // the summary that plot-review emits for its replicate stats.
+    log_review_matrix_summary_stats(&reviewer_names, &columns)?;
 
     plot_diagnostic_matrix(
         &columns,
