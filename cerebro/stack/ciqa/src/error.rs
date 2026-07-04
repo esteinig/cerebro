@@ -40,6 +40,14 @@ pub enum CiqaError {
     StripPlotError(String),
     #[error("no columns found for plate plot")]
     NoColumnsFound,
+    #[error("invalid hex color string: {0}")]
+    InvalidHexColor(String),
+    #[error("invalid diagnostic outcome token in review matrix: '{0}' (expected one of TP, TN, FP, FN, NA, Indeterminate, Control, Unknown)")]
+    InvalidOutcomeToken(String),
+    #[error("review matrix file is empty or missing a header row: {0}")]
+    EmptyReviewMatrix(PathBuf),
+    #[error("review matrix must contain a sample column plus at least one reviewer column: {0}")]
+    NoReviewerColumns(PathBuf),
     #[error("sample identifier must be specified when not using prefetch data")]
     SampleIdentifierMissing, 
 }

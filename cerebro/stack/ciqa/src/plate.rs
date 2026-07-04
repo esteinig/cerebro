@@ -9,7 +9,7 @@ use meta_gpt::gpt::{SampleContext, Diagnosis, DiagnosticResult};
 use plotters::{coord::Shift, prelude::*, style::text_anchor::{HPos, Pos, VPos}};
 use serde::{Deserialize, Serialize};
 use colored::{ColoredString, Colorize};
-use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, read_tsv, write_tsv, FileComponent}};
+use crate::{error::CiqaError, terminal::ReviewArgs, utils::{get_file_component, get_tsv_reader, read_tsv, write_tsv, FileComponent}};
 use rand::Rng;
 
 pub fn parse_dir_components(dir_name: &str) -> Option<(String,String,String,u32)> {
@@ -417,6 +417,41 @@ impl DiagnosticOutcome {
             Self::Unknown        => 7,
         }
     }
+
+    /// Parse an outcome from a cell token in a review matrix TSV.
+    ///
+    /// Matching is case-insensitive and tolerant of the common short and long
+    /// forms that appear in reviewer tables:
+    /// - `TP` / `truepositive`  => TruePositive
+    /// - `TN` / `truenegative`  => TrueNegative
+    /// - `FP` / `falsepositive` => FalsePositive
+    /// - `FN` / `falsenegative` => FalseNegative
+    /// - `NA` / `N/A` / `notconsidered` => NotConsidered
+    /// - `IND` / `Indeterminate` / `Failed` => Indeterminate
+    /// - `CTRL` / `Control` => Control
+    /// - `UNK` / `Unknown` / empty cell => Unknown
+    pub fn from_matrix_token(token: &str) -> Result<Self, CiqaError> {
+        // Normalise: strip whitespace, drop separators, lowercase.
+        let norm: String = token
+            .trim()
+            .chars()
+            .filter(|c| !matches!(c, ' ' | '_' | '-' | '/' | '.'))
+            .collect::<String>()
+            .to_lowercase();
+
+        let outcome = match norm.as_str() {
+            "tp" | "truepositive" => Self::TruePositive,
+            "tn" | "truenegative" => Self::TrueNegative,
+            "fp" | "falsepositive" => Self::FalsePositive,
+            "fn" | "falsenegative" => Self::FalseNegative,
+            "na" | "notconsidered" | "notapplicable" => Self::NotConsidered,
+            "ind" | "indeterminate" | "failed" | "fail" => Self::Indeterminate,
+            "ctrl" | "control" | "pos" | "ntc" | "env" => Self::Control,
+            "" | "unk" | "unknown" => Self::Unknown,
+            _ => return Err(CiqaError::InvalidOutcomeToken(token.to_string())),
+        };
+        Ok(outcome)
+    }
 }
 
 
@@ -426,6 +461,31 @@ pub struct DiagnosticReview {
     pub outcome: DiagnosticOutcome,
     pub reference: SampleReference,
     pub review: Option<SampleReview>
+}
+impl DiagnosticReview {
+    /// Build a minimal review carrying only a sample identifier and a
+    /// pre-computed outcome. This is used when the outcomes are supplied
+    /// directly (e.g. from a review matrix TSV) rather than derived by
+    /// comparing a reference against a review. The `reference`/`review`
+    /// fields are placeholders and are never read by the matrix plotter,
+    /// which only consumes `sample_id` and `outcome`.
+    pub fn from_outcome(sample_id: impl Into<String>, outcome: DiagnosticOutcome) -> Self {
+        let sample_id = sample_id.into();
+        Self {
+            reference: SampleReference {
+                sample_id: sample_id.clone(),
+                sample_type: SampleType::Env,
+                result: None,
+                note: None,
+                clinical: None,
+                domain: None,
+                orthogonal: vec![],
+            },
+            review: None,
+            sample_id,
+            outcome,
+        }
+    }
 }
 
 /// Structure to hold computed diagnostic statistics.
@@ -734,7 +794,8 @@ impl DiagnosticData {
             PanelColumnHeader::Panel,
             title,
             header_text,
-            consensus_stats
+            consensus_stats,
+            None,
         )
     }
     pub fn split_replicates_consensus(&self) -> (Vec<DiagnosticStats>, Vec<DiagnosticStats>) {
@@ -955,6 +1016,167 @@ impl Palette {
         ];
         Palette::from_hex(PaletteName::DiagnosticReview, review_hex)
     }
+
+    /// Build a diagnostic-review palette starting from the `diagnostic_review2`
+    /// defaults and overriding individual outcome colours with user-supplied hex
+    /// strings (e.g. `#748f46` or `748f46`). Any override that is `None` keeps the
+    /// default colour for that outcome, so callers only need to specify the
+    /// outcomes they want to recolour.
+    ///
+    /// The colour slots follow `DiagnosticOutcome::index()`:
+    /// 0=TP, 1=FP, 2=TN, 3=FN, 4=Indeterminate, 5=NotConsidered (N/A),
+    /// 6=Control, 7=Unknown.
+    pub fn diagnostic_review_custom(colors: &ReviewMatrixColors) -> Result<Self, CiqaError> {
+        let mut palette = Palette::diagnostic_review2();
+
+        // (slot index, override hex) — mirrors DiagnosticOutcome::index()
+        let overrides = [
+            (DiagnosticOutcome::TruePositive.index(),  colors.tp.as_deref()),
+            (DiagnosticOutcome::FalsePositive.index(), colors.fp.as_deref()),
+            (DiagnosticOutcome::TrueNegative.index(),  colors.tn.as_deref()),
+            (DiagnosticOutcome::FalseNegative.index(), colors.fn_.as_deref()),
+            (DiagnosticOutcome::Indeterminate.index(), colors.indeterminate.as_deref()),
+            (DiagnosticOutcome::NotConsidered.index(), colors.na.as_deref()),
+            (DiagnosticOutcome::Control.index(),       colors.control.as_deref()),
+            (DiagnosticOutcome::Unknown.index(),       colors.unknown.as_deref()),
+        ];
+
+        for (idx, maybe_hex) in overrides {
+            if let Some(hex) = maybe_hex {
+                let color = RGBColor::from_hex_str(hex)
+                    .map_err(CiqaError::InvalidHexColor)?;
+                palette.colors[idx] = color;
+            }
+        }
+
+        Ok(palette)
+    }
+}
+
+/// Optional per-outcome hex colour overrides for the review-matrix plot.
+///
+/// Each field is an optional hex string (`#rrggbb` or `rrggbb`). Fields left as
+/// `None` fall back to the built-in `diagnostic_review2` colours.
+#[derive(Debug, Default, Clone)]
+pub struct ReviewMatrixColors {
+    /// True Positive (TP)
+    pub tp: Option<String>,
+    /// True Negative (TN)
+    pub tn: Option<String>,
+    /// False Positive (FP)
+    pub fp: Option<String>,
+    /// False Negative (FN); `fn` is a reserved keyword so the field is `fn_`
+    pub fn_: Option<String>,
+    /// Not Considered / Not Applicable (NA)
+    pub na: Option<String>,
+    /// Indeterminate (a.k.a. "Failed")
+    pub indeterminate: Option<String>,
+    /// Control
+    pub control: Option<String>,
+    /// Unknown
+    pub unknown: Option<String>,
+}
+
+/// Load a review-matrix TSV into per-reviewer columns of [`DiagnosticReview`].
+///
+/// Expected layout (tab-separated, with a header row):
+///
+/// ```text
+/// sample_name  reviewer1  reviewer2  ...  reviewerN
+/// DW-63-V01    TP         TP         ...  TP
+/// DW-63-V02    TN         TN         ...  TN
+/// ...
+/// ```
+///
+/// The first column holds the sample identifier (its header name is ignored);
+/// every remaining column is a reviewer. Cell tokens are parsed via
+/// [`DiagnosticOutcome::from_matrix_token`], so short forms (TP/TN/FP/FN/NA/…)
+/// and long forms are both accepted, case-insensitively.
+///
+/// Returns the reviewer column names alongside one `Vec<DiagnosticReview>` per
+/// reviewer, in file order — the exact shape consumed by
+/// [`plot_diagnostic_matrix`].
+pub fn load_review_matrix_tsv(
+    path: &Path,
+) -> Result<(Vec<String>, Vec<Vec<DiagnosticReview>>), CiqaError> {
+
+    // has_headers=false so we can capture the reviewer names from the header row;
+    // flexible=false to enforce a rectangular matrix (ragged rows are an error).
+    let mut reader = get_tsv_reader(path, false, false)?;
+    let mut records = reader.records();
+
+    // Header row -> reviewer names (skip the leading sample column).
+    let header = records
+        .next()
+        .transpose()?
+        .ok_or_else(|| CiqaError::EmptyReviewMatrix(path.to_path_buf()))?;
+
+    if header.len() < 2 {
+        return Err(CiqaError::NoReviewerColumns(path.to_path_buf()));
+    }
+
+    let reviewer_names: Vec<String> =
+        header.iter().skip(1).map(|s| s.trim().to_string()).collect();
+    let n_reviewers = reviewer_names.len();
+
+    let mut columns: Vec<Vec<DiagnosticReview>> = vec![Vec::new(); n_reviewers];
+
+    for (row_idx, record) in records.enumerate() {
+        let record = record?;
+
+        if record.len() != n_reviewers + 1 {
+            return Err(CiqaError::InvalidOutcomeToken(format!(
+                "row {} has {} fields but header defines {} (sample + {} reviewers)",
+                row_idx + 2, // +1 for header, +1 for 1-based
+                record.len(),
+                n_reviewers + 1,
+                n_reviewers
+            )));
+        }
+
+        let sample_id = record.get(0).unwrap_or("").trim().to_string();
+
+        for (col_idx, cell) in record.iter().skip(1).enumerate() {
+            let outcome = DiagnosticOutcome::from_matrix_token(cell)?;
+            columns[col_idx].push(DiagnosticReview::from_outcome(sample_id.clone(), outcome));
+        }
+    }
+
+    Ok((reviewer_names, columns))
+}
+
+/// Render a review-matrix TSV as a diagnostic dot-matrix (samples × reviewers).
+///
+/// This is the matrix-TSV entry point that parallels
+/// [`DiagnosticData::plot_summary`]: it parses `tsv`, then delegates to
+/// [`plot_diagnostic_matrix`], preserving the reviewer column names from the
+/// header row. No consensus/reference columns and no summary statistics are
+/// drawn — every column is treated as an independent reviewer.
+pub fn plot_review_matrix_from_tsv(
+    tsv: &Path,
+    output: &Path,
+    palette: &Palette,
+    shape: CellShape,
+    column_header: PanelColumnHeader,
+    title: Option<&str>,
+    header_text: Option<&str>,
+) -> Result<(), CiqaError> {
+
+    let (reviewer_names, columns) = load_review_matrix_tsv(tsv)?;
+
+    plot_diagnostic_matrix(
+        &columns,
+        None,               // no reference column
+        None,               // no consensus column
+        output,
+        palette,
+        shape,
+        column_header,
+        title,
+        header_text,
+        None,               // no consensus stats footer
+        Some(&reviewer_names),
+    )
 }
 
 pub fn get_diagnostic_stats(args: &ReviewArgs, reference_plate: &mut ReferencePlate, review_name: &str) -> Result<DiagnosticStats, CiqaError> {
@@ -2207,7 +2429,12 @@ pub fn plot_diagnostic_matrix(
     column_header: PanelColumnHeader,
     title: Option<&str>,
     header_text: Option<&str>,
-    consensus_stats: Option<&DiagnosticStats>
+    consensus_stats: Option<&DiagnosticStats>,
+    // Optional explicit labels for the data columns (e.g. reviewer names from a
+    // matrix TSV). When `Some`, entry `i` labels data column `i` verbatim and
+    // takes precedence over the `header_text`/"Replicate N" auto-numbering.
+    // Existing callers pass `None` to retain the original behaviour.
+    column_labels: Option<&[String]>,
 ) -> Result<(), CiqaError> {
 
     // Determine sample IDs and sanity‑check all columns
@@ -2378,7 +2605,10 @@ pub fn plot_diagnostic_matrix(
             for col_idx in 0..columns.len() {           // only real columns get rotated headers
                 let x0 = x_for(col_idx);
                 let header = if col_idx < data.len() {
-                    format!("{} {}", header_text.unwrap_or("Replicate"), col_idx + 1)
+                    match column_labels.and_then(|labels| labels.get(col_idx)) {
+                        Some(label) => label.clone(),
+                        None => format!("{} {}", header_text.unwrap_or("Replicate"), col_idx + 1),
+                    }
                 } else if col_idx < data.len() + consensus.as_ref().map(|_| 1).unwrap_or(0) {
                     "Consensus".into()
                 } else {

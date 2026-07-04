@@ -114,6 +114,8 @@ pub enum Commands {
     PlotQc(PlotQcArgs),
     /// Plot the reference plate review results
     PlotReview(PlotReviewArgs),    
+    /// Plot a diagnostic dot-matrix (samples x reviewers) from a review matrix TSV, with optional per-outcome colors
+    PlotReviewMatrix(PlotReviewMatrixArgs),
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
     /// Summarize Predictions across replicates
@@ -430,6 +432,60 @@ pub struct PlotReviewArgs {
     /// Plot height (px)
     #[clap(long, default_value="600")]
     pub height: u32,
+}
+
+
+#[derive(Debug, Args)]
+pub struct PlotReviewMatrixArgs {
+    /// Review matrix TSV (header row: sample column + one column per reviewer; cells: TP/TN/FP/FN/NA/Indeterminate/Control/Unknown)
+    #[clap(long, short = 'i')]
+    pub matrix: PathBuf,
+    /// Output plot file of diagnostic outcomes (.svg)
+    #[clap(long, short = 'o', default_value="review_matrix.svg")]
+    pub output: PathBuf,
+    /// Set plot title
+    #[clap(long, short = 't')]
+    pub title: Option<String>,
+    /// Fallback column-header prefix used only for columns without a name in the TSV header
+    #[clap(long, default_value="Reviewer")]
+    pub header_text: String,
+    /// Column header format
+    #[clap(long, default_value="panel")]
+    pub column_header: PanelColumnHeader,
+    /// Draw cells as squares instead of circles
+    #[clap(long)]
+    pub square: bool,
+    /// Border width (px) for square cells (ignored for circles)
+    #[clap(long, default_value="2")]
+    pub square_border: u32,
+
+    // --- Per-outcome color overrides (hex, e.g. '#748f46' or '748f46') ---
+    // Any omitted outcome keeps its default diagnostic-review color.
+
+    /// True Positive (TP) cell color
+    #[clap(long)]
+    pub color_tp: Option<String>,
+    /// True Negative (TN) cell color
+    #[clap(long)]
+    pub color_tn: Option<String>,
+    /// False Positive (FP) cell color
+    #[clap(long)]
+    pub color_fp: Option<String>,
+    /// False Negative (FN) cell color
+    #[clap(long)]
+    pub color_fn: Option<String>,
+    /// Not Considered / Not Applicable (NA) cell color
+    #[clap(long)]
+    pub color_na: Option<String>,
+    /// Indeterminate ("Failed") cell color
+    #[clap(long)]
+    pub color_indeterminate: Option<String>,
+    /// Control cell color
+    #[clap(long)]
+    pub color_control: Option<String>,
+    /// Unknown cell color
+    #[clap(long)]
+    pub color_unknown: Option<String>,
 }
 
 
