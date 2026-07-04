@@ -215,7 +215,7 @@ def _plot_panel(
     sns.stripplot(
         data=d_rep, x=x_col, y="value",
         hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-        alpha=0.7, edgecolor="black", linewidth=1.3, size=6, ax=ax,
+        alpha=0.9, edgecolor="black", linewidth=1.3, size=6, ax=ax,
         palette=pal_rep,
     )
 
@@ -224,14 +224,14 @@ def _plot_panel(
         sns.barplot(
             data=d_rep, x=x_col, y="value",
             hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-            errorbar=None, alpha=0.6, ax=ax, palette=pal_rep, edgecolor="black",
+            errorbar=None, alpha=0.9, ax=ax, palette=pal_rep, edgecolor="black",
             linewidth=1.5, gap=0.1
         )
     elif overlay == "violin":
         sns.violinplot(
             data=d_rep, x=x_col, y="value",
             hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-            cut=0, inner=None, alpha=0.6, ax=ax, palette=pal_rep,
+            cut=0, inner=None, alpha=0.9, ax=ax, palette=pal_rep,
         )
 
     # Consensus dots: SAME hue+dodge → land in each condition’s lane,
@@ -322,6 +322,7 @@ def _plot_metric_grouped(
     clinical: bool,
     hline_y: Optional[float] = None,
     legend_title: Optional[str] = None,
+    highlight: int = 0
 ):
     """Grouped bars across params with hue=metric (sensitivity,specificity)."""
     
@@ -335,7 +336,7 @@ def _plot_metric_grouped(
     d_con  = d_con[d_con["clinical"]  == target]
 
     # points + overlays with boosted alpha for the first x-category
-    first = x_order[0]
+    first = x_order[highlight]
     d_rep_first = d_rep[d_rep[x_col] == first]
     d_rep_rest  = d_rep[d_rep[x_col] != first]
 
@@ -362,7 +363,7 @@ def _plot_metric_grouped(
         sns.barplot(
             data=d_rep_rest, x=x_col, y="value",
             hue="metric", hue_order=hue_order, order=x_order, dodge=True,
-            errorbar=None, alpha=0.6, ax=ax, palette=pal_rep,
+            errorbar=None, alpha=0.9, ax=ax, palette=pal_rep,
             edgecolor="black", linewidth=1.2, gap=0.1
         )
     elif overlay == "violin":
@@ -374,7 +375,7 @@ def _plot_metric_grouped(
         sns.violinplot(
             data=d_rep_rest, x=x_col, y="value",
             hue="metric", hue_order=hue_order, order=x_order, dodge=True,
-            cut=0, inner=None, alpha=0.6, ax=ax, palette=pal_rep,
+            cut=0, inner=None, alpha=0.9, ax=ax, palette=pal_rep,
         )
 
     # Consensus dots (if enabled)
@@ -389,7 +390,7 @@ def _plot_metric_grouped(
         sns.stripplot(
             data=d_con_rest, x=x_col, y="value",
             hue="metric", hue_order=hue_order, order=x_order, dodge=True,
-            alpha=0.6, edgecolor="black", linewidth=1.0, size=6, zorder=10, ax=ax, palette=pal_con,
+            alpha=0.95, edgecolor="black", linewidth=1.0, size=6, zorder=10, ax=ax, palette=pal_con,
         )
 
     # Title control mirrors _plot_panel
@@ -472,6 +473,7 @@ def plot_gpt(
     xlabel_size: float = typer.Option(False, "--xlabel-size", help="X-axis label size"),
     label_comparison: str = typer.Option(None, "--label-comparison", help=""),
     xlabels: str = typer.Option(None, "--xlabels", help=""),
+    highlight: str = typer.Option("0,0", "--light", help=""),
 ):
     """
     If --comparison: original clinical/noclinical layout. With --combined, x is '{params}-{quant}'.
@@ -695,6 +697,7 @@ def plot_gpt(
                         xlabels=xlabels
                     )
     else:
+        light = [int(i) for i in highlight.split(",")]
         m1, m2 = Pairs["sens-spec"]
         d_pair = df[df["metric"].isin([m1, m2])]
         if d_pair.empty:
@@ -733,6 +736,7 @@ def plot_gpt(
                 clinical=clinical,
                 hline_y=hline,
                 legend_title=None,
+                highlight=light[i],
             )
             ax.tick_params(axis="x", which="both", labelsize=xlabel_size)
 
@@ -1073,7 +1077,7 @@ def _plot_horizontal_panel(
     x_label: str,
     legend: bool,
     legend_title: str = None,
-    point_alpha: float = 0.7,
+    point_alpha: float = 0.9,
     x_lim: float = None,
     y_col: str = "params", 
     y_ticklabels: Optional[List[str]] = None,

@@ -109,6 +109,31 @@ impl TaxonFilterConfig {
             ignore_taxstr: taxstr,
         }
     }
+    pub fn dev_above_threshold(taxstr: Option<Vec<String>>) -> Self {
+        Self {
+            rank: Some(PathogenDetectionRank::Species),
+            domains: Vec::new(),
+            tools: vec![
+                ProfileTool::Kraken2,
+                ProfileTool::Metabuli,
+                ProfileTool::Ganon2,
+                ProfileTool::Blast,
+                ProfileTool::Vircov,
+            ],
+            modes: vec![AbundanceMode::Mixed],
+            min_bases: 0,
+            max_bases: None,
+            min_bpm: 0.0,
+            min_reads: 0,
+            min_rpm: 10.0,
+            max_rpm: None,
+            min_abundance: 0.0,
+            ntc_ratio: Some(1.0),
+            lineage: None,
+            targets: None,
+            ignore_taxstr: taxstr,
+        }
+    }
     pub fn gp_below_threshold(taxstr: Option<Vec<String>>) -> Self {
         Self {
             rank: Some(PathogenDetectionRank::Species),
@@ -154,15 +179,11 @@ impl TaxonFilterConfig {
             max_bases: None,
             min_bpm: 0.0,
             min_reads: 0,
-            min_rpm: 0.0,
+            min_rpm: 1.0,
             max_rpm: None,
             min_abundance: 0.0,
             ntc_ratio: Some(1.0),
-            lineage: Some(vec![
-                LineageFilterConfig::dev_bacteria_below_threshold(), // more stringent bacterial subthreshold category
-                LineageFilterConfig::gp_eukaryota_below_threshold(),
-                LineageFilterConfig::gp_viruses_below_threshold(),
-            ]),
+            lineage: None,
             targets: None,
             ignore_taxstr: taxstr,
         }
@@ -195,6 +216,31 @@ impl TaxonFilterConfig {
             ntc_ratio: Some(1.0),
             lineage: Some(vec![LineageFilterConfig::gp_viruses_target_threshold()]),
             targets: Some(targets),
+            ignore_taxstr: taxstr,
+        }
+    }
+    pub fn dev_target_threshold(taxstr: Option<Vec<String>>) -> Self {
+        Self {
+            rank: Some(PathogenDetectionRank::Species),
+            domains: Vec::new(),
+            tools: vec![
+                ProfileTool::Kraken2,
+                ProfileTool::Metabuli,
+                ProfileTool::Ganon2,
+                ProfileTool::Blast,
+                ProfileTool::Vircov,
+            ],
+            modes: vec![AbundanceMode::Mixed],
+            min_bases: 0,
+            max_bases: None,
+            min_bpm: 0.0,
+            min_reads: 0,
+            min_rpm: 0.0,
+            max_rpm: None,
+            min_abundance: 0.0,
+            ntc_ratio: Some(1.0),
+            lineage: None,
+            targets: None,
             ignore_taxstr: taxstr,
         }
     }

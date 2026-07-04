@@ -571,7 +571,11 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 Some(path) => TieredFilterConfig::from_json(&path)?,
                 None => {
                     if args.disable_filter {
-                        TieredFilterConfig::none()
+                        if args.dev_filter {
+                            TieredFilterConfig::dev(None)
+                        } else {
+                            TieredFilterConfig::none()
+                        }
                     } else {
                         if args.dev_filter {
                             TieredFilterConfig::dev(None)

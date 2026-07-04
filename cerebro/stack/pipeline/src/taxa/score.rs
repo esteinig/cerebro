@@ -123,7 +123,6 @@ impl RuleMarginScore for Taxon {
             }
         }
 
-        // ---------- NTC map ----------
         let only_ntc = sample_tags
             .values()
             .all(|tags| tags.contains(&"NTC".into()) || tags.contains(&"ENV".into()));
@@ -140,7 +139,6 @@ impl RuleMarginScore for Taxon {
             }
         }
 
-        // ---------- filter profile ----------
         let mut profile = Vec::with_capacity(self.evidence.profile.len());
         'outer: for rec in self.evidence.profile.clone() {
             if let Some(tags) = sample_tags.get(&rec.id) {
@@ -188,7 +186,6 @@ impl RuleMarginScore for Taxon {
             profile.push(rec);
         }
 
-        // ---------- precompute aggregates ----------
         let max_vircov_rpm = profile
             .iter()
             .filter(|r| matches!(r.tool, ProfileTool::Vircov))
@@ -210,7 +207,7 @@ impl RuleMarginScore for Taxon {
         };
 
         let regions_margin = |min_regions: u64, cov_thresh: f64| -> f64 {
-            // OR over alignment records → max margin
+
             if self.evidence.alignment.is_empty() {
                 f64::NEG_INFINITY
             } else {
@@ -249,8 +246,6 @@ impl RuleMarginScore for Taxon {
             None
         };
 
-        // ---------- build clause scores ----------
-
         let lineage_filters = cfg.lineage.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
         let mut clause_scores = Vec::new();
 
@@ -285,11 +280,9 @@ impl RuleMarginScore for Taxon {
 
             let mut atoms: Vec<f64> = Vec::new();
 
-            // k-mer tools ≥ min_kmer_tools
             if let Some(min_tools) = lf.min_kmer_tools {
                 let thr = lf.min_kmer_rpm.unwrap_or(0.0);
                 if use_soft {
-                    // soft count via sigmoids of per-tool margins
                     let mut ps = Vec::new();
                     for r in &prof_scoped {
                         if is_kmer_tool(&r.tool) {
@@ -307,17 +300,14 @@ impl RuleMarginScore for Taxon {
                 }
             }
 
-            // alignment tools ≥ min_alignment_tools
             if let Some(min_tools) = lf.min_alignment_tools {
                 atoms.push(aln_tools_count - min_tools as f64);
             }
 
-            // alignment rpm ≥ min_alignment_rpm (Vircov proxy)
             if let Some(min_rpm) = lf.min_alignment_rpm {
                 atoms.push(margin_ge(max_vircov_rpm, min_rpm));
             }
 
-            // alignment regions with coverage rule
             match (lf.min_alignment_regions, lf.min_alignment_regions_coverage) {
                 (Some(r), Some(cov)) => atoms.push(regions_margin(r, cov)),
                 (Some(r), None) => {
@@ -336,10 +326,8 @@ impl RuleMarginScore for Taxon {
                 _ => {}
             }
 
-            // assembly tools (Blast) ≥ min_assembly_tools
             if let Some(min_tools) = lf.min_assembly_tools {
                 if use_soft {
-                    // treat each Blast record as a 1 with tiny slope around 0 → same as hard here
                     atoms.push(blast_count - min_tools as f64);
                 } else {
                     atoms.push(blast_count - min_tools as f64);
