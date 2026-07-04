@@ -288,6 +288,8 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 args.column_header,
                 args.title.as_deref(),
                 Some(args.header_text.as_str()),
+                args.consensus_column.as_deref(),
+                !args.vertical_labels,
             )?;
 
             log::info!("Wrote review matrix plot to: {}", args.output.display());

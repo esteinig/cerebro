@@ -452,6 +452,12 @@ pub struct PlotReviewMatrixArgs {
     /// Column header format
     #[clap(long, default_value="panel")]
     pub column_header: PanelColumnHeader,
+    /// Treat this TSV column as the consensus column: draw it separately (after a gap) with a vertical label and exclude it from per-reviewer statistics
+    #[clap(long)]
+    pub consensus_column: Option<String>,
+    /// Draw reviewer column labels rotated (vertical) instead of horizontal
+    #[clap(long)]
+    pub vertical_labels: bool,
     /// Draw cells as squares instead of circles
     #[clap(long)]
     pub square: bool,

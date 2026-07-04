@@ -48,6 +48,8 @@ pub enum CiqaError {
     EmptyReviewMatrix(PathBuf),
     #[error("review matrix must contain a sample column plus at least one reviewer column: {0}")]
     NoReviewerColumns(PathBuf),
+    #[error("consensus column '{0}' was not found among the reviewer columns of the review matrix")]
+    ConsensusColumnNotFound(String),
     #[error("sample identifier must be specified when not using prefetch data")]
     SampleIdentifierMissing, 
 }

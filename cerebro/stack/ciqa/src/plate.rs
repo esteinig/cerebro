@@ -796,6 +796,7 @@ impl DiagnosticData {
             header_text,
             consensus_stats,
             None,
+            false,
         )
     }
     pub fn split_replicates_consensus(&self) -> (Vec<DiagnosticStats>, Vec<DiagnosticStats>) {
@@ -1236,26 +1237,57 @@ pub fn plot_review_matrix_from_tsv(
     column_header: PanelColumnHeader,
     title: Option<&str>,
     header_text: Option<&str>,
+    // Name of the TSV column to treat as the consensus column. When set, that
+    // column is split out of the reviewers and drawn as a separate,
+    // vertically-labelled "Consensus" column (after a gap), and is excluded
+    // from the per-reviewer statistics.
+    consensus_column: Option<&str>,
+    // Draw reviewer column labels horizontally (true) or rotated 270° (false).
+    horizontal_labels: bool,
 ) -> Result<(), CiqaError> {
 
-    let (reviewer_names, columns) = load_review_matrix_tsv(tsv)?;
+    let (mut reviewer_names, mut columns) = load_review_matrix_tsv(tsv)?;
 
-    // Log per-reviewer and across-reviewer sensitivity/specificity, mirroring
-    // the summary that plot-review emits for its replicate stats.
+    // Optionally split out a named consensus column.
+    let consensus: Option<Vec<DiagnosticReview>> = match consensus_column {
+        Some(name) => {
+            let target = name.trim().to_lowercase();
+            let pos = reviewer_names
+                .iter()
+                .position(|n| n.trim().to_lowercase() == target)
+                .ok_or_else(|| CiqaError::ConsensusColumnNotFound(name.to_string()))?;
+            reviewer_names.remove(pos);
+            Some(columns.remove(pos))
+        }
+        None => None,
+    };
+
+    // Log per-reviewer and across-reviewer sensitivity/specificity (consensus
+    // excluded), mirroring the summary that plot-review emits.
     log_review_matrix_summary_stats(&reviewer_names, &columns)?;
+
+    // Log the consensus column's own sensitivity/specificity separately.
+    if let Some(ref c) = consensus {
+        let (sens, spec, n_scored) = matrix_column_sens_spec(c);
+        log::info!(
+            "[consensus] Sensitivity {:.2}%  Specificity {:.2}%  (scored {}/{})",
+            sens, spec, n_scored, c.len()
+        );
+    }
 
     plot_diagnostic_matrix(
         &columns,
-        None,               // no reference column
-        None,               // no consensus column
+        None,                   // no reference column
+        consensus.as_deref(),   // optional consensus column (vertical label)
         output,
         palette,
         shape,
         column_header,
         title,
         header_text,
-        None,               // no consensus stats footer
+        None,                   // no consensus stats footer
         Some(&reviewer_names),
+        horizontal_labels,
     )
 }
 
@@ -2629,6 +2661,10 @@ pub fn plot_diagnostic_matrix(
     // takes precedence over the `header_text`/"Replicate N" auto-numbering.
     // Existing callers pass `None` to retain the original behaviour.
     column_labels: Option<&[String]>,
+    // When true, the data-column headers are drawn horizontally; when false they
+    // are rotated 270° (the default, which avoids overlap when there are many
+    // narrow replicate columns). Consensus/Reference headers are always rotated.
+    horizontal_data_labels: bool,
 ) -> Result<(), CiqaError> {
 
     // Determine sample IDs and sanity‑check all columns
@@ -2794,11 +2830,14 @@ pub fn plot_diagnostic_matrix(
             )?;
         }
 
-        // Rotated column headers on the first panel row
+        // Column headers on the first panel row. Data (reviewer/replicate)
+        // headers are horizontal when `horizontal_data_labels` is set; the
+        // Consensus/Reference headers are always rotated to save width.
         if panel_column_headers[chunk_idx] {
-            for col_idx in 0..columns.len() {           // only real columns get rotated headers
+            for col_idx in 0..columns.len() {
                 let x0 = x_for(col_idx);
-                let header = if col_idx < data.len() {
+                let is_data = col_idx < data.len();
+                let header = if is_data {
                     match column_labels.and_then(|labels| labels.get(col_idx)) {
                         Some(label) => label.clone(),
                         None => format!("{} {}", header_text.unwrap_or("Replicate"), col_idx + 1),
@@ -2808,15 +2847,29 @@ pub fn plot_diagnostic_matrix(
                 } else {
                     "Reference".into()
                 };
-                panel_area.draw_text(
-                    &header,
-                    &("monospace", font_size)
-                        .into_font()
-                        .into_text_style(&panel_area)
-                        .pos(Pos::new(HPos::Left, VPos::Center))
-                        .transform(FontTransform::Rotate270),
-                    ((x0 + (cell_px as f64 / 2.0)) as i32, -5),
-                )?;
+
+                if is_data && horizontal_data_labels {
+                    // Horizontal, centred above the column.
+                    panel_area.draw_text(
+                        &header,
+                        &("monospace", font_size)
+                            .into_font()
+                            .into_text_style(&panel_area)
+                            .pos(Pos::new(HPos::Center, VPos::Bottom)),
+                        ((x0 + (cell_px as f64 / 2.0)) as i32, -5),
+                    )?;
+                } else {
+                    // Rotated 270° (default for data; always for Consensus/Reference).
+                    panel_area.draw_text(
+                        &header,
+                        &("monospace", font_size)
+                            .into_font()
+                            .into_text_style(&panel_area)
+                            .pos(Pos::new(HPos::Left, VPos::Center))
+                            .transform(FontTransform::Rotate270),
+                        ((x0 + (cell_px as f64 / 2.0)) as i32, -5),
+                    )?;
+                }
             }
 
         }
