@@ -303,6 +303,7 @@ fn main() -> anyhow::Result<(), anyhow::Error> {
                 &args.output,
                 &args.sample_column,
                 args.include_consensus,
+                args.replicate_names,
             )?;
 
             log::info!("Wrote review matrix TSV to: {}", args.output.display());

@@ -1202,6 +1202,10 @@ pub fn diagnostic_summary_json_to_matrix_tsv(
     output: &Path,
     sample_column: &str,
     include_consensus: bool,
+    // When true, ignore the per-entry `name` fields and label every included
+    // column `replicate{i}` in array order (consensus/summary detection still
+    // uses the original names).
+    force_replicate_names: bool,
 ) -> Result<(), CiqaError> {
 
     // --- Lenient, forward/backward-compatible views of the JSON ---
@@ -1252,7 +1256,8 @@ pub fn diagnostic_summary_json_to_matrix_tsv(
         let reviews = if !s.data.is_empty() { &s.data } else { &s.data_filtered };
 
         // Name: use the entry's name, else replicate{position-among-included}.
-        let mut name = if raw_name.is_empty() {
+        // `--replicate-names` forces replicate{i} for every column.
+        let mut name = if force_replicate_names || raw_name.is_empty() {
             format!("replicate{}", names.len() + 1)
         } else {
             raw_name.to_string()

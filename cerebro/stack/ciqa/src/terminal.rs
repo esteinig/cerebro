@@ -514,6 +514,9 @@ pub struct ExportReviewMatrixArgs {
     /// Include the consensus/summary column in the output (excluded by default)
     #[clap(long)]
     pub include_consensus: bool,
+    /// Ignore the name fields and label every column replicate{i} in array order
+    #[clap(long)]
+    pub replicate_names: bool,
 }
 
 
