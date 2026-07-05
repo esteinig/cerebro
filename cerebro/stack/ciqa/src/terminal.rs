@@ -116,6 +116,8 @@ pub enum Commands {
     PlotReview(PlotReviewArgs),    
     /// Plot a diagnostic dot-matrix (samples x reviewers) from a review matrix TSV, with optional per-outcome colors
     PlotReviewMatrix(PlotReviewMatrixArgs),
+    /// Convert a diagnostic summary JSON into a review-matrix TSV for the plot-review-matrix task
+    ExportReviewMatrix(ExportReviewMatrixArgs),
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
     /// Summarize Predictions across replicates
@@ -495,6 +497,23 @@ pub struct PlotReviewMatrixArgs {
     /// Unknown cell color
     #[clap(long)]
     pub color_unknown: Option<String>,
+}
+
+
+#[derive(Debug, Args)]
+pub struct ExportReviewMatrixArgs {
+    /// Diagnostic summary JSON (DiagnosticData, or an older bare stats array) to convert
+    #[clap(long, short = 'i')]
+    pub json: PathBuf,
+    /// Output review-matrix TSV (input format for plot-review-matrix)
+    #[clap(long, short = 'o', default_value="review_matrix.tsv")]
+    pub output: PathBuf,
+    /// Header name for the sample identifier column
+    #[clap(long, default_value="sample_name")]
+    pub sample_column: String,
+    /// Include the consensus/summary column in the output (excluded by default)
+    #[clap(long)]
+    pub include_consensus: bool,
 }
 
 

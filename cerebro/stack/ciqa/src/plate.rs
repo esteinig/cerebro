@@ -452,6 +452,21 @@ impl DiagnosticOutcome {
         };
         Ok(outcome)
     }
+
+    /// Render an outcome as a review-matrix token. The tokens round-trip through
+    /// [`from_matrix_token`] (e.g. TP, TN, FP, FN, NA, IND, CTRL, UNK).
+    pub fn to_matrix_token(&self) -> &'static str {
+        match self {
+            Self::TruePositive  => "TP",
+            Self::FalsePositive => "FP",
+            Self::TrueNegative  => "TN",
+            Self::FalseNegative => "FN",
+            Self::Indeterminate => "IND",
+            Self::NotConsidered => "NA",
+            Self::Control       => "CTRL",
+            Self::Unknown       => "UNK",
+        }
+    }
 }
 
 
@@ -1161,6 +1176,141 @@ pub fn load_review_matrix_tsv(
 /// sensitivity = TP / (TP + FN) and specificity = TN / (TN + FP). Returns
 /// `(sensitivity, specificity, n_scored)` where `n_scored` is the number of
 /// TP/FP/TN/FN cells contributing to the metrics.
+/// Convert a diagnostic summary JSON (a `DiagnosticData` document, or an older
+/// bare array of per-replicate stats) into a review-matrix TSV in the same
+/// layout consumed by [`plot_review_matrix_from_tsv`]:
+///
+/// ```text
+/// {sample_column}  {name0}  {name1}  ...
+/// DW-63-V01        TP       TP       ...
+/// ```
+///
+/// Columns are taken from the per-replicate `stats` array in order. Each
+/// column is named from that entry's `name` field (e.g.
+/// `qwen3-32b-q8-0_clinical_tiered_...`); entries with an empty/missing name
+/// fall back to `replicate{i}` numbered over the included columns, and any
+/// duplicate names are de-duplicated with a numeric suffix. Consensus/summary
+/// entries (name containing "consensus", or exactly "summary") are excluded
+/// unless `include_consensus` is set.
+///
+/// Parsing is deliberately lenient for backwards compatibility with formats
+/// that predate the current `DiagnosticData` wrapper: only the fields needed
+/// for the matrix are read, all are optional, and per-cell outcomes are taken
+/// from `data` (falling back to `data_filtered` when `data` is absent/empty).
+pub fn diagnostic_summary_json_to_matrix_tsv(
+    json: &Path,
+    output: &Path,
+    sample_column: &str,
+    include_consensus: bool,
+) -> Result<(), CiqaError> {
+
+    // --- Lenient, forward/backward-compatible views of the JSON ---
+    #[derive(Deserialize)]
+    struct LenientReview {
+        #[serde(default)]
+        sample_id: String,
+        outcome: DiagnosticOutcome,
+    }
+    #[derive(Deserialize)]
+    struct LenientStats {
+        #[serde(default)]
+        name: String,
+        #[serde(default)]
+        data: Vec<LenientReview>,
+        #[serde(default)]
+        data_filtered: Vec<LenientReview>,
+    }
+    #[derive(Deserialize)]
+    struct LenientData {
+        #[serde(default)]
+        stats: Vec<LenientStats>,
+    }
+
+    let raw = std::fs::read_to_string(json)?;
+
+    // New format: { consensus, summary, stats: [...] }. Older formats may be a
+    // bare array of stats, so fall back to that when no `stats` key is present.
+    let stats: Vec<LenientStats> = match serde_json::from_str::<LenientData>(&raw) {
+        Ok(d) if !d.stats.is_empty() => d.stats,
+        _ => serde_json::from_str::<Vec<LenientStats>>(&raw)?,
+    };
+
+    // Select and name the reviewer columns.
+    let mut names: Vec<String> = Vec::new();
+    let mut cols: Vec<&Vec<LenientReview>> = Vec::new();
+
+    for s in &stats {
+        let raw_name = s.name.trim();
+        let lname = raw_name.to_lowercase();
+        let is_summary = lname.contains("consensus") || lname == "summary";
+        if is_summary && !include_consensus {
+            continue;
+        }
+
+        // Prefer the unfiltered per-sample outcomes (as used by plot_summary),
+        // falling back to the filtered set for older/partial documents.
+        let reviews = if !s.data.is_empty() { &s.data } else { &s.data_filtered };
+
+        // Name: use the entry's name, else replicate{position-among-included}.
+        let mut name = if raw_name.is_empty() {
+            format!("replicate{}", names.len() + 1)
+        } else {
+            raw_name.to_string()
+        };
+        // Ensure uniqueness.
+        if names.iter().any(|n| n == &name) {
+            let base = name.clone();
+            let mut k = 2;
+            while names.iter().any(|n| n == &name) {
+                name = format!("{}_{}", base, k);
+                k += 1;
+            }
+        }
+
+        names.push(name);
+        cols.push(reviews);
+    }
+
+    if cols.is_empty() {
+        return Err(CiqaError::NoReviewerColumns(json.to_path_buf()));
+    }
+
+    // Canonical sample order: the first column that actually carries samples.
+    let sample_order: Vec<String> = cols
+        .iter()
+        .find(|r| !r.is_empty())
+        .map(|r| r.iter().map(|x| x.sample_id.clone()).collect())
+        .ok_or_else(|| CiqaError::NoReviewerColumns(json.to_path_buf()))?;
+
+    // Per-column sample_id -> token lookup.
+    let lookups: Vec<std::collections::HashMap<&str, &'static str>> = cols
+        .iter()
+        .map(|r| r.iter().map(|x| (x.sample_id.as_str(), x.outcome.to_matrix_token())).collect())
+        .collect();
+
+    // Emit the TSV.
+    let mut out = String::new();
+    out.push_str(sample_column);
+    for n in &names {
+        out.push('\t');
+        out.push_str(n);
+    }
+    out.push('\n');
+
+    for sid in &sample_order {
+        out.push_str(sid);
+        for lk in &lookups {
+            out.push('\t');
+            out.push_str(lk.get(sid.as_str()).copied().unwrap_or("UNK"));
+        }
+        out.push('\n');
+    }
+
+    std::fs::write(output, out)?;
+
+    Ok(())
+}
+
 pub fn matrix_column_sens_spec(reviews: &[DiagnosticReview]) -> (f64, f64, usize) {
     let mut tp = 0usize;
     let mut fp = 0usize;
