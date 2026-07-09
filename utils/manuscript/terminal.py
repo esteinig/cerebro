@@ -215,7 +215,7 @@ def _plot_panel(
     sns.stripplot(
         data=d_rep, x=x_col, y="value",
         hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-        alpha=0.7, edgecolor="black", linewidth=1.3, size=6, ax=ax,
+        alpha=1, edgecolor="black", linewidth=1.3, size=6, ax=ax,
         palette=pal_rep,
     )
 
@@ -224,14 +224,14 @@ def _plot_panel(
         sns.barplot(
             data=d_rep, x=x_col, y="value",
             hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-            errorbar=None, alpha=0.6, ax=ax, palette=pal_rep, edgecolor="black",
+            errorbar=None, alpha=1, ax=ax, palette=pal_rep, edgecolor="black",
             linewidth=1.5, gap=0.1
         )
     elif overlay == "violin":
         sns.violinplot(
             data=d_rep, x=x_col, y="value",
             hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-            cut=0, inner=None, alpha=0.6, ax=ax, palette=pal_rep,
+            cut=0, inner=None, alpha=1, ax=ax, palette=pal_rep,
         )
 
     # Consensus dots: SAME hue+dodge → land in each condition’s lane,
@@ -240,7 +240,7 @@ def _plot_panel(
         sns.stripplot(
             data=d_con, x=x_col, y="value",
             hue=hue, hue_order=hue_order, order=x_order, dodge=True,
-            alpha=0.9, edgecolor="black", linewidth=1.3, size=6, zorder=10,
+            alpha=1, edgecolor="black", linewidth=1.3, size=6, zorder=10,
             ax=ax, palette=pal_con,
         )
     
@@ -362,7 +362,7 @@ def _plot_metric_grouped(
         sns.barplot(
             data=d_rep_rest, x=x_col, y="value",
             hue="metric", hue_order=hue_order, order=x_order, dodge=True,
-            errorbar=None, alpha=0.6, ax=ax, palette=pal_rep,
+            errorbar=None, alpha=0.9, ax=ax, palette=pal_rep,
             edgecolor="black", linewidth=1.2, gap=0.1
         )
     elif overlay == "violin":
@@ -374,7 +374,7 @@ def _plot_metric_grouped(
         sns.violinplot(
             data=d_rep_rest, x=x_col, y="value",
             hue="metric", hue_order=hue_order, order=x_order, dodge=True,
-            cut=0, inner=None, alpha=0.6, ax=ax, palette=pal_rep,
+            cut=0, inner=None, alpha=0.9, ax=ax, palette=pal_rep,
         )
 
     # Consensus dots (if enabled)

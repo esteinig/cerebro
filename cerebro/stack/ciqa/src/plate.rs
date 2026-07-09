@@ -1258,7 +1258,7 @@ pub fn diagnostic_summary_json_to_matrix_tsv(
         // Name: use the entry's name, else replicate{position-among-included}.
         // `--replicate-names` forces replicate{i} for every column.
         let mut name = if force_replicate_names || raw_name.is_empty() {
-            format!("replicate{}", names.len() + 1)
+            format!("Replicate-{}", names.len() + 1)
         } else {
             raw_name.to_string()
         };
@@ -1380,6 +1380,13 @@ pub fn log_review_matrix_summary_stats(
         "[across reviewers] Specificity: mean {:.2}%  sd {:.2}%  range {:.2}%–{:.2}%  95% CI [{:.2}%, {:.2}%]  (n={} reviewers)",
         s_spec.mean, s_spec.sd, s_spec.min, s_spec.max, s_spec.ci95[0], s_spec.ci95[1], s_spec.n
     );
+    
+    let certainty = average_replicate_certainty(columns, None);
+    log::info!(
+        "[across reviewers] Replicate certainty {:.1}% (n={} reviewers)",
+        certainty, columns.len()
+    );
+
 
     Ok(())
 }
