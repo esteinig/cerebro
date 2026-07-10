@@ -120,6 +120,8 @@ pub enum Commands {
     ExportReviewMatrix(ExportReviewMatrixArgs),
     /// Redact every clinical and note field in one or more diagnostic summary JSON files
     RedactDiagnostic(RedactDiagnosticArgs),
+    /// Tabulate taxon identity (taxid, name, lineage) and evidence from prefetch JSON files into a TSV
+    TaxonTable(TaxonTableArgs),
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
     /// Summarize Predictions across replicates
@@ -539,6 +541,17 @@ pub struct RedactDiagnosticArgs {
     /// Redact with JSON null instead of the placeholder string
     #[clap(long)]
     pub null: bool,
+}
+
+
+#[derive(Debug, Args)]
+pub struct TaxonTableArgs {
+    /// One or more PrefetchData JSON files (.prefetch.json)
+    #[clap(required = true, num_args = 1..)]
+    pub prefetch: Vec<PathBuf>,
+    /// Output taxon evidence table (.tsv)
+    #[clap(long, short = 'o', default_value="taxon_table.tsv")]
+    pub output: PathBuf,
 }
 
 
