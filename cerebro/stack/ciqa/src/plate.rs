@@ -1197,6 +1197,58 @@ pub fn load_review_matrix_tsv(
 /// that predate the current `DiagnosticData` wrapper: only the fields needed
 /// for the matrix are read, all are optional, and per-cell outcomes are taken
 /// from `data` (falling back to `data_filtered` when `data` is absent/empty).
+/// Recursively replace the value of every `clinical` and `note` object key with
+/// `redaction`, anywhere in the JSON tree, and return the number of fields
+/// redacted. A matched key's entire value is replaced (no recursion into it);
+/// all other content is left untouched.
+fn redact_json_value(value: &mut serde_json::Value, redaction: &serde_json::Value) -> usize {
+    let mut n = 0;
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, val) in map.iter_mut() {
+                if key == "clinical" || key == "note" {
+                    *val = redaction.clone();
+                    n += 1;
+                } else {
+                    n += redact_json_value(val, redaction);
+                }
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items.iter_mut() {
+                n += redact_json_value(item, redaction);
+            }
+        }
+        _ => {}
+    }
+    n
+}
+
+/// Redact every `clinical` and `note` field in a diagnostic summary JSON file,
+/// writing the otherwise-identical document to `output`.
+///
+/// The file is processed as a raw JSON tree (not deserialized into
+/// `DiagnosticData`), so every `clinical`/`note` key is redacted regardless of
+/// where it appears, no other content is altered, and the document round-trips
+/// faithfully. Output is pretty-printed exactly as `DiagnosticData::to_json`
+/// writes it. `redaction` is the value written in place of each field (e.g. a
+/// `"REDACTED"` string or JSON null). Returns the number of fields redacted.
+pub fn redact_diagnostic_json(
+    input: &Path,
+    output: &Path,
+    redaction: &serde_json::Value,
+) -> Result<usize, CiqaError> {
+    let raw = std::fs::read_to_string(input)?;
+    let mut value: serde_json::Value = serde_json::from_str(&raw)?;
+
+    let n = redact_json_value(&mut value, redaction);
+
+    let writer = BufWriter::new(File::create(output)?);
+    serde_json::to_writer_pretty(writer, &value)?;
+
+    Ok(n)
+}
+
 pub fn diagnostic_summary_json_to_matrix_tsv(
     json: &Path,
     output: &Path,

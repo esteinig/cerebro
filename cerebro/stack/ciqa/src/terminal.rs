@@ -118,6 +118,8 @@ pub enum Commands {
     PlotReviewMatrix(PlotReviewMatrixArgs),
     /// Convert a diagnostic summary JSON into a review-matrix TSV for the plot-review-matrix task
     ExportReviewMatrix(ExportReviewMatrixArgs),
+    /// Redact every clinical and note field in one or more diagnostic summary JSON files
+    RedactDiagnostic(RedactDiagnosticArgs),
     /// Summarize DiagnosticData metrics across quantization and bit parameters
     DiagnosticSummary(DiagnosticSummaryArgs),
     /// Summarize Predictions across replicates
@@ -517,6 +519,26 @@ pub struct ExportReviewMatrixArgs {
     /// Ignore the name fields and label every column replicate{i} in array order
     #[clap(long)]
     pub replicate_names: bool,
+}
+
+
+#[derive(Debug, Args)]
+pub struct RedactDiagnosticArgs {
+    /// One or more diagnostic summary JSON files to redact
+    #[clap(required = true, num_args = 1..)]
+    pub json: Vec<PathBuf>,
+    /// Output directory for the redacted files (created if missing); original filenames are preserved
+    #[clap(long, short = 'o', default_value="redacted")]
+    pub outdir: PathBuf,
+    /// Overwrite the input files in place instead of writing to --outdir
+    #[clap(long)]
+    pub in_place: bool,
+    /// Replacement string written in place of each redacted clinical/note value
+    #[clap(long, default_value="REDACTED")]
+    pub placeholder: String,
+    /// Redact with JSON null instead of the placeholder string
+    #[clap(long)]
+    pub null: bool,
 }
 
 

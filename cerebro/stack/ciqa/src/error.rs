@@ -50,6 +50,8 @@ pub enum CiqaError {
     NoReviewerColumns(PathBuf),
     #[error("consensus column '{0}' was not found among the reviewer columns of the review matrix")]
     ConsensusColumnNotFound(String),
+    #[error("input path has no file name: {0}")]
+    InvalidInputPath(PathBuf),
     #[error("sample identifier must be specified when not using prefetch data")]
     SampleIdentifierMissing, 
 }
